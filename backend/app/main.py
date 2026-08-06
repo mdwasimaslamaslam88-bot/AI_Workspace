@@ -1,12 +1,16 @@
-from fastapi import FastAPI
+# app/main.py
 
-app = FastAPI(title="AI Workspace Backend", version="0.1.0")
+from fastapi import FastAPI
+from app.core.config import settings
+
+
+app = FastAPI(title=settings.APP_TITLE, version=settings.APP_VERSION)
 
 @app.get("/")
 def read_root():
     return {
-        "name": "AI Workspace Backend",
-        "version": "0.1.0",
+        "name": settings.APP_TITLE,
+        "version": settings.APP_VERSION,
         "status": "running"
     }
 
