@@ -1,10 +1,21 @@
 # app/main.py
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
-
+from app.api.v1.router import router as api_v1_router
 
 app = FastAPI(title=settings.APP_TITLE, version=settings.APP_VERSION)
+
+origins = settings.BACKEND_CORS_ORIGINS
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.get("/")
 def read_root():
@@ -14,8 +25,4 @@ def read_root():
         "status": "running"
     }
 
-@app.get("/health")
-def read_health():
-    return {
-        "status": "healthy"
-    }
+app.include_router(api_v1_router)
