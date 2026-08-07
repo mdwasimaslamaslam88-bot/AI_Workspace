@@ -2,10 +2,17 @@
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
 from app.core.config import settings
 from app.api.v1.router import router as api_v1_router
+from app.exceptions.handlers import register_exception_handlers
 
-app = FastAPI(title=settings.APP_TITLE, version=settings.APP_VERSION)
+app = FastAPI(
+    title=settings.APP_TITLE,
+    version=settings.APP_VERSION,
+)
+
+register_exception_handlers(app)
 
 origins = settings.BACKEND_CORS_ORIGINS
 
@@ -17,12 +24,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 @app.get("/")
 def read_root():
     return {
         "name": settings.APP_TITLE,
         "version": settings.APP_VERSION,
-        "status": "running"
+        "status": "running",
     }
+
 
 app.include_router(api_v1_router)
