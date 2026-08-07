@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.api.v1.router import router as api_v1_router
 from app.exceptions.handlers import register_exception_handlers
+from app.middleware.request_id import RequestIDMiddleware
 
 app = FastAPI(
     title=settings.APP_TITLE,
@@ -13,6 +14,7 @@ app = FastAPI(
 )
 
 register_exception_handlers(app)
+app.add_middleware(RequestIDMiddleware)
 
 origins = settings.BACKEND_CORS_ORIGINS
 
