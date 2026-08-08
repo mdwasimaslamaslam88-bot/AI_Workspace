@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 
 from fastapi import FastAPI, Request
-from fastapi.exceptions import HTTPException as StarletteHTTPException, RequestValidationError
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 

@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
+from app.core.lifespan import lifespan
 from app.api.v1.router import router as api_v1_router
 from app.exceptions.handlers import register_exception_handlers
 from app.middleware.request_id import RequestIDMiddleware
@@ -11,6 +12,7 @@ from app.middleware.request_id import RequestIDMiddleware
 app = FastAPI(
     title=settings.APP_TITLE,
     version=settings.APP_VERSION,
+    lifespan=lifespan,
 )
 
 register_exception_handlers(app)

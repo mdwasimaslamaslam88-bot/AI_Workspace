@@ -1,0 +1,22 @@
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+from fastapi import FastAPI
+from app.clients.ollama import close_ollama, create_ollama_client
+from app.clients.postgres import create_postgres_engine, dispose_postgres
+from app.clients.redis import close_redis, create_redis_client
+from app.core.config import settings
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    postgres_engine = create_postgres_engine(settings)
+    redis_client = create_redis_client(settings)
+    ollama_client = create_ollama_client(settings)
+    app.state.postgres_engine = postgres_engine
+    app.state.redis_client = redis_client
+    app.state.ollama_client = ollama_client
+    try:
+        yield
+    finally:
+        await close_ollama(ollama_client)
+        await close_redis(redis_client)
+        await dispose_postgres(postgres_engine)
