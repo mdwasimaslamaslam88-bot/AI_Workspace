@@ -11,3 +11,5 @@ requests
 python-multipart
 pytest
 pytest-asyncio
+
+alembic

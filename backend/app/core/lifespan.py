@@ -5,6 +5,7 @@ from app.clients.ollama import close_ollama, create_ollama_client
 from app.clients.postgres import create_postgres_engine, dispose_postgres
 from app.clients.redis import close_redis, create_redis_client
 from app.core.config import settings
+from app.db.session import create_session_factory
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -12,6 +13,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     redis_client = create_redis_client(settings)
     ollama_client = create_ollama_client(settings)
     app.state.postgres_engine = postgres_engine
+    app.state.db_session_factory = create_session_factory(postgres_engine)
     app.state.redis_client = redis_client
     app.state.ollama_client = ollama_client
     try:

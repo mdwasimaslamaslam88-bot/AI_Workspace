@@ -1,5 +1,10 @@
+from typing import Literal
+
 from pydantic import AnyHttpUrl, Field, PostgresDsn, RedisDsn, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+
+DatabaseSslMode = Literal["disable", "require", "verify-ca", "verify-full"]
 
 
 class Settings(BaseSettings):
@@ -11,20 +16,35 @@ class Settings(BaseSettings):
     OLLAMA_BASE_URL: AnyHttpUrl | None = None
     OLLAMA_MODEL: str | None = None
     DATABASE_CONNECT_TIMEOUT_SECONDS: float = Field(default=3.0, gt=0)
+    DATABASE_POOL_TIMEOUT_SECONDS: float = Field(default=5.0, gt=0)
+    DATABASE_COMMAND_TIMEOUT_SECONDS: float = Field(default=10.0, gt=0)
+    DATABASE_POOL_SIZE: int = Field(default=5, ge=1)
+    DATABASE_MAX_OVERFLOW: int = Field(default=10, ge=0)
+    DATABASE_SSL_MODE: DatabaseSslMode = "verify-full"
+    DATABASE_SSL_ROOT_CERT: str | None = None
+    TEST_DATABASE_URL: PostgresDsn | None = None
     REDIS_CONNECT_TIMEOUT_SECONDS: float = Field(default=3.0, gt=0)
     OLLAMA_TIMEOUT_SECONDS: float = Field(default=5.0, gt=0)
-    @field_validator("DATABASE_URL", "REDIS_URL", "OLLAMA_BASE_URL", mode="before")
+
+    @field_validator(
+        "DATABASE_URL",
+        "TEST_DATABASE_URL",
+        "REDIS_URL",
+        "OLLAMA_BASE_URL",
+        "DATABASE_SSL_ROOT_CERT",
+        mode="before",
+    )
     @classmethod
-    def normalize_blank_urls(cls, value):
+    def normalize_blank_optional_values(cls, value):
         if isinstance(value, str) and not value.strip():
             return None
         return value
 
-    @field_validator("DATABASE_URL")
+    @field_validator("DATABASE_URL", "TEST_DATABASE_URL")
     @classmethod
     def require_asyncpg_scheme(cls, value):
         if value is not None and not str(value).startswith("postgresql+asyncpg://"):
-            raise ValueError("DATABASE_URL must use the postgresql+asyncpg:// scheme")
+            raise ValueError("PostgreSQL URLs must use the postgresql+asyncpg:// scheme")
         return value
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")

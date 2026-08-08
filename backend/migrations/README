@@ -1,0 +1,1 @@
+Async Alembic infrastructure; domain revisions are added after approved ORM models exist.
