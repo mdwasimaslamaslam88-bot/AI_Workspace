@@ -243,3 +243,33 @@ async def test_commit_failure_rolls_back_and_preserves_original_exception():
     assert events == ["add", "flush", "commit", "rollback"]
     session.commit.assert_awaited_once_with()
     session.rollback.assert_awaited_once_with()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("operation", ["get", "list"])
+async def test_read_failure_rolls_back_and_preserves_original_exception(operation):
+    events: list[str] = []
+    session = _service_session()
+    error = RuntimeError(f"{operation} failed")
+
+    async def execute(_statement):
+        events.append("execute")
+        raise error
+
+    async def rollback():
+        events.append("rollback")
+
+    session.execute.side_effect = execute
+    session.rollback.side_effect = rollback
+    service = ConversationService(session)
+
+    with pytest.raises(RuntimeError) as caught:
+        if operation == "get":
+            await service.get_for_owner(uuid4(), uuid4())
+        else:
+            await service.list_for_owner(uuid4())
+
+    assert caught.value is error
+    assert events == ["execute", "rollback"]
+    session.rollback.assert_awaited_once_with()
+    session.commit.assert_not_awaited()

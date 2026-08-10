@@ -6,14 +6,16 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import app.services.message as message_service_module
-from app.models import MessageRole
+from app.models import Message, MessageRole
+from app.repositories.message import MessageCursor, MessagePagination
 from app.services.message import MessageAppendConflictError, MessageService
 
 
-def _service_session(sequence_number: int | None = 1):
+def _service_session(sequence_number: int | None = 1, *, rows=()):
     session = AsyncMock(spec=AsyncSession)
     result = Mock()
     result.scalar_one_or_none.return_value = sequence_number
+    result.scalars.return_value.all.return_value = list(rows)
     session.execute.return_value = result
     return session
 
@@ -76,10 +78,11 @@ async def test_service_rolls_back_owner_scoped_miss_without_committing():
 @pytest.mark.asyncio
 async def test_service_rolls_back_partial_append_when_flush_fails():
     session = _service_session(5)
-    session.flush.side_effect = RuntimeError("insert failed")
+    error = RuntimeError("insert failed")
+    session.flush.side_effect = error
     service = MessageService(session)
 
-    with pytest.raises(RuntimeError, match="insert failed"):
+    with pytest.raises(RuntimeError) as caught:
         await service.append_for_owner(
             uuid4(),
             uuid4(),
@@ -87,6 +90,7 @@ async def test_service_rolls_back_partial_append_when_flush_fails():
             "answer",
         )
 
+    assert caught.value is error
     session.execute.assert_awaited_once()
     session.add.assert_called_once()
     session.flush.assert_awaited_once_with()
@@ -97,10 +101,11 @@ async def test_service_rolls_back_partial_append_when_flush_fails():
 @pytest.mark.asyncio
 async def test_service_rolls_back_when_commit_fails():
     session = _service_session(8)
-    session.commit.side_effect = RuntimeError("commit failed")
+    error = RuntimeError("commit failed")
+    session.commit.side_effect = error
     service = MessageService(session)
 
-    with pytest.raises(RuntimeError, match="commit failed"):
+    with pytest.raises(RuntimeError) as caught:
         await service.append_for_owner(
             uuid4(),
             uuid4(),
@@ -108,6 +113,7 @@ async def test_service_rolls_back_when_commit_fails():
             "tool result",
         )
 
+    assert caught.value is error
     session.commit.assert_awaited_once_with()
     session.rollback.assert_awaited_once_with()
 
@@ -152,3 +158,95 @@ async def test_integrity_error_is_rolled_back_before_translation(monkeypatch):
     assert caught.value.__cause__ is integrity_error
     session.rollback.assert_awaited_once_with()
     session.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_message_list_returns_page_without_committing():
+    conversation_id = uuid4()
+    first = Message(
+        conversation_id=conversation_id,
+        role=MessageRole.USER,
+        content="first",
+        sequence_number=1,
+    )
+    second = Message(
+        conversation_id=conversation_id,
+        role=MessageRole.ASSISTANT,
+        content="second",
+        sequence_number=2,
+    )
+    session = _service_session(None, rows=(first, second))
+    service = MessageService(session)
+
+    page = await service.list_for_owner(
+        uuid4(),
+        conversation_id,
+        MessagePagination(limit=1),
+    )
+
+    assert page.items == (first,)
+    assert page.next_cursor == MessageCursor(sequence_number=1)
+    session.execute.assert_awaited_once()
+    session.add.assert_not_called()
+    session.flush.assert_not_awaited()
+    session.commit.assert_not_awaited()
+    session.rollback.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_message_list_failure_rolls_back_and_preserves_original_exception():
+    events: list[str] = []
+    session = _service_session(None)
+    error = RuntimeError("list failed")
+
+    async def execute(_statement):
+        events.append("execute")
+        raise error
+
+    async def rollback():
+        events.append("rollback")
+
+    session.execute.side_effect = execute
+    session.rollback.side_effect = rollback
+    service = MessageService(session)
+
+    with pytest.raises(RuntimeError) as caught:
+        await service.list_for_owner(uuid4(), uuid4())
+
+    assert caught.value is error
+    assert events == ["execute", "rollback"]
+    session.rollback.assert_awaited_once_with()
+    session.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_append_allocation_failure_rolls_back_original_exception():
+    events: list[str] = []
+    session = _service_session(None)
+    error = RuntimeError("allocation failed")
+
+    async def execute(_statement):
+        events.append("execute")
+        raise error
+
+    async def rollback():
+        events.append("rollback")
+
+    session.execute.side_effect = execute
+    session.rollback.side_effect = rollback
+    service = MessageService(session)
+
+    with pytest.raises(RuntimeError) as caught:
+        await service.append_for_owner(
+            uuid4(),
+            uuid4(),
+            MessageRole.USER,
+            "content",
+        )
+
+    assert caught.value is error
+    assert events == ["execute", "rollback"]
+    session.rollback.assert_awaited_once_with()
+    session.commit.assert_not_awaited()
+    session.add.assert_not_called()
+    session.flush.assert_not_awaited()

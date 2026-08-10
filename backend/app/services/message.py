@@ -4,7 +4,11 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.message import Message, MessageRole
-from app.repositories.message import MessageRepository
+from app.repositories.message import (
+    MessagePage,
+    MessagePagination,
+    MessageRepository,
+)
 
 
 class MessageAppendConflictError(RuntimeError):
@@ -41,6 +45,22 @@ class MessageService:
             raise MessageAppendConflictError(
                 "message append violated a persistence constraint"
             ) from exc
+        except BaseException:
+            await self.session.rollback()
+            raise
+
+    async def list_for_owner(
+        self,
+        owner_id: UUID,
+        conversation_id: UUID,
+        pagination: MessagePagination | None = None,
+    ) -> MessagePage:
+        try:
+            return await self.repository.list_for_owner(
+                owner_id,
+                conversation_id,
+                pagination,
+            )
         except BaseException:
             await self.session.rollback()
             raise

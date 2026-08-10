@@ -229,6 +229,7 @@ async def test_rename_is_owner_scoped_preserves_title_and_returns_entity():
     compiled, sql = _compile(statement)
     assert "update conversations set" in sql
     assert "where conversations.owner_id =" in sql
+    assert "updated_at=now()" in sql
     assert "and conversations.id =" in sql
     assert "returning conversations.id" in sql
     assert "  Renamed exactly  " in compiled.params.values()

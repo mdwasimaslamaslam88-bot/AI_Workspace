@@ -6,7 +6,12 @@ from app.repositories.conversation import (
     ConversationPagination,
     ConversationRepository,
 )
-from app.repositories.message import MessageRepository
+from app.repositories.message import (
+    MessageCursor,
+    MessagePage,
+    MessagePagination,
+    MessageRepository,
+)
 from app.repositories.user import UserRepository
 
 __all__ = [
@@ -15,5 +20,8 @@ __all__ = [
     "ConversationPagination",
     "ConversationRepository",
     "MessageRepository",
+    "MessageCursor",
+    "MessagePage",
+    "MessagePagination",
     "UserRepository",
 ]

@@ -1,3 +1,4 @@
+import asyncio
 import re
 from uuid import uuid4
 
@@ -8,6 +9,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from app.models import Conversation, Message, MessageRole, User
+from app.repositories.conversation import ConversationPagination
+from app.repositories.message import MessagePagination
 from app.repositories.user import UserRepository
 from app.services.conversation import ConversationService
 from app.services.message import MessageService
@@ -270,3 +273,210 @@ async def test_repository_flush_can_be_rolled_back(
 
     async with AsyncSession(test_database_engine) as verification_session:
         assert await verification_session.get(User, user_id) is None
+
+
+@pytest.mark.asyncio
+async def test_conversation_owner_scoped_crud_and_keyset_pagination(
+    test_database_engine: AsyncEngine,
+):
+    async with AsyncSession(test_database_engine, expire_on_commit=False) as session:
+        owner = await UserService(session).create(User())
+        other_owner = await UserService(session).create(User())
+        owner_id = owner.id
+        other_owner_id = other_owner.id
+        service = ConversationService(session)
+        owned = [
+            await service.create(owner_id, f"Owned {position}")
+            for position in range(3)
+        ]
+        foreign = await service.create(other_owner_id, "Foreign")
+        owned_ids = {conversation.id for conversation in owned}
+        foreign_id = foreign.id
+
+        assert await service.get_for_owner(owner_id, foreign_id) is None
+        assert (
+            await service.rename_for_owner(
+                owner_id,
+                foreign_id,
+                "Must not rename",
+            )
+            is None
+        )
+        assert not await service.delete_for_owner(owner_id, foreign_id)
+
+        first_page = await service.list_for_owner(
+            owner_id,
+            ConversationPagination(limit=2),
+        )
+        assert len(first_page.items) == 2
+        assert first_page.next_cursor is not None
+        second_page = await service.list_for_owner(
+            owner_id,
+            ConversationPagination(limit=2, cursor=first_page.next_cursor),
+        )
+        assert len(second_page.items) == 1
+        assert second_page.next_cursor is None
+
+        listed = first_page.items + second_page.items
+        assert {conversation.id for conversation in listed} == owned_ids
+        ordering_keys = [
+            (conversation.updated_at, conversation.id.int)
+            for conversation in listed
+        ]
+        assert ordering_keys == sorted(ordering_keys, reverse=True)
+
+        target = listed[0]
+        target_id = target.id
+        previous_updated_at = target.updated_at
+        renamed = await service.rename_for_owner(
+            owner_id,
+            target_id,
+            "  Renamed exactly  ",
+        )
+        assert renamed is not None
+        assert renamed.title == "  Renamed exactly  "
+        assert renamed.updated_at >= previous_updated_at
+        assert await service.get_for_owner(other_owner_id, target_id) is None
+        assert await service.delete_for_owner(owner_id, target_id)
+        assert await service.get_for_owner(owner_id, target_id) is None
+        assert await service.get_for_owner(other_owner_id, foreign_id) is not None
+
+
+@pytest.mark.asyncio
+async def test_message_ordered_pagination_and_owner_isolation(
+    test_database_engine: AsyncEngine,
+):
+    async with AsyncSession(test_database_engine, expire_on_commit=False) as session:
+        owner = await UserService(session).create(User())
+        other_owner = await UserService(session).create(User())
+        owner_id = owner.id
+        other_owner_id = other_owner.id
+        conversation = await ConversationService(session).create(owner_id, "Owned")
+        foreign_conversation = await ConversationService(session).create(
+            other_owner_id,
+            "Foreign",
+        )
+        conversation_id = conversation.id
+        foreign_conversation_id = foreign_conversation.id
+        service = MessageService(session)
+
+        for role, content in (
+            (MessageRole.SYSTEM, "system"),
+            (MessageRole.USER, "question"),
+            (MessageRole.ASSISTANT, "answer"),
+        ):
+            assert (
+                await service.append_for_owner(
+                    owner_id,
+                    conversation_id,
+                    role,
+                    content,
+                )
+                is not None
+            )
+
+        assert (
+            await service.append_for_owner(
+                other_owner_id,
+                conversation_id,
+                MessageRole.USER,
+                "must not append",
+            )
+            is None
+        )
+        fourth = await service.append_for_owner(
+            owner_id,
+            conversation_id,
+            MessageRole.TOOL,
+            "tool",
+        )
+        assert fourth is not None
+        assert fourth.sequence_number == 4
+
+        foreign_message = await service.append_for_owner(
+            other_owner_id,
+            foreign_conversation_id,
+            MessageRole.USER,
+            "foreign",
+        )
+        assert foreign_message is not None
+
+        first_page = await service.list_for_owner(
+            owner_id,
+            conversation_id,
+            MessagePagination(limit=2),
+        )
+        assert [message.sequence_number for message in first_page.items] == [1, 2]
+        assert first_page.next_cursor is not None
+        second_page = await service.list_for_owner(
+            owner_id,
+            conversation_id,
+            MessagePagination(limit=2, cursor=first_page.next_cursor),
+        )
+        messages = first_page.items + second_page.items
+        assert [message.sequence_number for message in messages] == [1, 2, 3, 4]
+        assert [message.content for message in messages] == [
+            "system",
+            "question",
+            "answer",
+            "tool",
+        ]
+        assert second_page.next_cursor is None
+
+        wrong_owner_page = await service.list_for_owner(
+            other_owner_id,
+            conversation_id,
+        )
+        assert wrong_owner_page.items == ()
+        assert wrong_owner_page.next_cursor is None
+        foreign_conversation_page = await service.list_for_owner(
+            owner_id,
+            foreign_conversation_id,
+        )
+        assert foreign_conversation_page.items == ()
+        assert foreign_conversation_page.next_cursor is None
+
+
+@pytest.mark.asyncio
+async def test_concurrent_message_appends_allocate_unique_contiguous_sequences(
+    test_database_engine: AsyncEngine,
+):
+    async with AsyncSession(test_database_engine, expire_on_commit=False) as session:
+        owner = await UserService(session).create(User())
+        conversation = await ConversationService(session).create(
+            owner.id,
+            "Concurrent appends",
+        )
+        owner_id = owner.id
+        conversation_id = conversation.id
+
+    async def append_message(position: int) -> int:
+        async with AsyncSession(
+            test_database_engine,
+            expire_on_commit=False,
+        ) as concurrent_session:
+            message = await MessageService(concurrent_session).append_for_owner(
+                owner_id,
+                conversation_id,
+                MessageRole.USER,
+                f"concurrent {position}",
+            )
+            assert message is not None
+            return message.sequence_number
+
+    append_count = 6
+    allocated = await asyncio.gather(
+        *(append_message(position) for position in range(append_count))
+    )
+    assert sorted(allocated) == list(range(1, append_count + 1))
+
+    async with AsyncSession(test_database_engine) as verification_session:
+        page = await MessageService(verification_session).list_for_owner(
+            owner_id,
+            conversation_id,
+            MessagePagination(limit=append_count),
+        )
+        assert [message.sequence_number for message in page.items] == list(
+            range(1, append_count + 1)
+        )
+        assert page.next_cursor is None
