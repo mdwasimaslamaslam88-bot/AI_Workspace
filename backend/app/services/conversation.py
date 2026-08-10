@@ -3,23 +3,51 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.conversation import Conversation
+from app.models.message import Message, MessageRole
 from app.repositories.conversation import (
     ConversationPage,
     ConversationPagination,
     ConversationRepository,
 )
+from app.repositories.message import MessageRepository
 
 
 class ConversationService:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
         self.repository = ConversationRepository(session)
+        self.message_repository = MessageRepository(session)
 
     async def create(self, owner_id: UUID, title: str | None) -> Conversation:
         try:
             conversation = await self.repository.create(owner_id, title)
             await self.session.commit()
             return conversation
+        except BaseException:
+            await self.session.rollback()
+            raise
+
+    async def create_with_initial_message_for_owner(
+        self,
+        owner_id: UUID,
+        title: str | None,
+        role: MessageRole,
+        content: str,
+    ) -> tuple[Conversation, Message] | None:
+        try:
+            conversation = await self.repository.create(owner_id, title)
+            message = await self.message_repository.append_for_owner(
+                owner_id,
+                conversation.id,
+                role,
+                content,
+            )
+            if message is None:
+                await self.session.rollback()
+                return None
+
+            await self.session.commit()
+            return conversation, message
         except BaseException:
             await self.session.rollback()
             raise

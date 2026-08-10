@@ -480,3 +480,112 @@ async def test_concurrent_message_appends_allocate_unique_contiguous_sequences(
             range(1, append_count + 1)
         )
         assert page.next_cursor is None
+
+
+@pytest.mark.asyncio
+async def test_create_with_initial_message_persists_one_atomic_conversation(
+    test_database_engine: AsyncEngine,
+):
+    async with AsyncSession(test_database_engine, expire_on_commit=False) as session:
+        owner = await UserService(session).create(User())
+        owner_id = owner.id
+
+        created = await ConversationService(
+            session
+        ).create_with_initial_message_for_owner(
+            owner_id,
+            "  Initial title  ",
+            MessageRole.USER,
+            "  Initial content  ",
+        )
+
+        assert created is not None
+        conversation, message = created
+        conversation_id = conversation.id
+        message_id = message.id
+        assert conversation.owner_id == owner_id
+        assert conversation.title == "  Initial title  "
+        assert message.conversation_id == conversation_id
+        assert message.role is MessageRole.USER
+        assert message.content == "  Initial content  "
+        assert message.sequence_number == 1
+
+    async with AsyncSession(test_database_engine) as verification_session:
+        conversations = (
+            (
+                await verification_session.execute(
+                    sa.select(Conversation).where(Conversation.owner_id == owner_id)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        messages = (
+            (
+                await verification_session.execute(
+                    sa.select(Message).where(
+                        Message.conversation_id == conversation_id
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+
+        assert len(conversations) == 1
+        assert conversations[0].id == conversation_id
+        assert conversations[0].next_message_sequence == 2
+        assert len(messages) == 1
+        assert messages[0].id == message_id
+        assert messages[0].conversation_id == conversation_id
+        assert messages[0].sequence_number == 1
+
+
+@pytest.mark.asyncio
+async def test_create_with_initial_message_failure_rolls_back_all_persistence(
+    test_database_engine: AsyncEngine,
+):
+    async with AsyncSession(test_database_engine, expire_on_commit=False) as session:
+        owner = await UserService(session).create(User())
+        owner_id = owner.id
+
+        with pytest.raises(IntegrityError):
+            await ConversationService(
+                session
+            ).create_with_initial_message_for_owner(
+                owner_id,
+                "Must roll back",
+                MessageRole.USER,
+                None,  # type: ignore[arg-type]
+            )
+
+        assert not session.in_transaction()
+
+    async with AsyncSession(test_database_engine) as verification_session:
+        conversations = (
+            (
+                await verification_session.execute(
+                    sa.select(Conversation).where(Conversation.owner_id == owner_id)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        messages = (
+            (
+                await verification_session.execute(
+                    sa.select(Message)
+                    .join(
+                        Conversation,
+                        Conversation.id == Message.conversation_id,
+                    )
+                    .where(Conversation.owner_id == owner_id)
+                )
+            )
+            .scalars()
+            .all()
+        )
+
+        assert conversations == []
+        assert messages == []
+        assert await verification_session.get(User, owner_id) is not None
