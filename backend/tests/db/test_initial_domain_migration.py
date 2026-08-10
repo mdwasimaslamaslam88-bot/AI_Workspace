@@ -52,19 +52,60 @@ class RecordingOperations:
     def drop_table(self, table_name: str, **kwargs) -> None:
         self.events.append(("drop_table", table_name))
 
+    def add_column(self, table_name: str, column: sa.Column, **kwargs) -> None:
+        self.metadata.tables[table_name].append_column(column)
+        self.events.append(("add_column", f"{table_name}.{column.name}"))
 
-def _revision_path() -> Path:
-    revision_files = sorted(VERSIONS_DIR.glob("*.py"))
-    assert len(revision_files) == 1
-    return revision_files[0]
+    def create_unique_constraint(
+        self,
+        constraint_name: str,
+        table_name: str,
+        columns,
+        **kwargs,
+    ) -> None:
+        table = self.metadata.tables[table_name]
+        sa.UniqueConstraint(
+            *(table.c[column_name] for column_name in columns),
+            name=constraint_name,
+        )
+        self.events.append(("create_unique_constraint", constraint_name))
+
+    def drop_constraint(
+        self,
+        constraint_name: str,
+        table_name: str,
+        **kwargs,
+    ) -> None:
+        table = self.metadata.tables[table_name]
+        constraint = next(
+            item
+            for item in table.constraints
+            if item.name == constraint_name
+        )
+        table.constraints.remove(constraint)
+        self.events.append(("drop_constraint", constraint_name))
+
+    def drop_column(self, table_name: str, column_name: str, **kwargs) -> None:
+        table = self.metadata.tables[table_name]
+        table._columns.remove(table.c[column_name])
+        self.events.append(("drop_column", f"{table_name}.{column_name}"))
 
 
-def _load_revision(operations: RecordingOperations):
+def _revision_path(filename: str = "0001_initial_domain.py") -> Path:
+    revision_path = VERSIONS_DIR / filename
+    assert revision_path.is_file()
+    return revision_path
+
+
+def _load_revision(
+    operations: RecordingOperations,
+    filename: str = "0001_initial_domain.py",
+):
     alembic_module = ModuleType("alembic")
     alembic_module.op = operations
     spec = importlib.util.spec_from_file_location(
-        "initial_domain_migration",
-        _revision_path(),
+        f"migration_{filename.removesuffix('.py')}",
+        _revision_path(filename),
     )
     assert spec is not None
     assert spec.loader is not None
@@ -78,6 +119,21 @@ def _load_revision(operations: RecordingOperations):
 
 def _normalized_sql(value) -> str:
     return " ".join(str(value).split())
+
+
+def _column_signature(column: sa.Column) -> tuple:
+    dialect = postgresql.dialect()
+    return (
+        column.name,
+        type(column.type).__name__,
+        str(column.type.compile(dialect=dialect)),
+        column.nullable,
+        (
+            None
+            if column.server_default is None
+            else _normalized_sql(column.server_default.arg)
+        ),
+    )
 
 
 def _constraint_signature(constraint) -> tuple:
@@ -112,20 +168,7 @@ def _constraint_signature(constraint) -> tuple:
 
 def _table_signature(table: sa.Table) -> tuple:
     dialect = postgresql.dialect()
-    columns = tuple(
-        (
-            column.name,
-            type(column.type).__name__,
-            str(column.type.compile(dialect=dialect)),
-            column.nullable,
-            (
-                None
-                if column.server_default is None
-                else _normalized_sql(column.server_default.arg)
-            ),
-        )
-        for column in table.columns
-    )
+    columns = tuple(_column_signature(column) for column in table.columns)
     constraints = tuple(
         sorted(
             (_constraint_signature(constraint) for constraint in table.constraints),
@@ -141,7 +184,7 @@ def _table_signature(table: sa.Table) -> tuple:
     return columns, constraints, indexes
 
 
-def test_initial_revision_is_the_single_root_revision():
+def test_initial_revision_is_the_root_revision():
     operations = RecordingOperations()
     revision = _load_revision(operations)
 
@@ -161,7 +204,7 @@ def test_initial_revision_is_the_single_root_revision():
     ]
 
 
-def test_initial_revision_schema_matches_base_metadata():
+def test_initial_revision_preserves_original_domain_schema():
     operations = RecordingOperations()
     revision = _load_revision(operations)
 
@@ -172,10 +215,27 @@ def test_initial_revision_schema_matches_base_metadata():
         "conversations",
         "messages",
     }
-    for table_name in Base.metadata.tables:
+    for table_name in ("conversations", "messages"):
         assert _table_signature(operations.metadata.tables[table_name]) == (
             _table_signature(Base.metadata.tables[table_name])
         )
+
+    initial_users = operations.metadata.tables["users"]
+    current_users = Base.metadata.tables["users"]
+    assert tuple(initial_users.c.keys()) == ("id", "created_at", "updated_at")
+    for column_name in initial_users.c.keys():
+        assert _column_signature(initial_users.c[column_name]) == (
+            _column_signature(current_users.c[column_name])
+        )
+    assert tuple(
+        sorted(
+            (
+                _constraint_signature(constraint)
+                for constraint in initial_users.constraints
+            ),
+            key=repr,
+        )
+    ) == (("primary_key", "pk_users", ("id",)),)
 
 
 def test_initial_revision_downgrade_uses_safe_dependency_order():

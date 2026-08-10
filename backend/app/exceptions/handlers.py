@@ -22,6 +22,7 @@ async def http_exception_handler(
 
     return JSONResponse(
         status_code=exc.status_code,
+        headers=exc.headers,
         content={
             "success": False,
             "error": {

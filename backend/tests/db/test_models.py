@@ -61,12 +61,33 @@ def test_model_registry_contains_only_the_approved_domain_tables():
     assert Message.__table__ is Base.metadata.tables["messages"]
 
 
-def test_user_has_uuid_primary_key_timestamps_and_no_authentication_fields():
+def test_user_has_uuid_primary_key_timestamps_and_access_credential_digest():
     table = User.__table__
-    assert set(table.c.keys()) == {"id", "created_at", "updated_at"}
+    assert set(table.c.keys()) == {
+        "id",
+        "access_token_digest",
+        "created_at",
+        "updated_at",
+    }
 
     _assert_uuid_primary_key(table)
     _assert_timestamps(table)
+
+    access_token_digest = table.c.access_token_digest
+    assert isinstance(access_token_digest.type, String)
+    assert access_token_digest.type.length == 64
+    assert access_token_digest.nullable is True
+
+    unique_constraints = [
+        constraint
+        for constraint in table.constraints
+        if isinstance(constraint, UniqueConstraint)
+    ]
+    assert len(unique_constraints) == 1
+    assert unique_constraints[0].name == "uq_users_access_token_digest"
+    assert list(unique_constraints[0].columns.keys()) == [
+        "access_token_digest"
+    ]
     assert not table.indexes
 
 

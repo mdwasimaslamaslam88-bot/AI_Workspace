@@ -16,3 +16,13 @@ class UserRepository(BaseRepository):
         statement = select(User).where(User.id == user_id)
         result = await self.session.execute(statement)
         return result.scalar_one_or_none()
+
+    async def get_by_access_token_digest(
+        self,
+        access_token_digest: str,
+    ) -> User | None:
+        statement = select(User).where(
+            User.access_token_digest == access_token_digest
+        )
+        result = await self.session.execute(statement)
+        return result.scalar_one_or_none()

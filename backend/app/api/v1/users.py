@@ -1,25 +1,44 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Body, Depends, HTTPException, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.dependencies import get_current_user
 from app.db.dependencies import get_db_session
 from app.models.user import User
-from app.schemas.user import UserCreate, UserResponse
+from app.schemas.user import UserCreate, UserProvisionResponse, UserResponse
 from app.services.user import UserService
 
 
 router = APIRouter(prefix="/users", tags=["Users"])
 
 
-@router.post("", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "",
+    response_model=UserProvisionResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 async def create_user(
+    response: Response,
     session: Annotated[AsyncSession, Depends(get_db_session)],
     _request: Annotated[UserCreate, Body()] = UserCreate(),
+) -> UserProvisionResponse:
+    user, access_token = await UserService(session).provision_with_access_token()
+    response.headers["Cache-Control"] = "no-store"
+    return UserProvisionResponse(
+        id=user.id,
+        created_at=user.created_at,
+        updated_at=user.updated_at,
+        access_token=access_token,
+    )
+
+
+@router.get("/me", response_model=UserResponse)
+async def get_authenticated_user(
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> UserResponse:
-    user = await UserService(session).create(User())
-    return UserResponse.model_validate(user)
+    return UserResponse.model_validate(current_user)
 
 
 @router.get("/{user_id}", response_model=UserResponse)

@@ -8,6 +8,7 @@ from sqlalchemy.dialects.postgresql import UUID as PostgreSQLUUID
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
+from app.core.security import digest_access_token, generate_access_token
 from app.models import Conversation, Message, MessageRole, User
 from app.repositories.conversation import ConversationPagination
 from app.repositories.message import MessagePagination
@@ -34,6 +35,7 @@ def _inspect_schema(connection) -> dict:
         "conversation_indexes": inspector.get_indexes("conversations"),
         "conversation_checks": inspector.get_check_constraints("conversations"),
         "message_checks": inspector.get_check_constraints("messages"),
+        "user_uniques": inspector.get_unique_constraints("users"),
         "message_uniques": inspector.get_unique_constraints("messages"),
         "columns": {
             table_name: inspector.get_columns(table_name)
@@ -157,10 +159,25 @@ async def test_migration_creates_exact_expected_postgresql_schema(
     assert len(snapshot["message_uniques"]) == 1
 
     users = _columns_by_name(snapshot, "users")
-    assert set(users) == {"id", "created_at", "updated_at"}
+    assert set(users) == {
+        "id",
+        "access_token_digest",
+        "created_at",
+        "updated_at",
+    }
     _assert_required_uuid(users["id"])
+    assert isinstance(users["access_token_digest"]["type"], sa.String)
+    assert users["access_token_digest"]["type"].length == 64
+    assert users["access_token_digest"]["nullable"] is True
     _assert_required_timestamp(users["created_at"])
     _assert_required_timestamp(users["updated_at"])
+    user_unique = next(
+        item
+        for item in snapshot["user_uniques"]
+        if item["name"] == "uq_users_access_token_digest"
+    )
+    assert user_unique["column_names"] == ["access_token_digest"]
+    assert len(snapshot["user_uniques"]) == 1
 
     conversations = _columns_by_name(snapshot, "conversations")
     assert set(conversations) == {
@@ -589,3 +606,74 @@ async def test_create_with_initial_message_failure_rolls_back_all_persistence(
         assert conversations == []
         assert messages == []
         assert await verification_session.get(User, owner_id) is not None
+
+
+@pytest.mark.asyncio
+async def test_user_access_credential_persistence_lookup_and_uniqueness(
+    test_database_engine: AsyncEngine,
+):
+    async with AsyncSession(
+        test_database_engine,
+        expire_on_commit=False,
+    ) as session:
+        service = UserService(session)
+        user, access_token = await service.provision_with_access_token()
+        user_id = user.id
+        expected_digest = digest_access_token(access_token)
+
+        assert user.access_token_digest == expected_digest
+        assert user.access_token_digest != access_token
+        assert (
+            await service.get_by_access_token_digest(expected_digest)
+        ).id == user_id
+        assert (
+            await service.get_by_access_token_digest(
+                digest_access_token(generate_access_token())
+            )
+            is None
+        )
+
+    async with AsyncSession(test_database_engine) as verification_session:
+        stored = await verification_session.get(User, user_id)
+        assert stored is not None
+        assert stored.access_token_digest == expected_digest
+        assert stored.access_token_digest != access_token
+
+        with pytest.raises(IntegrityError):
+            await UserService(verification_session).create(
+                User(access_token_digest=expected_digest)
+            )
+
+        assert not verification_session.in_transaction()
+        original = await UserService(
+            verification_session
+        ).get_by_access_token_digest(expected_digest)
+        assert original is not None
+        assert original.id == user_id
+
+
+@pytest.mark.asyncio
+async def test_user_access_credential_flush_can_be_rolled_back(
+    test_database_engine: AsyncEngine,
+):
+    access_token = generate_access_token()
+    access_token_digest = digest_access_token(access_token)
+
+    async with AsyncSession(
+        test_database_engine,
+        expire_on_commit=False,
+    ) as session:
+        user = await UserRepository(session).create(
+            User(access_token_digest=access_token_digest)
+        )
+        user_id = user.id
+        await session.rollback()
+
+    async with AsyncSession(test_database_engine) as verification_session:
+        assert await verification_session.get(User, user_id) is None
+        assert (
+            await UserService(
+                verification_session
+            ).get_by_access_token_digest(access_token_digest)
+            is None
+        )

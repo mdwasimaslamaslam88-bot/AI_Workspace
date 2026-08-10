@@ -72,3 +72,30 @@ async def test_get_by_id_returns_none_without_repository_transaction_actions():
     session.flush.assert_not_awaited()
     session.commit.assert_not_awaited()
     session.rollback.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("present", [True, False])
+async def test_get_by_access_token_digest_uses_bound_predicate_without_transaction(
+    present,
+):
+    access_token_digest = "a" * 64
+    user = User(access_token_digest=access_token_digest) if present else None
+    session = _session_with_scalar(user)
+    repository = UserRepository(session)
+
+    found = await repository.get_by_access_token_digest(access_token_digest)
+
+    assert found is user
+    statement = session.execute.await_args.args[0]
+    assert isinstance(statement, Select)
+    compiled = statement.compile(dialect=postgresql.dialect())
+    sql = " ".join(str(compiled).split()).lower()
+    assert "from users" in sql
+    assert "where users.access_token_digest =" in sql
+    assert "join" not in sql
+    assert access_token_digest in compiled.params.values()
+    session.add.assert_not_called()
+    session.flush.assert_not_awaited()
+    session.commit.assert_not_awaited()
+    session.rollback.assert_not_awaited()
