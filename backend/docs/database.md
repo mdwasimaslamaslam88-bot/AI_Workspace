@@ -37,3 +37,27 @@ during application startup. The approved domain metadata currently defines
 the `users`, `conversations`, and `messages` tables. Alembic imports the
 `app.models` registry before reading `Base.metadata`; future mapped-model
 modules must be imported by that registry.
+
+## PostgreSQL integration tests
+
+The default `python -m pytest -q` run remains database-free. Real PostgreSQL
+tests require both `RUN_DATABASE_INTEGRATION_TESTS=true` and a
+`TEST_DATABASE_URL` targeting `127.0.0.1/ai_workspace_test`. The harness
+rejects any other host or database and never falls back to `DATABASE_URL`.
+
+To load the existing `.env` for one test process while blanking
+`DATABASE_URL` from that process, run:
+
+```bash
+python tests/db/run_postgres_integration.py
+```
+
+The runner executes:
+
+```bash
+python -m pytest -q -m integration tests/db/test_postgres_integration.py
+```
+
+The session fixture uses the existing Alembic chain to downgrade to `base`,
+upgrade to `head`, run the focused tests, and downgrade to `base` again
+during cleanup. It does not create schema objects from ORM metadata.
