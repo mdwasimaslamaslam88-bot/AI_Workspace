@@ -1,8 +1,11 @@
-from logging.config import fileConfig
 import asyncio
+import os
+from logging.config import fileConfig
+
 from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
+
 from app.clients.postgres import build_postgres_connect_args
 from app.core.config import Settings
 from app.db.base import Base
@@ -13,8 +16,24 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 target_metadata = Base.metadata
 
+
+def _database_integration_tests_enabled() -> bool:
+    value = os.getenv("RUN_DATABASE_INTEGRATION_TESTS", "")
+    return value.strip().lower() in {"1", "true", "yes"}
+
+
 def database_url(settings: Settings | None = None) -> str:
-    value = (settings or Settings()).DATABASE_URL
+    configured = settings or Settings()
+    if _database_integration_tests_enabled():
+        value = configured.TEST_DATABASE_URL
+        if value is None:
+            raise RuntimeError(
+                "TEST_DATABASE_URL must be configured when "
+                "RUN_DATABASE_INTEGRATION_TESTS is enabled"
+            )
+        return str(value)
+
+    value = configured.DATABASE_URL
     if value is None:
         raise RuntimeError("DATABASE_URL must be configured to run Alembic")
     return str(value)

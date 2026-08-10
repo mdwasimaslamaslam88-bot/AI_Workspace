@@ -29,9 +29,11 @@ session and never commit. Service, unit-of-work, or other application
 transaction logic owns successful transactions and must explicitly call
 `await session.commit()`.
 
-Alembic is configured in `alembic.ini` and `migrations/`. It loads
-`DATABASE_URL` only when an Alembic command is explicitly run. No migration
-runs during application startup, and no domain models or application tables
-are defined by this foundation milestone. Alembic imports the `app.models`
-registry before reading `Base.metadata`; future mapped-model modules must be
-imported by that registry.
+Alembic is configured in `alembic.ini` and `migrations/`. Normal Alembic
+commands load `DATABASE_URL` only when explicitly run. When
+`RUN_DATABASE_INTEGRATION_TESTS=true`, Alembic instead requires and uses
+`TEST_DATABASE_URL` without falling back to `DATABASE_URL`. No migration runs
+during application startup. The approved domain metadata currently defines
+the `users`, `conversations`, and `messages` tables. Alembic imports the
+`app.models` registry before reading `Base.metadata`; future mapped-model
+modules must be imported by that registry.
