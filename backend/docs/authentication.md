@@ -19,5 +19,7 @@ User UUIDs are public identifiers and are never accepted as proof of identity.
 The plaintext credential is not persisted. PostgreSQL stores only its SHA-256
 digest in the nullable, unique `users.access_token_digest` column. Application
 code must not log either the Authorization header or a plaintext credential.
-Future owner-scoped Conversation and Message API operations must derive
-`owner_id` from the authenticated current user rather than from client input.
+Owner-scoped Conversation and Message API operations derive `owner_id` from the
+authenticated current user rather than from client input. In particular,
+`POST /api/v1/conversations` creates a conversation and its initial user message
+atomically for the bearer credential's current user.

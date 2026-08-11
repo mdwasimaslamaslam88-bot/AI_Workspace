@@ -1,14 +1,16 @@
 import asyncio
 import re
-from uuid import uuid4
+from uuid import UUID, uuid4
 
+from httpx import ASGITransport, AsyncClient
 import pytest
 import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import UUID as PostgreSQLUUID
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from app.core.security import digest_access_token, generate_access_token
+from app.main import app
 from app.models import Conversation, Message, MessageRole, User
 from app.repositories.conversation import ConversationPagination
 from app.repositories.message import MessagePagination
@@ -677,3 +679,142 @@ async def test_user_access_credential_flush_can_be_rolled_back(
             ).get_by_access_token_digest(access_token_digest)
             is None
         )
+
+
+@pytest.mark.asyncio
+async def test_authenticated_conversation_creation_uses_current_user_and_sequence(
+    test_database_engine: AsyncEngine,
+):
+    session_factory = async_sessionmaker(
+        test_database_engine,
+        class_=AsyncSession,
+        expire_on_commit=False,
+    )
+    missing = object()
+    previous_factory = getattr(app.state, "db_session_factory", missing)
+    app.state.db_session_factory = session_factory
+
+    try:
+        transport = ASGITransport(app=app)
+        async with AsyncClient(
+            transport=transport,
+            base_url="http://testserver",
+        ) as client:
+            provisioned = await client.post("/api/v1/users")
+            assert provisioned.status_code == 201
+            user_payload = provisioned.json()
+            user_id = UUID(user_payload["id"])
+            access_token = user_payload["access_token"]
+
+            created = await client.post(
+                "/api/v1/conversations",
+                headers={"Authorization": f"Bearer {access_token}"},
+                json={
+                    "title": "  API integration  ",
+                    "initial_message": "  Exact API content  ",
+                },
+            )
+            assert created.status_code == 201
+            created_payload = created.json()
+
+            second_provisioned = await client.post("/api/v1/users")
+            assert second_provisioned.status_code == 201
+            second_user_payload = second_provisioned.json()
+            spoofed_owner = await client.post(
+                "/api/v1/conversations",
+                headers={
+                    "Authorization": (
+                        f"Bearer {second_user_payload['access_token']}"
+                    )
+                },
+                json={
+                    "owner_id": str(user_id),
+                    "title": "Must not persist",
+                    "initial_message": "Must not persist",
+                },
+            )
+            assert spoofed_owner.status_code == 422
+    finally:
+        if previous_factory is missing:
+            delattr(app.state, "db_session_factory")
+        else:
+            app.state.db_session_factory = previous_factory
+
+    conversation_id = UUID(created_payload["id"])
+    initial_message_payload = created_payload["initial_message"]
+    assert set(created_payload) == {
+        "id",
+        "title",
+        "created_at",
+        "updated_at",
+        "initial_message",
+    }
+    assert created_payload["title"] == "  API integration  "
+    assert set(initial_message_payload) == {
+        "id",
+        "conversation_id",
+        "role",
+        "content",
+        "sequence_number",
+        "created_at",
+        "updated_at",
+    }
+    assert initial_message_payload["conversation_id"] == str(conversation_id)
+    assert initial_message_payload["role"] == "user"
+    assert initial_message_payload["content"] == "  Exact API content  "
+    assert initial_message_payload["sequence_number"] == 1
+
+    async with AsyncSession(
+        test_database_engine,
+        expire_on_commit=False,
+    ) as verification_session:
+        stored_user = await verification_session.get(User, user_id)
+        stored_conversation = await verification_session.get(
+            Conversation,
+            conversation_id,
+        )
+        stored_initial_message = await verification_session.get(
+            Message,
+            UUID(initial_message_payload["id"]),
+        )
+
+        assert stored_user is not None
+        assert stored_user.access_token_digest == digest_access_token(access_token)
+        assert stored_user.access_token_digest != access_token
+        assert stored_conversation is not None
+        assert stored_conversation.owner_id == user_id
+        assert stored_conversation.next_message_sequence == 2
+        assert stored_initial_message is not None
+        assert stored_initial_message.conversation_id == stored_conversation.id
+        assert stored_initial_message.role is MessageRole.USER
+        assert stored_initial_message.content == "  Exact API content  "
+        assert stored_initial_message.sequence_number == 1
+
+        follow_up = await MessageService(verification_session).append_for_owner(
+            stored_conversation.owner_id,
+            stored_conversation.id,
+            MessageRole.ASSISTANT,
+            "follow-up",
+        )
+        assert follow_up is not None
+        assert follow_up.sequence_number == 2
+
+        first_page = await MessageService(verification_session).list_for_owner(
+            stored_conversation.owner_id,
+            stored_conversation.id,
+            MessagePagination(limit=1),
+        )
+        assert [message.sequence_number for message in first_page.items] == [1]
+        assert first_page.next_cursor is not None
+        second_page = await MessageService(verification_session).list_for_owner(
+            stored_conversation.owner_id,
+            stored_conversation.id,
+            MessagePagination(limit=1, cursor=first_page.next_cursor),
+        )
+        assert [message.sequence_number for message in second_page.items] == [2]
+        assert second_page.next_cursor is None
+
+        second_owner_conversations = await ConversationService(
+            verification_session
+        ).list_for_owner(UUID(second_user_payload["id"]))
+        assert second_owner_conversations.items == ()
