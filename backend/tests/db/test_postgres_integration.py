@@ -717,6 +717,14 @@ async def test_authenticated_conversation_creation_uses_current_user_and_sequenc
             assert created.status_code == 201
             created_payload = created.json()
 
+            appended = await client.post(
+                f"/api/v1/conversations/{created_payload['id']}/messages",
+                headers={"Authorization": f"Bearer {access_token}"},
+                json={"content": "  Exact API follow-up  "},
+            )
+            assert appended.status_code == 201
+            appended_payload = appended.json()
+
             second_provisioned = await client.post("/api/v1/users")
             assert second_provisioned.status_code == 201
             second_user_payload = second_provisioned.json()
@@ -734,6 +742,21 @@ async def test_authenticated_conversation_creation_uses_current_user_and_sequenc
                 },
             )
             assert spoofed_owner.status_code == 422
+
+            foreign_append = await client.post(
+                f"/api/v1/conversations/{created_payload['id']}/messages",
+                headers={
+                    "Authorization": (
+                        f"Bearer {second_user_payload['access_token']}"
+                    )
+                },
+                json={"content": "Must not persist"},
+            )
+            assert foreign_append.status_code == 404
+            assert foreign_append.json()["error"] == {
+                "code": "HTTP_ERROR",
+                "message": "Conversation not found",
+            }
     finally:
         if previous_factory is missing:
             delattr(app.state, "db_session_factory")
@@ -764,6 +787,20 @@ async def test_authenticated_conversation_creation_uses_current_user_and_sequenc
     assert initial_message_payload["content"] == "  Exact API content  "
     assert initial_message_payload["sequence_number"] == 1
 
+    assert set(appended_payload) == {
+        "id",
+        "conversation_id",
+        "role",
+        "content",
+        "sequence_number",
+        "created_at",
+        "updated_at",
+    }
+    assert appended_payload["conversation_id"] == str(conversation_id)
+    assert appended_payload["role"] == "user"
+    assert appended_payload["content"] == "  Exact API follow-up  "
+    assert appended_payload["sequence_number"] == 2
+
     async with AsyncSession(
         test_database_engine,
         expire_on_commit=False,
@@ -777,27 +814,28 @@ async def test_authenticated_conversation_creation_uses_current_user_and_sequenc
             Message,
             UUID(initial_message_payload["id"]),
         )
+        stored_appended_message = await verification_session.get(
+            Message,
+            UUID(appended_payload["id"]),
+        )
 
         assert stored_user is not None
         assert stored_user.access_token_digest == digest_access_token(access_token)
         assert stored_user.access_token_digest != access_token
         assert stored_conversation is not None
         assert stored_conversation.owner_id == user_id
-        assert stored_conversation.next_message_sequence == 2
+        assert stored_conversation.next_message_sequence == 3
         assert stored_initial_message is not None
         assert stored_initial_message.conversation_id == stored_conversation.id
         assert stored_initial_message.role is MessageRole.USER
         assert stored_initial_message.content == "  Exact API content  "
         assert stored_initial_message.sequence_number == 1
 
-        follow_up = await MessageService(verification_session).append_for_owner(
-            stored_conversation.owner_id,
-            stored_conversation.id,
-            MessageRole.ASSISTANT,
-            "follow-up",
-        )
-        assert follow_up is not None
-        assert follow_up.sequence_number == 2
+        assert stored_appended_message is not None
+        assert stored_appended_message.conversation_id == stored_conversation.id
+        assert stored_appended_message.role is MessageRole.USER
+        assert stored_appended_message.content == "  Exact API follow-up  "
+        assert stored_appended_message.sequence_number == 2
 
         first_page = await MessageService(verification_session).list_for_owner(
             stored_conversation.owner_id,

@@ -1,4 +1,5 @@
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,8 +9,9 @@ from app.db.dependencies import get_db_session
 from app.models.message import MessageRole
 from app.models.user import User
 from app.schemas.conversation import ConversationCreate, ConversationCreateResponse
-from app.schemas.message import MessageResponse
+from app.schemas.message import MessageCreate, MessageResponse
 from app.services.conversation import ConversationService
+from app.services.message import MessageAppendConflictError, MessageService
 
 
 router = APIRouter(prefix="/conversations", tags=["Conversations"])
@@ -48,3 +50,36 @@ async def create_conversation(
         updated_at=conversation.updated_at,
         initial_message=MessageResponse.model_validate(initial_message),
     )
+
+
+@router.post(
+    "/{conversation_id}/messages",
+    response_model=MessageResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def append_message(
+    conversation_id: UUID,
+    request: MessageCreate,
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> MessageResponse:
+    try:
+        message = await MessageService(session).append_for_owner(
+            current_user.id,
+            conversation_id,
+            MessageRole.USER,
+            request.content,
+        )
+    except MessageAppendConflictError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Message could not be appended",
+        ) from None
+
+    if message is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Conversation not found",
+        )
+
+    return MessageResponse.model_validate(message)

@@ -23,3 +23,10 @@ Owner-scoped Conversation and Message API operations derive `owner_id` from the
 authenticated current user rather than from client input. In particular,
 `POST /api/v1/conversations` creates a conversation and its initial user message
 atomically for the bearer credential's current user.
+
+`POST /api/v1/conversations/{conversation_id}/messages` appends a user message
+only when the bearer credential's current user owns the conversation. The API
+always supplies the user role and the database allocates the sequence number;
+clients cannot supply identity, role, conversation, or sequence fields in the
+request body. Missing and foreign-owned conversations receive the same generic
+HTTP 404 response.
