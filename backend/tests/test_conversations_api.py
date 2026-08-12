@@ -64,11 +64,13 @@ def conversation_api(monkeypatch):
         updated_at=datetime(2026, 8, 11, 9, 3, tzinfo=timezone.utc),
     )
     create = AsyncMock(return_value=(conversation, initial_message))
+    get_conversation = AsyncMock(return_value=conversation)
     list_conversations = AsyncMock(
         return_value=ConversationPage(items=(conversation,), next_cursor=None)
     )
     service = Mock(
         create_with_initial_message_for_owner=create,
+        get_for_owner=get_conversation,
         list_for_owner=list_conversations,
     )
     service_factory = Mock(return_value=service)
@@ -114,6 +116,7 @@ def conversation_api(monkeypatch):
                 "appended_message": appended_message,
                 "service_factory": service_factory,
                 "create": create,
+                "get_conversation": get_conversation,
                 "list_conversations": list_conversations,
                 "message_service_factory": message_service_factory,
                 "append": append,
@@ -464,6 +467,190 @@ def test_list_conversations_requires_existing_uniform_bearer_authentication(
     else:
         authentication_service_factory.assert_not_called()
         get_by_digest.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    ("title", "expected_title"),
+    [("  Exact title  ", "  Exact title  "), (None, None)],
+)
+def test_get_conversation_returns_exact_safe_owned_response(
+    conversation_api,
+    title,
+    expected_title,
+):
+    api = conversation_api
+    api["conversation"].title = title
+
+    response = api["client"].get(
+        f"/api/v1/conversations/{api['conversation'].id}"
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "id": str(api["conversation"].id),
+        "title": expected_title,
+        "created_at": "2026-08-11T09:00:00Z",
+        "updated_at": "2026-08-11T09:01:00Z",
+    }
+    assert set(response.json()) == {"id", "title", "created_at", "updated_at"}
+    response_text = response.text.lower()
+    assert "owner_id" not in response_text
+    assert "next_message_sequence" not in response_text
+    assert "messages" not in response_text
+    assert "credential" not in response_text
+    assert "digest" not in response_text
+    api["service_factory"].assert_called_once_with(api["session"])
+    api["get_conversation"].assert_awaited_once_with(
+        api["current_user"].id,
+        api["conversation"].id,
+    )
+    api["message_service_factory"].assert_not_called()
+    api["session"].commit.assert_not_awaited()
+    api["session"].rollback.assert_not_awaited()
+
+
+@pytest.mark.parametrize("identity_field", ["owner_id", "user_id"])
+def test_get_conversation_client_identity_cannot_replace_current_user(
+    conversation_api,
+    identity_field,
+):
+    api = conversation_api
+    client_identity = uuid4()
+
+    response = api["client"].get(
+        f"/api/v1/conversations/{api['conversation'].id}",
+        params={identity_field: str(client_identity)},
+    )
+
+    assert response.status_code == 200
+    api["get_conversation"].assert_awaited_once_with(
+        api["current_user"].id,
+        api["conversation"].id,
+    )
+    assert api["get_conversation"].await_args.args[0] != client_identity
+
+
+def test_get_conversation_missing_and_foreign_use_identical_generic_404(
+    conversation_api,
+):
+    api = conversation_api
+    missing_id = uuid4()
+    foreign_id = api["conversation"].id
+    api["get_conversation"].side_effect = [None, None]
+
+    missing_response = api["client"].get(
+        f"/api/v1/conversations/{missing_id}"
+    )
+    foreign_response = api["client"].get(
+        f"/api/v1/conversations/{foreign_id}"
+    )
+
+    expected_error = {
+        "code": "HTTP_ERROR",
+        "message": "Conversation not found",
+    }
+    assert missing_response.status_code == foreign_response.status_code == 404
+    assert missing_response.json()["error"] == expected_error
+    assert foreign_response.json()["error"] == expected_error
+    for response in (missing_response, foreign_response):
+        error_text = str(response.json()["error"]).lower()
+        assert str(api["current_user"].id) not in error_text
+        assert str(api["conversation"].id) not in error_text
+        assert api["conversation"].title.strip().lower() not in error_text
+        assert "owner" not in error_text
+        assert "persistence" not in error_text
+    assert [call.args for call in api["get_conversation"].await_args_list] == [
+        (api["current_user"].id, missing_id),
+        (api["current_user"].id, foreign_id),
+    ]
+    api["message_service_factory"].assert_not_called()
+
+
+def test_get_conversation_rejects_malformed_uuid_before_service(conversation_api):
+    api = conversation_api
+
+    response = api["client"].get("/api/v1/conversations/not-a-uuid")
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+    api["service_factory"].assert_not_called()
+    api["get_conversation"].assert_not_awaited()
+    api["message_service_factory"].assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "authorization",
+    [None, "Bearer short", f"Bearer {'U' * 43}"],
+)
+def test_get_conversation_requires_existing_uniform_bearer_authentication(
+    monkeypatch,
+    authorization,
+):
+    session = AsyncMock(spec=AsyncSession)
+    get_by_digest = AsyncMock(return_value=None)
+    authentication_service = Mock(get_by_access_token_digest=get_by_digest)
+    authentication_service_factory = Mock(return_value=authentication_service)
+    conversation_service_factory = Mock()
+    monkeypatch.setattr(
+        authentication_module,
+        "UserService",
+        authentication_service_factory,
+    )
+    monkeypatch.setattr(
+        conversations_module,
+        "ConversationService",
+        conversation_service_factory,
+    )
+
+    async def override_db_session():
+        yield session
+
+    app.dependency_overrides[get_db_session] = override_db_session
+    headers = {} if authorization is None else {"Authorization": authorization}
+    try:
+        with TestClient(app, raise_server_exceptions=False) as client:
+            response = client.get(
+                f"/api/v1/conversations/{uuid4()}",
+                headers=headers,
+            )
+    finally:
+        app.dependency_overrides.pop(get_db_session, None)
+
+    assert response.status_code == 401
+    assert response.headers["WWW-Authenticate"] == "Bearer"
+    assert response.json()["error"] == {
+        "code": "HTTP_ERROR",
+        "message": "Invalid authentication credentials",
+    }
+    if authorization is not None:
+        assert authorization not in response.text
+    conversation_service_factory.assert_not_called()
+    session.commit.assert_not_awaited()
+    if authorization == f"Bearer {'U' * 43}":
+        authentication_service_factory.assert_called_once_with(session)
+        get_by_digest.assert_awaited_once_with(digest_access_token("U" * 43))
+    else:
+        authentication_service_factory.assert_not_called()
+        get_by_digest.assert_not_awaited()
+
+
+def test_get_conversation_failure_uses_existing_generic_500(conversation_api):
+    api = conversation_api
+    api["get_conversation"].side_effect = RuntimeError(
+        "sensitive persistence detail"
+    )
+
+    response = api["client"].get(
+        f"/api/v1/conversations/{api['conversation'].id}"
+    )
+
+    assert response.status_code == 500
+    assert response.json()["error"] == {
+        "code": "INTERNAL_SERVER_ERROR",
+        "message": "An unexpected error occurred.",
+    }
+    assert "sensitive persistence detail" not in response.text
+    api["message_service_factory"].assert_not_called()
 
 
 def test_create_conversation_returns_201_with_exact_safe_response(conversation_api):
@@ -1189,17 +1376,45 @@ def test_list_messages_requires_existing_uniform_bearer_authentication(
         get_by_digest.assert_not_awaited()
 
 
-def test_no_other_conversation_crud_or_standalone_message_routes_were_added(
-    conversation_api,
-):
-    client = conversation_api["client"]
+def test_only_get_by_id_route_was_added(conversation_api):
+    api = conversation_api
+    client = api["client"]
+    conversation_id = api["conversation"].id
 
     assert client.get("/api/v1/conversations").status_code == 200
-    assert client.get(f"/api/v1/conversations/{uuid4()}").status_code == 404
-    assert (
-        client.get(
-            f"/api/v1/conversations/{conversation_api['conversation'].id}/messages"
-        ).status_code
-        == 200
-    )
+    assert client.post(
+        "/api/v1/conversations",
+        json={"initial_message": "unchanged route"},
+    ).status_code == 201
+    assert client.get(
+        f"/api/v1/conversations/{conversation_id}"
+    ).status_code == 200
+    assert client.post(
+        f"/api/v1/conversations/{conversation_id}/messages",
+        json={"content": "unchanged nested append"},
+    ).status_code == 201
+    assert client.get(
+        f"/api/v1/conversations/{conversation_id}/messages"
+    ).status_code == 200
+    assert client.get("/api/v1/users/me").status_code == 200
+
+    route_methods = {
+        method
+        for route in conversations_module.router.routes
+        if getattr(route, "path", None) == "/conversations/{conversation_id}"
+        for method in getattr(route, "methods", ())
+    }
+    assert route_methods == {"GET"}
+    assert client.patch(
+        f"/api/v1/conversations/{conversation_id}",
+        json={"title": "Must not rename"},
+    ).status_code == 405
+    assert client.put(
+        f"/api/v1/conversations/{conversation_id}",
+        json={"title": "Must not update"},
+    ).status_code == 405
+    assert client.delete(
+        f"/api/v1/conversations/{conversation_id}"
+    ).status_code == 405
+    assert client.get("/api/v1/messages").status_code == 404
     assert client.post("/api/v1/messages", json={}).status_code == 404

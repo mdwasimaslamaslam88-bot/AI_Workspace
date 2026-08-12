@@ -31,6 +31,12 @@ pages must provide both `cursor_updated_at` and `cursor_id` from the previous
 response's composite `next_cursor`; the cursor fields are not identity inputs.
 Terminal and empty pages return `next_cursor` as `null`.
 
+`GET /api/v1/conversations/{conversation_id}` returns the requested conversation
+only when it belongs to the bearer credential's current user. The response is
+limited to the conversation's `id`, nullable `title`, `created_at`, and
+`updated_at`. Missing and foreign-owned conversations receive the same generic
+HTTP 404 response, so the endpoint does not disclose another user's ownership.
+
 `POST /api/v1/conversations/{conversation_id}/messages` appends a user message
 only when the bearer credential's current user owns the conversation. The API
 always supplies the user role and the database allocates the sequence number;

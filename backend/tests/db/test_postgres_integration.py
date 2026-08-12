@@ -842,6 +842,116 @@ async def test_authenticated_conversation_creation_uses_current_user_and_sequenc
             assert foreign_message_page.status_code == 200
             foreign_message_page_payload = foreign_message_page.json()
 
+            conversation_id = UUID(created_payload["id"])
+            async with AsyncSession(
+                test_database_engine,
+                expire_on_commit=False,
+            ) as setup_session:
+                before_get_conversation = (
+                    await setup_session.execute(
+                        sa.select(
+                            Conversation.owner_id,
+                            Conversation.updated_at,
+                            Conversation.next_message_sequence,
+                        ).where(Conversation.id == conversation_id)
+                    )
+                ).one()
+                before_get_messages = [
+                    tuple(row)
+                    for row in (
+                        await setup_session.execute(
+                            sa.select(
+                                Message.id,
+                                Message.conversation_id,
+                                Message.role,
+                                Message.content,
+                                Message.sequence_number,
+                                Message.created_at,
+                                Message.updated_at,
+                            )
+                            .where(Message.conversation_id == conversation_id)
+                            .order_by(Message.sequence_number)
+                        )
+                    ).all()
+                ]
+
+            owned_conversation_response = await client.get(
+                f"/api/v1/conversations/{conversation_id}",
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+            assert owned_conversation_response.status_code == 200
+            owned_conversation_payload = owned_conversation_response.json()
+            assert set(owned_conversation_payload) == {
+                "id",
+                "title",
+                "created_at",
+                "updated_at",
+            }
+            assert owned_conversation_payload["id"] == str(conversation_id)
+            assert owned_conversation_payload["title"] == "  API integration  "
+            owned_response_text = owned_conversation_response.text.lower()
+            assert "owner_id" not in owned_response_text
+            assert "next_message_sequence" not in owned_response_text
+            assert "messages" not in owned_response_text
+            assert "credential" not in owned_response_text
+            assert "digest" not in owned_response_text
+
+            foreign_get_response = await client.get(
+                f"/api/v1/conversations/{conversation_id}",
+                headers={
+                    "Authorization": (
+                        f"Bearer {second_user_payload['access_token']}"
+                    )
+                },
+            )
+            missing_get_response = await client.get(
+                f"/api/v1/conversations/{uuid4()}",
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+            expected_not_found = {
+                "code": "HTTP_ERROR",
+                "message": "Conversation not found",
+            }
+            assert foreign_get_response.status_code == 404
+            assert missing_get_response.status_code == 404
+            assert foreign_get_response.json()["error"] == expected_not_found
+            assert missing_get_response.json()["error"] == expected_not_found
+
+            async with AsyncSession(
+                test_database_engine,
+                expire_on_commit=False,
+            ) as verification_session:
+                after_get_conversation = (
+                    await verification_session.execute(
+                        sa.select(
+                            Conversation.owner_id,
+                            Conversation.updated_at,
+                            Conversation.next_message_sequence,
+                        ).where(Conversation.id == conversation_id)
+                    )
+                ).one()
+                after_get_messages = [
+                    tuple(row)
+                    for row in (
+                        await verification_session.execute(
+                            sa.select(
+                                Message.id,
+                                Message.conversation_id,
+                                Message.role,
+                                Message.content,
+                                Message.sequence_number,
+                                Message.created_at,
+                                Message.updated_at,
+                            )
+                            .where(Message.conversation_id == conversation_id)
+                            .order_by(Message.sequence_number)
+                        )
+                    ).all()
+                ]
+
+            assert tuple(after_get_conversation) == tuple(before_get_conversation)
+            assert after_get_messages == before_get_messages
+
             owned_conversation_ids = [
                 UUID(created_payload["id"]),
                 *(UUID(payload["id"]) for payload in additional_owned_payloads),
