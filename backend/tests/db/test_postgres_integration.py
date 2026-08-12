@@ -725,6 +725,47 @@ async def test_authenticated_conversation_creation_uses_current_user_and_sequenc
             assert appended.status_code == 201
             appended_payload = appended.json()
 
+            first_message_page = await client.get(
+                f"/api/v1/conversations/{created_payload['id']}/messages",
+                headers={"Authorization": f"Bearer {access_token}"},
+                params={"limit": 1},
+            )
+            assert first_message_page.status_code == 200
+            first_message_page_payload = first_message_page.json()
+
+            second_message_page = await client.get(
+                f"/api/v1/conversations/{created_payload['id']}/messages",
+                headers={"Authorization": f"Bearer {access_token}"},
+                params={
+                    "limit": 1,
+                    "cursor": first_message_page_payload["next_cursor"],
+                },
+            )
+            assert second_message_page.status_code == 200
+            second_message_page_payload = second_message_page.json()
+
+            async with AsyncSession(
+                test_database_engine,
+                expire_on_commit=False,
+            ) as setup_session:
+                empty_conversation = await ConversationService(
+                    setup_session
+                ).create(user_id, "Empty API conversation")
+
+            empty_message_page = await client.get(
+                f"/api/v1/conversations/{empty_conversation.id}/messages",
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+            assert empty_message_page.status_code == 200
+            empty_message_page_payload = empty_message_page.json()
+
+            missing_message_page = await client.get(
+                f"/api/v1/conversations/{uuid4()}/messages",
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+            assert missing_message_page.status_code == 200
+            missing_message_page_payload = missing_message_page.json()
+
             second_provisioned = await client.post("/api/v1/users")
             assert second_provisioned.status_code == 201
             second_user_payload = second_provisioned.json()
@@ -757,6 +798,17 @@ async def test_authenticated_conversation_creation_uses_current_user_and_sequenc
                 "code": "HTTP_ERROR",
                 "message": "Conversation not found",
             }
+
+            foreign_message_page = await client.get(
+                f"/api/v1/conversations/{created_payload['id']}/messages",
+                headers={
+                    "Authorization": (
+                        f"Bearer {second_user_payload['access_token']}"
+                    )
+                },
+            )
+            assert foreign_message_page.status_code == 200
+            foreign_message_page_payload = foreign_message_page.json()
     finally:
         if previous_factory is missing:
             delattr(app.state, "db_session_factory")
@@ -801,6 +853,19 @@ async def test_authenticated_conversation_creation_uses_current_user_and_sequenc
     assert appended_payload["content"] == "  Exact API follow-up  "
     assert appended_payload["sequence_number"] == 2
 
+    assert [
+        item["sequence_number"] for item in first_message_page_payload["items"]
+    ] == [1]
+    assert first_message_page_payload["next_cursor"] == 1
+    assert [
+        item["sequence_number"] for item in second_message_page_payload["items"]
+    ] == [2]
+    assert second_message_page_payload["next_cursor"] is None
+    uniform_empty_page = {"items": [], "next_cursor": None}
+    assert empty_message_page_payload == uniform_empty_page
+    assert missing_message_page_payload == uniform_empty_page
+    assert foreign_message_page_payload == uniform_empty_page
+
     async with AsyncSession(
         test_database_engine,
         expire_on_commit=False,
@@ -818,6 +883,10 @@ async def test_authenticated_conversation_creation_uses_current_user_and_sequenc
             Message,
             UUID(appended_payload["id"]),
         )
+        stored_empty_conversation = await verification_session.get(
+            Conversation,
+            empty_conversation.id,
+        )
 
         assert stored_user is not None
         assert stored_user.access_token_digest == digest_access_token(access_token)
@@ -825,6 +894,9 @@ async def test_authenticated_conversation_creation_uses_current_user_and_sequenc
         assert stored_conversation is not None
         assert stored_conversation.owner_id == user_id
         assert stored_conversation.next_message_sequence == 3
+        assert stored_empty_conversation is not None
+        assert stored_empty_conversation.owner_id == user_id
+        assert stored_empty_conversation.next_message_sequence == 1
         assert stored_initial_message is not None
         assert stored_initial_message.conversation_id == stored_conversation.id
         assert stored_initial_message.role is MessageRole.USER

@@ -22,3 +22,8 @@ class MessageResponse(BaseModel):
     sequence_number: int
     created_at: datetime
     updated_at: datetime
+
+
+class MessagePageResponse(BaseModel):
+    items: list[MessageResponse]
+    next_cursor: int | None

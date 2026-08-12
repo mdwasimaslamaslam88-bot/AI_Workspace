@@ -1,15 +1,21 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import get_current_user
 from app.db.dependencies import get_db_session
 from app.models.message import MessageRole
 from app.models.user import User
+from app.repositories.message import (
+    DEFAULT_MESSAGE_PAGE_SIZE,
+    MAX_MESSAGE_PAGE_SIZE,
+    MessageCursor,
+    MessagePagination,
+)
 from app.schemas.conversation import ConversationCreate, ConversationCreateResponse
-from app.schemas.message import MessageCreate, MessageResponse
+from app.schemas.message import MessageCreate, MessagePageResponse, MessageResponse
 from app.services.conversation import ConversationService
 from app.services.message import MessageAppendConflictError, MessageService
 
@@ -83,3 +89,35 @@ async def append_message(
         )
 
     return MessageResponse.model_validate(message)
+
+
+@router.get(
+    "/{conversation_id}/messages",
+    response_model=MessagePageResponse,
+)
+async def list_messages(
+    conversation_id: UUID,
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    limit: Annotated[
+        int,
+        Query(ge=1, le=MAX_MESSAGE_PAGE_SIZE),
+    ] = DEFAULT_MESSAGE_PAGE_SIZE,
+    cursor: Annotated[int | None, Query(ge=1)] = None,
+) -> MessagePageResponse:
+    page = await MessageService(session).list_for_owner(
+        current_user.id,
+        conversation_id,
+        MessagePagination(
+            limit=limit,
+            cursor=MessageCursor(cursor) if cursor is not None else None,
+        ),
+    )
+    return MessagePageResponse(
+        items=[MessageResponse.model_validate(message) for message in page.items],
+        next_cursor=(
+            page.next_cursor.sequence_number
+            if page.next_cursor is not None
+            else None
+        ),
+    )

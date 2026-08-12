@@ -30,3 +30,11 @@ always supplies the user role and the database allocates the sequence number;
 clients cannot supply identity, role, conversation, or sequence fields in the
 request body. Missing and foreign-owned conversations receive the same generic
 HTTP 404 response.
+
+`GET /api/v1/conversations/{conversation_id}/messages` returns only messages
+from a conversation owned by the bearer credential's current user, ordered by
+ascending message sequence. `limit` defaults to 50 and is bounded from 1 to
+100. An optional positive integer `cursor` is the last sequence number returned
+by the previous page. The response provides that sequence number as
+`next_cursor` only when another page exists. Empty, missing, and foreign-owned
+conversations all return the same empty page without disclosing ownership.
