@@ -27,3 +27,36 @@ def test_settings_validate_runtime_urls():
 def test_settings_reject_invalid_runtime_urls(field, value):
     with pytest.raises(ValidationError):
         Settings(_env_file=None, **{field: value})
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://localhost:11434",
+        "http://127.0.0.1:11434",
+        "http://127.20.30.40:11434",
+        "http://[::1]:11434",
+    ],
+)
+def test_ollama_runtime_accepts_only_loopback_origins(url):
+    settings = Settings(_env_file=None, OLLAMA_BASE_URL=url)
+
+    assert settings.OLLAMA_BASE_URL is not None
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://0.0.0.0:11434",
+        "http://192.168.1.20:11434",
+        "http://example.com:11434",
+        "http://localhost.example.com:11434",
+        "http://user:secret@localhost:11434",
+        "http://localhost:11434/private/path",
+        "http://localhost:11434?target=external",
+        "http://localhost:11434#fragment",
+    ],
+)
+def test_ollama_runtime_rejects_nonlocal_or_unsafe_origins(url):
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None, OLLAMA_BASE_URL=url)

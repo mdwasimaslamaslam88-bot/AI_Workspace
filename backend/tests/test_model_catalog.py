@@ -1,0 +1,136 @@
+from unittest.mock import AsyncMock, Mock
+
+import pytest
+
+from app.ai.catalog import (
+    ModelAvailability,
+    ModelCapability,
+    ModelCatalog,
+    ModelDescriptor,
+    ModelModality,
+    RuntimeModel,
+)
+
+
+def _runtime(runtime_id: str, models: tuple[RuntimeModel, ...]) -> Mock:
+    runtime = Mock(runtime_id=runtime_id)
+    runtime.discover_models = AsyncMock(return_value=models)
+    return runtime
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"reference": "", "display_name": "Model"},
+        {"reference": "tag", "display_name": "  "},
+        {"reference": "tag", "display_name": "Model", "context_window": 0},
+        {
+            "reference": "tag",
+            "display_name": "Model",
+            "estimated_vram_bytes": True,
+        },
+        {"reference": "tag", "display_name": "Model", "family": ""},
+        {
+            "reference": "internal-tag",
+            "display_name": "/private/runtime/model:7b",
+        },
+        {"reference": "tag", "display_name": "Model", "family": "https://remote"},
+    ],
+)
+def test_runtime_model_descriptor_validation_rejects_invalid_values(kwargs):
+    with pytest.raises((TypeError, ValueError)):
+        RuntimeModel(**kwargs)
+
+
+def test_public_descriptor_requires_matching_runtime_namespace():
+    with pytest.raises(ValueError, match="namespace"):
+        ModelDescriptor(
+            model_id=f"other:{'a' * 24}",
+            display_name="Safe model",
+            runtime_id="local-runtime",
+            modality=ModelModality.TEXT,
+            family=None,
+            parameter_class=None,
+            capabilities=(),
+            context_window=None,
+            quantization=None,
+            estimated_vram_bytes=None,
+            availability=ModelAvailability.UNKNOWN,
+        )
+
+
+@pytest.mark.asyncio
+async def test_catalog_returns_stable_opaque_runtime_namespaced_ids_and_order():
+    raw_reference = "/private/models/secret-model:7b"
+    runtime = _runtime(
+        "local-runtime",
+        (
+            RuntimeModel(reference="z-tag", display_name="zeta"),
+            RuntimeModel(reference=raw_reference, display_name="Alpha"),
+        ),
+    )
+    catalog = ModelCatalog((runtime,))
+
+    first = await catalog.list_models()
+    second = await catalog.list_models()
+
+    assert [model.display_name for model in first] == ["Alpha", "zeta"]
+    assert [model.model_id for model in first] == [
+        model.model_id for model in second
+    ]
+    assert all(model.model_id.startswith("local-runtime:") for model in first)
+    assert all(len(model.model_id.split(":", 1)[1]) == 24 for model in first)
+    assert raw_reference not in repr(first)
+
+
+@pytest.mark.asyncio
+async def test_catalog_normalizes_capabilities_and_preserves_unknown_metadata():
+    runtime = _runtime(
+        "local-runtime",
+        (
+            RuntimeModel(
+                reference="model-tag",
+                display_name="Model",
+                capabilities=(
+                    "CHAT",
+                    "text-generation",
+                    "chat",
+                    "future-unknown-capability",
+                ),
+            ),
+        ),
+    )
+
+    (model,) = await ModelCatalog((runtime,)).list_models()
+
+    assert model.capabilities == (
+        ModelCapability.CHAT,
+        ModelCapability.TEXT_GENERATION,
+    )
+    assert model.family is None
+    assert model.parameter_class is None
+    assert model.context_window is None
+    assert model.quantization is None
+    assert model.estimated_vram_bytes is None
+
+
+@pytest.mark.asyncio
+async def test_unconfigured_catalog_is_an_empty_safe_inventory():
+    assert await ModelCatalog().list_models() == ()
+
+
+def test_catalog_rejects_duplicate_runtime_ids():
+    first = _runtime("duplicate", ())
+    second = _runtime("duplicate", ())
+
+    with pytest.raises(ValueError, match="duplicate runtime_id"):
+        ModelCatalog((first, second))
+
+
+@pytest.mark.asyncio
+async def test_catalog_rejects_duplicate_public_model_ids():
+    duplicate = RuntimeModel(reference="same-tag", display_name="Same")
+    catalog = ModelCatalog((_runtime("local-runtime", (duplicate, duplicate)),))
+
+    with pytest.raises(ValueError, match="duplicate public model_id"):
+        await catalog.list_models()

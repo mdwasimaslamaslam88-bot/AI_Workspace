@@ -1,11 +1,16 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
+
+from app.ai.catalog import ModelCatalog
 from app.clients.ollama import close_ollama, create_ollama_client
 from app.clients.postgres import create_postgres_engine, dispose_postgres
 from app.clients.redis import close_redis, create_redis_client
 from app.core.config import settings
 from app.db.session import create_session_factory
+from app.runtimes.ollama import OllamaModelDiscoveryRuntime
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
@@ -16,6 +21,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.db_session_factory = create_session_factory(postgres_engine)
     app.state.redis_client = redis_client
     app.state.ollama_client = ollama_client
+    app.state.model_catalog = ModelCatalog(
+        (OllamaModelDiscoveryRuntime(ollama_client),)
+        if ollama_client is not None
+        else ()
+    )
     try:
         yield
     finally:

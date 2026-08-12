@@ -10,6 +10,7 @@ from sqlalchemy.dialects.postgresql import UUID as PostgreSQLUUID
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
+from app.ai.catalog import ModelCatalog, RuntimeModel
 from app.core.security import digest_access_token, generate_access_token
 from app.main import app
 from app.models import Conversation, Message, MessageRole, User
@@ -1626,3 +1627,154 @@ async def test_authenticated_conversation_creation_uses_current_user_and_sequenc
         assert [
             conversation.id for conversation in second_owner_conversations.items
         ] == [UUID(foreign_conversation_payload["id"])]
+
+
+@pytest.mark.asyncio
+async def test_authenticated_local_model_listing_is_database_read_only(
+    test_database_engine: AsyncEngine,
+):
+    class FakeLocalRuntime:
+        runtime_id = "integration-local"
+
+        def __init__(self) -> None:
+            self.discovery_calls = 0
+
+        async def discover_models(self) -> tuple[RuntimeModel, ...]:
+            self.discovery_calls += 1
+            return (
+                RuntimeModel(
+                    reference="/private/runtime/model:32b",
+                    display_name="Integration 32B",
+                    family="IntegrationFamily",
+                    parameter_class="32B",
+                    capabilities=("chat", "text-generation"),
+                ),
+            )
+
+    def normalized_schema(value):
+        if isinstance(value, dict):
+            return tuple(
+                sorted(
+                    (str(key), normalized_schema(item))
+                    for key, item in value.items()
+                )
+            )
+        if isinstance(value, (list, tuple, set)):
+            return tuple(sorted(repr(normalized_schema(item)) for item in value))
+        if value is None or isinstance(value, (bool, int, float, str)):
+            return value
+        return str(value)
+
+    async def database_state() -> tuple:
+        async with AsyncSession(test_database_engine) as session:
+            users = (
+                await session.execute(
+                    sa.select(
+                        User.id,
+                        User.access_token_digest,
+                        User.created_at,
+                        User.updated_at,
+                    ).order_by(User.id)
+                )
+            ).all()
+            conversations = (
+                await session.execute(
+                    sa.select(
+                        Conversation.id,
+                        Conversation.owner_id,
+                        Conversation.title,
+                        Conversation.next_message_sequence,
+                        Conversation.created_at,
+                        Conversation.updated_at,
+                    ).order_by(Conversation.id)
+                )
+            ).all()
+            messages = (
+                await session.execute(
+                    sa.select(
+                        Message.id,
+                        Message.conversation_id,
+                        Message.role,
+                        Message.content,
+                        Message.sequence_number,
+                        Message.created_at,
+                        Message.updated_at,
+                    ).order_by(Message.id)
+                )
+            ).all()
+        return (
+            tuple(tuple(row) for row in users),
+            tuple(tuple(row) for row in conversations),
+            tuple(tuple(row) for row in messages),
+        )
+
+    session_factory = async_sessionmaker(
+        test_database_engine,
+        class_=AsyncSession,
+        expire_on_commit=False,
+    )
+    runtime = FakeLocalRuntime()
+    catalog = ModelCatalog((runtime,))
+    missing = object()
+    previous_factory = getattr(app.state, "db_session_factory", missing)
+    previous_catalog = getattr(app.state, "model_catalog", missing)
+    app.state.db_session_factory = session_factory
+    app.state.model_catalog = catalog
+
+    try:
+        transport = ASGITransport(app=app)
+        async with AsyncClient(
+            transport=transport,
+            base_url="http://testserver",
+        ) as client:
+            provisioned = await client.post("/api/v1/users")
+            assert provisioned.status_code == 201
+            access_token = provisioned.json()["access_token"]
+
+            schema_before = normalized_schema(
+                await _schema_snapshot(test_database_engine)
+            )
+            state_before = await database_state()
+
+            unauthenticated = await client.get("/api/v1/ai/models")
+            assert unauthenticated.status_code == 401
+            assert runtime.discovery_calls == 0
+
+            authenticated = await client.get(
+                "/api/v1/ai/models",
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+            assert authenticated.status_code == 200
+            payload = authenticated.json()
+            assert len(payload["items"]) == 1
+            model = payload["items"][0]
+            assert model == {
+                "model_id": model["model_id"],
+                "display_name": "Integration 32B",
+                "runtime_id": "integration-local",
+                "modality": "text",
+                "family": "IntegrationFamily",
+                "parameter_class": "32B",
+                "capabilities": ["chat", "text_generation"],
+                "context_window": None,
+                "quantization": None,
+                "estimated_vram_bytes": None,
+                "availability": "available",
+            }
+            assert model["model_id"].startswith("integration-local:")
+            assert "/private/runtime/model:32b" not in authenticated.text
+            assert runtime.discovery_calls == 1
+
+            assert await database_state() == state_before
+            assert normalized_schema(
+                await _schema_snapshot(test_database_engine)
+            ) == schema_before
+    finally:
+        if previous_factory is missing:
+            delattr(app.state, "db_session_factory")
+        else:
+            app.state.db_session_factory = previous_factory
+        if previous_catalog is missing:
+            delattr(app.state, "model_catalog")
+        else:
+            app.state.model_catalog = previous_catalog
