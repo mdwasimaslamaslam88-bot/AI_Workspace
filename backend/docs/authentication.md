@@ -45,6 +45,12 @@ and trailing whitespace is preserved. Undeclared fields are rejected, and
 missing and foreign-owned conversations receive the same generic HTTP 404
 response.
 
+`DELETE /api/v1/conversations/{conversation_id}` deletes a conversation owned
+by the bearer credential's current user and returns HTTP 204 with an empty
+response body. Associated messages are removed by the existing database
+cascade. Missing and foreign-owned conversations receive the same generic HTTP
+404 response.
+
 `POST /api/v1/conversations/{conversation_id}/messages` appends a user message
 only when the bearer credential's current user owns the conversation. The API
 always supplies the user role and the database allocates the sequence number;

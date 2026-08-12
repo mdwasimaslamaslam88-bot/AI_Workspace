@@ -1241,6 +1241,206 @@ async def test_authenticated_conversation_creation_uses_current_user_and_sequenc
             )
             assert empty_conversation_page.status_code == 200
             empty_conversation_page_payload = empty_conversation_page.json()
+
+
+            deletion_target = await client.post(
+                "/api/v1/conversations",
+                headers={"Authorization": f"Bearer {access_token}"},
+                json={
+                    "title": "Deletion target",
+                    "initial_message": "Deletion target initial message",
+                },
+            )
+            assert deletion_target.status_code == 201
+            deletion_target_payload = deletion_target.json()
+            deletion_target_id = UUID(deletion_target_payload["id"])
+
+            deletion_target_append = await client.post(
+                f"/api/v1/conversations/{deletion_target_id}/messages",
+                headers={"Authorization": f"Bearer {access_token}"},
+                json={"content": "Deletion target follow-up message"},
+            )
+            assert deletion_target_append.status_code == 201
+            deletion_target_append_payload = deletion_target_append.json()
+
+            deletion_snapshot_ids = [
+                *owned_conversation_ids,
+                foreign_conversation_id,
+                deletion_target_id,
+            ]
+
+            async def deletion_state():
+                async with AsyncSession(
+                    test_database_engine,
+                    expire_on_commit=False,
+                ) as verification_session:
+                    owner_user = tuple(
+                        (
+                            await verification_session.execute(
+                                sa.select(
+                                    User.id,
+                                    User.access_token_digest,
+                                    User.created_at,
+                                    User.updated_at,
+                                ).where(User.id == user_id)
+                            )
+                        ).one()
+                    )
+                    conversation_rows = (
+                        await verification_session.execute(
+                            sa.select(
+                                Conversation.id,
+                                Conversation.owner_id,
+                                Conversation.title,
+                                Conversation.next_message_sequence,
+                                Conversation.created_at,
+                                Conversation.updated_at,
+                            )
+                            .where(
+                                Conversation.id.in_(deletion_snapshot_ids)
+                            )
+                            .order_by(Conversation.id)
+                        )
+                    ).all()
+                    message_rows = (
+                        await verification_session.execute(
+                            sa.select(
+                                Message.id,
+                                Message.conversation_id,
+                                Message.role,
+                                Message.content,
+                                Message.sequence_number,
+                                Message.created_at,
+                                Message.updated_at,
+                            )
+                            .where(
+                                Message.conversation_id.in_(
+                                    deletion_snapshot_ids
+                                )
+                            )
+                            .order_by(
+                                Message.conversation_id,
+                                Message.sequence_number,
+                            )
+                        )
+                    ).all()
+                return (
+                    owner_user,
+                    {
+                        row.id: tuple(row)
+                        for row in conversation_rows
+                    },
+                    [tuple(row) for row in message_rows],
+                )
+
+            state_before_delete = await deletion_state()
+            target_before_delete = state_before_delete[1][deletion_target_id]
+            target_messages_before_delete = [
+                row
+                for row in state_before_delete[2]
+                if row[1] == deletion_target_id
+            ]
+            assert target_before_delete[1] == user_id
+            assert target_before_delete[3] == 3
+            assert [
+                row[4] for row in target_messages_before_delete
+            ] == [1, 2]
+            assert {
+                row[0] for row in target_messages_before_delete
+            } == {
+                UUID(deletion_target_payload["initial_message"]["id"]),
+                UUID(deletion_target_append_payload["id"]),
+            }
+
+            foreign_delete = await client.delete(
+                f"/api/v1/conversations/{deletion_target_id}",
+                headers={
+                    "Authorization": (
+                        f"Bearer {second_user_payload['access_token']}"
+                    )
+                },
+            )
+            missing_delete = await client.delete(
+                f"/api/v1/conversations/{uuid4()}",
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+            expected_delete_not_found = {
+                "code": "HTTP_ERROR",
+                "message": "Conversation not found",
+            }
+            assert foreign_delete.status_code == 404
+            assert missing_delete.status_code == 404
+            assert foreign_delete.json()["error"] == expected_delete_not_found
+            assert missing_delete.json()["error"] == expected_delete_not_found
+            assert await deletion_state() == state_before_delete
+
+            owner_delete = await client.delete(
+                f"/api/v1/conversations/{deletion_target_id}",
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+            assert owner_delete.status_code == 204
+            assert owner_delete.content == b""
+
+            deleted_get = await client.get(
+                f"/api/v1/conversations/{deletion_target_id}",
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+            assert deleted_get.status_code == 404
+            assert deleted_get.json()["error"] == expected_delete_not_found
+
+            deleted_message_history = await client.get(
+                f"/api/v1/conversations/{deletion_target_id}/messages",
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+            assert deleted_message_history.status_code == 200
+            assert deleted_message_history.json() == {
+                "items": [],
+                "next_cursor": None,
+            }
+
+            listing_after_delete = await client.get(
+                "/api/v1/conversations",
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+            assert listing_after_delete.status_code == 200
+            assert deletion_target_id not in {
+                UUID(item["id"])
+                for item in listing_after_delete.json()["items"]
+            }
+
+            existing_get_after_delete = await client.get(
+                f"/api/v1/conversations/{conversation_id}",
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+            assert existing_get_after_delete.status_code == 200
+            assert existing_get_after_delete.json()["title"] == rename_title
+
+            existing_message_history_after_delete = await client.get(
+                f"/api/v1/conversations/{conversation_id}/messages",
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+            assert existing_message_history_after_delete.status_code == 200
+            assert [
+                item["sequence_number"]
+                for item in existing_message_history_after_delete.json()["items"]
+            ] == [1, 2]
+
+            state_after_delete = await deletion_state()
+            assert state_after_delete[0] == state_before_delete[0]
+            assert deletion_target_id not in state_after_delete[1]
+            assert {
+                conversation_id: row
+                for conversation_id, row in state_after_delete[1].items()
+            } == {
+                conversation_id: row
+                for conversation_id, row in state_before_delete[1].items()
+                if conversation_id != deletion_target_id
+            }
+            assert state_after_delete[2] == [
+                row
+                for row in state_before_delete[2]
+                if row[1] != deletion_target_id
+            ]
     finally:
         if previous_factory is missing:
             delattr(app.state, "db_session_factory")

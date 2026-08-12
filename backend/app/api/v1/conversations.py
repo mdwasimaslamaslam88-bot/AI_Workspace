@@ -155,6 +155,26 @@ async def rename_conversation(
     return ConversationSummaryResponse.model_validate(conversation)
 
 
+@router.delete(
+    "/{conversation_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_conversation(
+    conversation_id: UUID,
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> None:
+    deleted = await ConversationService(session).delete_for_owner(
+        current_user.id,
+        conversation_id,
+    )
+    if not deleted:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Conversation not found",
+        )
+
+
 @router.post(
     "/{conversation_id}/messages",
     response_model=MessageResponse,

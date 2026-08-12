@@ -66,11 +66,13 @@ def conversation_api(monkeypatch):
     create = AsyncMock(return_value=(conversation, initial_message))
     get_conversation = AsyncMock(return_value=conversation)
     rename_conversation = AsyncMock(return_value=conversation)
+    delete_conversation = AsyncMock(return_value=True)
     list_conversations = AsyncMock(
         return_value=ConversationPage(items=(conversation,), next_cursor=None)
     )
     service = Mock(
         create_with_initial_message_for_owner=create,
+        delete_for_owner=delete_conversation,
         get_for_owner=get_conversation,
         list_for_owner=list_conversations,
         rename_for_owner=rename_conversation,
@@ -118,6 +120,7 @@ def conversation_api(monkeypatch):
                 "appended_message": appended_message,
                 "service_factory": service_factory,
                 "create": create,
+                "delete_conversation": delete_conversation,
                 "get_conversation": get_conversation,
                 "rename_conversation": rename_conversation,
                 "list_conversations": list_conversations,
@@ -939,6 +942,173 @@ def test_rename_conversation_failure_uses_existing_generic_500(conversation_api)
     api["message_service_factory"].assert_not_called()
 
 
+def test_delete_conversation_returns_exact_empty_204_for_owner(conversation_api):
+    api = conversation_api
+
+    response = api["client"].delete(
+        f"/api/v1/conversations/{api['conversation'].id}"
+    )
+
+    assert response.status_code == 204
+    assert response.content == b""
+    api["service_factory"].assert_called_once_with(api["session"])
+    api["delete_conversation"].assert_awaited_once_with(
+        api["current_user"].id,
+        api["conversation"].id,
+    )
+    api["message_service_factory"].assert_not_called()
+    api["session"].refresh.assert_not_awaited()
+    api["session"].commit.assert_not_awaited()
+    api["session"].rollback.assert_not_awaited()
+
+
+@pytest.mark.parametrize("identity_field", ["owner_id", "user_id"])
+def test_delete_conversation_client_identity_cannot_replace_current_user(
+    conversation_api,
+    identity_field,
+):
+    api = conversation_api
+    client_identity = uuid4()
+
+    response = api["client"].delete(
+        f"/api/v1/conversations/{api['conversation'].id}",
+        params={identity_field: str(client_identity)},
+    )
+
+    assert response.status_code == 204
+    assert response.content == b""
+    api["delete_conversation"].assert_awaited_once_with(
+        api["current_user"].id,
+        api["conversation"].id,
+    )
+    assert api["delete_conversation"].await_args.args[0] != client_identity
+
+
+def test_delete_conversation_missing_and_foreign_use_identical_generic_404(
+    conversation_api,
+):
+    api = conversation_api
+    missing_id = uuid4()
+    foreign_id = uuid4()
+    api["delete_conversation"].side_effect = [False, False]
+
+    missing_response = api["client"].delete(
+        f"/api/v1/conversations/{missing_id}"
+    )
+    foreign_response = api["client"].delete(
+        f"/api/v1/conversations/{foreign_id}"
+    )
+
+    expected_error = {
+        "code": "HTTP_ERROR",
+        "message": "Conversation not found",
+    }
+    assert missing_response.status_code == foreign_response.status_code == 404
+    assert missing_response.json()["error"] == expected_error
+    assert foreign_response.json()["error"] == expected_error
+    for response in (missing_response, foreign_response):
+        error_text = str(response.json()["error"]).lower()
+        assert str(api["current_user"].id) not in error_text
+        assert str(api["conversation"].id) not in error_text
+        assert api["conversation"].title.strip().lower() not in error_text
+        assert "owner" not in error_text
+        assert "persistence" not in error_text
+    assert [call.args for call in api["delete_conversation"].await_args_list] == [
+        (api["current_user"].id, missing_id),
+        (api["current_user"].id, foreign_id),
+    ]
+    api["message_service_factory"].assert_not_called()
+
+
+def test_delete_conversation_rejects_malformed_uuid_before_service(
+    conversation_api,
+):
+    api = conversation_api
+
+    response = api["client"].delete("/api/v1/conversations/not-a-uuid")
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+    api["service_factory"].assert_not_called()
+    api["delete_conversation"].assert_not_awaited()
+    api["message_service_factory"].assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "authorization",
+    [None, "Bearer short", f"Bearer {'U' * 43}"],
+)
+def test_delete_conversation_requires_existing_uniform_bearer_authentication(
+    monkeypatch,
+    authorization,
+):
+    session = AsyncMock(spec=AsyncSession)
+    get_by_digest = AsyncMock(return_value=None)
+    authentication_service = Mock(get_by_access_token_digest=get_by_digest)
+    authentication_service_factory = Mock(return_value=authentication_service)
+    conversation_service_factory = Mock()
+    monkeypatch.setattr(
+        authentication_module,
+        "UserService",
+        authentication_service_factory,
+    )
+    monkeypatch.setattr(
+        conversations_module,
+        "ConversationService",
+        conversation_service_factory,
+    )
+
+    async def override_db_session():
+        yield session
+
+    app.dependency_overrides[get_db_session] = override_db_session
+    headers = {} if authorization is None else {"Authorization": authorization}
+    try:
+        with TestClient(app, raise_server_exceptions=False) as client:
+            response = client.delete(
+                f"/api/v1/conversations/{uuid4()}",
+                headers=headers,
+            )
+    finally:
+        app.dependency_overrides.pop(get_db_session, None)
+
+    assert response.status_code == 401
+    assert response.headers["WWW-Authenticate"] == "Bearer"
+    assert response.json()["error"] == {
+        "code": "HTTP_ERROR",
+        "message": "Invalid authentication credentials",
+    }
+    if authorization is not None:
+        assert authorization not in response.text
+    conversation_service_factory.assert_not_called()
+    session.commit.assert_not_awaited()
+    if authorization == f"Bearer {'U' * 43}":
+        authentication_service_factory.assert_called_once_with(session)
+        get_by_digest.assert_awaited_once_with(digest_access_token("U" * 43))
+    else:
+        authentication_service_factory.assert_not_called()
+        get_by_digest.assert_not_awaited()
+
+
+def test_delete_conversation_failure_uses_existing_generic_500(conversation_api):
+    api = conversation_api
+    api["delete_conversation"].side_effect = RuntimeError(
+        "sensitive persistence detail"
+    )
+
+    response = api["client"].delete(
+        f"/api/v1/conversations/{api['conversation'].id}"
+    )
+
+    assert response.status_code == 500
+    assert response.json()["error"] == {
+        "code": "INTERNAL_SERVER_ERROR",
+        "message": "An unexpected error occurred.",
+    }
+    assert "sensitive persistence detail" not in response.text
+    api["message_service_factory"].assert_not_called()
+
+
 def test_create_conversation_returns_201_with_exact_safe_response(conversation_api):
     api = conversation_api
 
@@ -1662,7 +1832,7 @@ def test_list_messages_requires_existing_uniform_bearer_authentication(
         get_by_digest.assert_not_awaited()
 
 
-def test_only_patch_by_id_route_was_added(conversation_api):
+def test_only_delete_by_id_route_was_added(conversation_api):
     api = conversation_api
     client = api["client"]
     conversation_id = api["conversation"].id
@@ -1690,7 +1860,7 @@ def test_only_patch_by_id_route_was_added(conversation_api):
         if getattr(route, "path", None) == "/conversations/{conversation_id}"
         for method in getattr(route, "methods", ())
     }
-    assert route_methods == {"GET", "PATCH"}
+    assert route_methods == {"DELETE", "GET", "PATCH"}
     assert client.patch(
         f"/api/v1/conversations/{conversation_id}",
         json={"title": "Allowed rename"},
@@ -1699,8 +1869,10 @@ def test_only_patch_by_id_route_was_added(conversation_api):
         f"/api/v1/conversations/{conversation_id}",
         json={"title": "Must not update"},
     ).status_code == 405
-    assert client.delete(
+    delete_response = client.delete(
         f"/api/v1/conversations/{conversation_id}"
-    ).status_code == 405
+    )
+    assert delete_response.status_code == 204
+    assert delete_response.content == b""
     assert client.get("/api/v1/messages").status_code == 404
     assert client.post("/api/v1/messages", json={}).status_code == 404
