@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime, timezone
 import re
 from uuid import UUID, uuid4
 
@@ -725,6 +726,19 @@ async def test_authenticated_conversation_creation_uses_current_user_and_sequenc
             assert appended.status_code == 201
             appended_payload = appended.json()
 
+            additional_owned_payloads = []
+            for position in range(2):
+                additional_owned = await client.post(
+                    "/api/v1/conversations",
+                    headers={"Authorization": f"Bearer {access_token}"},
+                    json={
+                        "title": f"Owned API conversation {position}",
+                        "initial_message": f"Owned initial message {position}",
+                    },
+                )
+                assert additional_owned.status_code == 201
+                additional_owned_payloads.append(additional_owned.json())
+
             first_message_page = await client.get(
                 f"/api/v1/conversations/{created_payload['id']}/messages",
                 headers={"Authorization": f"Bearer {access_token}"},
@@ -769,6 +783,24 @@ async def test_authenticated_conversation_creation_uses_current_user_and_sequenc
             second_provisioned = await client.post("/api/v1/users")
             assert second_provisioned.status_code == 201
             second_user_payload = second_provisioned.json()
+            foreign_conversation = await client.post(
+                "/api/v1/conversations",
+                headers={
+                    "Authorization": (
+                        f"Bearer {second_user_payload['access_token']}"
+                    )
+                },
+                json={
+                    "title": "Foreign API conversation",
+                    "initial_message": "Foreign initial message",
+                },
+            )
+            assert foreign_conversation.status_code == 201
+            foreign_conversation_payload = foreign_conversation.json()
+
+            empty_user = await client.post("/api/v1/users")
+            assert empty_user.status_code == 201
+            empty_user_payload = empty_user.json()
             spoofed_owner = await client.post(
                 "/api/v1/conversations",
                 headers={
@@ -809,6 +841,95 @@ async def test_authenticated_conversation_creation_uses_current_user_and_sequenc
             )
             assert foreign_message_page.status_code == 200
             foreign_message_page_payload = foreign_message_page.json()
+
+            owned_conversation_ids = [
+                UUID(created_payload["id"]),
+                *(UUID(payload["id"]) for payload in additional_owned_payloads),
+                empty_conversation.id,
+            ]
+            newer_ids = owned_conversation_ids[:2]
+            older_ids = owned_conversation_ids[2:]
+            newer_timestamp = datetime(2026, 8, 12, 12, 0, tzinfo=timezone.utc)
+            older_timestamp = datetime(2026, 8, 11, 12, 0, tzinfo=timezone.utc)
+            async with AsyncSession(
+                test_database_engine,
+                expire_on_commit=False,
+            ) as setup_session:
+                await setup_session.execute(
+                    sa.update(Conversation)
+                    .where(Conversation.id.in_(newer_ids))
+                    .values(updated_at=newer_timestamp)
+                )
+                await setup_session.execute(
+                    sa.update(Conversation)
+                    .where(Conversation.id.in_(older_ids))
+                    .values(updated_at=older_timestamp)
+                )
+                await setup_session.commit()
+                before_listing_rows = (
+                    await setup_session.execute(
+                        sa.select(
+                            Conversation.id,
+                            Conversation.owner_id,
+                            Conversation.updated_at,
+                            Conversation.next_message_sequence,
+                        ).where(Conversation.id.in_(owned_conversation_ids))
+                    )
+                ).all()
+                before_listing = {
+                    row.id: (
+                        row.owner_id,
+                        row.updated_at,
+                        row.next_message_sequence,
+                    )
+                    for row in before_listing_rows
+                }
+
+            first_conversation_page = await client.get(
+                "/api/v1/conversations",
+                headers={"Authorization": f"Bearer {access_token}"},
+                params={"limit": 2},
+            )
+            assert first_conversation_page.status_code == 200
+            first_conversation_page_payload = first_conversation_page.json()
+            returned_conversation_cursor = first_conversation_page_payload[
+                "next_cursor"
+            ]
+            assert returned_conversation_cursor is not None
+
+            second_conversation_page = await client.get(
+                "/api/v1/conversations",
+                headers={"Authorization": f"Bearer {access_token}"},
+                params={
+                    "limit": 2,
+                    "cursor_updated_at": returned_conversation_cursor[
+                        "updated_at"
+                    ],
+                    "cursor_id": returned_conversation_cursor["id"],
+                },
+            )
+            assert second_conversation_page.status_code == 200
+            second_conversation_page_payload = second_conversation_page.json()
+
+            foreign_conversation_page = await client.get(
+                "/api/v1/conversations",
+                headers={
+                    "Authorization": (
+                        f"Bearer {second_user_payload['access_token']}"
+                    )
+                },
+            )
+            assert foreign_conversation_page.status_code == 200
+            foreign_conversation_page_payload = foreign_conversation_page.json()
+
+            empty_conversation_page = await client.get(
+                "/api/v1/conversations",
+                headers={
+                    "Authorization": f"Bearer {empty_user_payload['access_token']}"
+                },
+            )
+            assert empty_conversation_page.status_code == 200
+            empty_conversation_page_payload = empty_conversation_page.json()
     finally:
         if previous_factory is missing:
             delattr(app.state, "db_session_factory")
@@ -866,6 +987,44 @@ async def test_authenticated_conversation_creation_uses_current_user_and_sequenc
     assert missing_message_page_payload == uniform_empty_page
     assert foreign_message_page_payload == uniform_empty_page
 
+    first_conversation_items = first_conversation_page_payload["items"]
+    second_conversation_items = second_conversation_page_payload["items"]
+    listed_conversation_items = first_conversation_items + second_conversation_items
+    listed_conversation_ids = [
+        UUID(item["id"]) for item in listed_conversation_items
+    ]
+    expected_conversation_ids = sorted(
+        newer_ids,
+        key=lambda value: value.int,
+        reverse=True,
+    ) + sorted(
+        older_ids,
+        key=lambda value: value.int,
+        reverse=True,
+    )
+    assert listed_conversation_ids == expected_conversation_ids
+    assert len(set(listed_conversation_ids)) == len(listed_conversation_ids)
+    listed_ordering_keys = [
+        (
+            datetime.fromisoformat(item["updated_at"].replace("Z", "+00:00")),
+            UUID(item["id"]).int,
+        )
+        for item in listed_conversation_items
+    ]
+    assert listed_ordering_keys == sorted(listed_ordering_keys, reverse=True)
+    assert first_conversation_page_payload["next_cursor"] == {
+        "updated_at": first_conversation_items[-1]["updated_at"],
+        "id": first_conversation_items[-1]["id"],
+    }
+    assert second_conversation_page_payload["next_cursor"] is None
+    assert [
+        UUID(item["id"]) for item in foreign_conversation_page_payload["items"]
+    ] == [UUID(foreign_conversation_payload["id"])]
+    assert foreign_conversation_page_payload["next_cursor"] is None
+    assert empty_conversation_page_payload == uniform_empty_page
+    for item in listed_conversation_items:
+        assert set(item) == {"id", "title", "created_at", "updated_at"}
+
     async with AsyncSession(
         test_database_engine,
         expire_on_commit=False,
@@ -887,6 +1046,24 @@ async def test_authenticated_conversation_creation_uses_current_user_and_sequenc
             Conversation,
             empty_conversation.id,
         )
+        after_listing_rows = (
+            await verification_session.execute(
+                sa.select(
+                    Conversation.id,
+                    Conversation.owner_id,
+                    Conversation.updated_at,
+                    Conversation.next_message_sequence,
+                ).where(Conversation.id.in_(owned_conversation_ids))
+            )
+        ).all()
+        after_listing = {
+            row.id: (
+                row.owner_id,
+                row.updated_at,
+                row.next_message_sequence,
+            )
+            for row in after_listing_rows
+        }
 
         assert stored_user is not None
         assert stored_user.access_token_digest == digest_access_token(access_token)
@@ -897,6 +1074,7 @@ async def test_authenticated_conversation_creation_uses_current_user_and_sequenc
         assert stored_empty_conversation is not None
         assert stored_empty_conversation.owner_id == user_id
         assert stored_empty_conversation.next_message_sequence == 1
+        assert after_listing == before_listing
         assert stored_initial_message is not None
         assert stored_initial_message.conversation_id == stored_conversation.id
         assert stored_initial_message.role is MessageRole.USER
@@ -927,4 +1105,6 @@ async def test_authenticated_conversation_creation_uses_current_user_and_sequenc
         second_owner_conversations = await ConversationService(
             verification_session
         ).list_for_owner(UUID(second_user_payload["id"]))
-        assert second_owner_conversations.items == ()
+        assert [
+            conversation.id for conversation in second_owner_conversations.items
+        ] == [UUID(foreign_conversation_payload["id"])]

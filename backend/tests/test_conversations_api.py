@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, Mock
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from fastapi.testclient import TestClient
@@ -13,6 +13,13 @@ from app.core.security import digest_access_token
 from app.db.dependencies import get_db_session
 from app.main import app
 from app.models import Conversation, Message, MessageRole, User
+from app.repositories.conversation import (
+    DEFAULT_CONVERSATION_PAGE_SIZE,
+    MAX_CONVERSATION_PAGE_SIZE,
+    ConversationCursor,
+    ConversationPage,
+    ConversationPagination,
+)
 from app.repositories.message import (
     DEFAULT_MESSAGE_PAGE_SIZE,
     MAX_MESSAGE_PAGE_SIZE,
@@ -57,7 +64,13 @@ def conversation_api(monkeypatch):
         updated_at=datetime(2026, 8, 11, 9, 3, tzinfo=timezone.utc),
     )
     create = AsyncMock(return_value=(conversation, initial_message))
-    service = Mock(create_with_initial_message_for_owner=create)
+    list_conversations = AsyncMock(
+        return_value=ConversationPage(items=(conversation,), next_cursor=None)
+    )
+    service = Mock(
+        create_with_initial_message_for_owner=create,
+        list_for_owner=list_conversations,
+    )
     service_factory = Mock(return_value=service)
     monkeypatch.setattr(
         conversations_module,
@@ -101,6 +114,7 @@ def conversation_api(monkeypatch):
                 "appended_message": appended_message,
                 "service_factory": service_factory,
                 "create": create,
+                "list_conversations": list_conversations,
                 "message_service_factory": message_service_factory,
                 "append": append,
                 "list_messages": list_messages,
@@ -108,6 +122,348 @@ def conversation_api(monkeypatch):
     finally:
         app.dependency_overrides.pop(get_current_user, None)
         app.dependency_overrides.pop(get_db_session, None)
+
+
+def test_list_conversations_returns_200_with_exact_safe_default_page(
+    conversation_api,
+):
+    api = conversation_api
+
+    response = api["client"].get("/api/v1/conversations")
+
+    conversation = api["conversation"]
+    assert response.status_code == 200
+    assert response.json() == {
+        "items": [
+            {
+                "id": str(conversation.id),
+                "title": "  Exact title  ",
+                "created_at": "2026-08-11T09:00:00Z",
+                "updated_at": "2026-08-11T09:01:00Z",
+            }
+        ],
+        "next_cursor": None,
+    }
+    response_text = response.text.lower()
+    assert "owner_id" not in response_text
+    assert "next_message_sequence" not in response_text
+    assert "messages" not in response_text
+    assert "credential" not in response_text
+    assert "digest" not in response_text
+    api["service_factory"].assert_called_once_with(api["session"])
+    api["list_conversations"].assert_awaited_once_with(
+        api["current_user"].id,
+        ConversationPagination(limit=DEFAULT_CONVERSATION_PAGE_SIZE),
+    )
+    api["message_service_factory"].assert_not_called()
+    api["session"].commit.assert_not_awaited()
+    api["session"].rollback.assert_not_awaited()
+
+
+def test_list_conversations_reuses_composite_cursor_without_duplicates(
+    conversation_api,
+):
+    api = conversation_api
+    newer = Conversation(
+        id=UUID("ffffffff-ffff-ffff-ffff-ffffffffffff"),
+        owner_id=api["current_user"].id,
+        title="Newer",
+        created_at=datetime(2026, 8, 11, 9, 0, tzinfo=timezone.utc),
+        updated_at=datetime(2026, 8, 11, 10, 0, tzinfo=timezone.utc),
+    )
+    older = Conversation(
+        id=UUID("11111111-1111-1111-1111-111111111111"),
+        owner_id=api["current_user"].id,
+        title="Older",
+        created_at=datetime(2026, 8, 10, 9, 0, tzinfo=timezone.utc),
+        updated_at=datetime(2026, 8, 10, 10, 0, tzinfo=timezone.utc),
+    )
+    cursor = ConversationCursor(updated_at=newer.updated_at, id=newer.id)
+    api["list_conversations"].side_effect = [
+        ConversationPage(items=(newer,), next_cursor=cursor),
+        ConversationPage(items=(older,), next_cursor=None),
+    ]
+
+    first_response = api["client"].get(
+        "/api/v1/conversations",
+        params={"limit": 1},
+    )
+    first_payload = first_response.json()
+    second_response = api["client"].get(
+        "/api/v1/conversations",
+        params={
+            "limit": 1,
+            "cursor_updated_at": first_payload["next_cursor"]["updated_at"],
+            "cursor_id": first_payload["next_cursor"]["id"],
+        },
+    )
+    second_payload = second_response.json()
+
+    assert first_response.status_code == 200
+    assert second_response.status_code == 200
+    assert first_payload["next_cursor"] == {
+        "updated_at": "2026-08-11T10:00:00Z",
+        "id": str(newer.id),
+    }
+    assert second_payload["next_cursor"] is None
+    first_ids = {item["id"] for item in first_payload["items"]}
+    second_ids = {item["id"] for item in second_payload["items"]}
+    assert first_ids == {str(newer.id)}
+    assert second_ids == {str(older.id)}
+    assert first_ids.isdisjoint(second_ids)
+    assert api["list_conversations"].await_args_list[0].args == (
+        api["current_user"].id,
+        ConversationPagination(limit=1),
+    )
+    assert api["list_conversations"].await_args_list[1].args == (
+        api["current_user"].id,
+        ConversationPagination(limit=1, cursor=cursor),
+    )
+
+
+def test_list_conversations_preserves_equal_timestamp_uuid_descending_order(
+    conversation_api,
+):
+    api = conversation_api
+    shared_updated_at = datetime(2026, 8, 11, 10, 0, tzinfo=timezone.utc)
+    higher_id = Conversation(
+        id=UUID("ffffffff-ffff-ffff-ffff-ffffffffffff"),
+        owner_id=api["current_user"].id,
+        title="Higher UUID",
+        created_at=shared_updated_at,
+        updated_at=shared_updated_at,
+    )
+    lower_id = Conversation(
+        id=UUID("11111111-1111-1111-1111-111111111111"),
+        owner_id=api["current_user"].id,
+        title="Lower UUID",
+        created_at=shared_updated_at,
+        updated_at=shared_updated_at,
+    )
+    api["list_conversations"].return_value = ConversationPage(
+        items=(higher_id, lower_id),
+        next_cursor=None,
+    )
+
+    response = api["client"].get("/api/v1/conversations")
+
+    assert response.status_code == 200
+    assert [item["id"] for item in response.json()["items"]] == [
+        str(higher_id.id),
+        str(lower_id.id),
+    ]
+
+
+def test_list_conversations_uses_each_current_user_and_returns_empty_new_user(
+    conversation_api,
+):
+    api = conversation_api
+    first_user_id = api["current_user"].id
+    second_user_id = uuid4()
+    new_user_id = uuid4()
+    second_conversation = Conversation(
+        id=uuid4(),
+        owner_id=second_user_id,
+        title="Second owner",
+        created_at=datetime(2026, 8, 11, 11, 0, tzinfo=timezone.utc),
+        updated_at=datetime(2026, 8, 11, 11, 0, tzinfo=timezone.utc),
+    )
+    api["list_conversations"].side_effect = [
+        ConversationPage(items=(api["conversation"],), next_cursor=None),
+        ConversationPage(items=(second_conversation,), next_cursor=None),
+        ConversationPage(items=(), next_cursor=None),
+    ]
+
+    first_response = api["client"].get("/api/v1/conversations")
+    api["current_user"].id = second_user_id
+    second_response = api["client"].get("/api/v1/conversations")
+    api["current_user"].id = new_user_id
+    empty_response = api["client"].get("/api/v1/conversations")
+
+    assert [item["id"] for item in first_response.json()["items"]] == [
+        str(api["conversation"].id)
+    ]
+    assert [item["id"] for item in second_response.json()["items"]] == [
+        str(second_conversation.id)
+    ]
+    assert empty_response.json() == {"items": [], "next_cursor": None}
+    assert [call.args[0] for call in api["list_conversations"].await_args_list] == [
+        first_user_id,
+        second_user_id,
+        new_user_id,
+    ]
+
+
+@pytest.mark.parametrize("identity_field", ["owner_id", "user_id"])
+def test_list_conversations_rejects_client_identity_before_service(
+    conversation_api,
+    identity_field,
+):
+    api = conversation_api
+
+    response = api["client"].get(
+        "/api/v1/conversations",
+        params={identity_field: str(uuid4())},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+    api["service_factory"].assert_not_called()
+    api["list_conversations"].assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    "params",
+    [
+        {"cursor_updated_at": "2026-08-11T10:00:00Z"},
+        {"cursor_id": str(uuid4())},
+    ],
+)
+def test_list_conversations_rejects_partial_composite_cursor_before_service(
+    conversation_api,
+    params,
+):
+    api = conversation_api
+
+    response = api["client"].get("/api/v1/conversations", params=params)
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+    api["service_factory"].assert_not_called()
+    api["list_conversations"].assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    "limit",
+    [0, -1, MAX_CONVERSATION_PAGE_SIZE + 1, "1.5", "true", "not-an-integer"],
+)
+def test_list_conversations_rejects_invalid_limit_before_service(
+    conversation_api,
+    limit,
+):
+    api = conversation_api
+
+    response = api["client"].get(
+        "/api/v1/conversations",
+        params={"limit": limit},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+    api["service_factory"].assert_not_called()
+    api["list_conversations"].assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    "cursor_updated_at",
+    ["not-a-datetime", "2026-08-11T10:00:00"],
+)
+def test_list_conversations_rejects_malformed_or_naive_datetime_before_service(
+    conversation_api,
+    cursor_updated_at,
+):
+    api = conversation_api
+
+    response = api["client"].get(
+        "/api/v1/conversations",
+        params={
+            "cursor_updated_at": cursor_updated_at,
+            "cursor_id": str(uuid4()),
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+    api["service_factory"].assert_not_called()
+    api["list_conversations"].assert_not_awaited()
+
+
+def test_list_conversations_rejects_malformed_cursor_uuid_before_service(
+    conversation_api,
+):
+    api = conversation_api
+
+    response = api["client"].get(
+        "/api/v1/conversations",
+        params={
+            "cursor_updated_at": "2026-08-11T10:00:00Z",
+            "cursor_id": "not-a-uuid",
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+    api["service_factory"].assert_not_called()
+    api["list_conversations"].assert_not_awaited()
+
+
+def test_list_conversations_failure_uses_existing_generic_500(conversation_api):
+    api = conversation_api
+    api["list_conversations"].side_effect = RuntimeError(
+        "sensitive persistence detail"
+    )
+
+    response = api["client"].get("/api/v1/conversations")
+
+    assert response.status_code == 500
+    assert response.json()["error"] == {
+        "code": "INTERNAL_SERVER_ERROR",
+        "message": "An unexpected error occurred.",
+    }
+    assert "sensitive persistence detail" not in response.text
+
+
+@pytest.mark.parametrize(
+    "authorization",
+    [None, "Bearer short", f"Bearer {'U' * 43}"],
+)
+def test_list_conversations_requires_existing_uniform_bearer_authentication(
+    monkeypatch,
+    authorization,
+):
+    session = AsyncMock(spec=AsyncSession)
+    get_by_digest = AsyncMock(return_value=None)
+    authentication_service = Mock(get_by_access_token_digest=get_by_digest)
+    authentication_service_factory = Mock(return_value=authentication_service)
+    conversation_service_factory = Mock()
+    monkeypatch.setattr(
+        authentication_module,
+        "UserService",
+        authentication_service_factory,
+    )
+    monkeypatch.setattr(
+        conversations_module,
+        "ConversationService",
+        conversation_service_factory,
+    )
+
+    async def override_db_session():
+        yield session
+
+    app.dependency_overrides[get_db_session] = override_db_session
+    headers = {} if authorization is None else {"Authorization": authorization}
+    try:
+        with TestClient(app, raise_server_exceptions=False) as client:
+            response = client.get("/api/v1/conversations", headers=headers)
+    finally:
+        app.dependency_overrides.pop(get_db_session, None)
+
+    assert response.status_code == 401
+    assert response.headers["WWW-Authenticate"] == "Bearer"
+    assert response.json()["error"] == {
+        "code": "HTTP_ERROR",
+        "message": "Invalid authentication credentials",
+    }
+    if authorization is not None:
+        assert authorization not in response.text
+    conversation_service_factory.assert_not_called()
+    session.commit.assert_not_awaited()
+    if authorization == f"Bearer {'U' * 43}":
+        authentication_service_factory.assert_called_once_with(session)
+        get_by_digest.assert_awaited_once_with(digest_access_token("U" * 43))
+    else:
+        authentication_service_factory.assert_not_called()
+        get_by_digest.assert_not_awaited()
 
 
 def test_create_conversation_returns_201_with_exact_safe_response(conversation_api):
@@ -838,7 +1194,7 @@ def test_no_other_conversation_crud_or_standalone_message_routes_were_added(
 ):
     client = conversation_api["client"]
 
-    assert client.get("/api/v1/conversations").status_code == 405
+    assert client.get("/api/v1/conversations").status_code == 200
     assert client.get(f"/api/v1/conversations/{uuid4()}").status_code == 404
     assert (
         client.get(

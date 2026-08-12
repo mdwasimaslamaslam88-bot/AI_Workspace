@@ -1,8 +1,13 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
+from pydantic_core import PydanticCustomError
 
+from app.repositories.conversation import (
+    DEFAULT_CONVERSATION_PAGE_SIZE,
+    MAX_CONVERSATION_PAGE_SIZE,
+)
 from app.schemas.message import MessageResponse
 
 
@@ -19,3 +24,43 @@ class ConversationCreateResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     initial_message: MessageResponse
+
+
+class ConversationListQuery(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    limit: int = Field(
+        default=DEFAULT_CONVERSATION_PAGE_SIZE,
+        ge=1,
+        le=MAX_CONVERSATION_PAGE_SIZE,
+    )
+    cursor_updated_at: AwareDatetime | None = None
+    cursor_id: UUID | None = None
+
+    @model_validator(mode="after")
+    def validate_composite_cursor(self):
+        if (self.cursor_updated_at is None) != (self.cursor_id is None):
+            raise PydanticCustomError(
+                "composite_cursor",
+                "cursor_updated_at and cursor_id must be provided together"
+            )
+        return self
+
+
+class ConversationSummaryResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    title: str | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class ConversationCursorResponse(BaseModel):
+    updated_at: datetime
+    id: UUID
+
+
+class ConversationPageResponse(BaseModel):
+    items: list[ConversationSummaryResponse]
+    next_cursor: ConversationCursorResponse | None

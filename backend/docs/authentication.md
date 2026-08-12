@@ -24,6 +24,13 @@ authenticated current user rather than from client input. In particular,
 `POST /api/v1/conversations` creates a conversation and its initial user message
 atomically for the bearer credential's current user.
 
+`GET /api/v1/conversations` returns only the bearer credential's current user's
+conversations, ordered by `updated_at` descending and then conversation `id`
+descending. `limit` defaults to 50 and is bounded from 1 to 100. Subsequent
+pages must provide both `cursor_updated_at` and `cursor_id` from the previous
+response's composite `next_cursor`; the cursor fields are not identity inputs.
+Terminal and empty pages return `next_cursor` as `null`.
+
 `POST /api/v1/conversations/{conversation_id}/messages` appends a user message
 only when the bearer credential's current user owns the conversation. The API
 always supplies the user role and the database allocates the sequence number;

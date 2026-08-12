@@ -8,19 +8,69 @@ from app.api.dependencies import get_current_user
 from app.db.dependencies import get_db_session
 from app.models.message import MessageRole
 from app.models.user import User
+from app.repositories.conversation import (
+    ConversationCursor,
+    ConversationPagination,
+)
 from app.repositories.message import (
     DEFAULT_MESSAGE_PAGE_SIZE,
     MAX_MESSAGE_PAGE_SIZE,
     MessageCursor,
     MessagePagination,
 )
-from app.schemas.conversation import ConversationCreate, ConversationCreateResponse
+from app.schemas.conversation import (
+    ConversationCreate,
+    ConversationCreateResponse,
+    ConversationCursorResponse,
+    ConversationListQuery,
+    ConversationPageResponse,
+    ConversationSummaryResponse,
+)
 from app.schemas.message import MessageCreate, MessagePageResponse, MessageResponse
 from app.services.conversation import ConversationService
 from app.services.message import MessageAppendConflictError, MessageService
 
 
 router = APIRouter(prefix="/conversations", tags=["Conversations"])
+
+
+@router.get("", response_model=ConversationPageResponse)
+async def list_conversations(
+    query: Annotated[ConversationListQuery, Query()],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> ConversationPageResponse:
+    page = await ConversationService(session).list_for_owner(
+        current_user.id,
+        ConversationPagination(
+            limit=query.limit,
+            cursor=(
+                ConversationCursor(
+                    updated_at=query.cursor_updated_at,
+                    id=query.cursor_id,
+                )
+                if (
+                    query.cursor_updated_at is not None
+                    and query.cursor_id is not None
+                )
+                else None
+            ),
+        ),
+    )
+    return ConversationPageResponse(
+        items=[
+            ConversationSummaryResponse.model_validate(conversation)
+            for conversation in page.items
+        ],
+        next_cursor=(
+            ConversationCursorResponse(
+                updated_at=page.next_cursor.updated_at,
+                id=page.next_cursor.id,
+            )
+            if page.next_cursor is not None
+            else None
+        ),
+    )
 
 
 @router.post(
