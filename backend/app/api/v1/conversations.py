@@ -24,6 +24,7 @@ from app.schemas.conversation import (
     ConversationCursorResponse,
     ConversationListQuery,
     ConversationPageResponse,
+    ConversationRename,
     ConversationSummaryResponse,
 )
 from app.schemas.message import MessageCreate, MessagePageResponse, MessageResponse
@@ -120,6 +121,30 @@ async def get_conversation(
     conversation = await ConversationService(session).get_for_owner(
         current_user.id,
         conversation_id,
+    )
+    if conversation is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Conversation not found",
+        )
+
+    return ConversationSummaryResponse.model_validate(conversation)
+
+
+@router.patch(
+    "/{conversation_id}",
+    response_model=ConversationSummaryResponse,
+)
+async def rename_conversation(
+    conversation_id: UUID,
+    request: ConversationRename,
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> ConversationSummaryResponse:
+    conversation = await ConversationService(session).rename_for_owner(
+        current_user.id,
+        conversation_id,
+        request.title,
     )
     if conversation is None:
         raise HTTPException(

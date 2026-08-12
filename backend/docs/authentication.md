@@ -37,6 +37,14 @@ limited to the conversation's `id`, nullable `title`, `created_at`, and
 `updated_at`. Missing and foreign-owned conversations receive the same generic
 HTTP 404 response, so the endpoint does not disclose another user's ownership.
 
+`PATCH /api/v1/conversations/{conversation_id}` renames a conversation only
+when it belongs to the bearer credential's current user. The request must
+include `title`; explicit `null` clears the title, while a string is limited to
+255 characters and must contain at least one non-whitespace character. Leading
+and trailing whitespace is preserved. Undeclared fields are rejected, and
+missing and foreign-owned conversations receive the same generic HTTP 404
+response.
+
 `POST /api/v1/conversations/{conversation_id}/messages` appends a user message
 only when the bearer credential's current user owns the conversation. The API
 always supplies the user role and the database allocates the sequence number;

@@ -18,6 +18,12 @@ class ConversationCreate(BaseModel):
     initial_message: str
 
 
+class ConversationRename(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    title: str | None = Field(max_length=255, pattern=r"\S")
+
+
 class ConversationCreateResponse(BaseModel):
     id: UUID
     title: str | None

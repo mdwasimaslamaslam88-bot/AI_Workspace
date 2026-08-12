@@ -65,6 +65,7 @@ def conversation_api(monkeypatch):
     )
     create = AsyncMock(return_value=(conversation, initial_message))
     get_conversation = AsyncMock(return_value=conversation)
+    rename_conversation = AsyncMock(return_value=conversation)
     list_conversations = AsyncMock(
         return_value=ConversationPage(items=(conversation,), next_cursor=None)
     )
@@ -72,6 +73,7 @@ def conversation_api(monkeypatch):
         create_with_initial_message_for_owner=create,
         get_for_owner=get_conversation,
         list_for_owner=list_conversations,
+        rename_for_owner=rename_conversation,
     )
     service_factory = Mock(return_value=service)
     monkeypatch.setattr(
@@ -117,6 +119,7 @@ def conversation_api(monkeypatch):
                 "service_factory": service_factory,
                 "create": create,
                 "get_conversation": get_conversation,
+                "rename_conversation": rename_conversation,
                 "list_conversations": list_conversations,
                 "message_service_factory": message_service_factory,
                 "append": append,
@@ -642,6 +645,289 @@ def test_get_conversation_failure_uses_existing_generic_500(conversation_api):
 
     response = api["client"].get(
         f"/api/v1/conversations/{api['conversation'].id}"
+    )
+
+    assert response.status_code == 500
+    assert response.json()["error"] == {
+        "code": "INTERNAL_SERVER_ERROR",
+        "message": "An unexpected error occurred.",
+    }
+    assert "sensitive persistence detail" not in response.text
+    api["message_service_factory"].assert_not_called()
+
+
+@pytest.mark.parametrize("title", ["  Renamed exactly  ", None])
+def test_rename_conversation_returns_exact_safe_owned_response(
+    conversation_api,
+    title,
+):
+    api = conversation_api
+    api["conversation"].title = title
+
+    response = api["client"].patch(
+        f"/api/v1/conversations/{api['conversation'].id}",
+        json={"title": title},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "id": str(api["conversation"].id),
+        "title": title,
+        "created_at": "2026-08-11T09:00:00Z",
+        "updated_at": "2026-08-11T09:01:00Z",
+    }
+    assert set(response.json()) == {"id", "title", "created_at", "updated_at"}
+    response_text = response.text.lower()
+    assert "owner_id" not in response_text
+    assert "next_message_sequence" not in response_text
+    assert "messages" not in response_text
+    assert "credential" not in response_text
+    assert "digest" not in response_text
+    api["service_factory"].assert_called_once_with(api["session"])
+    api["rename_conversation"].assert_awaited_once_with(
+        api["current_user"].id,
+        api["conversation"].id,
+        title,
+    )
+    api["message_service_factory"].assert_not_called()
+    api["session"].refresh.assert_not_awaited()
+    api["session"].commit.assert_not_awaited()
+    api["session"].rollback.assert_not_awaited()
+
+
+@pytest.mark.parametrize("identity_field", ["owner_id", "user_id"])
+def test_rename_conversation_query_identity_cannot_replace_current_user(
+    conversation_api,
+    identity_field,
+):
+    api = conversation_api
+    client_identity = uuid4()
+    api["conversation"].title = "Renamed"
+
+    response = api["client"].patch(
+        f"/api/v1/conversations/{api['conversation'].id}",
+        params={identity_field: str(client_identity)},
+        json={"title": "Renamed"},
+    )
+
+    assert response.status_code == 200
+    api["rename_conversation"].assert_awaited_once_with(
+        api["current_user"].id,
+        api["conversation"].id,
+        "Renamed",
+    )
+    assert api["rename_conversation"].await_args.args[0] != client_identity
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        pytest.param({}, id="missing-title"),
+        pytest.param({"title": 123}, id="invalid-type"),
+        pytest.param({"title": ""}, id="empty-title"),
+        pytest.param({"title": "   "}, id="whitespace-only-title"),
+        pytest.param({"title": "x" * 256}, id="overlong-title"),
+    ],
+)
+def test_rename_conversation_rejects_invalid_body_before_service(
+    conversation_api,
+    payload,
+):
+    api = conversation_api
+
+    response = api["client"].patch(
+        f"/api/v1/conversations/{api['conversation'].id}",
+        json=payload,
+    )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+    api["service_factory"].assert_not_called()
+    api["rename_conversation"].assert_not_awaited()
+    api["message_service_factory"].assert_not_called()
+
+
+def test_rename_conversation_rejects_malformed_json_before_service(
+    conversation_api,
+):
+    api = conversation_api
+
+    response = api["client"].patch(
+        f"/api/v1/conversations/{api['conversation'].id}",
+        content="{",
+        headers={"Content-Type": "application/json"},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+    api["service_factory"].assert_not_called()
+    api["rename_conversation"].assert_not_awaited()
+    api["message_service_factory"].assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "field",
+    [
+        "owner_id",
+        "user_id",
+        "id",
+        "created_at",
+        "updated_at",
+        "next_message_sequence",
+        "messages",
+        "role",
+        "access_token",
+        "access_token_digest",
+        "credential",
+    ],
+)
+def test_rename_conversation_rejects_unknown_internal_fields_before_service(
+    conversation_api,
+    field,
+):
+    api = conversation_api
+
+    response = api["client"].patch(
+        f"/api/v1/conversations/{api['conversation'].id}",
+        json={"title": "Valid rename", field: "client-controlled"},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+    api["service_factory"].assert_not_called()
+    api["rename_conversation"].assert_not_awaited()
+    api["message_service_factory"].assert_not_called()
+
+
+def test_rename_conversation_rejects_malformed_uuid_before_service(
+    conversation_api,
+):
+    api = conversation_api
+
+    response = api["client"].patch(
+        "/api/v1/conversations/not-a-uuid",
+        json={"title": "Valid rename"},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+    api["service_factory"].assert_not_called()
+    api["rename_conversation"].assert_not_awaited()
+    api["message_service_factory"].assert_not_called()
+
+
+def test_rename_conversation_missing_and_foreign_use_identical_generic_404(
+    conversation_api,
+):
+    api = conversation_api
+    missing_id = uuid4()
+    foreign_id = uuid4()
+    api["rename_conversation"].side_effect = [None, None]
+
+    missing_response = api["client"].patch(
+        f"/api/v1/conversations/{missing_id}",
+        json={"title": "Must not persist"},
+    )
+    foreign_response = api["client"].patch(
+        f"/api/v1/conversations/{foreign_id}",
+        json={"title": "Must not persist"},
+    )
+
+    expected_error = {
+        "code": "HTTP_ERROR",
+        "message": "Conversation not found",
+    }
+    assert missing_response.status_code == foreign_response.status_code == 404
+    assert missing_response.json()["error"] == expected_error
+    assert foreign_response.json()["error"] == expected_error
+    for response in (missing_response, foreign_response):
+        error_text = str(response.json()["error"]).lower()
+        assert str(api["current_user"].id) not in error_text
+        assert str(api["conversation"].id) not in error_text
+        assert api["conversation"].title.strip().lower() not in error_text
+        assert "owner" not in error_text
+        assert "persistence" not in error_text
+    assert [call.args for call in api["rename_conversation"].await_args_list] == [
+        (
+            api["current_user"].id,
+            missing_id,
+            "Must not persist",
+        ),
+        (
+            api["current_user"].id,
+            foreign_id,
+            "Must not persist",
+        ),
+    ]
+    api["message_service_factory"].assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "authorization",
+    [None, "Bearer short", f"Bearer {'U' * 43}"],
+)
+def test_rename_conversation_requires_existing_uniform_bearer_authentication(
+    monkeypatch,
+    authorization,
+):
+    session = AsyncMock(spec=AsyncSession)
+    get_by_digest = AsyncMock(return_value=None)
+    authentication_service = Mock(get_by_access_token_digest=get_by_digest)
+    authentication_service_factory = Mock(return_value=authentication_service)
+    conversation_service_factory = Mock()
+    monkeypatch.setattr(
+        authentication_module,
+        "UserService",
+        authentication_service_factory,
+    )
+    monkeypatch.setattr(
+        conversations_module,
+        "ConversationService",
+        conversation_service_factory,
+    )
+
+    async def override_db_session():
+        yield session
+
+    app.dependency_overrides[get_db_session] = override_db_session
+    headers = {} if authorization is None else {"Authorization": authorization}
+    try:
+        with TestClient(app, raise_server_exceptions=False) as client:
+            response = client.patch(
+                f"/api/v1/conversations/{uuid4()}",
+                headers=headers,
+                json={"title": "Valid rename"},
+            )
+    finally:
+        app.dependency_overrides.pop(get_db_session, None)
+
+    assert response.status_code == 401
+    assert response.headers["WWW-Authenticate"] == "Bearer"
+    assert response.json()["error"] == {
+        "code": "HTTP_ERROR",
+        "message": "Invalid authentication credentials",
+    }
+    if authorization is not None:
+        assert authorization not in response.text
+    conversation_service_factory.assert_not_called()
+    session.commit.assert_not_awaited()
+    if authorization == f"Bearer {'U' * 43}":
+        authentication_service_factory.assert_called_once_with(session)
+        get_by_digest.assert_awaited_once_with(digest_access_token("U" * 43))
+    else:
+        authentication_service_factory.assert_not_called()
+        get_by_digest.assert_not_awaited()
+
+
+def test_rename_conversation_failure_uses_existing_generic_500(conversation_api):
+    api = conversation_api
+    api["rename_conversation"].side_effect = RuntimeError(
+        "sensitive persistence detail"
+    )
+
+    response = api["client"].patch(
+        f"/api/v1/conversations/{api['conversation'].id}",
+        json={"title": "Valid rename"},
     )
 
     assert response.status_code == 500
@@ -1376,7 +1662,7 @@ def test_list_messages_requires_existing_uniform_bearer_authentication(
         get_by_digest.assert_not_awaited()
 
 
-def test_only_get_by_id_route_was_added(conversation_api):
+def test_only_patch_by_id_route_was_added(conversation_api):
     api = conversation_api
     client = api["client"]
     conversation_id = api["conversation"].id
@@ -1404,11 +1690,11 @@ def test_only_get_by_id_route_was_added(conversation_api):
         if getattr(route, "path", None) == "/conversations/{conversation_id}"
         for method in getattr(route, "methods", ())
     }
-    assert route_methods == {"GET"}
+    assert route_methods == {"GET", "PATCH"}
     assert client.patch(
         f"/api/v1/conversations/{conversation_id}",
-        json={"title": "Must not rename"},
-    ).status_code == 405
+        json={"title": "Allowed rename"},
+    ).status_code == 200
     assert client.put(
         f"/api/v1/conversations/{conversation_id}",
         json={"title": "Must not update"},

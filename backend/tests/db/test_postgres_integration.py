@@ -952,6 +952,207 @@ async def test_authenticated_conversation_creation_uses_current_user_and_sequenc
             assert tuple(after_get_conversation) == tuple(before_get_conversation)
             assert after_get_messages == before_get_messages
 
+            rename_title = "  Renamed through API  "
+            rename_response = await client.patch(
+                f"/api/v1/conversations/{conversation_id}",
+                headers={"Authorization": f"Bearer {access_token}"},
+                json={"title": rename_title},
+            )
+            assert rename_response.status_code == 200
+            rename_payload = rename_response.json()
+            assert set(rename_payload) == {
+                "id",
+                "title",
+                "created_at",
+                "updated_at",
+            }
+            assert rename_payload["id"] == str(conversation_id)
+            assert rename_payload["title"] == rename_title
+            rename_response_text = rename_response.text.lower()
+            assert "owner_id" not in rename_response_text
+            assert "next_message_sequence" not in rename_response_text
+            assert "messages" not in rename_response_text
+            assert "credential" not in rename_response_text
+            assert "digest" not in rename_response_text
+
+            renamed_get_response = await client.get(
+                f"/api/v1/conversations/{conversation_id}",
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+            assert renamed_get_response.status_code == 200
+            assert renamed_get_response.json()["title"] == rename_title
+
+            renamed_message_history = await client.get(
+                f"/api/v1/conversations/{conversation_id}/messages",
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+            assert renamed_message_history.status_code == 200
+            renamed_message_history_payload = renamed_message_history.json()
+            assert [
+                item["sequence_number"]
+                for item in renamed_message_history_payload["items"]
+            ] == [1, 2]
+            assert renamed_message_history_payload["next_cursor"] is None
+
+            foreign_conversation_id = UUID(foreign_conversation_payload["id"])
+            affected_conversation_ids = [
+                conversation_id,
+                foreign_conversation_id,
+            ]
+            async with AsyncSession(
+                test_database_engine,
+                expire_on_commit=False,
+            ) as verification_session:
+                owner_after_rename = (
+                    await verification_session.execute(
+                        sa.select(
+                            Conversation.owner_id,
+                            Conversation.title,
+                            Conversation.updated_at,
+                            Conversation.next_message_sequence,
+                        ).where(Conversation.id == conversation_id)
+                    )
+                ).one()
+                foreign_before_failed_renames = (
+                    await verification_session.execute(
+                        sa.select(
+                            Conversation.owner_id,
+                            Conversation.title,
+                            Conversation.updated_at,
+                            Conversation.next_message_sequence,
+                        ).where(Conversation.id == foreign_conversation_id)
+                    )
+                ).one()
+                messages_before_failed_renames = [
+                    tuple(row)
+                    for row in (
+                        await verification_session.execute(
+                            sa.select(
+                                Message.id,
+                                Message.conversation_id,
+                                Message.role,
+                                Message.content,
+                                Message.sequence_number,
+                                Message.created_at,
+                                Message.updated_at,
+                            )
+                            .where(
+                                Message.conversation_id.in_(
+                                    affected_conversation_ids
+                                )
+                            )
+                            .order_by(
+                                Message.conversation_id,
+                                Message.sequence_number,
+                            )
+                        )
+                    ).all()
+                ]
+
+            assert owner_after_rename.owner_id == before_get_conversation.owner_id
+            assert owner_after_rename.title == rename_title
+            assert (
+                owner_after_rename.next_message_sequence
+                == before_get_conversation.next_message_sequence
+            )
+            assert (
+                owner_after_rename.updated_at
+                >= before_get_conversation.updated_at
+            )
+            response_updated_at = datetime.fromisoformat(
+                rename_payload["updated_at"].replace("Z", "+00:00")
+            )
+            assert response_updated_at == owner_after_rename.updated_at
+            assert [
+                row
+                for row in messages_before_failed_renames
+                if row[1] == conversation_id
+            ] == before_get_messages
+
+            foreign_rename_response = await client.patch(
+                f"/api/v1/conversations/{foreign_conversation_id}",
+                headers={"Authorization": f"Bearer {access_token}"},
+                json={"title": "Must not rename foreign conversation"},
+            )
+            missing_rename_response = await client.patch(
+                f"/api/v1/conversations/{uuid4()}",
+                headers={"Authorization": f"Bearer {access_token}"},
+                json={"title": "Must not rename missing conversation"},
+            )
+            expected_rename_not_found = {
+                "code": "HTTP_ERROR",
+                "message": "Conversation not found",
+            }
+            assert foreign_rename_response.status_code == 404
+            assert missing_rename_response.status_code == 404
+            assert (
+                foreign_rename_response.json()["error"]
+                == expected_rename_not_found
+            )
+            assert (
+                missing_rename_response.json()["error"]
+                == expected_rename_not_found
+            )
+
+            async with AsyncSession(
+                test_database_engine,
+                expire_on_commit=False,
+            ) as verification_session:
+                owner_after_failed_renames = (
+                    await verification_session.execute(
+                        sa.select(
+                            Conversation.owner_id,
+                            Conversation.title,
+                            Conversation.updated_at,
+                            Conversation.next_message_sequence,
+                        ).where(Conversation.id == conversation_id)
+                    )
+                ).one()
+                foreign_after_failed_renames = (
+                    await verification_session.execute(
+                        sa.select(
+                            Conversation.owner_id,
+                            Conversation.title,
+                            Conversation.updated_at,
+                            Conversation.next_message_sequence,
+                        ).where(Conversation.id == foreign_conversation_id)
+                    )
+                ).one()
+                messages_after_failed_renames = [
+                    tuple(row)
+                    for row in (
+                        await verification_session.execute(
+                            sa.select(
+                                Message.id,
+                                Message.conversation_id,
+                                Message.role,
+                                Message.content,
+                                Message.sequence_number,
+                                Message.created_at,
+                                Message.updated_at,
+                            )
+                            .where(
+                                Message.conversation_id.in_(
+                                    affected_conversation_ids
+                                )
+                            )
+                            .order_by(
+                                Message.conversation_id,
+                                Message.sequence_number,
+                            )
+                        )
+                    ).all()
+                ]
+
+            assert tuple(owner_after_failed_renames) == tuple(owner_after_rename)
+            assert tuple(foreign_after_failed_renames) == tuple(
+                foreign_before_failed_renames
+            )
+            assert (
+                messages_after_failed_renames
+                == messages_before_failed_renames
+            )
+
             owned_conversation_ids = [
                 UUID(created_payload["id"]),
                 *(UUID(payload["id"]) for payload in additional_owned_payloads),
@@ -1134,6 +1335,12 @@ async def test_authenticated_conversation_creation_uses_current_user_and_sequenc
     assert empty_conversation_page_payload == uniform_empty_page
     for item in listed_conversation_items:
         assert set(item) == {"id", "title", "created_at", "updated_at"}
+    renamed_list_item = next(
+        item
+        for item in listed_conversation_items
+        if UUID(item["id"]) == conversation_id
+    )
+    assert renamed_list_item["title"] == rename_title
 
     async with AsyncSession(
         test_database_engine,
@@ -1180,6 +1387,7 @@ async def test_authenticated_conversation_creation_uses_current_user_and_sequenc
         assert stored_user.access_token_digest != access_token
         assert stored_conversation is not None
         assert stored_conversation.owner_id == user_id
+        assert stored_conversation.title == rename_title
         assert stored_conversation.next_message_sequence == 3
         assert stored_empty_conversation is not None
         assert stored_empty_conversation.owner_id == user_id
