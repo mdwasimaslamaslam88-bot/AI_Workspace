@@ -15,6 +15,7 @@ class ConversationCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     title: str | None = Field(default=None, max_length=255, pattern=r"\S")
+    system_prompt: str | None = Field(default=None, pattern=r"\S")
     initial_message: str
 
 

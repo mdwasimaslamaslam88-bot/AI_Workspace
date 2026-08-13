@@ -71,6 +71,12 @@ The public model_id must come from the model catalog. Raw runtime tags, runtime
 URLs, prompts supplied outside Conversation history, owner IDs, generation
 options, and streaming flags are not accepted.
 
+Conversation creation may persist one optional client-authored `system_prompt`
+as a server-assigned system Message before the required initial user Message.
+Both Messages are owner-scoped and committed atomically with the Conversation.
+The exact system content is then consumed from persisted Conversation history;
+the generation endpoint itself still accepts no prompt or role fields.
+
 The application accepts at most 100 existing Messages in ascending sequence
 order, with a fixed 100,000-character context bound. It fetches up to 101
 Messages so the extra row can detect overflow. The history must be contiguous,

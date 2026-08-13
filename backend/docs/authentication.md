@@ -22,7 +22,13 @@ code must not log either the Authorization header or a plaintext credential.
 Owner-scoped Conversation and Message API operations derive `owner_id` from the
 authenticated current user rather than from client input. In particular,
 `POST /api/v1/conversations` creates a conversation and its initial user message
-atomically for the bearer credential's current user.
+atomically for the bearer credential's current user. The request may also
+include an optional nonblank `system_prompt`. The server assigns that content
+the system role at sequence 1 and the initial user Message sequence 2. When the
+system prompt is omitted or null, the initial user Message remains sequence 1.
+The Conversation and all bootstrap Messages are committed once as one
+transaction, and the response shape remains unchanged. Clients still cannot
+supply Message roles, sequences, Conversation IDs, or owner identity.
 
 `GET /api/v1/conversations` returns only the bearer credential's current user's
 conversations, ordered by `updated_at` descending and then conversation `id`

@@ -1149,6 +1149,7 @@ def test_create_conversation_returns_201_with_exact_safe_response(conversation_a
         "  Exact title  ",
         MessageRole.USER,
         "  Exact initial content  ",
+        system_prompt=None,
     )
     api["session"].refresh.assert_awaited_once_with(
         conversation,
@@ -1176,7 +1177,93 @@ def test_create_conversation_allows_omitted_title_without_changing_message(
         None,
         MessageRole.USER,
         "unchanged",
+        system_prompt=None,
     )
+
+
+def test_create_conversation_persists_exact_optional_system_prompt(
+    conversation_api,
+):
+    api = conversation_api
+    api["initial_message"].sequence_number = 2
+
+    response = api["client"].post(
+        "/api/v1/conversations",
+        json={
+            "title": "System conversation",
+            "system_prompt": "  exact system prompt  ",
+            "initial_message": "  Exact initial content  ",
+        },
+    )
+
+    assert response.status_code == 201
+    payload = response.json()
+    assert set(payload) == {
+        "id",
+        "title",
+        "created_at",
+        "updated_at",
+        "initial_message",
+    }
+    assert "system_prompt" not in response.text
+    assert payload["initial_message"]["role"] == "user"
+    assert payload["initial_message"]["content"] == "  Exact initial content  "
+    assert payload["initial_message"]["sequence_number"] == 2
+    api["create"].assert_awaited_once_with(
+        api["current_user"].id,
+        "System conversation",
+        MessageRole.USER,
+        "  Exact initial content  ",
+        system_prompt="  exact system prompt  ",
+    )
+
+
+def test_create_conversation_explicit_null_system_prompt_preserves_behavior(
+    conversation_api,
+):
+    api = conversation_api
+
+    response = api["client"].post(
+        "/api/v1/conversations",
+        json={
+            "system_prompt": None,
+            "initial_message": "unchanged",
+        },
+    )
+
+    assert response.status_code == 201
+    assert response.json()["initial_message"]["sequence_number"] == 1
+    api["create"].assert_awaited_once_with(
+        api["current_user"].id,
+        None,
+        MessageRole.USER,
+        "unchanged",
+        system_prompt=None,
+    )
+
+
+@pytest.mark.parametrize(
+    "system_prompt",
+    ["", "   ", 3, {"content": "nested"}],
+)
+def test_create_conversation_rejects_invalid_system_prompt_before_service(
+    conversation_api,
+    system_prompt,
+):
+    api = conversation_api
+
+    response = api["client"].post(
+        "/api/v1/conversations",
+        json={
+            "system_prompt": system_prompt,
+            "initial_message": "hello",
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+    api["service_factory"].assert_not_called()
+    api["create"].assert_not_awaited()
 
 
 @pytest.mark.parametrize(
@@ -1266,6 +1353,7 @@ def test_create_conversation_maps_atomic_creation_miss_to_generic_409(
         None,
         MessageRole.USER,
         "hello",
+        system_prompt=None,
     )
 
 

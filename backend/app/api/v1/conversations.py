@@ -109,6 +109,7 @@ async def create_conversation(
         request.title,
         MessageRole.USER,
         request.initial_message,
+        system_prompt=request.system_prompt,
     )
     if created is None:
         raise HTTPException(

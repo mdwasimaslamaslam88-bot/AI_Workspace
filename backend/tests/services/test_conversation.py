@@ -142,6 +142,63 @@ async def test_create_with_initial_message_uses_one_session_and_one_commit(
 
 
 @pytest.mark.asyncio
+async def test_create_with_system_prompt_assigns_roles_and_commits_once(
+    monkeypatch,
+):
+    events: list[str] = []
+    session = _service_session()
+    result = session.execute.return_value
+    result.scalar_one_or_none.side_effect = [1, 2]
+    added = _observe_orchestration(session, events)
+    nested_append = AsyncMock()
+    monkeypatch.setattr(MessageService, "append_for_owner", nested_append)
+    service = ConversationService(session)
+    owner_id = uuid4()
+
+    created = await service.create_with_initial_message_for_owner(
+        owner_id,
+        "System conversation",
+        MessageRole.USER,
+        "  exact initial content  ",
+        system_prompt="  exact system prompt  ",
+    )
+
+    assert created is not None
+    conversation, initial_message = created
+    assert len(added) == 3
+    assert added[0] is conversation
+    assert added[2] is initial_message
+    system_message = added[1]
+    assert isinstance(system_message, Message)
+    assert system_message.conversation_id == conversation.id
+    assert system_message.role is MessageRole.SYSTEM
+    assert system_message.content == "  exact system prompt  "
+    assert system_message.sequence_number == 1
+    assert initial_message.conversation_id == conversation.id
+    assert initial_message.role is MessageRole.USER
+    assert initial_message.content == "  exact initial content  "
+    assert initial_message.sequence_number == 2
+    assert service.repository.session is session
+    assert service.message_repository.session is session
+    assert events == [
+        "conversation_add",
+        "conversation_flush",
+        "message_sequence_allocation",
+        "message_add",
+        "message_flush",
+        "message_sequence_allocation",
+        "message_add",
+        "message_flush",
+        "commit",
+    ]
+    nested_append.assert_not_awaited()
+    assert session.execute.await_count == 2
+    assert session.flush.await_count == 3
+    session.commit.assert_awaited_once_with()
+    session.rollback.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("failure_stage", "expected_before_rollback"),
     [
@@ -237,6 +294,61 @@ async def test_create_with_initial_message_allocation_miss_rolls_back_without_co
     session.commit.assert_not_awaited()
     assert session.add.call_count == 1
     session.flush.assert_awaited_once_with()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("allocated_sequences", "expected_events", "expected_adds"),
+    [
+        (
+            [None],
+            [
+                "conversation_add",
+                "conversation_flush",
+                "message_sequence_allocation",
+                "rollback",
+            ],
+            1,
+        ),
+        (
+            [1, None],
+            [
+                "conversation_add",
+                "conversation_flush",
+                "message_sequence_allocation",
+                "message_add",
+                "message_flush",
+                "message_sequence_allocation",
+                "rollback",
+            ],
+            2,
+        ),
+    ],
+)
+async def test_create_with_system_prompt_allocation_miss_rolls_back_everything(
+    allocated_sequences,
+    expected_events,
+    expected_adds,
+):
+    events: list[str] = []
+    session = _service_session()
+    session.execute.return_value.scalar_one_or_none.side_effect = allocated_sequences
+    _observe_orchestration(session, events)
+    service = ConversationService(session)
+
+    created = await service.create_with_initial_message_for_owner(
+        uuid4(),
+        None,
+        MessageRole.USER,
+        "initial content",
+        system_prompt="system content",
+    )
+
+    assert created is None
+    assert events == expected_events
+    assert session.add.call_count == expected_adds
+    session.rollback.assert_awaited_once_with()
+    session.commit.assert_not_awaited()
 
 
 @pytest.mark.asyncio

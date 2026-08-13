@@ -33,9 +33,22 @@ class ConversationService:
         title: str | None,
         role: MessageRole,
         content: str,
+        *,
+        system_prompt: str | None = None,
     ) -> tuple[Conversation, Message] | None:
         try:
             conversation = await self.repository.create(owner_id, title)
+            if system_prompt is not None:
+                system_message = await self.message_repository.append_for_owner(
+                    owner_id,
+                    conversation.id,
+                    MessageRole.SYSTEM,
+                    system_prompt,
+                )
+                if system_message is None:
+                    await self.session.rollback()
+                    return None
+
             message = await self.message_repository.append_for_owner(
                 owner_id,
                 conversation.id,

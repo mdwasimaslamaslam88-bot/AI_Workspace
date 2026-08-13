@@ -130,24 +130,25 @@ async def test_generation_releases_read_transaction_before_local_inference(
     session = AsyncMock(spec=AsyncSession)
     events: list[str] = []
     messages = (
-        _message(conversation_id, MessageRole.USER, "question 1", 1),
-        _message(conversation_id, MessageRole.ASSISTANT, "answer 1", 2),
-        _message(conversation_id, MessageRole.USER, "  question 2  ", 3),
+        _message(conversation_id, MessageRole.SYSTEM, "  system prompt  ", 1),
+        _message(conversation_id, MessageRole.USER, "question 1", 2),
+        _message(conversation_id, MessageRole.ASSISTANT, "answer 1", 3),
+        _message(conversation_id, MessageRole.USER, "  question 2  ", 4),
     )
     appended = _message(
         conversation_id,
         MessageRole.ASSISTANT,
         "  exact answer  ",
-        4,
+        5,
     )
     dependencies = _dependencies(
         monkeypatch,
-        conversation=_conversation(owner_id, conversation_id, 4),
+        conversation=_conversation(owner_id, conversation_id, 5),
         context=messages,
         appended=appended,
     )
     dependencies["get"].side_effect = lambda *_args: (
-        events.append("get") or _conversation(owner_id, conversation_id, 4)
+        events.append("get") or _conversation(owner_id, conversation_id, 5)
     )
     dependencies["context"].side_effect = lambda *_args, **_kwargs: (
         events.append("context") or messages
@@ -191,6 +192,7 @@ async def test_generation_releases_read_transaction_before_local_inference(
     )
     generated_messages = dependencies["router"].generate.await_args.args[1]
     assert [(message.role.value, message.content) for message in generated_messages] == [
+        ("system", "  system prompt  "),
         ("user", "question 1"),
         ("assistant", "answer 1"),
         ("user", "  question 2  "),
@@ -205,7 +207,7 @@ async def test_generation_releases_read_transaction_before_local_inference(
         conversation_id,
         MessageRole.ASSISTANT,
         "  exact answer  ",
-        expected_sequence_number=4,
+        expected_sequence_number=5,
     )
     session.rollback.assert_awaited_once_with()
     session.commit.assert_not_awaited()

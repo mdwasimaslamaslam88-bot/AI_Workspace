@@ -513,7 +513,7 @@ async def test_concurrent_message_appends_allocate_unique_contiguous_sequences(
 
 
 @pytest.mark.asyncio
-async def test_create_with_initial_message_persists_one_atomic_conversation(
+async def test_create_with_system_prompt_persists_one_atomic_conversation(
     test_database_engine: AsyncEngine,
 ):
     async with AsyncSession(test_database_engine, expire_on_commit=False) as session:
@@ -527,6 +527,7 @@ async def test_create_with_initial_message_persists_one_atomic_conversation(
             "  Initial title  ",
             MessageRole.USER,
             "  Initial content  ",
+            system_prompt="  Exact system content  ",
         )
 
         assert created is not None
@@ -538,7 +539,7 @@ async def test_create_with_initial_message_persists_one_atomic_conversation(
         assert message.conversation_id == conversation_id
         assert message.role is MessageRole.USER
         assert message.content == "  Initial content  "
-        assert message.sequence_number == 1
+        assert message.sequence_number == 2
 
     async with AsyncSession(test_database_engine) as verification_session:
         conversations = (
@@ -555,7 +556,7 @@ async def test_create_with_initial_message_persists_one_atomic_conversation(
                 await verification_session.execute(
                     sa.select(Message).where(
                         Message.conversation_id == conversation_id
-                    )
+                    ).order_by(Message.sequence_number)
                 )
             )
             .scalars()
@@ -564,11 +565,17 @@ async def test_create_with_initial_message_persists_one_atomic_conversation(
 
         assert len(conversations) == 1
         assert conversations[0].id == conversation_id
-        assert conversations[0].next_message_sequence == 2
-        assert len(messages) == 1
-        assert messages[0].id == message_id
+        assert conversations[0].next_message_sequence == 3
+        assert len(messages) == 2
         assert messages[0].conversation_id == conversation_id
+        assert messages[0].role is MessageRole.SYSTEM
+        assert messages[0].content == "  Exact system content  "
         assert messages[0].sequence_number == 1
+        assert messages[1].id == message_id
+        assert messages[1].conversation_id == conversation_id
+        assert messages[1].role is MessageRole.USER
+        assert messages[1].content == "  Initial content  "
+        assert messages[1].sequence_number == 2
 
 
 @pytest.mark.asyncio
@@ -587,6 +594,7 @@ async def test_create_with_initial_message_failure_rolls_back_all_persistence(
                 "Must roll back",
                 MessageRole.USER,
                 None,  # type: ignore[arg-type]
+                system_prompt="System content must also roll back",
             )
 
         assert not session.in_transaction()
@@ -1923,6 +1931,7 @@ async def test_authenticated_conversation_generation_is_owner_scoped_and_stale_s
                 headers=owner_headers,
                 json={
                     "title": "Generation target",
+                    "system_prompt": "  exact system prompt  ",
                     "initial_message": "first user prompt",
                 },
             )
@@ -1945,7 +1954,7 @@ async def test_authenticated_conversation_generation_is_owner_scoped_and_stale_s
                 json={"content": "second user prompt"},
             )
             assert follow_up.status_code == 201
-            assert follow_up.json()["sequence_number"] == 2
+            assert follow_up.json()["sequence_number"] == 3
 
             unauthenticated = await client.post(
                 f"/api/v1/conversations/{conversation_id}/messages/generate",
@@ -1975,7 +1984,7 @@ async def test_authenticated_conversation_generation_is_owner_scoped_and_stale_s
                     "conversation_id": str(conversation_id),
                     "role": "assistant",
                     "content": "  exact local answer  ",
-                    "sequence_number": 3,
+                    "sequence_number": 4,
                     "created_at": generated.json()["message"]["created_at"],
                     "updated_at": generated.json()["message"]["updated_at"],
                 },
@@ -1984,6 +1993,7 @@ async def test_authenticated_conversation_generation_is_owner_scoped_and_stale_s
             runtime_reference, context, output_bound = runtime.generation_calls[0]
             assert runtime_reference == "/private/runtime/model:70b"
             assert [(message.role.value, message.content) for message in context] == [
+                ("system", "  exact system prompt  "),
                 ("user", "first user prompt"),
                 ("user", "second user prompt"),
             ]
@@ -2010,7 +2020,7 @@ async def test_authenticated_conversation_generation_is_owner_scoped_and_stale_s
                 json={"content": "third user prompt"},
             )
             assert final_user.status_code == 201
-            assert final_user.json()["sequence_number"] == 4
+            assert final_user.json()["sequence_number"] == 5
 
             unknown_model = await client.post(
                 f"/api/v1/conversations/{conversation_id}/messages/generate",
@@ -2084,11 +2094,12 @@ async def test_authenticated_conversation_generation_is_owner_scoped_and_stale_s
                 (item["role"], item["content"], item["sequence_number"])
                 for item in history.json()["items"]
             ] == [
-                ("user", "first user prompt", 1),
-                ("user", "second user prompt", 2),
-                ("assistant", "  exact local answer  ", 3),
-                ("user", "third user prompt", 4),
-                ("user", "intervening user message", 5),
+                ("system", "  exact system prompt  ", 1),
+                ("user", "first user prompt", 2),
+                ("user", "second user prompt", 3),
+                ("assistant", "  exact local answer  ", 4),
+                ("user", "third user prompt", 5),
+                ("user", "intervening user message", 6),
             ]
             stored_owner, stored_messages = await persisted_conversation(
                 conversation_id
@@ -2098,8 +2109,8 @@ async def test_authenticated_conversation_generation_is_owner_scoped_and_stale_s
             )
             assert stored_owner is not None
             assert stored_owner.owner_id == UUID(owner["id"])
-            assert stored_owner.next_message_sequence == 6
-            assert len(stored_messages) == 5
+            assert stored_owner.next_message_sequence == 7
+            assert len(stored_messages) == 6
             assert stored_foreign is not None
             assert stored_foreign.owner_id == UUID(foreign["id"])
             assert stored_foreign.next_message_sequence == 2
