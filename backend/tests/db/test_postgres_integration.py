@@ -10,6 +10,7 @@ from sqlalchemy.dialects.postgresql import UUID as PostgreSQLUUID
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
+import app.services.conversation_generation as generation_module
 from app.ai.catalog import (
     ModelAvailability,
     ModelCatalog,
@@ -1800,6 +1801,7 @@ async def test_authenticated_local_model_listing_is_database_read_only(
 @pytest.mark.asyncio
 async def test_authenticated_conversation_generation_is_owner_scoped_and_stale_safe(
     test_database_engine: AsyncEngine,
+    monkeypatch,
 ):
     class FakeLocalTextRuntime:
         runtime_id = "integration-local"
@@ -1889,6 +1891,41 @@ async def test_authenticated_conversation_generation_is_owner_scoped_and_stale_s
             return conversation, tuple(messages)
 
     runtime = FakeLocalTextRuntime()
+
+    class PreContextRaceMessageService(MessageService):
+        async def list_generation_context_for_owner(
+            self,
+            owner_id,
+            conversation_id,
+            *,
+            max_messages,
+        ):
+            if runtime.mode == "pre-context-stale":
+                runtime.mode = "success"
+                async with AsyncSession(
+                    test_database_engine,
+                    expire_on_commit=False,
+                ) as concurrent_session:
+                    intervening = await MessageService(
+                        concurrent_session
+                    ).append_for_owner(
+                        owner_id,
+                        conversation_id,
+                        MessageRole.USER,
+                        "pre-context intervening user message",
+                    )
+                    assert intervening is not None
+            return await super().list_generation_context_for_owner(
+                owner_id,
+                conversation_id,
+                max_messages=max_messages,
+            )
+
+    monkeypatch.setattr(
+        generation_module,
+        "MessageService",
+        PreContextRaceMessageService,
+    )
     catalog = ModelCatalog((runtime,))
     generation_router = TextGenerationRouter((runtime,))
     session_factory = async_sessionmaker(
@@ -1948,17 +1985,12 @@ async def test_authenticated_conversation_generation_is_owner_scoped_and_stale_s
             conversation_id = UUID(owner_created.json()["id"])
             foreign_conversation_id = UUID(foreign_created.json()["id"])
 
-            follow_up = await client.post(
-                f"/api/v1/conversations/{conversation_id}/messages",
-                headers=owner_headers,
-                json={"content": "second user prompt"},
-            )
-            assert follow_up.status_code == 201
-            assert follow_up.json()["sequence_number"] == 3
-
             unauthenticated = await client.post(
                 f"/api/v1/conversations/{conversation_id}/messages/generate",
-                json={"model_id": f"integration-local:{'a' * 24}"},
+                json={
+                    "model_id": f"integration-local:{'a' * 24}",
+                    "user_message": "must not persist",
+                },
             )
             assert unauthenticated.status_code == 401
             assert runtime.discovery_calls == 0
@@ -1974,7 +2006,10 @@ async def test_authenticated_conversation_generation_is_owner_scoped_and_stale_s
             generated = await client.post(
                 f"/api/v1/conversations/{conversation_id}/messages/generate",
                 headers=owner_headers,
-                json={"model_id": model_id},
+                json={
+                    "model_id": model_id,
+                    "user_message": "  second user prompt  ",
+                },
             )
             assert generated.status_code == 201
             assert generated.json() == {
@@ -1995,37 +2030,38 @@ async def test_authenticated_conversation_generation_is_owner_scoped_and_stale_s
             assert [(message.role.value, message.content) for message in context] == [
                 ("system", "  exact system prompt  "),
                 ("user", "first user prompt"),
-                ("user", "second user prompt"),
+                ("user", "  second user prompt  "),
             ]
             assert output_bound == 1024
 
             foreign_attempt = await client.post(
                 f"/api/v1/conversations/{foreign_conversation_id}/messages/generate",
                 headers=owner_headers,
-                json={"model_id": model_id},
+                json={
+                    "model_id": model_id,
+                    "user_message": "must not persist for foreign owner",
+                },
             )
             missing_attempt = await client.post(
                 f"/api/v1/conversations/{uuid4()}/messages/generate",
                 headers=owner_headers,
-                json={"model_id": model_id},
+                json={
+                    "model_id": model_id,
+                    "user_message": "must not persist for missing conversation",
+                },
             )
             assert foreign_attempt.status_code == 404
             assert missing_attempt.status_code == 404
             assert foreign_attempt.json()["error"] == missing_attempt.json()["error"]
             assert len(runtime.generation_calls) == 1
 
-            final_user = await client.post(
-                f"/api/v1/conversations/{conversation_id}/messages",
-                headers=owner_headers,
-                json={"content": "third user prompt"},
-            )
-            assert final_user.status_code == 201
-            assert final_user.json()["sequence_number"] == 5
-
             unknown_model = await client.post(
                 f"/api/v1/conversations/{conversation_id}/messages/generate",
                 headers=owner_headers,
-                json={"model_id": f"integration-local:{'f' * 24}"},
+                json={
+                    "model_id": f"integration-local:{'f' * 24}",
+                    "user_message": "unknown-model user prompt",
+                },
             )
             assert unknown_model.status_code == 404
             assert unknown_model.json()["error"]["message"] == "Model not found"
@@ -2051,7 +2087,10 @@ async def test_authenticated_conversation_generation_is_owner_scoped_and_stale_s
             unavailable = await client.post(
                 f"/api/v1/conversations/{conversation_id}/messages/generate",
                 headers=owner_headers,
-                json={"model_id": model_id},
+                json={
+                    "model_id": model_id,
+                    "user_message": "runtime-failure user prompt",
+                },
             )
             assert unavailable.status_code == 503
             assert unavailable.json()["error"]["message"] == (
@@ -2062,7 +2101,7 @@ async def test_authenticated_conversation_generation_is_owner_scoped_and_stale_s
             )
             assert after_unavailable is not None
             assert after_unavailable.next_message_sequence == (
-                before_unavailable.next_message_sequence
+                before_unavailable.next_message_sequence + 1
             )
             assert [
                 (message.role, message.content, message.sequence_number)
@@ -2070,7 +2109,40 @@ async def test_authenticated_conversation_generation_is_owner_scoped_and_stale_s
             ] == [
                 (message.role, message.content, message.sequence_number)
                 for message in messages_before_unavailable
+            ] + [
+                (
+                    MessageRole.USER,
+                    "runtime-failure user prompt",
+                    before_unavailable.next_message_sequence,
+                )
             ]
+            assert len(runtime.generation_calls) == 2
+
+            runtime.mode = "success"
+            retry = await client.post(
+                f"/api/v1/conversations/{conversation_id}/messages/generate",
+                headers=owner_headers,
+                json={"model_id": model_id},
+            )
+            assert retry.status_code == 201
+            assert retry.json()["message"]["role"] == "assistant"
+            assert retry.json()["message"]["sequence_number"] == 7
+            assert len(runtime.generation_calls) == 3
+
+            runtime.mode = "pre-context-stale"
+            pre_context_stale = await client.post(
+                f"/api/v1/conversations/{conversation_id}/messages/generate",
+                headers=owner_headers,
+                json={
+                    "model_id": model_id,
+                    "user_message": "pre-context request user message",
+                },
+            )
+            assert pre_context_stale.status_code == 409
+            assert pre_context_stale.json()["error"]["message"] == (
+                "Conversation changed during generation"
+            )
+            assert len(runtime.generation_calls) == 3
 
             runtime.mode = "stale"
             runtime.stale_owner_id = UUID(owner["id"])
@@ -2078,28 +2150,50 @@ async def test_authenticated_conversation_generation_is_owner_scoped_and_stale_s
             stale = await client.post(
                 f"/api/v1/conversations/{conversation_id}/messages/generate",
                 headers=owner_headers,
-                json={"model_id": model_id},
+                json={
+                    "model_id": model_id,
+                    "user_message": "during-inference request user message",
+                },
             )
             assert stale.status_code == 409
             assert stale.json()["error"]["message"] == (
                 "Conversation changed during generation"
             )
+            assert len(runtime.generation_calls) == 4
 
-            history = await client.get(
-                f"/api/v1/conversations/{conversation_id}/messages",
-                headers=owner_headers,
-            )
-            assert history.status_code == 200
+            history_items = []
+            cursor = None
+            while True:
+                parameters = {"limit": 4}
+                if cursor is not None:
+                    parameters["cursor"] = cursor
+                history = await client.get(
+                    f"/api/v1/conversations/{conversation_id}/messages",
+                    headers=owner_headers,
+                    params=parameters,
+                )
+                assert history.status_code == 200
+                history_page = history.json()
+                history_items.extend(history_page["items"])
+                cursor = history_page["next_cursor"]
+                if cursor is None:
+                    break
+
             assert [
                 (item["role"], item["content"], item["sequence_number"])
-                for item in history.json()["items"]
+                for item in history_items
             ] == [
                 ("system", "  exact system prompt  ", 1),
                 ("user", "first user prompt", 2),
-                ("user", "second user prompt", 3),
+                ("user", "  second user prompt  ", 3),
                 ("assistant", "  exact local answer  ", 4),
-                ("user", "third user prompt", 5),
-                ("user", "intervening user message", 6),
+                ("user", "unknown-model user prompt", 5),
+                ("user", "runtime-failure user prompt", 6),
+                ("assistant", "  exact local answer  ", 7),
+                ("user", "pre-context request user message", 8),
+                ("user", "pre-context intervening user message", 9),
+                ("user", "during-inference request user message", 10),
+                ("user", "intervening user message", 11),
             ]
             stored_owner, stored_messages = await persisted_conversation(
                 conversation_id
@@ -2109,8 +2203,8 @@ async def test_authenticated_conversation_generation_is_owner_scoped_and_stale_s
             )
             assert stored_owner is not None
             assert stored_owner.owner_id == UUID(owner["id"])
-            assert stored_owner.next_message_sequence == 7
-            assert len(stored_messages) == 6
+            assert stored_owner.next_message_sequence == 12
+            assert len(stored_messages) == 11
             assert stored_foreign is not None
             assert stored_foreign.owner_id == UUID(foreign["id"])
             assert stored_foreign.next_message_sequence == 2

@@ -65,17 +65,20 @@ Conversation:
     Authorization: Bearer <access_token>
     Content-Type: application/json
 
-    {"model_id":"ollama-local:<opaque-id>"}
+    {"model_id":"ollama-local:<opaque-id>","user_message":"Optional follow-up"}
 
-The public model_id must come from the model catalog. Raw runtime tags, runtime
-URLs, prompts supplied outside Conversation history, owner IDs, generation
-options, and streaming flags are not accepted.
+The public model_id must come from the model catalog. An optional nonblank
+`user_message` is committed first as an owner-scoped, server-assigned user
+Message; omission or null retains generation-only behavior. Raw runtime tags,
+runtime URLs, owner IDs, roles, sequences, Message arrays, generation options,
+and streaming flags are not accepted.
 
 Conversation creation may persist one optional client-authored `system_prompt`
 as a server-assigned system Message before the required initial user Message.
 Both Messages are owner-scoped and committed atomically with the Conversation.
 The exact system content is then consumed from persisted Conversation history;
-the generation endpoint itself still accepts no prompt or role fields.
+the generation endpoint cannot supply or change a system prompt and still
+accepts no client-controlled role fields.
 
 The application accepts at most 100 existing Messages in ascending sequence
 order, with a fixed 100,000-character context bound. It fetches up to 101
@@ -102,6 +105,13 @@ then appended through the existing atomic Message sequence allocator. That
 append includes the Conversation's captured next sequence as a compare
 condition. If another Message arrives during inference, the stale assistant
 output is rejected with HTTP 409 and is never persisted.
+
+When `user_message` is supplied, its commit completes before context capture
+and local inference. The captured context must end at exactly that new user
+Message; a Message that wins the race before capture causes HTTP 409 without
+invoking the model. Later model, context, runtime, or assistant-persistence
+failures leave the committed user Message intact and persist no assistant, so a
+client may retry with a generation-only request.
 
 Error behavior is intentionally safe:
 

@@ -2073,6 +2073,7 @@ def test_authenticated_generation_returns_exact_safe_created_message(
         api["current_user"].id,
         api["conversation_id"],
         GENERATION_MODEL_ID,
+        user_message=None,
     )
     api["session"].commit.assert_not_awaited()
     api["session"].rollback.assert_not_awaited()
@@ -2095,10 +2096,17 @@ def test_authenticated_generation_returns_exact_safe_created_message(
         ({}, None),
         ({"model_id": "raw-ollama-tag"}, None),
         ({"model_id": 3}, None),
+        ({"model_id": GENERATION_MODEL_ID, "user_message": ""}, None),
+        ({"model_id": GENERATION_MODEL_ID, "user_message": "   "}, None),
+        ({"model_id": GENERATION_MODEL_ID, "user_message": 3}, None),
         ({"model_id": GENERATION_MODEL_ID, "owner_id": str(uuid4())}, None),
         ({"model_id": GENERATION_MODEL_ID, "user_id": str(uuid4())}, None),
+        ({"model_id": GENERATION_MODEL_ID, "conversation_id": str(uuid4())}, None),
+        ({"model_id": GENERATION_MODEL_ID, "role": "user"}, None),
+        ({"model_id": GENERATION_MODEL_ID, "sequence_number": 4}, None),
         ({"model_id": GENERATION_MODEL_ID, "stream": False}, None),
         ({"model_id": GENERATION_MODEL_ID, "messages": []}, None),
+        ({"model_id": GENERATION_MODEL_ID, "runtime_reference": "private"}, None),
         ({"model_id": GENERATION_MODEL_ID, "options": {}}, None),
         (None, b'{"model_id":'),
     ],
@@ -2124,6 +2132,63 @@ def test_invalid_generation_body_is_422_before_service_invocation(
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "VALIDATION_ERROR"
     api["service_factory"].assert_not_called()
+
+
+def test_generation_accepts_exact_optional_user_message_without_response_change(
+    conversation_generation_api,
+):
+    api = conversation_generation_api
+
+    response = api["client"].post(
+        f"/api/v1/conversations/{api['conversation_id']}/messages/generate",
+        json={
+            "model_id": GENERATION_MODEL_ID,
+            "user_message": "  exact follow-up  ",
+        },
+    )
+
+    assert response.status_code == 201
+    assert response.json() == {
+        "model_id": GENERATION_MODEL_ID,
+        "message": {
+            "id": str(api["message"].id),
+            "conversation_id": str(api["conversation_id"]),
+            "role": "assistant",
+            "content": "  exact local answer  ",
+            "sequence_number": 3,
+            "created_at": "2026-08-13T01:00:00Z",
+            "updated_at": "2026-08-13T01:01:00Z",
+        },
+    }
+    assert "user_message" not in response.text
+    api["generate"].assert_awaited_once_with(
+        api["current_user"].id,
+        api["conversation_id"],
+        GENERATION_MODEL_ID,
+        user_message="  exact follow-up  ",
+    )
+
+
+def test_generation_explicit_null_user_message_preserves_existing_mode(
+    conversation_generation_api,
+):
+    api = conversation_generation_api
+
+    response = api["client"].post(
+        f"/api/v1/conversations/{api['conversation_id']}/messages/generate",
+        json={
+            "model_id": GENERATION_MODEL_ID,
+            "user_message": None,
+        },
+    )
+
+    assert response.status_code == 201
+    api["generate"].assert_awaited_once_with(
+        api["current_user"].id,
+        api["conversation_id"],
+        GENERATION_MODEL_ID,
+        user_message=None,
+    )
 
 
 def test_malformed_generation_uuid_is_422_before_service_construction(

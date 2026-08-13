@@ -214,6 +214,291 @@ async def test_generation_releases_read_transaction_before_local_inference(
 
 
 @pytest.mark.asyncio
+async def test_generation_appends_exact_user_message_before_context_and_inference(
+    monkeypatch,
+):
+    owner_id = uuid4()
+    conversation_id = uuid4()
+    session = AsyncMock(spec=AsyncSession)
+    events: list[str] = []
+    appended_user = _message(
+        conversation_id,
+        MessageRole.USER,
+        "  exact follow-up  ",
+        4,
+    )
+    appended_assistant = _message(
+        conversation_id,
+        MessageRole.ASSISTANT,
+        "  exact answer  ",
+        5,
+    )
+    messages = (
+        _message(conversation_id, MessageRole.SYSTEM, "system", 1),
+        _message(conversation_id, MessageRole.USER, "question", 2),
+        _message(conversation_id, MessageRole.ASSISTANT, "answer", 3),
+        appended_user,
+    )
+    dependencies = _dependencies(
+        monkeypatch,
+        conversation=_conversation(owner_id, conversation_id, 4),
+        context=messages,
+        appended=appended_assistant,
+    )
+    dependencies["get"].side_effect = lambda *_args: (
+        events.append("get") or _conversation(owner_id, conversation_id, 4)
+    )
+
+    async def append(*args, **_kwargs):
+        if args[2] is MessageRole.USER:
+            events.append("append_user")
+            return appended_user
+        events.append("append_assistant")
+        return appended_assistant
+
+    dependencies["append"].side_effect = append
+    dependencies["context"].side_effect = lambda *_args, **_kwargs: (
+        events.append("context") or messages
+    )
+
+    async def rollback():
+        events.append("rollback")
+
+    async def resolve(_model_id):
+        events.append("resolve")
+        return _resolved()
+
+    async def generate(*_args, **_kwargs):
+        events.append("generate")
+        return TextGenerationResult(content="  exact answer  ")
+
+    session.rollback.side_effect = rollback
+    dependencies["catalog"].resolve_model.side_effect = resolve
+    dependencies["router"].generate.side_effect = generate
+
+    result = await ConversationGenerationService(
+        session,
+        dependencies["catalog"],
+        dependencies["router"],
+    ).generate_for_owner(
+        owner_id,
+        conversation_id,
+        MODEL_ID,
+        user_message="  exact follow-up  ",
+    )
+
+    assert result is appended_assistant
+    assert events == [
+        "get",
+        "append_user",
+        "context",
+        "rollback",
+        "resolve",
+        "generate",
+        "append_assistant",
+    ]
+    dependencies["message_factory"].assert_has_calls(
+        [call(session), call(session), call(session)]
+    )
+    assert dependencies["append"].await_args_list == [
+        call(
+            owner_id,
+            conversation_id,
+            MessageRole.USER,
+            "  exact follow-up  ",
+        ),
+        call(
+            owner_id,
+            conversation_id,
+            MessageRole.ASSISTANT,
+            "  exact answer  ",
+            expected_sequence_number=5,
+        ),
+    ]
+    generated_messages = dependencies["router"].generate.await_args.args[1]
+    assert [(message.role.value, message.content) for message in generated_messages] == [
+        ("system", "system"),
+        ("user", "question"),
+        ("assistant", "answer"),
+        ("user", "  exact follow-up  "),
+    ]
+    session.rollback.assert_awaited_once_with()
+    session.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_combined_generation_owner_miss_stops_before_user_append_or_runtime(
+    monkeypatch,
+):
+    session = AsyncMock(spec=AsyncSession)
+    dependencies = _dependencies(
+        monkeypatch,
+        conversation=None,
+        context=(),
+        appended=None,
+    )
+
+    with pytest.raises(ConversationGenerationNotFoundError):
+        await ConversationGenerationService(
+            session,
+            dependencies["catalog"],
+            dependencies["router"],
+        ).generate_for_owner(
+            uuid4(),
+            uuid4(),
+            MODEL_ID,
+            user_message="must not append",
+        )
+
+    dependencies["append"].assert_not_awaited()
+    dependencies["context"].assert_not_awaited()
+    dependencies["catalog"].resolve_model.assert_not_awaited()
+    dependencies["router"].generate.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_combined_generation_append_miss_stops_before_context_or_runtime(
+    monkeypatch,
+):
+    owner_id = uuid4()
+    conversation_id = uuid4()
+    session = AsyncMock(spec=AsyncSession)
+    dependencies = _dependencies(
+        monkeypatch,
+        conversation=_conversation(owner_id, conversation_id, 2),
+        context=(),
+        appended=None,
+    )
+
+    with pytest.raises(ConversationGenerationNotFoundError):
+        await ConversationGenerationService(
+            session,
+            dependencies["catalog"],
+            dependencies["router"],
+        ).generate_for_owner(
+            owner_id,
+            conversation_id,
+            MODEL_ID,
+            user_message="exact user content",
+        )
+
+    dependencies["append"].assert_awaited_once_with(
+        owner_id,
+        conversation_id,
+        MessageRole.USER,
+        "exact user content",
+    )
+    dependencies["context"].assert_not_awaited()
+    dependencies["catalog"].resolve_model.assert_not_awaited()
+    dependencies["router"].generate.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_message_winning_before_context_capture_stops_before_discovery(
+    monkeypatch,
+):
+    owner_id = uuid4()
+    conversation_id = uuid4()
+    session = AsyncMock(spec=AsyncSession)
+    appended_user = _message(
+        conversation_id,
+        MessageRole.USER,
+        "request user",
+        2,
+    )
+    dependencies = _dependencies(
+        monkeypatch,
+        conversation=_conversation(owner_id, conversation_id, 2),
+        context=(
+            _message(conversation_id, MessageRole.USER, "existing", 1),
+            appended_user,
+            _message(
+                conversation_id,
+                MessageRole.USER,
+                "x" * (MAX_GENERATION_CONTEXT_CHARACTERS + 1),
+                3,
+            ),
+        ),
+        appended=appended_user,
+    )
+
+    with pytest.raises(ConversationChangedDuringGenerationError):
+        await ConversationGenerationService(
+            session,
+            dependencies["catalog"],
+            dependencies["router"],
+        ).generate_for_owner(
+            owner_id,
+            conversation_id,
+            MODEL_ID,
+            user_message="request user",
+        )
+
+    dependencies["append"].assert_awaited_once_with(
+        owner_id,
+        conversation_id,
+        MessageRole.USER,
+        "request user",
+    )
+    session.rollback.assert_awaited_once_with()
+    dependencies["catalog"].resolve_model.assert_not_awaited()
+    dependencies["router"].generate.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure", ["model", "runtime"])
+async def test_failure_after_combined_user_append_never_appends_assistant(
+    monkeypatch,
+    failure,
+):
+    owner_id = uuid4()
+    conversation_id = uuid4()
+    session = AsyncMock(spec=AsyncSession)
+    appended_user = _message(
+        conversation_id,
+        MessageRole.USER,
+        "committed user content",
+        2,
+    )
+    dependencies = _dependencies(
+        monkeypatch,
+        conversation=_conversation(owner_id, conversation_id, 2),
+        context=(
+            _message(conversation_id, MessageRole.USER, "existing", 1),
+            appended_user,
+        ),
+        appended=appended_user,
+    )
+    if failure == "model":
+        dependencies["catalog"].resolve_model.return_value = None
+        expected_error = ConversationGenerationModelNotFoundError
+    else:
+        dependencies["router"].generate.side_effect = (
+            TextGenerationRuntimeUnavailableError("runtime unavailable")
+        )
+        expected_error = TextGenerationRuntimeUnavailableError
+
+    with pytest.raises(expected_error):
+        await ConversationGenerationService(
+            session,
+            dependencies["catalog"],
+            dependencies["router"],
+        ).generate_for_owner(
+            owner_id,
+            conversation_id,
+            MODEL_ID,
+            user_message="committed user content",
+        )
+
+    dependencies["append"].assert_awaited_once_with(
+        owner_id,
+        conversation_id,
+        MessageRole.USER,
+        "committed user content",
+    )
+
+
+@pytest.mark.asyncio
 async def test_missing_or_foreign_conversation_stops_before_context_or_runtime(
     monkeypatch,
 ):

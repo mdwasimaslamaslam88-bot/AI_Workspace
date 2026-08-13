@@ -32,6 +32,7 @@ class ConversationTextGenerationRequest(BaseModel):
     model_id: str = Field(
         pattern=r"^[a-z0-9][a-z0-9_-]{0,63}:[a-f0-9]{24}$"
     )
+    user_message: str | None = Field(default=None, pattern=r"\S")
 
 
 class ConversationTextGenerationResponse(BaseModel):

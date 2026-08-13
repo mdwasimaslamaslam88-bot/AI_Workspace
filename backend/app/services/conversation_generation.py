@@ -60,6 +60,8 @@ class ConversationGenerationService:
         owner_id: UUID,
         conversation_id: UUID,
         model_id: str,
+        *,
+        user_message: str | None = None,
     ) -> Message:
         conversation = await ConversationService(self.session).get_for_owner(
             owner_id,
@@ -71,6 +73,20 @@ class ConversationGenerationService:
                 "conversation is not available to the current user"
             )
 
+        appended_user_sequence: int | None = None
+        if user_message is not None:
+            appended_user = await MessageService(self.session).append_for_owner(
+                owner_id,
+                conversation_id,
+                MessageRole.USER,
+                user_message,
+            )
+            if appended_user is None:
+                raise ConversationGenerationNotFoundError(
+                    "conversation is not available to the current user"
+                )
+            appended_user_sequence = appended_user.sequence_number
+
         messages = await MessageService(
             self.session
         ).list_generation_context_for_owner(
@@ -78,7 +94,11 @@ class ConversationGenerationService:
             conversation_id,
             max_messages=MAX_GENERATION_CONTEXT_MESSAGES,
         )
-        expected_sequence_number = conversation.next_message_sequence
+        expected_sequence_number = (
+            appended_user_sequence + 1
+            if appended_user_sequence is not None
+            else conversation.next_message_sequence
+        )
         snapshot = tuple(
             (
                 message.role,
@@ -90,6 +110,14 @@ class ConversationGenerationService:
 
         # Do not hold a database transaction open during local inference.
         await self.session.rollback()
+
+        if appended_user_sequence is not None and (
+            not snapshot
+            or snapshot[-1][2] != appended_user_sequence
+        ):
+            raise ConversationChangedDuringGenerationError(
+                "conversation changed before generation context was captured"
+            )
 
         if len(snapshot) > MAX_GENERATION_CONTEXT_MESSAGES:
             raise ConversationGenerationContextTooLargeError(

@@ -75,9 +75,12 @@ conversations all return the same empty page without disclosing ownership.
 POST /api/v1/conversations/{conversation_id}/messages/generate resolves the
 current owner exclusively from the bearer credential and generates one
 non-streaming local assistant Message from that owner's existing Conversation
-history. The request accepts only an opaque public model_id; user IDs, owner
-IDs, raw runtime model references, client-supplied Messages, generation
-options, and streaming flags are rejected.
+history. The request requires an opaque public model_id and may include one
+optional nonblank `user_message`. When supplied, the exact content is committed
+first as a server-assigned user Message before generation. Omission or null
+preserves generation-only behavior. User IDs, owner IDs, roles, sequences, raw
+runtime model references, client-supplied Message arrays, generation options,
+and streaming flags are rejected.
 
 Missing and foreign-owned Conversations return the same generic HTTP 404.
 Authentication completes before Conversation lookup, model discovery, or
@@ -86,3 +89,9 @@ assistant append uses the existing owner-scoped atomic sequence allocation
 with an expected-sequence condition. If the Conversation changes while
 generation is running, the stale output is not persisted and the request
 returns HTTP 409.
+
+For a request containing `user_message`, the captured generation context must
+end at exactly that newly committed user Message. If another Message is
+committed first, generation does not start and the request returns HTTP 409.
+Failures after the user Message commit leave that Message available for a
+generation-only retry and do not persist an assistant Message.

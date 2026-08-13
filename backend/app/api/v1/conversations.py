@@ -257,6 +257,7 @@ async def generate_assistant_message(
             current_user.id,
             conversation_id,
             generation_request.model_id,
+            user_message=generation_request.user_message,
         )
     except ConversationGenerationNotFoundError:
         raise HTTPException(
