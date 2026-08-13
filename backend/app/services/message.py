@@ -26,14 +26,25 @@ class MessageService:
         conversation_id: UUID,
         role: MessageRole,
         content: str,
+        *,
+        expected_sequence_number: int | None = None,
     ) -> Message | None:
         try:
-            message = await self.repository.append_for_owner(
-                owner_id,
-                conversation_id,
-                role,
-                content,
-            )
+            if expected_sequence_number is None:
+                message = await self.repository.append_for_owner(
+                    owner_id,
+                    conversation_id,
+                    role,
+                    content,
+                )
+            else:
+                message = await self.repository.append_for_owner(
+                    owner_id,
+                    conversation_id,
+                    role,
+                    content,
+                    expected_sequence_number=expected_sequence_number,
+                )
             if message is None:
                 await self.session.rollback()
                 return None
@@ -60,6 +71,23 @@ class MessageService:
                 owner_id,
                 conversation_id,
                 pagination,
+            )
+        except BaseException:
+            await self.session.rollback()
+            raise
+
+    async def list_generation_context_for_owner(
+        self,
+        owner_id: UUID,
+        conversation_id: UUID,
+        *,
+        max_messages: int,
+    ) -> tuple[Message, ...]:
+        try:
+            return await self.repository.list_generation_context_for_owner(
+                owner_id,
+                conversation_id,
+                max_messages=max_messages,
             )
         except BaseException:
             await self.session.rollback()

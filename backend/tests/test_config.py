@@ -10,6 +10,8 @@ def test_settings_preserve_application_defaults():
     assert settings.DATABASE_URL is None
     assert settings.REDIS_URL is None
     assert settings.OLLAMA_BASE_URL is None
+    assert settings.OLLAMA_LOCAL_MODEL_ALLOWLIST == ()
+    assert settings.OLLAMA_GENERATION_TIMEOUT_SECONDS == 120.0
 
 def test_blank_runtime_urls_are_unconfigured():
     settings = Settings(_env_file=None, DATABASE_URL="", REDIS_URL="", OLLAMA_BASE_URL="")
@@ -60,3 +62,39 @@ def test_ollama_runtime_accepts_only_loopback_origins(url):
 def test_ollama_runtime_rejects_nonlocal_or_unsafe_origins(url):
     with pytest.raises(ValidationError):
         Settings(_env_file=None, OLLAMA_BASE_URL=url)
+
+
+def test_local_model_allowlist_accepts_exact_unique_references():
+    settings = Settings(
+        _env_file=None,
+        OLLAMA_LOCAL_MODEL_ALLOWLIST=[
+            "verified-local:latest",
+            "/private/models/exact:14b",
+        ],
+    )
+
+    assert settings.OLLAMA_LOCAL_MODEL_ALLOWLIST == (
+        "verified-local:latest",
+        "/private/models/exact:14b",
+    )
+
+
+@pytest.mark.parametrize(
+    "value",
+    [[""], [" whitespace"], ["duplicate", "duplicate"], [3]],
+)
+def test_local_model_allowlist_rejects_unsafe_entries(value):
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None, OLLAMA_LOCAL_MODEL_ALLOWLIST=value)
+
+
+@pytest.mark.parametrize(
+    "value",
+    [0, -1, True, "not-a-number", float("inf"), float("-inf"), float("nan")],
+)
+def test_generation_timeout_must_be_positive_numeric(value):
+    with pytest.raises(ValidationError):
+        Settings(
+            _env_file=None,
+            OLLAMA_GENERATION_TIMEOUT_SECONDS=value,
+        )

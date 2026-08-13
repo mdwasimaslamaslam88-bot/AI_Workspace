@@ -134,3 +134,53 @@ async def test_catalog_rejects_duplicate_public_model_ids():
 
     with pytest.raises(ValueError, match="duplicate public model_id"):
         await catalog.list_models()
+
+
+@pytest.mark.asyncio
+async def test_catalog_resolves_public_id_to_internal_runtime_binding():
+    raw_reference = "/private/runtime/model:32b"
+    runtime = _runtime(
+        "local-runtime",
+        (
+            RuntimeModel(
+                reference=raw_reference,
+                display_name="Local 32B",
+                parameter_class="32B",
+            ),
+        ),
+    )
+    catalog = ModelCatalog((runtime,))
+    (descriptor,) = await catalog.list_models()
+
+    resolved = await catalog.resolve_model(descriptor.model_id)
+
+    assert resolved is not None
+    assert resolved.descriptor == descriptor
+    assert resolved.runtime_reference == raw_reference
+    assert raw_reference not in repr(descriptor)
+
+
+@pytest.mark.asyncio
+async def test_catalog_unknown_runtime_namespace_does_not_invoke_discovery():
+    runtime = _runtime("local-runtime", ())
+
+    resolved = await ModelCatalog((runtime,)).resolve_model(
+        f"other-runtime:{'a' * 24}"
+    )
+
+    assert resolved is None
+    runtime.discover_models.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    "model_id",
+    ["", "raw-tag", "LOCAL:" + "a" * 24, "local:short"],
+)
+@pytest.mark.asyncio
+async def test_catalog_rejects_invalid_public_id_before_discovery(model_id):
+    runtime = _runtime("local-runtime", ())
+
+    with pytest.raises(ValueError, match="runtime-namespaced"):
+        await ModelCatalog((runtime,)).resolve_model(model_id)
+
+    runtime.discover_models.assert_not_awaited()

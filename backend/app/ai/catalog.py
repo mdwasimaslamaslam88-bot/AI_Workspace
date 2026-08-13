@@ -161,6 +161,24 @@ class ModelDescriptor:
 
 
         object.__setattr__(self, "capabilities", validated.capabilities)
+
+
+@dataclass(frozen=True, slots=True)
+class ResolvedModel:
+    """Internal catalog binding that must never cross the API boundary."""
+
+    descriptor: ModelDescriptor
+    runtime_reference: str
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.descriptor, ModelDescriptor):
+            raise TypeError("resolved model descriptor must be a ModelDescriptor")
+        if not isinstance(self.runtime_reference, str):
+            raise TypeError("resolved model runtime_reference must be a string")
+        if not self.runtime_reference.strip():
+            raise ValueError("resolved model runtime_reference must not be blank")
+
+
 @runtime_checkable
 class ModelDiscoveryRuntime(Protocol):
     runtime_id: str
@@ -186,33 +204,79 @@ class ModelCatalog:
         self.runtimes = runtimes
 
     async def list_models(self) -> tuple[ModelDescriptor, ...]:
-        descriptors: dict[str, ModelDescriptor] = {}
+        resolved: dict[str, ResolvedModel] = {}
         for runtime in self.runtimes:
-            for model in await runtime.discover_models():
-                if not isinstance(model, RuntimeModel):
-                    raise TypeError("runtime discovery must return RuntimeModel values")
-                model_id = _public_model_id(runtime.runtime_id, model.reference)
-                if model_id in descriptors:
+            for model in await self._discover_runtime(runtime):
+                model_id = model.descriptor.model_id
+                if model_id in resolved:
                     raise ValueError(f"duplicate public model_id: {model_id}")
-                descriptors[model_id] = ModelDescriptor(
-                    model_id=model_id,
-                    display_name=model.display_name,
-                    runtime_id=runtime.runtime_id,
-                    modality=model.modality,
-                    family=model.family,
-                    parameter_class=model.parameter_class,
-                    capabilities=model.capabilities,
-                    context_window=model.context_window,
-                    quantization=model.quantization,
-                    estimated_vram_bytes=model.estimated_vram_bytes,
-                    availability=model.availability,
-                )
+                resolved[model_id] = model
         return tuple(
             sorted(
-                descriptors.values(),
+                (model.descriptor for model in resolved.values()),
                 key=lambda item: (item.display_name.casefold(), item.model_id),
             )
         )
+
+    async def resolve_model(self, model_id: str) -> ResolvedModel | None:
+        if not isinstance(model_id, str) or not _PUBLIC_MODEL_ID_PATTERN.fullmatch(
+            model_id
+        ):
+            raise ValueError("model_id must be a runtime-namespaced public ID")
+
+        runtime_id = model_id.split(":", 1)[0]
+        runtime = next(
+            (
+                candidate
+                for candidate in self.runtimes
+                if candidate.runtime_id == runtime_id
+            ),
+            None,
+        )
+        if runtime is None:
+            return None
+
+        resolved: ResolvedModel | None = None
+        for model in await self._discover_runtime(runtime):
+            if model.descriptor.model_id != model_id:
+                continue
+            if resolved is not None:
+                raise ValueError(f"duplicate public model_id: {model_id}")
+            resolved = model
+        return resolved
+
+    @staticmethod
+    async def _discover_runtime(
+        runtime: ModelDiscoveryRuntime,
+    ) -> tuple[ResolvedModel, ...]:
+        resolved: list[ResolvedModel] = []
+        public_ids: set[str] = set()
+        for model in await runtime.discover_models():
+            if not isinstance(model, RuntimeModel):
+                raise TypeError("runtime discovery must return RuntimeModel values")
+            model_id = _public_model_id(runtime.runtime_id, model.reference)
+            if model_id in public_ids:
+                raise ValueError(f"duplicate public model_id: {model_id}")
+            public_ids.add(model_id)
+            resolved.append(
+                ResolvedModel(
+                    descriptor=ModelDescriptor(
+                        model_id=model_id,
+                        display_name=model.display_name,
+                        runtime_id=runtime.runtime_id,
+                        modality=model.modality,
+                        family=model.family,
+                        parameter_class=model.parameter_class,
+                        capabilities=model.capabilities,
+                        context_window=model.context_window,
+                        quantization=model.quantization,
+                        estimated_vram_bytes=model.estimated_vram_bytes,
+                        availability=model.availability,
+                    ),
+                    runtime_reference=model.reference,
+                )
+            )
+        return tuple(resolved)
 
 
 def _public_model_id(runtime_id: str, runtime_reference: str) -> str:

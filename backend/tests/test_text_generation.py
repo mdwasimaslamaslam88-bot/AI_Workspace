@@ -1,0 +1,135 @@
+from unittest.mock import AsyncMock, Mock
+
+import pytest
+
+from app.ai.catalog import (
+    ModelAvailability,
+    ModelDescriptor,
+    ModelModality,
+    ResolvedModel,
+)
+from app.ai.generation import (
+    TextGenerationMessage,
+    TextGenerationResult,
+    TextGenerationRole,
+    TextGenerationRouter,
+    TextGenerationRuntimeUnsupportedError,
+)
+
+
+def _resolved_model(
+    *,
+    runtime_id: str = "local-runtime",
+    parameter_class: str | None = "7B",
+) -> ResolvedModel:
+    return ResolvedModel(
+        descriptor=ModelDescriptor(
+            model_id=f"{runtime_id}:{'a' * 24}",
+            display_name="Local model",
+            runtime_id=runtime_id,
+            modality=ModelModality.TEXT,
+            family=None,
+            parameter_class=parameter_class,
+            capabilities=(),
+            context_window=None,
+            quantization=None,
+            estimated_vram_bytes=None,
+            availability=ModelAvailability.AVAILABLE,
+        ),
+        runtime_reference="/private/runtime/model:tag",
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("parameter_class", ["7B", "14B", "32B", "70B+"])
+async def test_router_dispatches_by_runtime_not_parameter_class(parameter_class):
+    generated = TextGenerationResult(content="  exact local answer  ")
+    generate_text = AsyncMock(return_value=generated)
+    runtime = Mock(runtime_id="local-runtime", generate_text=generate_text)
+    router = TextGenerationRouter((runtime,))
+    messages = (
+        TextGenerationMessage(
+            role=TextGenerationRole.USER,
+            content="  exact prompt  ",
+        ),
+    )
+
+    result = await router.generate(
+        _resolved_model(parameter_class=parameter_class),
+        messages,
+        max_output_tokens=1024,
+    )
+
+    assert result is generated
+    generate_text.assert_awaited_once_with(
+        "/private/runtime/model:tag",
+        messages,
+        max_output_tokens=1024,
+    )
+
+
+@pytest.mark.asyncio
+async def test_router_rejects_model_without_registered_generation_adapter():
+    with pytest.raises(TextGenerationRuntimeUnsupportedError):
+        await TextGenerationRouter().generate(
+            _resolved_model(runtime_id="discovery-only"),
+            (
+                TextGenerationMessage(
+                    role=TextGenerationRole.USER,
+                    content="prompt",
+                ),
+            ),
+            max_output_tokens=1024,
+        )
+
+
+def test_router_rejects_duplicate_runtime_ids():
+    first = Mock(runtime_id="duplicate")
+    second = Mock(runtime_id="duplicate")
+
+    with pytest.raises(ValueError, match="duplicate text-generation runtime_id"):
+        TextGenerationRouter((first, second))
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"role": "user", "content": "prompt"},
+        {"role": TextGenerationRole.USER, "content": 3},
+    ],
+)
+def test_generation_message_validates_runtime_neutral_values(kwargs):
+    with pytest.raises(TypeError):
+        TextGenerationMessage(**kwargs)
+
+
+@pytest.mark.parametrize("content", ["", "   ", "\n\t"])
+def test_generation_result_rejects_blank_content(content):
+    with pytest.raises(ValueError, match="must not be blank"):
+        TextGenerationResult(content=content)
+
+
+@pytest.mark.parametrize(
+    "max_output_tokens",
+    [True, 0, -1, 1.5, "1024"],
+)
+@pytest.mark.asyncio
+async def test_router_rejects_invalid_output_bounds(max_output_tokens):
+    runtime = Mock(
+        runtime_id="local-runtime",
+        generate_text=AsyncMock(),
+    )
+
+    with pytest.raises((TypeError, ValueError)):
+        await TextGenerationRouter((runtime,)).generate(
+            _resolved_model(),
+            (
+                TextGenerationMessage(
+                    role=TextGenerationRole.USER,
+                    content="prompt",
+                ),
+            ),
+            max_output_tokens=max_output_tokens,
+        )
+
+    runtime.generate_text.assert_not_awaited()

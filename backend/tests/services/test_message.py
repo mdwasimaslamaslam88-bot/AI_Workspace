@@ -194,6 +194,71 @@ async def test_message_list_returns_page_without_committing():
 
 
 @pytest.mark.asyncio
+async def test_generation_context_forwards_internal_bound_without_committing(
+    monkeypatch,
+):
+    conversation_id = uuid4()
+    owner_id = uuid4()
+    context = (
+        Message(
+            conversation_id=conversation_id,
+            role=MessageRole.USER,
+            content="question",
+            sequence_number=1,
+        ),
+    )
+    session = _service_session(None)
+    service = MessageService(session)
+    context_read = AsyncMock(return_value=context)
+    monkeypatch.setattr(
+        service.repository,
+        "list_generation_context_for_owner",
+        context_read,
+    )
+
+    result = await service.list_generation_context_for_owner(
+        owner_id,
+        conversation_id,
+        max_messages=100,
+    )
+
+    assert result == context
+    context_read.assert_awaited_once_with(
+        owner_id,
+        conversation_id,
+        max_messages=100,
+    )
+    session.commit.assert_not_awaited()
+    session.rollback.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_generation_context_failure_rolls_back_original_exception(
+    monkeypatch,
+):
+    session = _service_session(None)
+    service = MessageService(session)
+    error = RuntimeError("context read failed")
+    context_read = AsyncMock(side_effect=error)
+    monkeypatch.setattr(
+        service.repository,
+        "list_generation_context_for_owner",
+        context_read,
+    )
+
+    with pytest.raises(RuntimeError) as caught:
+        await service.list_generation_context_for_owner(
+            uuid4(),
+            uuid4(),
+            max_messages=100,
+        )
+
+    assert caught.value is error
+    session.rollback.assert_awaited_once_with()
+    session.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_message_list_failure_rolls_back_and_preserves_original_exception():
     events: list[str] = []
     session = _service_session(None)
@@ -250,3 +315,40 @@ async def test_append_allocation_failure_rolls_back_original_exception():
     session.commit.assert_not_awaited()
     session.add.assert_not_called()
     session.flush.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_service_passes_expected_sequence_and_commits_guarded_append(
+    monkeypatch,
+):
+    session = _service_session(4)
+    service = MessageService(session)
+    guarded_append = AsyncMock(
+        return_value=Message(
+            conversation_id=uuid4(),
+            role=MessageRole.ASSISTANT,
+            content="answer",
+            sequence_number=4,
+        )
+    )
+    monkeypatch.setattr(service.repository, "append_for_owner", guarded_append)
+    owner_id = uuid4()
+    conversation_id = uuid4()
+
+    await service.append_for_owner(
+        owner_id,
+        conversation_id,
+        MessageRole.ASSISTANT,
+        "answer",
+        expected_sequence_number=4,
+    )
+
+    guarded_append.assert_awaited_once_with(
+        owner_id,
+        conversation_id,
+        MessageRole.ASSISTANT,
+        "answer",
+        expected_sequence_number=4,
+    )
+    session.commit.assert_awaited_once_with()
+    session.rollback.assert_not_awaited()

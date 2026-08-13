@@ -279,3 +279,121 @@ async def test_message_repository_rejects_wrong_pagination_before_querying():
     session.execute.assert_not_awaited()
     session.commit.assert_not_awaited()
     session.rollback.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_generation_context_is_owner_scoped_ordered_and_bounded_without_cursor():
+    owner_id = uuid4()
+    conversation_id = uuid4()
+    rows = (_message(1), _message(2))
+    session = _session_with_allocated_sequence(None, rows=rows)
+
+    context = await MessageRepository(
+        session
+    ).list_generation_context_for_owner(
+        owner_id,
+        conversation_id,
+        max_messages=100,
+    )
+
+    assert context == rows
+    statement = session.execute.await_args.args[0]
+    assert isinstance(statement, Select)
+    compiled, sql = _compile(statement)
+    assert "join conversations" in sql
+    assert "conversations.owner_id =" in sql
+    assert "conversations.id =" in sql
+    assert "messages.conversation_id =" in sql
+    assert "order by messages.sequence_number asc" in sql
+    assert "offset" not in sql
+    assert "cursor" not in sql
+    assert compiled.params["generation_context_fetch_limit"] == 101
+    assert owner_id in compiled.params.values()
+    assert conversation_id in compiled.params.values()
+    session.commit.assert_not_awaited()
+    session.rollback.assert_not_awaited()
+
+
+@pytest.mark.parametrize("max_messages", [True, 1.5, "100", 0, -1])
+@pytest.mark.asyncio
+async def test_generation_context_rejects_invalid_bound_before_querying(
+    max_messages,
+):
+    session = _session_with_allocated_sequence(None)
+
+    with pytest.raises((TypeError, ValueError)):
+        await MessageRepository(
+            session
+        ).list_generation_context_for_owner(
+            uuid4(),
+            uuid4(),
+            max_messages=max_messages,
+        )
+
+    session.execute.assert_not_awaited()
+    session.commit.assert_not_awaited()
+    session.rollback.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_expected_sequence_adds_atomic_compare_and_append_condition():
+    owner_id = uuid4()
+    conversation_id = uuid4()
+    session = _session_with_allocated_sequence(7)
+    repository = MessageRepository(session)
+
+    message = await repository.append_for_owner(
+        owner_id,
+        conversation_id,
+        MessageRole.ASSISTANT,
+        "generated answer",
+        expected_sequence_number=7,
+    )
+
+    assert message is not None
+    statement = session.execute.await_args.args[0]
+    compiled, sql = _compile(statement)
+    assert "and conversations.next_message_sequence =" in sql
+    assert owner_id in compiled.params.values()
+    assert conversation_id in compiled.params.values()
+    assert 7 in compiled.params.values()
+    session.add.assert_called_once_with(message)
+    session.flush.assert_awaited_once_with()
+    session.commit.assert_not_awaited()
+    session.rollback.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_expected_sequence_mismatch_returns_owner_scoped_miss():
+    session = _session_with_allocated_sequence(None)
+    repository = MessageRepository(session)
+
+    message = await repository.append_for_owner(
+        uuid4(),
+        uuid4(),
+        MessageRole.ASSISTANT,
+        "stale answer",
+        expected_sequence_number=2,
+    )
+
+    assert message is None
+    session.execute.assert_awaited_once()
+    session.add.assert_not_called()
+    session.flush.assert_not_awaited()
+
+
+@pytest.mark.parametrize("expected", [True, 1.5, "2", 0, -1])
+@pytest.mark.asyncio
+async def test_expected_sequence_validation_precedes_database_work(expected):
+    session = _session_with_allocated_sequence(None)
+
+    with pytest.raises((TypeError, ValueError)):
+        await MessageRepository(session).append_for_owner(
+            uuid4(),
+            uuid4(),
+            MessageRole.ASSISTANT,
+            "answer",
+            expected_sequence_number=expected,
+        )
+
+    session.execute.assert_not_awaited()

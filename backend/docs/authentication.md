@@ -65,3 +65,18 @@ ascending message sequence. `limit` defaults to 50 and is bounded from 1 to
 by the previous page. The response provides that sequence number as
 `next_cursor` only when another page exists. Empty, missing, and foreign-owned
 conversations all return the same empty page without disclosing ownership.
+
+POST /api/v1/conversations/{conversation_id}/messages/generate resolves the
+current owner exclusively from the bearer credential and generates one
+non-streaming local assistant Message from that owner's existing Conversation
+history. The request accepts only an opaque public model_id; user IDs, owner
+IDs, raw runtime model references, client-supplied Messages, generation
+options, and streaming flags are rejected.
+
+Missing and foreign-owned Conversations return the same generic HTTP 404.
+Authentication completes before Conversation lookup, model discovery, or
+generation. The read transaction is released before local inference, and the
+assistant append uses the existing owner-scoped atomic sequence allocation
+with an expected-sequence condition. If the Conversation changes while
+generation is running, the stale output is not persisted and the request
+returns HTTP 409.

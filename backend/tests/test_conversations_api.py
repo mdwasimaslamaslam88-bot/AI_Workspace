@@ -1876,3 +1876,396 @@ def test_only_delete_by_id_route_was_added(conversation_api):
     assert delete_response.content == b""
     assert client.get("/api/v1/messages").status_code == 404
     assert client.post("/api/v1/messages", json={}).status_code == 404
+
+
+GENERATION_MODEL_ID = f"local-runtime:{'a' * 24}"
+
+
+@pytest.fixture
+def conversation_generation_api(monkeypatch):
+    from app.services.conversation_generation import ConversationGenerationService
+
+    session = AsyncMock(spec=AsyncSession)
+    current_user = User(
+        id=uuid4(),
+        created_at=datetime(2026, 8, 13, tzinfo=timezone.utc),
+        updated_at=datetime(2026, 8, 13, tzinfo=timezone.utc),
+    )
+    conversation_id = uuid4()
+    generated_message = Message(
+        id=uuid4(),
+        conversation_id=conversation_id,
+        role=MessageRole.ASSISTANT,
+        content="  exact local answer  ",
+        sequence_number=3,
+        created_at=datetime(2026, 8, 13, 1, tzinfo=timezone.utc),
+        updated_at=datetime(2026, 8, 13, 1, 1, tzinfo=timezone.utc),
+    )
+    generate = AsyncMock(return_value=generated_message)
+    service = Mock(generate_for_owner=generate)
+    service_factory = Mock(return_value=service)
+    monkeypatch.setattr(
+        conversations_module,
+        "ConversationGenerationService",
+        service_factory,
+    )
+
+    async def override_db_session():
+        yield session
+
+    async def override_current_user():
+        return current_user
+
+    app.dependency_overrides[get_db_session] = override_db_session
+    app.dependency_overrides[get_current_user] = override_current_user
+    missing = object()
+    previous_catalog = getattr(app.state, "model_catalog", missing)
+    previous_router = getattr(app.state, "text_generation_router", missing)
+    try:
+        with TestClient(app, raise_server_exceptions=False) as client:
+            catalog = object()
+            generation_router = object()
+            app.state.model_catalog = catalog
+            app.state.text_generation_router = generation_router
+            yield {
+                "client": client,
+                "session": session,
+                "current_user": current_user,
+                "conversation_id": conversation_id,
+                "message": generated_message,
+                "catalog": catalog,
+                "router": generation_router,
+                "service_factory": service_factory,
+                "generate": generate,
+            }
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
+        app.dependency_overrides.pop(get_db_session, None)
+        if previous_catalog is missing:
+            if hasattr(app.state, "model_catalog"):
+                delattr(app.state, "model_catalog")
+        else:
+            app.state.model_catalog = previous_catalog
+        if previous_router is missing:
+            if hasattr(app.state, "text_generation_router"):
+                delattr(app.state, "text_generation_router")
+        else:
+            app.state.text_generation_router = previous_router
+
+
+def test_authenticated_generation_returns_exact_safe_created_message(
+    conversation_generation_api,
+):
+    api = conversation_generation_api
+
+    response = api["client"].post(
+        f"/api/v1/conversations/{api['conversation_id']}/messages/generate",
+        json={"model_id": GENERATION_MODEL_ID},
+    )
+
+    assert response.status_code == 201
+    assert response.json() == {
+        "model_id": GENERATION_MODEL_ID,
+        "message": {
+            "id": str(api["message"].id),
+            "conversation_id": str(api["conversation_id"]),
+            "role": "assistant",
+            "content": "  exact local answer  ",
+            "sequence_number": 3,
+            "created_at": "2026-08-13T01:00:00Z",
+            "updated_at": "2026-08-13T01:01:00Z",
+        },
+    }
+    api["service_factory"].assert_called_once_with(
+        api["session"],
+        api["catalog"],
+        api["router"],
+    )
+    api["generate"].assert_awaited_once_with(
+        api["current_user"].id,
+        api["conversation_id"],
+        GENERATION_MODEL_ID,
+    )
+    api["session"].commit.assert_not_awaited()
+    api["session"].rollback.assert_not_awaited()
+    api["session"].refresh.assert_not_awaited()
+    response_text = response.text.lower()
+    for unsafe in (
+        "owner_id",
+        "runtime_reference",
+        "base_url",
+        "next_message_sequence",
+        "credential",
+        "access_token",
+    ):
+        assert unsafe not in response_text
+
+
+@pytest.mark.parametrize(
+    ("body", "raw_content"),
+    [
+        ({}, None),
+        ({"model_id": "raw-ollama-tag"}, None),
+        ({"model_id": 3}, None),
+        ({"model_id": GENERATION_MODEL_ID, "owner_id": str(uuid4())}, None),
+        ({"model_id": GENERATION_MODEL_ID, "user_id": str(uuid4())}, None),
+        ({"model_id": GENERATION_MODEL_ID, "stream": False}, None),
+        ({"model_id": GENERATION_MODEL_ID, "messages": []}, None),
+        ({"model_id": GENERATION_MODEL_ID, "options": {}}, None),
+        (None, b'{"model_id":'),
+    ],
+)
+def test_invalid_generation_body_is_422_before_service_invocation(
+    conversation_generation_api,
+    body,
+    raw_content,
+):
+    api = conversation_generation_api
+    url = (
+        f"/api/v1/conversations/{api['conversation_id']}/messages/generate"
+    )
+    if raw_content is None:
+        response = api["client"].post(url, json=body)
+    else:
+        response = api["client"].post(
+            url,
+            content=raw_content,
+            headers={"Content-Type": "application/json"},
+        )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+    api["service_factory"].assert_not_called()
+
+
+def test_malformed_generation_uuid_is_422_before_service_construction(
+    conversation_generation_api,
+):
+    api = conversation_generation_api
+
+    response = api["client"].post(
+        "/api/v1/conversations/not-a-uuid/messages/generate",
+        json={"model_id": GENERATION_MODEL_ID},
+    )
+
+    assert response.status_code == 422
+    api["service_factory"].assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("exception_type", "status_code", "message"),
+    [
+        (
+            __import__(
+                "app.services.conversation_generation",
+                fromlist=["ConversationGenerationNotFoundError"],
+            ).ConversationGenerationNotFoundError,
+            404,
+            "Conversation not found",
+        ),
+        (
+            __import__(
+                "app.services.conversation_generation",
+                fromlist=["ConversationGenerationModelNotFoundError"],
+            ).ConversationGenerationModelNotFoundError,
+            404,
+            "Model not found",
+        ),
+        (
+            __import__(
+                "app.services.conversation_generation",
+                fromlist=["ConversationGenerationModelUnavailableError"],
+            ).ConversationGenerationModelUnavailableError,
+            503,
+            "Local model runtime unavailable",
+        ),
+        (
+            __import__(
+                "app.services.conversation_generation",
+                fromlist=["ConversationGenerationNotReadyError"],
+            ).ConversationGenerationNotReadyError,
+            409,
+            "Conversation is not ready for generation",
+        ),
+        (
+            __import__(
+                "app.services.conversation_generation",
+                fromlist=["ConversationChangedDuringGenerationError"],
+            ).ConversationChangedDuringGenerationError,
+            409,
+            "Conversation changed during generation",
+        ),
+        (
+            __import__(
+                "app.services.conversation_generation",
+                fromlist=["ConversationGenerationContextTooLargeError"],
+            ).ConversationGenerationContextTooLargeError,
+            413,
+            "Conversation context is too large",
+        ),
+        (
+            __import__(
+                "app.ai.generation",
+                fromlist=["TextGenerationRuntimeUnsupportedError"],
+            ).TextGenerationRuntimeUnsupportedError,
+            409,
+            "Model does not support text generation",
+        ),
+        (
+            __import__(
+                "app.ai.generation",
+                fromlist=["TextGenerationRuntimeUnavailableError"],
+            ).TextGenerationRuntimeUnavailableError,
+            503,
+            "Local model runtime unavailable",
+        ),
+        (
+            MessageAppendConflictError,
+            409,
+            "Message could not be appended",
+        ),
+    ],
+)
+def test_generation_domain_errors_use_safe_http_contracts(
+    conversation_generation_api,
+    exception_type,
+    status_code,
+    message,
+):
+    api = conversation_generation_api
+    api["generate"].side_effect = exception_type(
+        "secret runtime reference and persistence detail"
+    )
+
+    response = api["client"].post(
+        f"/api/v1/conversations/{api['conversation_id']}/messages/generate",
+        json={"model_id": GENERATION_MODEL_ID},
+    )
+
+    assert response.status_code == status_code
+    assert response.json()["error"] == {
+        "code": "HTTP_ERROR",
+        "message": message,
+    }
+    assert "secret runtime reference" not in response.text
+
+
+def test_generation_unexpected_failure_uses_generic_500(
+    conversation_generation_api,
+):
+    api = conversation_generation_api
+    api["generate"].side_effect = RuntimeError(
+        "secret internal generation failure"
+    )
+
+    response = api["client"].post(
+        f"/api/v1/conversations/{api['conversation_id']}/messages/generate",
+        json={"model_id": GENERATION_MODEL_ID},
+    )
+
+    assert response.status_code == 500
+    assert response.json()["error"] == {
+        "code": "INTERNAL_SERVER_ERROR",
+        "message": "An unexpected error occurred.",
+    }
+    assert "secret internal generation failure" not in response.text
+
+
+@pytest.mark.parametrize(
+    "authorization",
+    [None, "Bearer short", f"Bearer {'U' * 43}"],
+)
+def test_generation_preserves_uniform_401_before_service_construction(
+    monkeypatch,
+    authorization,
+):
+    session = AsyncMock(spec=AsyncSession)
+    lookup = AsyncMock(return_value=None)
+    authentication_factory = Mock(
+        return_value=Mock(get_by_access_token_digest=lookup)
+    )
+    generation_service_factory = Mock()
+    monkeypatch.setattr(
+        authentication_module,
+        "UserService",
+        authentication_factory,
+    )
+    monkeypatch.setattr(
+        conversations_module,
+        "ConversationGenerationService",
+        generation_service_factory,
+    )
+
+    async def override_db_session():
+        yield session
+
+    app.dependency_overrides[get_db_session] = override_db_session
+    headers = {} if authorization is None else {"Authorization": authorization}
+    try:
+        with TestClient(app, raise_server_exceptions=False) as client:
+            response = client.post(
+                f"/api/v1/conversations/{uuid4()}/messages/generate",
+                json={"model_id": GENERATION_MODEL_ID},
+                headers=headers,
+            )
+    finally:
+        app.dependency_overrides.pop(get_db_session, None)
+
+    assert response.status_code == 401
+    assert response.headers["WWW-Authenticate"] == "Bearer"
+    assert response.json()["error"] == {
+        "code": "HTTP_ERROR",
+        "message": "Invalid authentication credentials",
+    }
+    generation_service_factory.assert_not_called()
+
+
+def test_generation_is_the_only_new_nested_ai_route(conversation_generation_api):
+    client = conversation_generation_api["client"]
+    conversation_id = conversation_generation_api["conversation_id"]
+    methods = {
+        method
+        for route in conversations_module.router.routes
+        if getattr(route, "path", None)
+        == "/conversations/{conversation_id}/messages/generate"
+        for method in getattr(route, "methods", ())
+    }
+
+    assert methods == {"POST"}
+    assert client.get(
+        f"/api/v1/conversations/{conversation_id}/messages/generate"
+    ).status_code == 405
+    assert client.post("/api/v1/ai/generate", json={}).status_code == 404
+    assert client.post("/api/v1/ai/pull", json={}).status_code == 404
+    assert client.post("/api/v1/ai/load", json={}).status_code == 404
+    assert client.get("/api/v1/messages").status_code == 404
+
+
+def test_generation_missing_and_foreign_conversations_are_identical_404(
+    conversation_generation_api,
+):
+    from app.services.conversation_generation import (
+        ConversationGenerationNotFoundError,
+    )
+
+    api = conversation_generation_api
+    api["generate"].side_effect = [
+        ConversationGenerationNotFoundError("missing persistence detail"),
+        ConversationGenerationNotFoundError("foreign ownership detail"),
+    ]
+    responses = [
+        api["client"].post(
+            f"/api/v1/conversations/{uuid4()}/messages/generate",
+            json={"model_id": GENERATION_MODEL_ID},
+        )
+        for _case in ("missing", "foreign")
+    ]
+
+    assert [response.status_code for response in responses] == [404, 404]
+    assert responses[0].json()["error"] == responses[1].json()["error"] == {
+        "code": "HTTP_ERROR",
+        "message": "Conversation not found",
+    }
+    for response in responses:
+        assert "persistence" not in response.text
+        assert "ownership" not in response.text

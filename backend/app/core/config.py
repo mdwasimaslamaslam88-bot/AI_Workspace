@@ -25,6 +25,12 @@ class Settings(BaseSettings):
     TEST_DATABASE_URL: PostgresDsn | None = None
     REDIS_CONNECT_TIMEOUT_SECONDS: float = Field(default=3.0, gt=0)
     OLLAMA_TIMEOUT_SECONDS: float = Field(default=5.0, gt=0)
+    OLLAMA_LOCAL_MODEL_ALLOWLIST: tuple[str, ...] = ()
+    OLLAMA_GENERATION_TIMEOUT_SECONDS: float = Field(
+        default=120.0,
+        gt=0,
+        allow_inf_nan=False,
+    )
 
     @field_validator(
         "DATABASE_URL",
@@ -72,6 +78,29 @@ class Settings(BaseSettings):
             raise ValueError(
                 "OLLAMA_BASE_URL must use localhost or a loopback IP address"
             )
+        return value
+
+    @field_validator("OLLAMA_GENERATION_TIMEOUT_SECONDS", mode="before")
+    @classmethod
+    def reject_boolean_generation_timeout(cls, value):
+        if isinstance(value, bool):
+            raise ValueError("OLLAMA_GENERATION_TIMEOUT_SECONDS must be numeric")
+        return value
+
+    @field_validator("OLLAMA_LOCAL_MODEL_ALLOWLIST")
+    @classmethod
+    def validate_local_model_allowlist(cls, value):
+        seen: set[str] = set()
+        for reference in value:
+            if not reference or reference != reference.strip():
+                raise ValueError(
+                    "OLLAMA_LOCAL_MODEL_ALLOWLIST entries must be exact nonblank references"
+                )
+            if reference in seen:
+                raise ValueError(
+                    "OLLAMA_LOCAL_MODEL_ALLOWLIST entries must be unique"
+                )
+            seen.add(reference)
         return value
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")

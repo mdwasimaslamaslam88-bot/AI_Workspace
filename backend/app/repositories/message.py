@@ -55,7 +55,17 @@ class MessageRepository(BaseRepository):
         conversation_id: UUID,
         role: MessageRole,
         content: str,
+        *,
+        expected_sequence_number: int | None = None,
     ) -> Message | None:
+        if expected_sequence_number is not None:
+            if isinstance(expected_sequence_number, bool) or not isinstance(
+                expected_sequence_number, int
+            ):
+                raise TypeError("expected_sequence_number must be an integer")
+            if expected_sequence_number < 1:
+                raise ValueError("expected_sequence_number must be positive")
+
         allocation = (
             update(Conversation)
             .where(
@@ -71,6 +81,10 @@ class MessageRepository(BaseRepository):
                 )
             )
         )
+        if expected_sequence_number is not None:
+            allocation = allocation.where(
+                Conversation.next_message_sequence == expected_sequence_number
+            )
 
         result = await self.session.execute(allocation)
         sequence_number = result.scalar_one_or_none()
@@ -139,3 +153,39 @@ class MessageRepository(BaseRepository):
             )
 
         return MessagePage(items=items, next_cursor=next_cursor)
+
+    async def list_generation_context_for_owner(
+        self,
+        owner_id: UUID,
+        conversation_id: UUID,
+        *,
+        max_messages: int,
+    ) -> tuple[Message, ...]:
+        if isinstance(max_messages, bool) or not isinstance(max_messages, int):
+            raise TypeError("max_messages must be an integer")
+        if max_messages < 1:
+            raise ValueError("max_messages must be positive")
+
+        statement = (
+            select(Message)
+            .join(
+                Conversation,
+                Conversation.id == Message.conversation_id,
+            )
+            .where(
+                Conversation.owner_id == owner_id,
+                Conversation.id == conversation_id,
+                Message.conversation_id == conversation_id,
+            )
+            .order_by(Message.sequence_number.asc())
+            .limit(
+                bindparam(
+                    "generation_context_fetch_limit",
+                    max_messages + 1,
+                    type_=Integer(),
+                )
+            )
+        )
+
+        result = await self.session.execute(statement)
+        return tuple(result.scalars().all())

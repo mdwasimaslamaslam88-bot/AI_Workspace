@@ -1,9 +1,14 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.ai.catalog import ModelRuntimeUnavailableError
+from app.ai.generation import (
+    TextGenerationRuntimeUnavailableError,
+    TextGenerationRuntimeUnsupportedError,
+)
 from app.api.dependencies import get_current_user
 from app.db.dependencies import get_db_session
 from app.models.message import MessageRole
@@ -18,6 +23,10 @@ from app.repositories.message import (
     MessageCursor,
     MessagePagination,
 )
+from app.schemas.ai import (
+    ConversationTextGenerationRequest,
+    ConversationTextGenerationResponse,
+)
 from app.schemas.conversation import (
     ConversationCreate,
     ConversationCreateResponse,
@@ -30,6 +39,15 @@ from app.schemas.conversation import (
 from app.schemas.message import MessageCreate, MessagePageResponse, MessageResponse
 from app.services.conversation import ConversationService
 from app.services.message import MessageAppendConflictError, MessageService
+from app.services.conversation_generation import (
+    ConversationChangedDuringGenerationError,
+    ConversationGenerationContextTooLargeError,
+    ConversationGenerationModelNotFoundError,
+    ConversationGenerationModelUnavailableError,
+    ConversationGenerationNotFoundError,
+    ConversationGenerationNotReadyError,
+    ConversationGenerationService,
+)
 
 
 router = APIRouter(prefix="/conversations", tags=["Conversations"])
@@ -206,6 +224,88 @@ async def append_message(
         )
 
     return MessageResponse.model_validate(message)
+
+
+@router.post(
+    "/{conversation_id}/messages/generate",
+    response_model=ConversationTextGenerationResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def generate_assistant_message(
+    conversation_id: UUID,
+    generation_request: ConversationTextGenerationRequest,
+    request: Request,
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> ConversationTextGenerationResponse:
+    catalog = getattr(request.app.state, "model_catalog", None)
+    generation_router = getattr(
+        request.app.state,
+        "text_generation_router",
+        None,
+    )
+    if catalog is None or generation_router is None:
+        raise RuntimeError("Local text generation is not configured")
+
+    try:
+        message = await ConversationGenerationService(
+            session,
+            catalog,
+            generation_router,
+        ).generate_for_owner(
+            current_user.id,
+            conversation_id,
+            generation_request.model_id,
+        )
+    except ConversationGenerationNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Conversation not found",
+        ) from None
+    except ConversationGenerationModelNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Model not found",
+        ) from None
+    except ConversationGenerationNotReadyError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Conversation is not ready for generation",
+        ) from None
+    except ConversationChangedDuringGenerationError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Conversation changed during generation",
+        ) from None
+    except TextGenerationRuntimeUnsupportedError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Model does not support text generation",
+        ) from None
+    except MessageAppendConflictError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Message could not be appended",
+        ) from None
+    except ConversationGenerationContextTooLargeError:
+        raise HTTPException(
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+            detail="Conversation context is too large",
+        ) from None
+    except (
+        ConversationGenerationModelUnavailableError,
+        ModelRuntimeUnavailableError,
+        TextGenerationRuntimeUnavailableError,
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Local model runtime unavailable",
+        ) from None
+
+    return ConversationTextGenerationResponse(
+        model_id=generation_request.model_id,
+        message=MessageResponse.model_validate(message),
+    )
 
 
 @router.get(

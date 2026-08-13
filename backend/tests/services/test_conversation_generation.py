@@ -1,0 +1,466 @@
+from datetime import datetime, timezone
+from unittest.mock import AsyncMock, Mock, call
+from uuid import uuid4
+
+import pytest
+from sqlalchemy.ext.asyncio import AsyncSession
+
+import app.services.conversation_generation as generation_module
+from app.ai.catalog import (
+    ModelAvailability,
+    ModelDescriptor,
+    ModelModality,
+    ResolvedModel,
+)
+from app.ai.generation import (
+    TextGenerationResult,
+    TextGenerationRuntimeUnavailableError,
+)
+from app.models import Conversation, Message, MessageRole
+from app.services.conversation_generation import (
+    MAX_GENERATION_CONTEXT_CHARACTERS,
+    MAX_GENERATION_CONTEXT_MESSAGES,
+    MAX_GENERATION_OUTPUT_TOKENS,
+    ConversationChangedDuringGenerationError,
+    ConversationGenerationContextTooLargeError,
+    ConversationGenerationModelNotFoundError,
+    ConversationGenerationModelUnavailableError,
+    ConversationGenerationNotFoundError,
+    ConversationGenerationNotReadyError,
+    ConversationGenerationService,
+)
+
+
+MODEL_ID = f"local-runtime:{'a' * 24}"
+
+
+def _conversation(owner_id, conversation_id, next_sequence: int) -> Conversation:
+    return Conversation(
+        id=conversation_id,
+        owner_id=owner_id,
+        title=None,
+        next_message_sequence=next_sequence,
+        created_at=datetime(2026, 8, 13, tzinfo=timezone.utc),
+        updated_at=datetime(2026, 8, 13, tzinfo=timezone.utc),
+    )
+
+
+def _message(conversation_id, role, content: str, sequence: int) -> Message:
+    return Message(
+        id=uuid4(),
+        conversation_id=conversation_id,
+        role=role,
+        content=content,
+        sequence_number=sequence,
+        created_at=datetime(2026, 8, 13, tzinfo=timezone.utc),
+        updated_at=datetime(2026, 8, 13, tzinfo=timezone.utc),
+    )
+
+
+def _resolved(
+    availability: ModelAvailability = ModelAvailability.AVAILABLE,
+) -> ResolvedModel:
+    return ResolvedModel(
+        descriptor=ModelDescriptor(
+            model_id=MODEL_ID,
+            display_name="Local model",
+            runtime_id="local-runtime",
+            modality=ModelModality.TEXT,
+            family=None,
+            parameter_class="70B+",
+            capabilities=(),
+            context_window=None,
+            quantization=None,
+            estimated_vram_bytes=None,
+            availability=availability,
+        ),
+        runtime_reference="private-runtime-reference",
+    )
+
+
+def _dependencies(
+    monkeypatch,
+    *,
+    conversation,
+    context,
+    appended,
+    generated=TextGenerationResult(content="  exact answer  "),
+):
+    get_for_owner = AsyncMock(return_value=conversation)
+    conversation_factory = Mock(
+        return_value=Mock(get_for_owner=get_for_owner)
+    )
+    context_for_owner = AsyncMock(return_value=context)
+    append_for_owner = AsyncMock(return_value=appended)
+    message_factory = Mock(
+        return_value=Mock(
+            list_generation_context_for_owner=context_for_owner,
+            append_for_owner=append_for_owner,
+        )
+    )
+    catalog = Mock(resolve_model=AsyncMock(return_value=_resolved()))
+    router = Mock(generate=AsyncMock(return_value=generated))
+    monkeypatch.setattr(
+        generation_module,
+        "ConversationService",
+        conversation_factory,
+    )
+    monkeypatch.setattr(
+        generation_module,
+        "MessageService",
+        message_factory,
+    )
+    return {
+        "conversation_factory": conversation_factory,
+        "get": get_for_owner,
+        "message_factory": message_factory,
+        "context": context_for_owner,
+        "append": append_for_owner,
+        "catalog": catalog,
+        "router": router,
+    }
+
+
+@pytest.mark.asyncio
+async def test_generation_releases_read_transaction_before_local_inference(
+    monkeypatch,
+):
+    owner_id = uuid4()
+    conversation_id = uuid4()
+    session = AsyncMock(spec=AsyncSession)
+    events: list[str] = []
+    messages = (
+        _message(conversation_id, MessageRole.USER, "question 1", 1),
+        _message(conversation_id, MessageRole.ASSISTANT, "answer 1", 2),
+        _message(conversation_id, MessageRole.USER, "  question 2  ", 3),
+    )
+    appended = _message(
+        conversation_id,
+        MessageRole.ASSISTANT,
+        "  exact answer  ",
+        4,
+    )
+    dependencies = _dependencies(
+        monkeypatch,
+        conversation=_conversation(owner_id, conversation_id, 4),
+        context=messages,
+        appended=appended,
+    )
+    dependencies["get"].side_effect = lambda *_args: (
+        events.append("get") or _conversation(owner_id, conversation_id, 4)
+    )
+    dependencies["context"].side_effect = lambda *_args, **_kwargs: (
+        events.append("context") or messages
+    )
+
+    async def rollback():
+        events.append("rollback")
+
+    async def resolve(_model_id):
+        events.append("resolve")
+        return _resolved()
+
+    async def generate(*_args, **_kwargs):
+        events.append("generate")
+        return TextGenerationResult(content="  exact answer  ")
+
+    async def append(*_args, **_kwargs):
+        events.append("append")
+        return appended
+
+    session.rollback.side_effect = rollback
+    dependencies["catalog"].resolve_model.side_effect = resolve
+    dependencies["router"].generate.side_effect = generate
+    dependencies["append"].side_effect = append
+
+    result = await ConversationGenerationService(
+        session,
+        dependencies["catalog"],
+        dependencies["router"],
+    ).generate_for_owner(owner_id, conversation_id, MODEL_ID)
+
+    assert result is appended
+    assert events == ["get", "context", "rollback", "resolve", "generate", "append"]
+    dependencies["conversation_factory"].assert_called_once_with(session)
+    dependencies["get"].assert_awaited_once_with(owner_id, conversation_id)
+    dependencies["message_factory"].assert_has_calls([call(session), call(session)])
+    dependencies["context"].assert_awaited_once_with(
+        owner_id,
+        conversation_id,
+        max_messages=MAX_GENERATION_CONTEXT_MESSAGES,
+    )
+    generated_messages = dependencies["router"].generate.await_args.args[1]
+    assert [(message.role.value, message.content) for message in generated_messages] == [
+        ("user", "question 1"),
+        ("assistant", "answer 1"),
+        ("user", "  question 2  "),
+    ]
+    dependencies["router"].generate.assert_awaited_once_with(
+        _resolved(),
+        generated_messages,
+        max_output_tokens=MAX_GENERATION_OUTPUT_TOKENS,
+    )
+    dependencies["append"].assert_awaited_once_with(
+        owner_id,
+        conversation_id,
+        MessageRole.ASSISTANT,
+        "  exact answer  ",
+        expected_sequence_number=4,
+    )
+    session.rollback.assert_awaited_once_with()
+    session.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_missing_or_foreign_conversation_stops_before_context_or_runtime(
+    monkeypatch,
+):
+    session = AsyncMock(spec=AsyncSession)
+    dependencies = _dependencies(
+        monkeypatch,
+        conversation=None,
+        context=(),
+        appended=None,
+    )
+
+    with pytest.raises(ConversationGenerationNotFoundError):
+        await ConversationGenerationService(
+            session,
+            dependencies["catalog"],
+            dependencies["router"],
+        ).generate_for_owner(uuid4(), uuid4(), MODEL_ID)
+
+    session.rollback.assert_awaited_once_with()
+    dependencies["context"].assert_not_awaited()
+    dependencies["catalog"].resolve_model.assert_not_awaited()
+    dependencies["router"].generate.assert_not_awaited()
+    dependencies["append"].assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("case", ["empty", "assistant", "tool"])
+async def test_invalid_conversation_state_stops_before_discovery(
+    monkeypatch,
+    case,
+):
+    owner_id = uuid4()
+    conversation_id = uuid4()
+    session = AsyncMock(spec=AsyncSession)
+    items = ()
+    next_sequence = 1
+    if case == "assistant":
+        items = (
+            _message(conversation_id, MessageRole.ASSISTANT, "answer", 1),
+        )
+        next_sequence = 2
+    elif case == "tool":
+        items = (_message(conversation_id, MessageRole.TOOL, "result", 1),)
+        next_sequence = 2
+    dependencies = _dependencies(
+        monkeypatch,
+        conversation=_conversation(
+            owner_id,
+            conversation_id,
+            next_sequence,
+        ),
+        context=items,
+        appended=None,
+    )
+
+    with pytest.raises(ConversationGenerationNotReadyError):
+        await ConversationGenerationService(
+            session,
+            dependencies["catalog"],
+            dependencies["router"],
+        ).generate_for_owner(owner_id, conversation_id, MODEL_ID)
+
+    session.rollback.assert_awaited_once_with()
+    dependencies["catalog"].resolve_model.assert_not_awaited()
+    dependencies["router"].generate.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("limit_case", ["count", "characters"])
+async def test_context_bounds_stop_before_discovery(monkeypatch, limit_case):
+    owner_id = uuid4()
+    conversation_id = uuid4()
+    session = AsyncMock(spec=AsyncSession)
+    if limit_case == "count":
+        context = tuple(
+            _message(
+                conversation_id,
+                MessageRole.USER,
+                "x",
+                sequence,
+            )
+            for sequence in range(1, MAX_GENERATION_CONTEXT_MESSAGES + 2)
+        )
+        next_sequence = MAX_GENERATION_CONTEXT_MESSAGES + 2
+    else:
+        context = (
+            _message(
+                conversation_id,
+                MessageRole.USER,
+                "x" * (MAX_GENERATION_CONTEXT_CHARACTERS + 1),
+                1,
+            ),
+        )
+        next_sequence = 2
+    dependencies = _dependencies(
+        monkeypatch,
+        conversation=_conversation(owner_id, conversation_id, next_sequence),
+        context=context,
+        appended=None,
+    )
+
+    with pytest.raises(ConversationGenerationContextTooLargeError):
+        await ConversationGenerationService(
+            session,
+            dependencies["catalog"],
+            dependencies["router"],
+        ).generate_for_owner(owner_id, conversation_id, MODEL_ID)
+
+    session.rollback.assert_awaited_once_with()
+    dependencies["catalog"].resolve_model.assert_not_awaited()
+    dependencies["router"].generate.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_inconsistent_snapshot_stops_before_inference(monkeypatch):
+    owner_id = uuid4()
+    conversation_id = uuid4()
+    session = AsyncMock(spec=AsyncSession)
+    dependencies = _dependencies(
+        monkeypatch,
+        conversation=_conversation(owner_id, conversation_id, 3),
+        context=(
+            _message(conversation_id, MessageRole.USER, "question", 1),
+        ),
+        appended=None,
+    )
+
+    with pytest.raises(ConversationChangedDuringGenerationError):
+        await ConversationGenerationService(
+            session,
+            dependencies["catalog"],
+            dependencies["router"],
+        ).generate_for_owner(owner_id, conversation_id, MODEL_ID)
+
+    dependencies["catalog"].resolve_model.assert_not_awaited()
+    dependencies["router"].generate.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_unknown_model_does_not_invoke_generation_or_append(monkeypatch):
+    owner_id = uuid4()
+    conversation_id = uuid4()
+    session = AsyncMock(spec=AsyncSession)
+    dependencies = _dependencies(
+        monkeypatch,
+        conversation=_conversation(owner_id, conversation_id, 2),
+        context=(
+            _message(conversation_id, MessageRole.USER, "question", 1),
+        ),
+        appended=None,
+    )
+    dependencies["catalog"].resolve_model.return_value = None
+
+    with pytest.raises(ConversationGenerationModelNotFoundError):
+        await ConversationGenerationService(
+            session,
+            dependencies["catalog"],
+            dependencies["router"],
+        ).generate_for_owner(owner_id, conversation_id, MODEL_ID)
+
+    dependencies["router"].generate.assert_not_awaited()
+    dependencies["append"].assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_unavailable_model_stops_before_inference_or_append(monkeypatch):
+    owner_id = uuid4()
+    conversation_id = uuid4()
+    session = AsyncMock(spec=AsyncSession)
+    dependencies = _dependencies(
+        monkeypatch,
+        conversation=_conversation(owner_id, conversation_id, 2),
+        context=(
+            _message(conversation_id, MessageRole.USER, "question", 1),
+        ),
+        appended=None,
+    )
+    dependencies["catalog"].resolve_model.return_value = _resolved(
+        ModelAvailability.UNAVAILABLE
+    )
+
+    with pytest.raises(ConversationGenerationModelUnavailableError):
+        await ConversationGenerationService(
+            session,
+            dependencies["catalog"],
+            dependencies["router"],
+        ).generate_for_owner(owner_id, conversation_id, MODEL_ID)
+
+    dependencies["router"].generate.assert_not_awaited()
+    dependencies["append"].assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_incomplete_runtime_response_is_never_persisted(monkeypatch):
+    owner_id = uuid4()
+    conversation_id = uuid4()
+    session = AsyncMock(spec=AsyncSession)
+    dependencies = _dependencies(
+        monkeypatch,
+        conversation=_conversation(owner_id, conversation_id, 2),
+        context=(
+            _message(conversation_id, MessageRole.USER, "question", 1),
+        ),
+        appended=None,
+    )
+    dependencies["router"].generate.side_effect = (
+        TextGenerationRuntimeUnavailableError(
+            "local text runtime returned an invalid response"
+        )
+    )
+
+    with pytest.raises(TextGenerationRuntimeUnavailableError):
+        await ConversationGenerationService(
+            session,
+            dependencies["catalog"],
+            dependencies["router"],
+        ).generate_for_owner(owner_id, conversation_id, MODEL_ID)
+
+    dependencies["router"].generate.assert_awaited_once()
+    dependencies["append"].assert_not_awaited()
+    session.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_changed_conversation_rejects_stale_generated_output(monkeypatch):
+    owner_id = uuid4()
+    conversation_id = uuid4()
+    session = AsyncMock(spec=AsyncSession)
+    dependencies = _dependencies(
+        monkeypatch,
+        conversation=_conversation(owner_id, conversation_id, 2),
+        context=(
+            _message(conversation_id, MessageRole.USER, "question", 1),
+        ),
+        appended=None,
+    )
+
+    with pytest.raises(ConversationChangedDuringGenerationError):
+        await ConversationGenerationService(
+            session,
+            dependencies["catalog"],
+            dependencies["router"],
+        ).generate_for_owner(owner_id, conversation_id, MODEL_ID)
+
+    dependencies["router"].generate.assert_awaited_once()
+    dependencies["append"].assert_awaited_once_with(
+        owner_id,
+        conversation_id,
+        MessageRole.ASSISTANT,
+        "  exact answer  ",
+        expected_sequence_number=2,
+    )

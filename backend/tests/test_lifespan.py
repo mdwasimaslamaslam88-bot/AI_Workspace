@@ -27,6 +27,7 @@ async def test_lifespan_exposes_unconfigured_database_factory(monkeypatch):
         assert app.state.redis_client is None
         assert app.state.ollama_client is None
         assert await app.state.model_catalog.list_models() == ()
+        assert app.state.text_generation_router._runtimes == {}
 
     create_session_factory.assert_called_once_with(None)
     dispose_postgres.assert_awaited_once_with(None)
@@ -55,6 +56,7 @@ async def test_lifespan_creates_factory_and_disposes_configured_engine(monkeypat
         assert app.state.postgres_engine is engine
         assert app.state.db_session_factory is factory
         assert await app.state.model_catalog.list_models() == ()
+        assert app.state.text_generation_router._runtimes == {}
         dispose_postgres.assert_not_awaited()
 
     create_session_factory.assert_called_once_with(engine)
@@ -94,11 +96,25 @@ async def test_lifespan_registers_configured_local_runtime_catalog(monkeypatch):
     monkeypatch.setattr(lifespan_module, "dispose_postgres", dispose_postgres)
     monkeypatch.setattr(lifespan_module, "close_redis", close_redis)
     monkeypatch.setattr(lifespan_module, "close_ollama", close_ollama)
+    monkeypatch.setattr(
+        lifespan_module.settings,
+        "OLLAMA_LOCAL_MODEL_ALLOWLIST",
+        ("verified-local:latest",),
+    )
 
     async with lifespan_module.lifespan(app):
         assert len(app.state.model_catalog.runtimes) == 1
         runtime = app.state.model_catalog.runtimes[0]
         assert runtime.runtime_id == "ollama-local"
         assert runtime.client is ollama_client
+        assert runtime.local_model_allowlist == {"verified-local:latest"}
+        generation_runtime = (
+            app.state.text_generation_router._runtimes["ollama-local"]
+        )
+        assert generation_runtime.client is ollama_client
+        assert generation_runtime.timeout_seconds == 120.0
+        assert generation_runtime.local_model_allowlist == {
+            "verified-local:latest"
+        }
 
     close_ollama.assert_awaited_once_with(ollama_client)

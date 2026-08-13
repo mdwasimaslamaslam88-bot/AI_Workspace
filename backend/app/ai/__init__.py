@@ -8,7 +8,17 @@ from app.ai.catalog import (
     ModelDiscoveryRuntime,
     ModelModality,
     ModelRuntimeUnavailableError,
+    ResolvedModel,
     RuntimeModel,
+)
+from app.ai.generation import (
+    TextGenerationMessage,
+    TextGenerationResult,
+    TextGenerationRole,
+    TextGenerationRouter,
+    TextGenerationRuntime,
+    TextGenerationRuntimeUnavailableError,
+    TextGenerationRuntimeUnsupportedError,
 )
 
 __all__ = [
@@ -19,5 +29,13 @@ __all__ = [
     "ModelDiscoveryRuntime",
     "ModelModality",
     "ModelRuntimeUnavailableError",
+    "ResolvedModel",
     "RuntimeModel",
+    "TextGenerationMessage",
+    "TextGenerationResult",
+    "TextGenerationRole",
+    "TextGenerationRouter",
+    "TextGenerationRuntime",
+    "TextGenerationRuntimeUnavailableError",
+    "TextGenerationRuntimeUnsupportedError",
 ]

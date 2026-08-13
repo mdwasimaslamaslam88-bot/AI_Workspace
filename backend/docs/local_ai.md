@@ -10,6 +10,14 @@ parameters, fragments, non-loopback IP addresses, or nonlocal hostnames are
 rejected. Runtime HTTP calls do not inherit environment proxies and do not
 follow redirects.
 
+`OLLAMA_LOCAL_MODEL_ALLOWLIST` is a JSON array of exact Ollama model
+references that the deployment owner has verified execute from local model
+data. It defaults to an empty array, so no Ollama model is discoverable or
+eligible for generation until explicitly approved. Cloud-backed references
+and aliases must never be added. The allowlist is enforced while parsing the
+inventory and again immediately before generation because a loopback Ollama
+endpoint alone does not prove that inference stays on the local machine.
+
 Authenticated clients may call:
 
 ```http
@@ -47,3 +55,61 @@ changing User, Conversation, or Message persistence.
 This endpoint performs inventory discovery only. It does not generate text,
 stream output, load or download models, pull tags, start jobs, choose a global
 active model, or persist a user preference.
+
+## Non-streaming conversation generation
+
+An authenticated user may generate one local assistant response for an owned
+Conversation:
+
+    POST /api/v1/conversations/{conversation_id}/messages/generate
+    Authorization: Bearer <access_token>
+    Content-Type: application/json
+
+    {"model_id":"ollama-local:<opaque-id>"}
+
+The public model_id must come from the model catalog. Raw runtime tags, runtime
+URLs, prompts supplied outside Conversation history, owner IDs, generation
+options, and streaming flags are not accepted.
+
+The application accepts at most 100 existing Messages in ascending sequence
+order, with a fixed 100,000-character context bound. It fetches up to 101
+Messages so the extra row can detect overflow. The history must be contiguous,
+must end in a user Message, and may contain only system, user, and assistant
+roles. Prompt construction uses a dedicated owner-scoped internal context
+query; it does not reuse public Message pagination, cursors, or offsets, and
+oversized histories are rejected rather than truncated. The initial output
+bound is fixed at 1,024 tokens. Model parameter class is not used for routing
+or policy.
+
+The successful HTTP 201 response contains the selected public model_id and the
+newly persisted assistant Message. Ollama is invoked through the runtime-neutral
+text-generation boundary using /api/chat with stream set to false. Generation
+may cause Ollama to load the selected model into memory. The application does
+not override `keep_alive`, so Ollama's configured keep-alive policy applies;
+Ollama's default is to retain a loaded model for five minutes. The application
+does not pull or download models and exposes no preload, unload, or global
+model-selection endpoint.
+
+The service copies the owner-scoped Conversation history and rolls back its
+read transaction before local inference. The generated assistant Message is
+then appended through the existing atomic Message sequence allocator. That
+append includes the Conversation's captured next sequence as a compare
+condition. If another Message arrives during inference, the stale assistant
+output is rejected with HTTP 409 and is never persisted.
+
+Error behavior is intentionally safe:
+
+- missing and foreign-owned Conversations return the same generic HTTP 404;
+- an unknown public model ID returns HTTP 404;
+- unsupported Conversation state, unsupported generation adapter, or a changed
+  Conversation returns HTTP 409;
+- oversized context returns HTTP 413;
+- a model marked unavailable and unavailable or malformed local runtime
+  responses return the same generic HTTP 503;
+- unexpected failures retain the application's generic HTTP 500 response.
+
+Runtime references, runtime URLs, local paths, credentials, hardware
+identifiers, persistence details, and internal exception text are not returned.
+This slice does not add streaming, client-controlled generation options, tools,
+model preferences, explicit model lifecycle controls, image/audio/video
+generation, or any cloud AI dependency.
