@@ -80,6 +80,14 @@ The exact system content is then consumed from persisted Conversation history;
 the generation endpoint cannot supply or change a system prompt and still
 accepts no client-controlled role fields.
 
+The required `initial_message` at Conversation creation and required `content`
+at the standalone user-Message append endpoint must each contain at least one
+non-whitespace character. Their exact leading and trailing whitespace is
+preserved, and neither field gains a length limit. This validation does not
+change the generation endpoint's optional nonblank `user_message`: omission or
+null still performs generation only, while supplied content is still committed
+before generation.
+
 The application accepts at most 100 existing Messages in ascending sequence
 order, with a fixed 100,000-character context bound. It fetches up to 101
 Messages so the extra row can detect overflow. The history must be contiguous,

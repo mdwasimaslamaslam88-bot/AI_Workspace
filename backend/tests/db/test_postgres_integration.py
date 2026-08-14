@@ -745,6 +745,29 @@ async def test_authenticated_conversation_creation_uses_current_user_and_sequenc
             assert appended.status_code == 201
             appended_payload = appended.json()
 
+            for invalid_content in ("", " \t\r\n"):
+                rejected_creation = await client.post(
+                    "/api/v1/conversations",
+                    headers={"Authorization": f"Bearer {access_token}"},
+                    json={"initial_message": invalid_content},
+                )
+                assert rejected_creation.status_code == 422
+                assert (
+                    rejected_creation.json()["error"]["code"]
+                    == "VALIDATION_ERROR"
+                )
+
+                rejected_append = await client.post(
+                    f"/api/v1/conversations/{created_payload['id']}/messages",
+                    headers={"Authorization": f"Bearer {access_token}"},
+                    json={"content": invalid_content},
+                )
+                assert rejected_append.status_code == 422
+                assert (
+                    rejected_append.json()["error"]["code"]
+                    == "VALIDATION_ERROR"
+                )
+
             additional_owned_payloads = []
             for position in range(2):
                 additional_owned = await client.post(

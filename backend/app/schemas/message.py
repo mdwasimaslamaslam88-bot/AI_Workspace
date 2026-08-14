@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.message import MessageRole
 
@@ -9,7 +9,7 @@ from app.models.message import MessageRole
 class MessageCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    content: str
+    content: str = Field(pattern=r"\S")
 
 
 class MessageResponse(BaseModel):

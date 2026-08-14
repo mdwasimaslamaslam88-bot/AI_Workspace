@@ -1316,9 +1316,11 @@ def test_create_conversation_rejects_invalid_title_before_service(
         {},
         {"initial_message": None},
         {"initial_message": {"content": "nested"}},
+        {"initial_message": ""},
+        {"initial_message": " \t\r\n"},
     ],
 )
-def test_create_conversation_requires_initial_message_string(
+def test_create_conversation_requires_nonblank_initial_message_string(
     conversation_api,
     payload,
 ):
@@ -1504,9 +1506,13 @@ def test_append_message_rejects_client_controlled_fields(
         {},
         {"content": None},
         {"content": {"nested": "value"}},
+        {"content": ""},
+        {"content": " \t\r\n"},
     ],
 )
-def test_append_message_requires_content_string(conversation_api, payload):
+def test_append_message_requires_nonblank_content_string(
+    conversation_api, payload
+):
     api = conversation_api
 
     response = api["client"].post(

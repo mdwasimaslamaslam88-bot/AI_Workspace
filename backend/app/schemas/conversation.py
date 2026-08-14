@@ -16,7 +16,7 @@ class ConversationCreate(BaseModel):
 
     title: str | None = Field(default=None, max_length=255, pattern=r"\S")
     system_prompt: str | None = Field(default=None, pattern=r"\S")
-    initial_message: str
+    initial_message: str = Field(pattern=r"\S")
 
 
 class ConversationRename(BaseModel):
