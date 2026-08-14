@@ -87,6 +87,13 @@ default. An optional finite numeric `temperature` from 0.0 through 2.0 is
 accepted, including integer values in that range. Explicit null, booleans,
 strings, non-finite numbers, and out-of-range values are rejected. Omission
 preserves the current runtime behavior without adding a temperature override.
+An optional strict integer `seed` from 0 through 2,147,483,647 is accepted.
+Explicit null, booleans, strings, floats, arrays, objects, non-finite values,
+negative values, and values above that bound are rejected. Omitting `seed`
+adds no seed override. A seed can support repeatability only with the same
+model, context, runtime, and runtime version; it does not guarantee
+cross-version determinism.
+
 When `user_message` is supplied, the exact content is committed first as a
 server-assigned user Message before generation. Omission or null preserves
 generation-only behavior. User IDs, owner IDs, roles, sequences, raw runtime

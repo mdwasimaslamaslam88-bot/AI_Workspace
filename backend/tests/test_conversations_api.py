@@ -2082,6 +2082,7 @@ def test_authenticated_generation_returns_exact_safe_created_message(
         user_message=None,
         max_output_tokens=1024,
         temperature=None,
+        seed=None,
     )
     api["session"].commit.assert_not_awaited()
     api["session"].rollback.assert_not_awaited()
@@ -2142,6 +2143,36 @@ def test_authenticated_generation_returns_exact_safe_created_message(
             (
                 f'{{"model_id":"{GENERATION_MODEL_ID}",'
                 '"temperature":-Infinity}'
+            ).encode(),
+        ),
+        ({"model_id": GENERATION_MODEL_ID, "seed": None}, None),
+        ({"model_id": GENERATION_MODEL_ID, "seed": True}, None),
+        ({"model_id": GENERATION_MODEL_ID, "seed": False}, None),
+        ({"model_id": GENERATION_MODEL_ID, "seed": "42"}, None),
+        ({"model_id": GENERATION_MODEL_ID, "seed": 42.0}, None),
+        ({"model_id": GENERATION_MODEL_ID, "seed": []}, None),
+        ({"model_id": GENERATION_MODEL_ID, "seed": {}}, None),
+        ({"model_id": GENERATION_MODEL_ID, "seed": -1}, None),
+        ({"model_id": GENERATION_MODEL_ID, "seed": 2_147_483_648}, None),
+        (
+            None,
+            (
+                f'{{"model_id":"{GENERATION_MODEL_ID}",'
+                '"seed":NaN}'
+            ).encode(),
+        ),
+        (
+            None,
+            (
+                f'{{"model_id":"{GENERATION_MODEL_ID}",'
+                '"seed":Infinity}'
+            ).encode(),
+        ),
+        (
+            None,
+            (
+                f'{{"model_id":"{GENERATION_MODEL_ID}",'
+                '"seed":-Infinity}'
             ).encode(),
         ),
         ({"model_id": GENERATION_MODEL_ID, "owner_id": str(uuid4())}, None),
@@ -2206,6 +2237,7 @@ def test_generation_accepts_exact_bounded_output_tokens_without_response_change(
         user_message=None,
         max_output_tokens=max_output_tokens,
         temperature=None,
+        seed=None,
     )
 
 
@@ -2241,6 +2273,33 @@ def test_generation_accepts_exact_bounded_temperature_without_response_change(
         user_message=None,
         max_output_tokens=1024,
         temperature=expected_temperature,
+        seed=None,
+    )
+
+
+@pytest.mark.parametrize("seed", [0, 42, 2_147_483_647])
+def test_generation_accepts_exact_bounded_seed_without_response_change(
+    conversation_generation_api,
+    seed,
+):
+    api = conversation_generation_api
+
+    response = api["client"].post(
+        f"/api/v1/conversations/{api['conversation_id']}/messages/generate",
+        json={"model_id": GENERATION_MODEL_ID, "seed": seed},
+    )
+
+    assert response.status_code == 201
+    assert set(response.json()) == {"model_id", "message"}
+    assert "seed" not in response.text
+    api["generate"].assert_awaited_once_with(
+        api["current_user"].id,
+        api["conversation_id"],
+        GENERATION_MODEL_ID,
+        user_message=None,
+        max_output_tokens=1024,
+        temperature=None,
+        seed=seed,
     )
 
 
@@ -2278,6 +2337,7 @@ def test_generation_accepts_exact_optional_user_message_without_response_change(
         user_message="  exact follow-up  ",
         max_output_tokens=1024,
         temperature=None,
+        seed=None,
     )
 
 
@@ -2302,6 +2362,7 @@ def test_generation_explicit_null_user_message_preserves_existing_mode(
         user_message=None,
         max_output_tokens=1024,
         temperature=None,
+        seed=None,
     )
 
 

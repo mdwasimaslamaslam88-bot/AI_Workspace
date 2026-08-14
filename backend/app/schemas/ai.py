@@ -44,6 +44,12 @@ class ConversationTextGenerationRequest(BaseModel):
         le=2.0,
         allow_inf_nan=False,
     )
+    seed: int | None = Field(
+        default=None,
+        strict=True,
+        ge=0,
+        le=2_147_483_647,
+    )
 
     @field_validator("temperature", mode="before")
     @classmethod
@@ -61,6 +67,19 @@ class ConversationTextGenerationRequest(BaseModel):
             if not is_finite_temperature:
                 # Keep the existing public validation error JSON-serializable.
                 return "non-finite temperature"
+        return value
+
+    @field_validator("seed", mode="before")
+    @classmethod
+    def validate_seed_input(cls, value):
+        if value is None:
+            raise PydanticCustomError(
+                "seed_null",
+                "seed must not be null",
+            )
+        if isinstance(value, float) and not math.isfinite(value):
+            # Keep the existing public validation error JSON-serializable.
+            return "non-finite seed"
         return value
 
 

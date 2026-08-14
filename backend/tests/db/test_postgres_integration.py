@@ -1859,9 +1859,10 @@ async def test_authenticated_conversation_generation_is_owner_scoped_and_stale_s
             *,
             max_output_tokens,
             temperature=None,
+            seed=None,
         ) -> TextGenerationResult:
             self.generation_calls.append(
-                (runtime_reference, messages, max_output_tokens, temperature)
+                (runtime_reference, messages, max_output_tokens, temperature, seed)
             )
             if self.mode == "unavailable":
                 raise TextGenerationRuntimeUnavailableError(
@@ -2035,6 +2036,7 @@ async def test_authenticated_conversation_generation_is_owner_scoped_and_stale_s
                     "user_message": "  second user prompt  ",
                     "max_output_tokens": 128,
                     "temperature": 0.25,
+                    "seed": 42,
                 },
             )
             assert generated.status_code == 201
@@ -2051,7 +2053,7 @@ async def test_authenticated_conversation_generation_is_owner_scoped_and_stale_s
                 },
             }
             assert "/private/runtime/model:70b" not in generated.text
-            runtime_reference, context, output_bound, temperature = (
+            runtime_reference, context, output_bound, temperature, seed = (
                 runtime.generation_calls[0]
             )
             assert runtime_reference == "/private/runtime/model:70b"
@@ -2062,6 +2064,7 @@ async def test_authenticated_conversation_generation_is_owner_scoped_and_stale_s
             ]
             assert output_bound == 128
             assert temperature == 0.25
+            assert seed == 42
 
             foreign_attempt = await client.post(
                 f"/api/v1/conversations/{foreign_conversation_id}/messages/generate",
@@ -2159,6 +2162,7 @@ async def test_authenticated_conversation_generation_is_owner_scoped_and_stale_s
             assert len(runtime.generation_calls) == 3
             assert runtime.generation_calls[2][2] == 1024
             assert runtime.generation_calls[2][3] is None
+            assert runtime.generation_calls[2][4] is None
 
             runtime.mode = "pre-context-stale"
             pre_context_stale = await client.post(

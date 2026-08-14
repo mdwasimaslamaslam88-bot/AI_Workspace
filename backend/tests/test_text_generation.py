@@ -66,6 +66,7 @@ async def test_router_dispatches_by_runtime_not_parameter_class(parameter_class)
         messages,
         max_output_tokens=1024,
         temperature=None,
+        seed=None,
     )
 
 
@@ -162,6 +163,37 @@ async def test_router_forwards_exact_valid_temperature(temperature):
         messages,
         max_output_tokens=1024,
         temperature=temperature,
+        seed=None,
+    )
+
+
+@pytest.mark.parametrize("seed", [0, 42, 2_147_483_647])
+@pytest.mark.asyncio
+async def test_router_forwards_exact_valid_seed(seed):
+    generated = TextGenerationResult(content="answer")
+    generate_text = AsyncMock(return_value=generated)
+    runtime = Mock(runtime_id="local-runtime", generate_text=generate_text)
+    messages = (
+        TextGenerationMessage(
+            role=TextGenerationRole.USER,
+            content="prompt",
+        ),
+    )
+
+    result = await TextGenerationRouter((runtime,)).generate(
+        _resolved_model(),
+        messages,
+        max_output_tokens=1024,
+        seed=seed,
+    )
+
+    assert result is generated
+    generate_text.assert_awaited_once_with(
+        "/private/runtime/model:tag",
+        messages,
+        max_output_tokens=1024,
+        temperature=None,
+        seed=seed,
     )
 
 
@@ -201,6 +233,45 @@ async def test_router_rejects_invalid_temperature_before_runtime(
             ),
             max_output_tokens=1024,
             temperature=temperature,
+        )
+
+    runtime.generate_text.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    "seed",
+    [
+        True,
+        False,
+        "42",
+        42.0,
+        [],
+        {},
+        float("nan"),
+        float("inf"),
+        float("-inf"),
+        -1,
+        2_147_483_648,
+    ],
+)
+@pytest.mark.asyncio
+async def test_router_rejects_invalid_seed_before_runtime(seed):
+    runtime = Mock(
+        runtime_id="local-runtime",
+        generate_text=AsyncMock(),
+    )
+
+    with pytest.raises((TypeError, ValueError)):
+        await TextGenerationRouter((runtime,)).generate(
+            _resolved_model(),
+            (
+                TextGenerationMessage(
+                    role=TextGenerationRole.USER,
+                    content="prompt",
+                ),
+            ),
+            max_output_tokens=1024,
+            seed=seed,
         )
 
     runtime.generate_text.assert_not_awaited()
