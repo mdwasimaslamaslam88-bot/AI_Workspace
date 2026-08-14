@@ -83,11 +83,15 @@ non-streaming local assistant Message from that owner's existing Conversation
 history. The request requires an opaque public model_id and may include one
 optional nonblank `user_message`. It may also include a strict integer
 `max_output_tokens` from 1 through 1,024; omission retains the 1,024-token
-default. When `user_message` is supplied, the exact content is committed first
-as a server-assigned user Message before generation. Omission or null preserves
+default. An optional finite numeric `temperature` from 0.0 through 2.0 is
+accepted, including integer values in that range. Explicit null, booleans,
+strings, non-finite numbers, and out-of-range values are rejected. Omission
+preserves the current runtime behavior without adding a temperature override.
+When `user_message` is supplied, the exact content is committed first as a
+server-assigned user Message before generation. Omission or null preserves
 generation-only behavior. User IDs, owner IDs, roles, sequences, raw runtime
 model references, client-supplied Message arrays, arbitrary generation options,
-and streaming flags are rejected.
+other sampling controls, and streaming flags are rejected.
 
 Missing and foreign-owned Conversations return the same generic HTTP 404.
 Authentication completes before Conversation lookup, model discovery, or

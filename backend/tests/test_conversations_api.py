@@ -2081,6 +2081,7 @@ def test_authenticated_generation_returns_exact_safe_created_message(
         GENERATION_MODEL_ID,
         user_message=None,
         max_output_tokens=1024,
+        temperature=None,
     )
     api["session"].commit.assert_not_awaited()
     api["session"].rollback.assert_not_awaited()
@@ -2114,6 +2115,35 @@ def test_authenticated_generation_returns_exact_safe_created_message(
         ({"model_id": GENERATION_MODEL_ID, "max_output_tokens": 0}, None),
         ({"model_id": GENERATION_MODEL_ID, "max_output_tokens": -1}, None),
         ({"model_id": GENERATION_MODEL_ID, "max_output_tokens": 1025}, None),
+        ({"model_id": GENERATION_MODEL_ID, "temperature": None}, None),
+        ({"model_id": GENERATION_MODEL_ID, "temperature": True}, None),
+        ({"model_id": GENERATION_MODEL_ID, "temperature": False}, None),
+        ({"model_id": GENERATION_MODEL_ID, "temperature": "0.5"}, None),
+        ({"model_id": GENERATION_MODEL_ID, "temperature": []}, None),
+        ({"model_id": GENERATION_MODEL_ID, "temperature": {}}, None),
+        ({"model_id": GENERATION_MODEL_ID, "temperature": -0.01}, None),
+        ({"model_id": GENERATION_MODEL_ID, "temperature": 2.01}, None),
+        (
+            None,
+            (
+                f'{{"model_id":"{GENERATION_MODEL_ID}",'
+                '"temperature":NaN}'
+            ).encode(),
+        ),
+        (
+            None,
+            (
+                f'{{"model_id":"{GENERATION_MODEL_ID}",'
+                '"temperature":Infinity}'
+            ).encode(),
+        ),
+        (
+            None,
+            (
+                f'{{"model_id":"{GENERATION_MODEL_ID}",'
+                '"temperature":-Infinity}'
+            ).encode(),
+        ),
         ({"model_id": GENERATION_MODEL_ID, "owner_id": str(uuid4())}, None),
         ({"model_id": GENERATION_MODEL_ID, "user_id": str(uuid4())}, None),
         ({"model_id": GENERATION_MODEL_ID, "conversation_id": str(uuid4())}, None),
@@ -2123,7 +2153,7 @@ def test_authenticated_generation_returns_exact_safe_created_message(
         ({"model_id": GENERATION_MODEL_ID, "messages": []}, None),
         ({"model_id": GENERATION_MODEL_ID, "runtime_reference": "private"}, None),
         ({"model_id": GENERATION_MODEL_ID, "options": {}}, None),
-        ({"model_id": GENERATION_MODEL_ID, "temperature": 0.5}, None),
+        ({"model_id": GENERATION_MODEL_ID, "top_p": 0.9}, None),
         (None, b'{"model_id":'),
     ],
 )
@@ -2175,6 +2205,42 @@ def test_generation_accepts_exact_bounded_output_tokens_without_response_change(
         GENERATION_MODEL_ID,
         user_message=None,
         max_output_tokens=max_output_tokens,
+        temperature=None,
+    )
+
+
+@pytest.mark.parametrize(
+    ("temperature", "expected_temperature"),
+    [
+        (0, 0.0),
+        (1, 1.0),
+        (2, 2.0),
+        (0.5, 0.5),
+        (2.0, 2.0),
+    ],
+)
+def test_generation_accepts_exact_bounded_temperature_without_response_change(
+    conversation_generation_api,
+    temperature,
+    expected_temperature,
+):
+    api = conversation_generation_api
+
+    response = api["client"].post(
+        f"/api/v1/conversations/{api['conversation_id']}/messages/generate",
+        json={"model_id": GENERATION_MODEL_ID, "temperature": temperature},
+    )
+
+    assert response.status_code == 201
+    assert set(response.json()) == {"model_id", "message"}
+    assert "temperature" not in response.text
+    api["generate"].assert_awaited_once_with(
+        api["current_user"].id,
+        api["conversation_id"],
+        GENERATION_MODEL_ID,
+        user_message=None,
+        max_output_tokens=1024,
+        temperature=expected_temperature,
     )
 
 
@@ -2211,6 +2277,7 @@ def test_generation_accepts_exact_optional_user_message_without_response_change(
         GENERATION_MODEL_ID,
         user_message="  exact follow-up  ",
         max_output_tokens=1024,
+        temperature=None,
     )
 
 
@@ -2234,6 +2301,7 @@ def test_generation_explicit_null_user_message_preserves_existing_mode(
         GENERATION_MODEL_ID,
         user_message=None,
         max_output_tokens=1024,
+        temperature=None,
     )
 
 

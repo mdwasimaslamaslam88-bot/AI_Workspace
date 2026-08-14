@@ -65,6 +65,7 @@ async def test_router_dispatches_by_runtime_not_parameter_class(parameter_class)
         "/private/runtime/model:tag",
         messages,
         max_output_tokens=1024,
+        temperature=None,
     )
 
 
@@ -130,6 +131,76 @@ async def test_router_rejects_invalid_output_bounds(max_output_tokens):
                 ),
             ),
             max_output_tokens=max_output_tokens,
+        )
+
+    runtime.generate_text.assert_not_awaited()
+
+
+@pytest.mark.parametrize("temperature", [0, 1, 2, 0.5, 2.0])
+@pytest.mark.asyncio
+async def test_router_forwards_exact_valid_temperature(temperature):
+    generated = TextGenerationResult(content="answer")
+    generate_text = AsyncMock(return_value=generated)
+    runtime = Mock(runtime_id="local-runtime", generate_text=generate_text)
+    messages = (
+        TextGenerationMessage(
+            role=TextGenerationRole.USER,
+            content="prompt",
+        ),
+    )
+
+    result = await TextGenerationRouter((runtime,)).generate(
+        _resolved_model(),
+        messages,
+        max_output_tokens=1024,
+        temperature=temperature,
+    )
+
+    assert result is generated
+    generate_text.assert_awaited_once_with(
+        "/private/runtime/model:tag",
+        messages,
+        max_output_tokens=1024,
+        temperature=temperature,
+    )
+
+
+@pytest.mark.parametrize(
+    "temperature",
+    [
+        True,
+        False,
+        "0.5",
+        [],
+        {},
+        float("nan"),
+        float("inf"),
+        float("-inf"),
+        -0.01,
+        2.01,
+        10**1000,
+    ],
+)
+@pytest.mark.asyncio
+async def test_router_rejects_invalid_temperature_before_runtime(
+    temperature,
+):
+    runtime = Mock(
+        runtime_id="local-runtime",
+        generate_text=AsyncMock(),
+    )
+
+    with pytest.raises((TypeError, ValueError)):
+        await TextGenerationRouter((runtime,)).generate(
+            _resolved_model(),
+            (
+                TextGenerationMessage(
+                    role=TextGenerationRole.USER,
+                    content="prompt",
+                ),
+            ),
+            max_output_tokens=1024,
+            temperature=temperature,
         )
 
     runtime.generate_text.assert_not_awaited()

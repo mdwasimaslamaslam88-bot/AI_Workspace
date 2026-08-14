@@ -65,15 +65,19 @@ Conversation:
     Authorization: Bearer <access_token>
     Content-Type: application/json
 
-    {"model_id":"ollama-local:<opaque-id>","user_message":"Optional follow-up","max_output_tokens":128}
+    {"model_id":"ollama-local:<opaque-id>","user_message":"Optional follow-up","max_output_tokens":128,"temperature":0.5}
 
 The public model_id must come from the model catalog. An optional nonblank
 `user_message` is committed first as an owner-scoped, server-assigned user
 Message; omission or null retains generation-only behavior. An optional strict
 integer `max_output_tokens` from 1 through 1,024 may lower the response bound;
-omission retains the 1,024-token default. Raw runtime tags, runtime URLs, owner
-IDs, roles, sequences, Message arrays, arbitrary generation options, and
-streaming flags are not accepted.
+omission retains the 1,024-token default. An optional finite numeric
+`temperature` from 0.0 through 2.0 may control sampling; integers in that
+range are accepted, while explicit null, booleans, strings, non-finite values,
+and out-of-range values are rejected. Omitting `temperature` leaves Ollama's
+current temperature behavior unchanged. Raw runtime tags, runtime URLs, owner
+IDs, roles, sequences, Message arrays, arbitrary generation options, other
+sampling controls, and streaming flags are not accepted.
 
 Conversation creation may persist one optional client-authored `system_prompt`
 as a server-assigned system Message before the required initial user Message.
@@ -98,7 +102,9 @@ roles. Prompt construction uses a dedicated owner-scoped internal context
 query; it does not reuse public Message pagination, cursors, or offsets, and
 oversized histories are rejected rather than truncated. The output bound
 defaults to 1,024 tokens and may be lowered per request without exceeding that
-ceiling. Model parameter class is not used for routing or policy.
+ceiling. A supplied temperature is forwarded through the runtime-neutral
+generation boundary; omission does not add a temperature option to the Ollama
+request. Model parameter class is not used for routing or policy.
 
 The successful HTTP 201 response contains the selected public model_id and the
 newly persisted assistant Message. Ollama is invoked through the runtime-neutral
@@ -137,5 +143,6 @@ Error behavior is intentionally safe:
 Runtime references, runtime URLs, local paths, credentials, hardware
 identifiers, persistence details, and internal exception text are not returned.
 This slice does not add streaming, client-controlled generation options beyond
-the bounded output-token field, tools, model preferences, explicit model
-lifecycle controls, image/audio/video generation, or any cloud AI dependency.
+the bounded output-token and temperature fields, tools, model preferences,
+explicit model lifecycle controls, image/audio/video generation, or any cloud
+AI dependency.

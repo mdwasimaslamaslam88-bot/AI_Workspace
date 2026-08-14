@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,6 +19,7 @@ from app.services.message import MessageService
 MAX_GENERATION_CONTEXT_MESSAGES = 100
 MAX_GENERATION_CONTEXT_CHARACTERS = 100_000
 MAX_GENERATION_OUTPUT_TOKENS = 1_024
+MAX_GENERATION_TEMPERATURE = 2.0
 
 
 class ConversationGenerationNotFoundError(RuntimeError):
@@ -63,6 +65,7 @@ class ConversationGenerationService:
         *,
         user_message: str | None = None,
         max_output_tokens: int = MAX_GENERATION_OUTPUT_TOKENS,
+        temperature: float | None = None,
     ) -> Message:
         if isinstance(max_output_tokens, bool) or not isinstance(
             max_output_tokens,
@@ -74,6 +77,24 @@ class ConversationGenerationService:
                 "max_output_tokens must be between 1 and "
                 f"{MAX_GENERATION_OUTPUT_TOKENS}"
             )
+        if temperature is not None:
+            if isinstance(temperature, bool) or not isinstance(
+                temperature,
+                (int, float),
+            ):
+                raise TypeError("temperature must be numeric")
+            try:
+                is_finite_temperature = math.isfinite(temperature)
+            except OverflowError:
+                is_finite_temperature = False
+            if (
+                not is_finite_temperature
+                or not 0.0 <= temperature <= MAX_GENERATION_TEMPERATURE
+            ):
+                raise ValueError(
+                    "temperature must be finite and between 0.0 and "
+                    f"{MAX_GENERATION_TEMPERATURE}"
+                )
 
         conversation = await ConversationService(self.session).get_for_owner(
             owner_id,
@@ -184,6 +205,7 @@ class ConversationGenerationService:
             model,
             tuple(context),
             max_output_tokens=max_output_tokens,
+            temperature=temperature,
         )
         message = await MessageService(self.session).append_for_owner(
             owner_id,

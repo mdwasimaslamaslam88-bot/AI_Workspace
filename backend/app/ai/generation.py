@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import StrEnum
+import math
 from typing import Protocol, runtime_checkable
 
 from app.ai.catalog import ResolvedModel
@@ -54,6 +55,7 @@ class TextGenerationRuntime(Protocol):
         messages: tuple[TextGenerationMessage, ...],
         *,
         max_output_tokens: int,
+        temperature: float | None = None,
     ) -> TextGenerationResult: ...
 
 
@@ -76,6 +78,7 @@ class TextGenerationRouter:
         messages: tuple[TextGenerationMessage, ...],
         *,
         max_output_tokens: int,
+        temperature: float | None = None,
     ) -> TextGenerationResult:
         if not isinstance(model, ResolvedModel):
             raise TypeError("model must be a ResolvedModel")
@@ -87,6 +90,20 @@ class TextGenerationRouter:
             raise TypeError("max_output_tokens must be an integer")
         if max_output_tokens < 1:
             raise ValueError("max_output_tokens must be positive")
+        if temperature is not None:
+            if isinstance(temperature, bool) or not isinstance(
+                temperature,
+                (int, float),
+            ):
+                raise TypeError("temperature must be numeric")
+            try:
+                is_finite_temperature = math.isfinite(temperature)
+            except OverflowError:
+                is_finite_temperature = False
+            if not is_finite_temperature or not 0.0 <= temperature <= 2.0:
+                raise ValueError(
+                    "temperature must be finite and between 0.0 and 2.0"
+                )
 
         runtime = self._runtimes.get(model.descriptor.runtime_id)
         if runtime is None:
@@ -97,4 +114,5 @@ class TextGenerationRouter:
             model.runtime_reference,
             messages,
             max_output_tokens=max_output_tokens,
+            temperature=temperature,
         )

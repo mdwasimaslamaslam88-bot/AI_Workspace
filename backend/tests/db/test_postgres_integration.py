@@ -1858,9 +1858,10 @@ async def test_authenticated_conversation_generation_is_owner_scoped_and_stale_s
             messages,
             *,
             max_output_tokens,
+            temperature=None,
         ) -> TextGenerationResult:
             self.generation_calls.append(
-                (runtime_reference, messages, max_output_tokens)
+                (runtime_reference, messages, max_output_tokens, temperature)
             )
             if self.mode == "unavailable":
                 raise TextGenerationRuntimeUnavailableError(
@@ -2033,6 +2034,7 @@ async def test_authenticated_conversation_generation_is_owner_scoped_and_stale_s
                     "model_id": model_id,
                     "user_message": "  second user prompt  ",
                     "max_output_tokens": 128,
+                    "temperature": 0.25,
                 },
             )
             assert generated.status_code == 201
@@ -2049,7 +2051,9 @@ async def test_authenticated_conversation_generation_is_owner_scoped_and_stale_s
                 },
             }
             assert "/private/runtime/model:70b" not in generated.text
-            runtime_reference, context, output_bound = runtime.generation_calls[0]
+            runtime_reference, context, output_bound, temperature = (
+                runtime.generation_calls[0]
+            )
             assert runtime_reference == "/private/runtime/model:70b"
             assert [(message.role.value, message.content) for message in context] == [
                 ("system", "  exact system prompt  "),
@@ -2057,6 +2061,7 @@ async def test_authenticated_conversation_generation_is_owner_scoped_and_stale_s
                 ("user", "  second user prompt  "),
             ]
             assert output_bound == 128
+            assert temperature == 0.25
 
             foreign_attempt = await client.post(
                 f"/api/v1/conversations/{foreign_conversation_id}/messages/generate",
@@ -2153,6 +2158,7 @@ async def test_authenticated_conversation_generation_is_owner_scoped_and_stale_s
             assert retry.json()["message"]["sequence_number"] == 7
             assert len(runtime.generation_calls) == 3
             assert runtime.generation_calls[2][2] == 1024
+            assert runtime.generation_calls[2][3] is None
 
             runtime.mode = "pre-context-stale"
             pre_context_stale = await client.post(

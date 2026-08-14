@@ -95,11 +95,31 @@ class OllamaTextGenerationRuntime:
         messages: tuple[TextGenerationMessage, ...],
         *,
         max_output_tokens: int,
+        temperature: float | None = None,
     ) -> TextGenerationResult:
+        if temperature is not None:
+            if isinstance(temperature, bool) or not isinstance(
+                temperature,
+                (int, float),
+            ):
+                raise TypeError("temperature must be numeric")
+            try:
+                is_finite_temperature = math.isfinite(temperature)
+            except OverflowError:
+                is_finite_temperature = False
+            if not is_finite_temperature or not 0.0 <= temperature <= 2.0:
+                raise ValueError(
+                    "temperature must be finite and between 0.0 and 2.0"
+                )
         if runtime_reference not in self.local_model_allowlist:
             raise TextGenerationRuntimeUnsupportedError(
                 "model is not approved for local text generation"
             )
+        options: dict[str, int | float] = {
+            "num_predict": max_output_tokens,
+        }
+        if temperature is not None:
+            options["temperature"] = temperature
         try:
             response = await self.client.post(
                 "/api/chat",
@@ -113,9 +133,7 @@ class OllamaTextGenerationRuntime:
                         for message in messages
                     ],
                     "stream": False,
-                    "options": {
-                        "num_predict": max_output_tokens,
-                    },
+                    "options": options,
                 },
                 timeout=self.timeout_seconds,
             )

@@ -1,4 +1,7 @@
-from pydantic import BaseModel, ConfigDict, Field
+import math
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic_core import PydanticCustomError
 
 from app.ai.catalog import ModelAvailability, ModelCapability, ModelModality
 from app.schemas.message import MessageResponse
@@ -34,6 +37,31 @@ class ConversationTextGenerationRequest(BaseModel):
     )
     user_message: str | None = Field(default=None, pattern=r"\S")
     max_output_tokens: int = Field(default=1024, strict=True, ge=1, le=1024)
+    temperature: float | None = Field(
+        default=None,
+        strict=True,
+        ge=0.0,
+        le=2.0,
+        allow_inf_nan=False,
+    )
+
+    @field_validator("temperature", mode="before")
+    @classmethod
+    def validate_temperature_input(cls, value):
+        if value is None:
+            raise PydanticCustomError(
+                "temperature_null",
+                "temperature must not be null",
+            )
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            try:
+                is_finite_temperature = math.isfinite(value)
+            except OverflowError:
+                is_finite_temperature = False
+            if not is_finite_temperature:
+                # Keep the existing public validation error JSON-serializable.
+                return "non-finite temperature"
+        return value
 
 
 class ConversationTextGenerationResponse(BaseModel):

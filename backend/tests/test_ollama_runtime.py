@@ -1,4 +1,4 @@
-from unittest.mock import Mock
+from unittest.mock import AsyncMock, Mock
 
 import httpx
 import pytest
@@ -264,6 +264,103 @@ async def test_ollama_generation_is_non_streaming_bounded_and_preserves_content(
         "stream": False,
         "options": {"num_predict": 1024},
     }
+
+
+@pytest.mark.parametrize("temperature", [0, 1, 2, 0.5, 2.0])
+@pytest.mark.asyncio
+async def test_ollama_generation_forwards_exact_valid_temperature(temperature):
+    requests: list[httpx.Request] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(
+            200,
+            json={
+                "done": True,
+                "message": {
+                    "role": "assistant",
+                    "content": "answer",
+                },
+            },
+        )
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        base_url="http://127.0.0.1:11434",
+        trust_env=False,
+        follow_redirects=False,
+    ) as client:
+        result = await OllamaTextGenerationRuntime(
+            client,
+            timeout_seconds=37,
+            local_model_allowlist=LOCAL_MODEL_ALLOWLIST,
+        ).generate_text(
+            LOCAL_MODEL_REFERENCE,
+            (
+                TextGenerationMessage(
+                    role=TextGenerationRole.USER,
+                    content="prompt",
+                ),
+            ),
+            max_output_tokens=128,
+            temperature=temperature,
+        )
+
+    assert result.content == "answer"
+    assert len(requests) == 1
+    import json
+
+    assert json.loads(requests[0].content) == {
+        "model": LOCAL_MODEL_REFERENCE,
+        "messages": [{"role": "user", "content": "prompt"}],
+        "stream": False,
+        "options": {
+            "num_predict": 128,
+            "temperature": temperature,
+        },
+    }
+
+
+@pytest.mark.parametrize(
+    "temperature",
+    [
+        True,
+        False,
+        "0.5",
+        [],
+        {},
+        float("nan"),
+        float("inf"),
+        float("-inf"),
+        -0.01,
+        2.01,
+        10**1000,
+    ],
+)
+@pytest.mark.asyncio
+async def test_ollama_generation_rejects_invalid_temperature_before_http(
+    temperature,
+):
+    client = Mock(post=AsyncMock())
+
+    with pytest.raises((TypeError, ValueError)):
+        await OllamaTextGenerationRuntime(
+            client,
+            timeout_seconds=37,
+            local_model_allowlist=LOCAL_MODEL_ALLOWLIST,
+        ).generate_text(
+            LOCAL_MODEL_REFERENCE,
+            (
+                TextGenerationMessage(
+                    role=TextGenerationRole.USER,
+                    content="prompt",
+                ),
+            ),
+            max_output_tokens=128,
+            temperature=temperature,
+        )
+
+    client.post.assert_not_awaited()
 
 
 @pytest.mark.parametrize(
