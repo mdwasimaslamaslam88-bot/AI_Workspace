@@ -33,6 +33,7 @@ class ConversationTextGenerationRequest(BaseModel):
         pattern=r"^[a-z0-9][a-z0-9_-]{0,63}:[a-f0-9]{24}$"
     )
     user_message: str | None = Field(default=None, pattern=r"\S")
+    max_output_tokens: int = Field(default=1024, strict=True, ge=1, le=1024)
 
 
 class ConversationTextGenerationResponse(BaseModel):

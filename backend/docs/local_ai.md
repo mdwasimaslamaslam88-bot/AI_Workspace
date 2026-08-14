@@ -65,13 +65,15 @@ Conversation:
     Authorization: Bearer <access_token>
     Content-Type: application/json
 
-    {"model_id":"ollama-local:<opaque-id>","user_message":"Optional follow-up"}
+    {"model_id":"ollama-local:<opaque-id>","user_message":"Optional follow-up","max_output_tokens":128}
 
 The public model_id must come from the model catalog. An optional nonblank
 `user_message` is committed first as an owner-scoped, server-assigned user
-Message; omission or null retains generation-only behavior. Raw runtime tags,
-runtime URLs, owner IDs, roles, sequences, Message arrays, generation options,
-and streaming flags are not accepted.
+Message; omission or null retains generation-only behavior. An optional strict
+integer `max_output_tokens` from 1 through 1,024 may lower the response bound;
+omission retains the 1,024-token default. Raw runtime tags, runtime URLs, owner
+IDs, roles, sequences, Message arrays, arbitrary generation options, and
+streaming flags are not accepted.
 
 Conversation creation may persist one optional client-authored `system_prompt`
 as a server-assigned system Message before the required initial user Message.
@@ -94,9 +96,9 @@ Messages so the extra row can detect overflow. The history must be contiguous,
 must end in a user Message, and may contain only system, user, and assistant
 roles. Prompt construction uses a dedicated owner-scoped internal context
 query; it does not reuse public Message pagination, cursors, or offsets, and
-oversized histories are rejected rather than truncated. The initial output
-bound is fixed at 1,024 tokens. Model parameter class is not used for routing
-or policy.
+oversized histories are rejected rather than truncated. The output bound
+defaults to 1,024 tokens and may be lowered per request without exceeding that
+ceiling. Model parameter class is not used for routing or policy.
 
 The successful HTTP 201 response contains the selected public model_id and the
 newly persisted assistant Message. Ollama is invoked through the runtime-neutral
@@ -134,6 +136,6 @@ Error behavior is intentionally safe:
 
 Runtime references, runtime URLs, local paths, credentials, hardware
 identifiers, persistence details, and internal exception text are not returned.
-This slice does not add streaming, client-controlled generation options, tools,
-model preferences, explicit model lifecycle controls, image/audio/video
-generation, or any cloud AI dependency.
+This slice does not add streaming, client-controlled generation options beyond
+the bounded output-token field, tools, model preferences, explicit model
+lifecycle controls, image/audio/video generation, or any cloud AI dependency.

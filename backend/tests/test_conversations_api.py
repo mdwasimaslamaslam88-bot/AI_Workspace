@@ -2080,6 +2080,7 @@ def test_authenticated_generation_returns_exact_safe_created_message(
         api["conversation_id"],
         GENERATION_MODEL_ID,
         user_message=None,
+        max_output_tokens=1024,
     )
     api["session"].commit.assert_not_awaited()
     api["session"].rollback.assert_not_awaited()
@@ -2105,6 +2106,14 @@ def test_authenticated_generation_returns_exact_safe_created_message(
         ({"model_id": GENERATION_MODEL_ID, "user_message": ""}, None),
         ({"model_id": GENERATION_MODEL_ID, "user_message": "   "}, None),
         ({"model_id": GENERATION_MODEL_ID, "user_message": 3}, None),
+        ({"model_id": GENERATION_MODEL_ID, "max_output_tokens": None}, None),
+        ({"model_id": GENERATION_MODEL_ID, "max_output_tokens": True}, None),
+        ({"model_id": GENERATION_MODEL_ID, "max_output_tokens": False}, None),
+        ({"model_id": GENERATION_MODEL_ID, "max_output_tokens": "128"}, None),
+        ({"model_id": GENERATION_MODEL_ID, "max_output_tokens": 128.0}, None),
+        ({"model_id": GENERATION_MODEL_ID, "max_output_tokens": 0}, None),
+        ({"model_id": GENERATION_MODEL_ID, "max_output_tokens": -1}, None),
+        ({"model_id": GENERATION_MODEL_ID, "max_output_tokens": 1025}, None),
         ({"model_id": GENERATION_MODEL_ID, "owner_id": str(uuid4())}, None),
         ({"model_id": GENERATION_MODEL_ID, "user_id": str(uuid4())}, None),
         ({"model_id": GENERATION_MODEL_ID, "conversation_id": str(uuid4())}, None),
@@ -2114,6 +2123,7 @@ def test_authenticated_generation_returns_exact_safe_created_message(
         ({"model_id": GENERATION_MODEL_ID, "messages": []}, None),
         ({"model_id": GENERATION_MODEL_ID, "runtime_reference": "private"}, None),
         ({"model_id": GENERATION_MODEL_ID, "options": {}}, None),
+        ({"model_id": GENERATION_MODEL_ID, "temperature": 0.5}, None),
         (None, b'{"model_id":'),
     ],
 )
@@ -2138,6 +2148,34 @@ def test_invalid_generation_body_is_422_before_service_invocation(
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "VALIDATION_ERROR"
     api["service_factory"].assert_not_called()
+    api["generate"].assert_not_awaited()
+
+
+@pytest.mark.parametrize("max_output_tokens", [1, 128, 1024])
+def test_generation_accepts_exact_bounded_output_tokens_without_response_change(
+    conversation_generation_api,
+    max_output_tokens,
+):
+    api = conversation_generation_api
+
+    response = api["client"].post(
+        f"/api/v1/conversations/{api['conversation_id']}/messages/generate",
+        json={
+            "model_id": GENERATION_MODEL_ID,
+            "max_output_tokens": max_output_tokens,
+        },
+    )
+
+    assert response.status_code == 201
+    assert set(response.json()) == {"model_id", "message"}
+    assert "max_output_tokens" not in response.text
+    api["generate"].assert_awaited_once_with(
+        api["current_user"].id,
+        api["conversation_id"],
+        GENERATION_MODEL_ID,
+        user_message=None,
+        max_output_tokens=max_output_tokens,
+    )
 
 
 def test_generation_accepts_exact_optional_user_message_without_response_change(
@@ -2172,6 +2210,7 @@ def test_generation_accepts_exact_optional_user_message_without_response_change(
         api["conversation_id"],
         GENERATION_MODEL_ID,
         user_message="  exact follow-up  ",
+        max_output_tokens=1024,
     )
 
 
@@ -2194,6 +2233,7 @@ def test_generation_explicit_null_user_message_preserves_existing_mode(
         api["conversation_id"],
         GENERATION_MODEL_ID,
         user_message=None,
+        max_output_tokens=1024,
     )
 
 

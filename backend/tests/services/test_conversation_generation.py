@@ -214,6 +214,98 @@ async def test_generation_releases_read_transaction_before_local_inference(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("max_output_tokens", [1, 128, 1024])
+async def test_generation_forwards_exact_valid_output_bound(
+    monkeypatch,
+    max_output_tokens,
+):
+    owner_id = uuid4()
+    conversation_id = uuid4()
+    session = AsyncMock(spec=AsyncSession)
+    messages = (
+        _message(conversation_id, MessageRole.USER, "question", 1),
+    )
+    appended = _message(
+        conversation_id,
+        MessageRole.ASSISTANT,
+        "answer",
+        2,
+    )
+    dependencies = _dependencies(
+        monkeypatch,
+        conversation=_conversation(owner_id, conversation_id, 2),
+        context=messages,
+        appended=appended,
+    )
+
+    result = await ConversationGenerationService(
+        session,
+        dependencies["catalog"],
+        dependencies["router"],
+    ).generate_for_owner(
+        owner_id,
+        conversation_id,
+        MODEL_ID,
+        max_output_tokens=max_output_tokens,
+    )
+
+    assert result is appended
+    dependencies["router"].generate.assert_awaited_once_with(
+        _resolved(),
+        dependencies["router"].generate.await_args.args[1],
+        max_output_tokens=max_output_tokens,
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "max_output_tokens",
+    [None, True, False, "128", 128.0, 0, -1, 1025],
+)
+async def test_generation_rejects_invalid_output_bound_before_side_effects(
+    monkeypatch,
+    max_output_tokens,
+):
+    owner_id = uuid4()
+    conversation_id = uuid4()
+    session = AsyncMock(spec=AsyncSession)
+    dependencies = _dependencies(
+        monkeypatch,
+        conversation=_conversation(owner_id, conversation_id, 2),
+        context=(_message(conversation_id, MessageRole.USER, "question", 1),),
+        appended=_message(
+            conversation_id,
+            MessageRole.ASSISTANT,
+            "answer",
+            2,
+        ),
+    )
+
+    with pytest.raises((TypeError, ValueError)):
+        await ConversationGenerationService(
+            session,
+            dependencies["catalog"],
+            dependencies["router"],
+        ).generate_for_owner(
+            owner_id,
+            conversation_id,
+            MODEL_ID,
+            user_message="must not persist",
+            max_output_tokens=max_output_tokens,
+        )
+
+    dependencies["conversation_factory"].assert_not_called()
+    dependencies["get"].assert_not_awaited()
+    dependencies["message_factory"].assert_not_called()
+    dependencies["context"].assert_not_awaited()
+    dependencies["append"].assert_not_awaited()
+    dependencies["catalog"].resolve_model.assert_not_awaited()
+    dependencies["router"].generate.assert_not_awaited()
+    session.commit.assert_not_awaited()
+    session.rollback.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_generation_appends_exact_user_message_before_context_and_inference(
     monkeypatch,
 ):

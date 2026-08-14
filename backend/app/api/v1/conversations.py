@@ -258,6 +258,7 @@ async def generate_assistant_message(
             conversation_id,
             generation_request.model_id,
             user_message=generation_request.user_message,
+            max_output_tokens=generation_request.max_output_tokens,
         )
     except ConversationGenerationNotFoundError:
         raise HTTPException(

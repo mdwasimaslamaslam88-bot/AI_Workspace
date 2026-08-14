@@ -2032,6 +2032,7 @@ async def test_authenticated_conversation_generation_is_owner_scoped_and_stale_s
                 json={
                     "model_id": model_id,
                     "user_message": "  second user prompt  ",
+                    "max_output_tokens": 128,
                 },
             )
             assert generated.status_code == 201
@@ -2055,7 +2056,7 @@ async def test_authenticated_conversation_generation_is_owner_scoped_and_stale_s
                 ("user", "first user prompt"),
                 ("user", "  second user prompt  "),
             ]
-            assert output_bound == 1024
+            assert output_bound == 128
 
             foreign_attempt = await client.post(
                 f"/api/v1/conversations/{foreign_conversation_id}/messages/generate",
@@ -2151,6 +2152,7 @@ async def test_authenticated_conversation_generation_is_owner_scoped_and_stale_s
             assert retry.json()["message"]["role"] == "assistant"
             assert retry.json()["message"]["sequence_number"] == 7
             assert len(runtime.generation_calls) == 3
+            assert runtime.generation_calls[2][2] == 1024
 
             runtime.mode = "pre-context-stale"
             pre_context_stale = await client.post(

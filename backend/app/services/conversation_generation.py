@@ -62,7 +62,19 @@ class ConversationGenerationService:
         model_id: str,
         *,
         user_message: str | None = None,
+        max_output_tokens: int = MAX_GENERATION_OUTPUT_TOKENS,
     ) -> Message:
+        if isinstance(max_output_tokens, bool) or not isinstance(
+            max_output_tokens,
+            int,
+        ):
+            raise TypeError("max_output_tokens must be an integer")
+        if not 1 <= max_output_tokens <= MAX_GENERATION_OUTPUT_TOKENS:
+            raise ValueError(
+                "max_output_tokens must be between 1 and "
+                f"{MAX_GENERATION_OUTPUT_TOKENS}"
+            )
+
         conversation = await ConversationService(self.session).get_for_owner(
             owner_id,
             conversation_id,
@@ -171,7 +183,7 @@ class ConversationGenerationService:
         generated = await self.generation_router.generate(
             model,
             tuple(context),
-            max_output_tokens=MAX_GENERATION_OUTPUT_TOKENS,
+            max_output_tokens=max_output_tokens,
         )
         message = await MessageService(self.session).append_for_owner(
             owner_id,
