@@ -63,6 +63,13 @@ class ConversationTextGenerationRequest(BaseModel):
         ge=1,
         le=100,
     )
+    min_p: float | None = Field(
+        default=None,
+        strict=True,
+        ge=0.0,
+        le=1.0,
+        allow_inf_nan=False,
+    )
 
     @field_validator("temperature", mode="before")
     @classmethod
@@ -124,6 +131,24 @@ class ConversationTextGenerationRequest(BaseModel):
         if isinstance(value, float) and not math.isfinite(value):
             # Keep the existing public validation error JSON-serializable.
             return "non-finite top_k"
+        return value
+
+    @field_validator("min_p", mode="before")
+    @classmethod
+    def validate_min_p_input(cls, value):
+        if value is None:
+            raise PydanticCustomError(
+                "min_p_null",
+                "min_p must not be null",
+            )
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            try:
+                is_finite_min_p = math.isfinite(value)
+            except OverflowError:
+                is_finite_min_p = False
+            if not is_finite_min_p:
+                # Keep the existing public validation error JSON-serializable.
+                return "non-finite min_p"
         return value
 
 

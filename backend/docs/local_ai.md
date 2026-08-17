@@ -65,7 +65,7 @@ Conversation:
     Authorization: Bearer <access_token>
     Content-Type: application/json
 
-    {"model_id":"ollama-local:<opaque-id>","user_message":"Optional follow-up","max_output_tokens":128,"temperature":0.5,"seed":42,"top_p":0.9,"top_k":40}
+    {"model_id":"ollama-local:<opaque-id>","user_message":"Optional follow-up","max_output_tokens":128,"temperature":0.5,"seed":42,"top_p":0.9,"top_k":40,"min_p":0.05}
 
 The public model_id must come from the model catalog. An optional nonblank
 `user_message` is committed first as an owner-scoped, server-assigned user
@@ -98,6 +98,12 @@ negative values, and values above 100 are rejected. Omitting `top_k` adds no
 top-k option to the Ollama request. Supplied values are forwarded only as the
 bounded Ollama `options.top_k` sampling control.
 
+An optional finite numeric `min_p` from 0.0 through 1.0 is accepted, including
+integer values 0 and 1. Explicit null, booleans, strings, arrays, objects,
+non-finite numbers, negative values, and values above 1.0 are rejected.
+Omitting `min_p` adds no min-p option to the Ollama request. Supplied values are
+forwarded only as the bounded Ollama `options.min_p` sampling control.
+
 Conversation creation may persist one optional client-authored `system_prompt`
 as a server-assigned system Message before the required initial user Message.
 Both Messages are owner-scoped and committed atomically with the Conversation.
@@ -128,7 +134,9 @@ omission does not add a seed option to the Ollama request. A supplied `top_p`
 is forwarded unchanged through the same boundary; omission does not add a
 top-p option to the Ollama request. A supplied `top_k` is forwarded unchanged
 through the same boundary; omission does not add a top-k option to the Ollama
-request. Model parameter class is not used for routing or policy.
+request. A supplied `min_p` is forwarded unchanged through the same boundary;
+omission does not add a min-p option to the Ollama request. Model parameter
+class is not used for routing or policy.
 
 The successful HTTP 201 response contains the selected public model_id and the
 newly persisted assistant Message. Ollama is invoked through the runtime-neutral
@@ -167,6 +175,6 @@ Error behavior is intentionally safe:
 Runtime references, runtime URLs, local paths, credentials, hardware
 identifiers, persistence details, and internal exception text are not returned.
 This slice does not add streaming, client-controlled generation options beyond
-the bounded output-token, temperature, seed, top-p, and top-k fields, tools,
-model preferences, explicit model lifecycle controls, image/audio/video
+the bounded output-token, temperature, seed, top-p, top-k, and min-p fields,
+tools, model preferences, explicit model lifecycle controls, image/audio/video
 generation, or any cloud AI dependency.

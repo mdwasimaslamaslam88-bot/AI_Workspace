@@ -1862,6 +1862,7 @@ async def test_authenticated_conversation_generation_is_owner_scoped_and_stale_s
             seed=None,
             top_p=None,
             top_k=None,
+            min_p=None,
         ) -> TextGenerationResult:
             self.generation_calls.append(
                 (
@@ -1872,6 +1873,7 @@ async def test_authenticated_conversation_generation_is_owner_scoped_and_stale_s
                     seed,
                     top_p,
                     top_k,
+                    min_p,
                 )
             )
             if self.mode == "unavailable":
@@ -2049,6 +2051,7 @@ async def test_authenticated_conversation_generation_is_owner_scoped_and_stale_s
                     "seed": 42,
                     "top_p": 0.9,
                     "top_k": 40,
+                    "min_p": 0.05,
                 },
             )
             assert generated.status_code == 201
@@ -2073,6 +2076,7 @@ async def test_authenticated_conversation_generation_is_owner_scoped_and_stale_s
                 seed,
                 top_p,
                 top_k,
+                min_p,
             ) = runtime.generation_calls[0]
             assert runtime_reference == "/private/runtime/model:70b"
             assert [(message.role.value, message.content) for message in context] == [
@@ -2085,6 +2089,7 @@ async def test_authenticated_conversation_generation_is_owner_scoped_and_stale_s
             assert seed == 42
             assert top_p == 0.9
             assert top_k == 40
+            assert min_p == 0.05
 
             foreign_attempt = await client.post(
                 f"/api/v1/conversations/{foreign_conversation_id}/messages/generate",
@@ -2185,6 +2190,7 @@ async def test_authenticated_conversation_generation_is_owner_scoped_and_stale_s
             assert runtime.generation_calls[2][4] is None
             assert runtime.generation_calls[2][5] is None
             assert runtime.generation_calls[2][6] is None
+            assert runtime.generation_calls[2][7] is None
 
             runtime.mode = "pre-context-stale"
             pre_context_stale = await client.post(

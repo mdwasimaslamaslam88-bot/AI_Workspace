@@ -69,6 +69,7 @@ async def test_router_dispatches_by_runtime_not_parameter_class(parameter_class)
         seed=None,
         top_p=None,
         top_k=None,
+        min_p=None,
     )
 
 
@@ -168,6 +169,7 @@ async def test_router_forwards_exact_valid_temperature(temperature):
         seed=None,
         top_p=None,
         top_k=None,
+        min_p=None,
     )
 
 
@@ -200,6 +202,7 @@ async def test_router_forwards_exact_valid_seed(seed):
         seed=seed,
         top_p=None,
         top_k=None,
+        min_p=None,
     )
 
 
@@ -232,6 +235,7 @@ async def test_router_forwards_exact_valid_top_p(top_p):
         seed=None,
         top_p=top_p,
         top_k=None,
+        min_p=None,
     )
 
 
@@ -264,6 +268,40 @@ async def test_router_forwards_exact_valid_top_k(top_k):
         seed=None,
         top_p=None,
         top_k=top_k,
+        min_p=None,
+    )
+
+
+@pytest.mark.parametrize("min_p", [0, 1, 0.05, 0.5, 1.0])
+@pytest.mark.asyncio
+async def test_router_forwards_exact_valid_min_p(min_p):
+    generated = TextGenerationResult(content="answer")
+    generate_text = AsyncMock(return_value=generated)
+    runtime = Mock(runtime_id="local-runtime", generate_text=generate_text)
+    messages = (
+        TextGenerationMessage(
+            role=TextGenerationRole.USER,
+            content="prompt",
+        ),
+    )
+
+    result = await TextGenerationRouter((runtime,)).generate(
+        _resolved_model(),
+        messages,
+        max_output_tokens=1024,
+        min_p=min_p,
+    )
+
+    assert result is generated
+    generate_text.assert_awaited_once_with(
+        "/private/runtime/model:tag",
+        messages,
+        max_output_tokens=1024,
+        temperature=None,
+        seed=None,
+        top_p=None,
+        top_k=None,
+        min_p=min_p,
     )
 
 
@@ -303,6 +341,45 @@ async def test_router_rejects_invalid_temperature_before_runtime(
             ),
             max_output_tokens=1024,
             temperature=temperature,
+        )
+
+    runtime.generate_text.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    "min_p",
+    [
+        True,
+        False,
+        "0.05",
+        [],
+        {},
+        float("nan"),
+        float("inf"),
+        float("-inf"),
+        -0.01,
+        1.01,
+        10**1000,
+    ],
+)
+@pytest.mark.asyncio
+async def test_router_rejects_invalid_min_p_before_runtime(min_p):
+    runtime = Mock(
+        runtime_id="local-runtime",
+        generate_text=AsyncMock(),
+    )
+
+    with pytest.raises((TypeError, ValueError)):
+        await TextGenerationRouter((runtime,)).generate(
+            _resolved_model(),
+            (
+                TextGenerationMessage(
+                    role=TextGenerationRole.USER,
+                    content="prompt",
+                ),
+            ),
+            max_output_tokens=1024,
+            min_p=min_p,
         )
 
     runtime.generate_text.assert_not_awaited()

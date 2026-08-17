@@ -59,6 +59,7 @@ class TextGenerationRuntime(Protocol):
         seed: int | None = None,
         top_p: float | None = None,
         top_k: int | None = None,
+        min_p: float | None = None,
     ) -> TextGenerationResult: ...
 
 
@@ -85,6 +86,7 @@ class TextGenerationRouter:
         seed: int | None = None,
         top_p: float | None = None,
         top_k: int | None = None,
+        min_p: float | None = None,
     ) -> TextGenerationResult:
         if not isinstance(model, ResolvedModel):
             raise TypeError("model must be a ResolvedModel")
@@ -136,6 +138,20 @@ class TextGenerationRouter:
                 raise TypeError("top_k must be an integer")
             if not 1 <= top_k <= 100:
                 raise ValueError("top_k must be between 1 and 100")
+        if min_p is not None:
+            if isinstance(min_p, bool) or not isinstance(
+                min_p,
+                (int, float),
+            ):
+                raise TypeError("min_p must be numeric")
+            try:
+                is_finite_min_p = math.isfinite(min_p)
+            except OverflowError:
+                is_finite_min_p = False
+            if not is_finite_min_p or not 0.0 <= min_p <= 1.0:
+                raise ValueError(
+                    "min_p must be finite and between 0.0 and 1.0"
+                )
 
         runtime = self._runtimes.get(model.descriptor.runtime_id)
         if runtime is None:
@@ -150,4 +166,5 @@ class TextGenerationRouter:
             seed=seed,
             top_p=top_p,
             top_k=top_k,
+            min_p=min_p,
         )

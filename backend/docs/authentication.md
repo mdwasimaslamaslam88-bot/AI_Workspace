@@ -102,6 +102,11 @@ An optional strict integer `top_k` from 1 through 100 is accepted. Explicit
 null, booleans, strings, floats, arrays, objects, non-finite values, zero,
 negative values, and values above 100 are rejected. Omitting `top_k` preserves
 the current runtime behavior without adding a top-k override.
+An optional finite numeric `min_p` from 0.0 through 1.0 is accepted, including
+integer values 0 and 1. Explicit null, booleans, strings, arrays, objects,
+non-finite numbers, negative values, and values above 1.0 are rejected.
+Omitting `min_p` preserves the current runtime behavior without adding a
+min-p override.
 
 When `user_message` is supplied, the exact content is committed first as a
 server-assigned user Message before generation. Omission or null preserves

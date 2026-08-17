@@ -23,6 +23,7 @@ MAX_GENERATION_TEMPERATURE = 2.0
 MAX_GENERATION_SEED = 2_147_483_647
 MAX_GENERATION_TOP_P = 1.0
 MAX_GENERATION_TOP_K = 100
+MAX_GENERATION_MIN_P = 1.0
 
 
 class ConversationGenerationNotFoundError(RuntimeError):
@@ -72,6 +73,7 @@ class ConversationGenerationService:
         seed: int | None = None,
         top_p: float | None = None,
         top_k: int | None = None,
+        min_p: float | None = None,
     ) -> Message:
         if isinstance(max_output_tokens, bool) or not isinstance(
             max_output_tokens,
@@ -131,6 +133,21 @@ class ConversationGenerationService:
                 raise ValueError(
                     "top_k must be between 1 and "
                     f"{MAX_GENERATION_TOP_K}"
+                )
+        if min_p is not None:
+            if isinstance(min_p, bool) or not isinstance(
+                min_p,
+                (int, float),
+            ):
+                raise TypeError("min_p must be numeric")
+            try:
+                is_finite_min_p = math.isfinite(min_p)
+            except OverflowError:
+                is_finite_min_p = False
+            if not is_finite_min_p or not 0.0 <= min_p <= MAX_GENERATION_MIN_P:
+                raise ValueError(
+                    "min_p must be finite and between 0.0 and "
+                    f"{MAX_GENERATION_MIN_P}"
                 )
 
         conversation = await ConversationService(self.session).get_for_owner(
@@ -246,6 +263,7 @@ class ConversationGenerationService:
             seed=seed,
             top_p=top_p,
             top_k=top_k,
+            min_p=min_p,
         )
         message = await MessageService(self.session).append_for_owner(
             owner_id,
