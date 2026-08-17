@@ -1,9 +1,29 @@
 # Authentication and current-user identity
 
-The API provisions an opaque bearer credential together with each user. Call
-`POST /api/v1/users` without an identity, owner, or credential field. A
-successful response returns the credential once as `access_token`, identifies
-its `token_type` as `bearer`, and includes `Cache-Control: no-store`.
+User provisioning is fail-closed and requires a dedicated operator credential.
+Configure `USER_PROVISIONING_TOKEN_DIGEST` with exactly the 64-character
+lowercase hexadecimal SHA-256 digest of a separate 43-character URL-safe opaque
+token. Omission or a blank value disables provisioning; plaintext provisioning
+credentials must not be placed in configuration or logs.
+
+Call `POST /api/v1/users` with the operator credential in its dedicated header:
+
+```http
+X-User-Provisioning-Token: <opaque provisioning token>
+```
+
+The request body may be omitted or may be the strict empty object `{}`.
+Identity, owner, token, digest, and unknown fields are rejected. Missing or
+disabled configuration and missing, malformed, or incorrect provisioning
+credentials all receive HTTP 403 with `User provisioning is not authorized`
+before user-service construction or persistence.
+
+The provisioning credential is independent from user bearer credentials: it
+cannot authenticate ordinary bearer routes, and an ordinary bearer credential
+cannot authorize provisioning. An authorized request preserves the existing
+HTTP 201 response, returns the new user's opaque bearer credential once as
+`access_token`, identifies its `token_type` as `bearer`, and includes
+`Cache-Control: no-store`.
 
 Clients must store that credential securely and send it through the standard
 header on authenticated requests:

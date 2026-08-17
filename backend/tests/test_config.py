@@ -12,6 +12,7 @@ def test_settings_preserve_application_defaults():
     assert settings.OLLAMA_BASE_URL is None
     assert settings.OLLAMA_LOCAL_MODEL_ALLOWLIST == ()
     assert settings.OLLAMA_GENERATION_TIMEOUT_SECONDS == 120.0
+    assert settings.USER_PROVISIONING_TOKEN_DIGEST is None
 
 def test_blank_runtime_urls_are_unconfigured():
     settings = Settings(_env_file=None, DATABASE_URL="", REDIS_URL="", OLLAMA_BASE_URL="")
@@ -97,4 +98,47 @@ def test_generation_timeout_must_be_positive_numeric(value):
         Settings(
             _env_file=None,
             OLLAMA_GENERATION_TIMEOUT_SECONDS=value,
+        )
+
+
+def test_user_provisioning_digest_accepts_only_lowercase_sha256():
+    digest = "a" * 64
+
+    settings = Settings(
+        _env_file=None,
+        USER_PROVISIONING_TOKEN_DIGEST=digest,
+    )
+
+    assert settings.USER_PROVISIONING_TOKEN_DIGEST == digest
+
+
+def test_blank_user_provisioning_digest_disables_provisioning():
+    settings = Settings(
+        _env_file=None,
+        USER_PROVISIONING_TOKEN_DIGEST=" \t ",
+    )
+
+    assert settings.USER_PROVISIONING_TOKEN_DIGEST is None
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "A" * 64,
+        "a" * 63,
+        "a" * 65,
+        "a" * 64 + "\n",
+        "g" * 64,
+        "P" * 43,
+        True,
+        123,
+        ["a" * 64],
+        {"digest": "a" * 64},
+    ],
+)
+def test_user_provisioning_digest_rejects_unsafe_values(value):
+    with pytest.raises(ValidationError):
+        Settings(
+            _env_file=None,
+            USER_PROVISIONING_TOKEN_DIGEST=value,
         )

@@ -10,6 +10,7 @@ from sqlalchemy.dialects.postgresql import UUID as PostgreSQLUUID
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
+import app.api.v1.users as users_module
 import app.services.conversation_generation as generation_module
 from app.ai.catalog import (
     ModelAvailability,
@@ -33,6 +34,21 @@ from app.services.user import UserService
 
 
 pytestmark = pytest.mark.integration
+
+_PROVISIONING_TOKEN = "P" * 43
+_PROVISIONING_DIGEST = digest_access_token(_PROVISIONING_TOKEN)
+_PROVISIONING_HEADERS = {
+    "X-User-Provisioning-Token": _PROVISIONING_TOKEN,
+}
+
+
+@pytest.fixture(autouse=True)
+def configure_user_provisioning(monkeypatch):
+    monkeypatch.setattr(
+        users_module.settings,
+        "USER_PROVISIONING_TOKEN_DIGEST",
+        _PROVISIONING_DIGEST,
+    )
 
 
 async def _schema_snapshot(engine: AsyncEngine) -> dict:
@@ -721,7 +737,32 @@ async def test_authenticated_access_token_rotation_is_atomic_and_preserves_owner
             transport=transport,
             base_url="http://testserver",
         ) as client:
-            provisioned = await client.post("/api/v1/users")
+
+            async with AsyncSession(
+                test_database_engine
+            ) as verification_session:
+                user_count_before = await verification_session.scalar(
+                    sa.select(sa.func.count()).select_from(User)
+                )
+
+            unauthorized = await client.post("/api/v1/users")
+            assert unauthorized.status_code == 403
+            assert unauthorized.json()["error"] == {
+                "code": "HTTP_ERROR",
+                "message": "User provisioning is not authorized",
+            }
+
+            async with AsyncSession(
+                test_database_engine
+            ) as verification_session:
+                user_count_after = await verification_session.scalar(
+                    sa.select(sa.func.count()).select_from(User)
+                )
+            assert user_count_after == user_count_before
+            provisioned = await client.post(
+                "/api/v1/users",
+                headers=_PROVISIONING_HEADERS,
+            )
             assert provisioned.status_code == 201
             provisioned_payload = provisioned.json()
             user_id = UUID(provisioned_payload["id"])
@@ -910,7 +951,10 @@ async def test_authenticated_conversation_creation_uses_current_user_and_sequenc
             transport=transport,
             base_url="http://testserver",
         ) as client:
-            provisioned = await client.post("/api/v1/users")
+            provisioned = await client.post(
+                "/api/v1/users",
+                headers=_PROVISIONING_HEADERS,
+            )
             assert provisioned.status_code == 201
             user_payload = provisioned.json()
             user_id = UUID(user_payload["id"])
@@ -1012,7 +1056,10 @@ async def test_authenticated_conversation_creation_uses_current_user_and_sequenc
             assert missing_message_page.status_code == 200
             missing_message_page_payload = missing_message_page.json()
 
-            second_provisioned = await client.post("/api/v1/users")
+            second_provisioned = await client.post(
+                "/api/v1/users",
+                headers=_PROVISIONING_HEADERS,
+            )
             assert second_provisioned.status_code == 201
             second_user_payload = second_provisioned.json()
             foreign_conversation = await client.post(
@@ -1030,7 +1077,10 @@ async def test_authenticated_conversation_creation_uses_current_user_and_sequenc
             assert foreign_conversation.status_code == 201
             foreign_conversation_payload = foreign_conversation.json()
 
-            empty_user = await client.post("/api/v1/users")
+            empty_user = await client.post(
+                "/api/v1/users",
+                headers=_PROVISIONING_HEADERS,
+            )
             assert empty_user.status_code == 201
             empty_user_payload = empty_user.json()
             spoofed_owner = await client.post(
@@ -1958,7 +2008,10 @@ async def test_authenticated_local_model_listing_is_database_read_only(
             transport=transport,
             base_url="http://testserver",
         ) as client:
-            provisioned = await client.post("/api/v1/users")
+            provisioned = await client.post(
+                "/api/v1/users",
+                headers=_PROVISIONING_HEADERS,
+            )
             assert provisioned.status_code == 201
             access_token = provisioned.json()["access_token"]
 
@@ -2193,8 +2246,14 @@ async def test_authenticated_conversation_generation_is_owner_scoped_and_stale_s
             transport=transport,
             base_url="http://testserver",
         ) as client:
-            owner_response = await client.post("/api/v1/users")
-            foreign_response = await client.post("/api/v1/users")
+            owner_response = await client.post(
+                "/api/v1/users",
+                headers=_PROVISIONING_HEADERS,
+            )
+            foreign_response = await client.post(
+                "/api/v1/users",
+                headers=_PROVISIONING_HEADERS,
+            )
             assert owner_response.status_code == 201
             assert foreign_response.status_code == 201
             owner = owner_response.json()

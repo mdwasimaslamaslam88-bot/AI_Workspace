@@ -7,10 +7,18 @@ from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import app.api.v1.users as users_module
+import app.core.security as security_module
 from app.api.dependencies import get_current_user
 from app.db.dependencies import get_db_session
 from app.main import app
 from app.models.user import User
+
+
+_PROVISIONING_TOKEN = "P" * 43
+_PROVISIONING_DIGEST = security_module.digest_access_token(_PROVISIONING_TOKEN)
+_PROVISIONING_HEADERS = {
+    "X-User-Provisioning-Token": _PROVISIONING_TOKEN,
+}
 
 
 @pytest.fixture
@@ -27,6 +35,11 @@ def user_api(monkeypatch):
     service.provision_with_access_token = provision
     service_factory = Mock(return_value=service)
     monkeypatch.setattr(users_module, "UserService", service_factory)
+    monkeypatch.setattr(
+        users_module.settings,
+        "USER_PROVISIONING_TOKEN_DIGEST",
+        _PROVISIONING_DIGEST,
+    )
 
     async def override_db_session():
         yield session
@@ -81,7 +94,10 @@ def test_create_user_returns_201_and_exact_response_shape(user_api):
         provision,
     ) = user_api
 
-    response = client.post("/api/v1/users")
+    response = client.post(
+        "/api/v1/users",
+        headers=_PROVISIONING_HEADERS,
+    )
 
     assert response.status_code == 201
     assert response.json() == {
@@ -94,6 +110,8 @@ def test_create_user_returns_201_and_exact_response_shape(user_api):
     assert response.headers["Cache-Control"] == "no-store"
     assert response.text.count(access_token) == 1
     assert "access_token_digest" not in response.text
+    assert _PROVISIONING_TOKEN not in response.text
+    assert _PROVISIONING_DIGEST not in response.text
     service_factory.assert_called_once_with(session)
     provision.assert_awaited_once_with()
 
@@ -102,9 +120,13 @@ def test_create_user_returns_201_and_exact_response_shape(user_api):
     "payload",
     [
         {"id": str(uuid4())},
+        {"user_id": str(uuid4())},
         {"owner_id": str(uuid4())},
         {"access_token": "client-controlled"},
+        {"token": "client-controlled"},
+        {"digest": "client-controlled"},
         {"access_token_digest": "client-controlled"},
+        {"unknown": "client-controlled"},
     ],
 )
 def test_create_user_rejects_client_controlled_identity_fields(user_api, payload):
@@ -117,7 +139,11 @@ def test_create_user_rejects_client_controlled_identity_fields(user_api, payload
         provision,
     ) = user_api
 
-    response = client.post("/api/v1/users", json=payload)
+    response = client.post(
+        "/api/v1/users",
+        headers=_PROVISIONING_HEADERS,
+        json=payload,
+    )
 
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "VALIDATION_ERROR"
@@ -137,7 +163,10 @@ def test_create_user_service_failure_uses_existing_exception_handler(user_api):
     error = RuntimeError("sensitive persistence detail")
     provision.side_effect = error
 
-    response = client.post("/api/v1/users")
+    response = client.post(
+        "/api/v1/users",
+        headers=_PROVISIONING_HEADERS,
+    )
 
     assert response.status_code == 500
     assert response.json()["error"] == {
@@ -438,3 +467,164 @@ def test_rotate_access_token_failure_uses_safe_existing_error_contract(
     assert "sensitive credential persistence detail" not in response.text
     service_factory.assert_called_once_with(session)
     rotate.assert_awaited_once()
+
+
+def test_provisioning_authorization_hashes_then_uses_constant_time_comparison(
+    monkeypatch,
+):
+    compare_digest = Mock(return_value=True)
+    monkeypatch.setattr(
+        security_module.secrets,
+        "compare_digest",
+        compare_digest,
+    )
+
+    authorized = security_module.is_user_provisioning_authorized(
+        _PROVISIONING_TOKEN,
+        _PROVISIONING_DIGEST,
+    )
+
+    assert authorized is True
+    compare_digest.assert_called_once_with(
+        security_module.digest_access_token(_PROVISIONING_TOKEN),
+        _PROVISIONING_DIGEST,
+    )
+
+
+def test_create_user_accepts_strict_empty_object_with_existing_response(user_api):
+    client, session, created_user, access_token, service_factory, provision = user_api
+
+    response = client.post(
+        "/api/v1/users",
+        headers=_PROVISIONING_HEADERS,
+        json={},
+    )
+
+    assert response.status_code == 201
+    assert response.json() == {
+        "id": str(created_user.id),
+        "created_at": "2026-08-10T08:30:00Z",
+        "updated_at": "2026-08-10T08:31:00Z",
+        "access_token": access_token,
+        "token_type": "bearer",
+    }
+    assert response.headers["Cache-Control"] == "no-store"
+    service_factory.assert_called_once_with(session)
+    provision.assert_awaited_once_with()
+
+
+@pytest.mark.parametrize(
+    ("configured_digest", "presented_token"),
+    [
+        (None, _PROVISIONING_TOKEN),
+        (_PROVISIONING_DIGEST, None),
+        (_PROVISIONING_DIGEST, "short"),
+        (_PROVISIONING_DIGEST, "P" * 42 + "!"),
+        (_PROVISIONING_DIGEST, "W" * 43),
+    ],
+)
+def test_create_user_unauthorized_cases_share_exact_403_before_service_or_database(
+    user_api,
+    monkeypatch,
+    caplog,
+    configured_digest,
+    presented_token,
+):
+    client, session, _user, _access_token, service_factory, provision = user_api
+    monkeypatch.setattr(
+        users_module.settings,
+        "USER_PROVISIONING_TOKEN_DIGEST",
+        configured_digest,
+    )
+    headers = {}
+    if presented_token is not None:
+        headers["X-User-Provisioning-Token"] = presented_token
+
+    response = client.post("/api/v1/users", headers=headers)
+
+    assert response.status_code == 403
+    assert response.json()["error"] == {
+        "code": "HTTP_ERROR",
+        "message": "User provisioning is not authorized",
+    }
+    assert _PROVISIONING_TOKEN not in response.text
+    assert _PROVISIONING_DIGEST not in response.text
+    if presented_token is not None:
+        assert presented_token not in response.text
+        assert presented_token not in caplog.text
+    assert _PROVISIONING_DIGEST not in caplog.text
+    service_factory.assert_not_called()
+    provision.assert_not_awaited()
+    session.execute.assert_not_awaited()
+    session.flush.assert_not_awaited()
+    session.commit.assert_not_awaited()
+    session.rollback.assert_not_awaited()
+
+
+def test_bearer_header_cannot_authorize_user_provisioning(user_api):
+    client, session, _user, _access_token, service_factory, provision = user_api
+
+    response = client.post(
+        "/api/v1/users",
+        headers={"Authorization": f"Bearer {_PROVISIONING_TOKEN}"},
+    )
+
+    assert response.status_code == 403
+    assert response.json()["error"]["message"] == (
+        "User provisioning is not authorized"
+    )
+    service_factory.assert_not_called()
+    provision.assert_not_awaited()
+    session.execute.assert_not_awaited()
+
+
+def test_provisioning_header_cannot_authenticate_bearer_route(user_api):
+    client, session, _user, _access_token, service_factory, provision = user_api
+
+    response = client.get(
+        "/api/v1/users/me",
+        headers=_PROVISIONING_HEADERS,
+    )
+
+    assert response.status_code == 401
+    assert response.json()["error"]["message"] == (
+        "Invalid authentication credentials"
+    )
+    assert response.headers["WWW-Authenticate"] == "Bearer"
+    service_factory.assert_not_called()
+    provision.assert_not_awaited()
+    session.execute.assert_not_awaited()
+
+
+def test_unauthorized_create_stops_before_database_dependency(monkeypatch):
+    session = AsyncMock(spec=AsyncSession)
+    database_dependency_started = Mock()
+    service_factory = Mock()
+    monkeypatch.setattr(users_module, "UserService", service_factory)
+    monkeypatch.setattr(
+        users_module.settings,
+        "USER_PROVISIONING_TOKEN_DIGEST",
+        _PROVISIONING_DIGEST,
+    )
+
+    async def override_db_session():
+        database_dependency_started()
+        yield session
+
+    app.dependency_overrides[get_db_session] = override_db_session
+    try:
+        with TestClient(app, raise_server_exceptions=False) as client:
+            response = client.post("/api/v1/users")
+    finally:
+        app.dependency_overrides.pop(get_db_session, None)
+
+    assert response.status_code == 403
+    assert response.json()["error"]["message"] == (
+        "User provisioning is not authorized"
+    )
+    database_dependency_started.assert_not_called()
+    service_factory.assert_not_called()
+    session.execute.assert_not_awaited()
+    session.flush.assert_not_awaited()
+    session.commit.assert_not_awaited()
+    session.rollback.assert_not_awaited()

@@ -15,6 +15,13 @@ class Settings(BaseSettings):
     DATABASE_URL: PostgresDsn | None = None
     REDIS_URL: RedisDsn | None = None
     OLLAMA_BASE_URL: AnyHttpUrl | None = None
+    USER_PROVISIONING_TOKEN_DIGEST: str | None = Field(
+        default=None,
+        strict=True,
+        min_length=64,
+        max_length=64,
+        pattern=r"^[a-f0-9]{64}$",
+    )
     DATABASE_CONNECT_TIMEOUT_SECONDS: float = Field(default=3.0, gt=0)
     DATABASE_POOL_TIMEOUT_SECONDS: float = Field(default=5.0, gt=0)
     DATABASE_COMMAND_TIMEOUT_SECONDS: float = Field(default=10.0, gt=0)
@@ -38,6 +45,7 @@ class Settings(BaseSettings):
         "REDIS_URL",
         "OLLAMA_BASE_URL",
         "DATABASE_SSL_ROOT_CERT",
+        "USER_PROVISIONING_TOKEN_DIGEST",
         mode="before",
     )
     @classmethod

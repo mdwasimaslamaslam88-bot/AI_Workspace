@@ -26,3 +26,19 @@ def is_access_token_format_valid(access_token: str) -> bool:
     """Reject malformed credentials before performing a persistence lookup."""
 
     return _ACCESS_TOKEN_PATTERN.fullmatch(access_token) is not None
+
+
+def is_user_provisioning_authorized(
+    provisioning_token: str | None,
+    expected_digest: str | None,
+) -> bool:
+    """Match an operator credential without retaining or exposing plaintext."""
+
+    if expected_digest is None or provisioning_token is None:
+        return False
+    if not is_access_token_format_valid(provisioning_token):
+        return False
+    return secrets.compare_digest(
+        digest_access_token(provisioning_token),
+        expected_digest,
+    )

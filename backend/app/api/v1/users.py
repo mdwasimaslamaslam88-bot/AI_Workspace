@@ -1,10 +1,12 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Body, Depends, Header, HTTPException, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import get_current_user
+from app.core.config import settings
+from app.core.security import is_user_provisioning_authorized
 from app.db.dependencies import get_db_session
 from app.models.user import User
 from app.schemas.user import (
@@ -20,6 +22,22 @@ from app.services.user import UserService
 router = APIRouter(prefix="/users", tags=["Users"])
 
 
+def _require_user_provisioning_authorization(
+    provisioning_token: Annotated[
+        str | None,
+        Header(alias="X-User-Provisioning-Token"),
+    ] = None,
+) -> None:
+    if not is_user_provisioning_authorized(
+        provisioning_token,
+        settings.USER_PROVISIONING_TOKEN_DIGEST,
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User provisioning is not authorized",
+        )
+
+
 @router.post(
     "",
     response_model=UserProvisionResponse,
@@ -27,6 +45,10 @@ router = APIRouter(prefix="/users", tags=["Users"])
 )
 async def create_user(
     response: Response,
+    _authorized: Annotated[
+        None,
+        Depends(_require_user_provisioning_authorization),
+    ],
     session: Annotated[AsyncSession, Depends(get_db_session)],
     _request: Annotated[UserCreate, Body()] = UserCreate(),
 ) -> UserProvisionResponse:
