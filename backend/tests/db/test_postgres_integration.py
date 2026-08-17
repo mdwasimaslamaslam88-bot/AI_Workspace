@@ -718,6 +718,124 @@ async def test_user_access_credential_flush_can_be_rolled_back(
 
 
 @pytest.mark.asyncio
+async def test_authenticated_user_lookup_is_self_only_and_read_only(
+    test_database_engine: AsyncEngine,
+):
+    session_factory = async_sessionmaker(
+        test_database_engine,
+        class_=AsyncSession,
+        expire_on_commit=False,
+    )
+    missing = object()
+    previous_factory = getattr(app.state, "db_session_factory", missing)
+    app.state.db_session_factory = session_factory
+
+    async def user_state() -> tuple[tuple, ...]:
+        async with AsyncSession(test_database_engine) as verification_session:
+            result = await verification_session.execute(
+                sa.select(
+                    User.id,
+                    User.access_token_digest,
+                    User.created_at,
+                    User.updated_at,
+                ).order_by(User.id)
+            )
+            return tuple(tuple(row) for row in result.all())
+
+    try:
+        transport = ASGITransport(app=app)
+        async with AsyncClient(
+            transport=transport,
+            base_url="http://testserver",
+        ) as client:
+            owner_response = await client.post(
+                "/api/v1/users",
+                headers=_PROVISIONING_HEADERS,
+            )
+            foreign_response = await client.post(
+                "/api/v1/users",
+                headers=_PROVISIONING_HEADERS,
+            )
+            assert owner_response.status_code == 201
+            assert foreign_response.status_code == 201
+            owner = owner_response.json()
+            foreign = foreign_response.json()
+            owner_headers = {
+                "Authorization": f"Bearer {owner['access_token']}"
+            }
+
+            state_before = await user_state()
+
+            unauthenticated = await client.get(
+                f"/api/v1/users/{owner['id']}"
+            )
+            provisioning_only = await client.get(
+                f"/api/v1/users/{owner['id']}",
+                headers=_PROVISIONING_HEADERS,
+            )
+            self_lookup = await client.get(
+                f"/api/v1/users/{owner['id']}",
+                headers=owner_headers,
+            )
+            foreign_lookup = await client.get(
+                f"/api/v1/users/{foreign['id']}",
+                headers=owner_headers,
+            )
+            nonexistent_lookup = await client.get(
+                f"/api/v1/users/{uuid4()}",
+                headers=owner_headers,
+            )
+
+            for rejected in (unauthenticated, provisioning_only):
+                assert rejected.status_code == 401
+                assert rejected.headers["WWW-Authenticate"] == "Bearer"
+                assert rejected.json()["error"] == {
+                    "code": "HTTP_ERROR",
+                    "message": "Invalid authentication credentials",
+                }
+
+            assert self_lookup.status_code == 200
+            assert self_lookup.json() == {
+                "id": owner["id"],
+                "created_at": owner["created_at"],
+                "updated_at": owner["updated_at"],
+            }
+            assert foreign_lookup.status_code == 404
+            assert nonexistent_lookup.status_code == 404
+            assert foreign_lookup.json()["error"] == {
+                "code": "HTTP_ERROR",
+                "message": "User not found",
+            }
+            assert nonexistent_lookup.json()["error"] == (
+                foreign_lookup.json()["error"]
+            )
+
+            response_text = "".join(
+                response.text
+                for response in (
+                    unauthenticated,
+                    provisioning_only,
+                    self_lookup,
+                    foreign_lookup,
+                    nonexistent_lookup,
+                )
+            )
+            assert owner["access_token"] not in response_text
+            assert foreign["access_token"] not in response_text
+            assert _PROVISIONING_TOKEN not in response_text
+            assert _PROVISIONING_DIGEST not in response_text
+            assert "access_token_digest" not in response_text
+
+            state_after = await user_state()
+            assert state_after == state_before
+    finally:
+        if previous_factory is missing:
+            delattr(app.state, "db_session_factory")
+        else:
+            app.state.db_session_factory = previous_factory
+
+
+@pytest.mark.asyncio
 async def test_authenticated_access_token_rotation_is_atomic_and_preserves_owner_data(
     test_database_engine: AsyncEngine,
     monkeypatch,

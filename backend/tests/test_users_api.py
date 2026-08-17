@@ -6,6 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
+import app.api.dependencies as authentication_module
 import app.api.v1.users as users_module
 import app.core.security as security_module
 from app.api.dependencies import get_current_user
@@ -62,16 +63,24 @@ def user_api(monkeypatch):
 @pytest.fixture
 def get_user_api(monkeypatch):
     session = AsyncMock(spec=AsyncSession)
+    access_token = "L" * 43
     user = User(
         id=uuid4(),
+        access_token_digest=security_module.digest_access_token(access_token),
         created_at=datetime(2026, 8, 10, 8, 30, tzinfo=timezone.utc),
         updated_at=datetime(2026, 8, 10, 8, 31, tzinfo=timezone.utc),
     )
-    get_by_id = AsyncMock(return_value=user)
-    service = Mock()
-    service.get_by_id = get_by_id
-    service_factory = Mock(return_value=service)
-    monkeypatch.setattr(users_module, "UserService", service_factory)
+    get_by_digest = AsyncMock(return_value=user)
+    authentication_service = Mock()
+    authentication_service.get_by_access_token_digest = get_by_digest
+    authentication_service_factory = Mock(return_value=authentication_service)
+    route_service_factory = Mock()
+    monkeypatch.setattr(
+        authentication_module,
+        "UserService",
+        authentication_service_factory,
+    )
+    monkeypatch.setattr(users_module, "UserService", route_service_factory)
 
     async def override_db_session():
         yield session
@@ -79,7 +88,15 @@ def get_user_api(monkeypatch):
     app.dependency_overrides[get_db_session] = override_db_session
     try:
         with TestClient(app, raise_server_exceptions=False) as client:
-            yield client, session, user, service_factory, get_by_id
+            yield (
+                client,
+                session,
+                user,
+                access_token,
+                authentication_service_factory,
+                get_by_digest,
+                route_service_factory,
+            )
     finally:
         app.dependency_overrides.pop(get_db_session, None)
 
@@ -247,10 +264,23 @@ def test_get_me_is_matched_before_uuid_route_and_cannot_use_user_id():
     session.commit.assert_not_awaited()
 
 
-def test_get_user_returns_200_with_exact_response_and_no_commit(get_user_api):
-    client, session, user, service_factory, get_by_id = get_user_api
+def test_get_user_returns_loaded_current_user_without_second_lookup_or_side_effect(
+    get_user_api,
+):
+    (
+        client,
+        session,
+        user,
+        access_token,
+        authentication_service_factory,
+        get_by_digest,
+        route_service_factory,
+    ) = get_user_api
 
-    response = client.get(f"/api/v1/users/{user.id}")
+    response = client.get(
+        f"/api/v1/users/{user.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
 
     assert response.status_code == 200
     assert response.json() == {
@@ -258,39 +288,194 @@ def test_get_user_returns_200_with_exact_response_and_no_commit(get_user_api):
         "created_at": "2026-08-10T08:30:00Z",
         "updated_at": "2026-08-10T08:31:00Z",
     }
-    service_factory.assert_called_once_with(session)
-    get_by_id.assert_awaited_once_with(user.id)
+    assert access_token not in response.text
+    assert user.access_token_digest not in response.text
+    assert _PROVISIONING_TOKEN not in response.text
+    assert _PROVISIONING_DIGEST not in response.text
+    authentication_service_factory.assert_called_once_with(session)
+    get_by_digest.assert_awaited_once_with(user.access_token_digest)
+    route_service_factory.assert_not_called()
+    session.execute.assert_not_awaited()
+    session.flush.assert_not_awaited()
     session.commit.assert_not_awaited()
+    session.rollback.assert_not_awaited()
 
 
-def test_get_missing_user_returns_404_without_persistence_details(get_user_api):
-    client, session, _user, service_factory, get_by_id = get_user_api
-    user_id = uuid4()
-    get_by_id.return_value = None
+def test_get_user_nonself_ids_share_exact_404_without_route_lookup(get_user_api):
+    (
+        client,
+        session,
+        _user,
+        access_token,
+        authentication_service_factory,
+        get_by_digest,
+        route_service_factory,
+    ) = get_user_api
+    first_nonself_id = uuid4()
+    second_nonself_id = uuid4()
+    headers = {"Authorization": f"Bearer {access_token}"}
 
-    response = client.get(f"/api/v1/users/{user_id}")
+    responses = [
+        client.get(f"/api/v1/users/{first_nonself_id}", headers=headers),
+        client.get(f"/api/v1/users/{second_nonself_id}", headers=headers),
+    ]
 
-    assert response.status_code == 404
-    assert response.json()["error"] == {
-        "code": "HTTP_ERROR",
-        "message": "User not found",
+    assert [response.status_code for response in responses] == [404, 404]
+    assert [response.json()["error"] for response in responses] == [
+        {"code": "HTTP_ERROR", "message": "User not found"},
+        {"code": "HTTP_ERROR", "message": "User not found"},
+    ]
+    for response in responses:
+        assert access_token not in response.text
+        assert _PROVISIONING_TOKEN not in response.text
+        assert _PROVISIONING_DIGEST not in response.text
+        assert "database" not in response.text.lower()
+        assert "sql" not in response.text.lower()
+    assert authentication_service_factory.call_count == 2
+    assert get_by_digest.await_count == 2
+    route_service_factory.assert_not_called()
+    session.execute.assert_not_awaited()
+    session.flush.assert_not_awaited()
+    session.commit.assert_not_awaited()
+    session.rollback.assert_not_awaited()
+
+
+def test_get_user_identity_overrides_cannot_change_self_only_authorization(
+    get_user_api,
+):
+    (
+        client,
+        _session,
+        user,
+        access_token,
+        _authentication_service_factory,
+        _get_by_digest,
+        route_service_factory,
+    ) = get_user_api
+    foreign_id = uuid4()
+    headers = {"Authorization": f"Bearer {access_token}"}
+    overrides = {
+        "user_id": str(user.id),
+        "owner_id": str(user.id),
+        "token": access_token,
+        "digest": user.access_token_digest,
     }
-    assert "database" not in response.text.lower()
-    assert "sql" not in response.text.lower()
-    service_factory.assert_called_once_with(session)
-    get_by_id.assert_awaited_once_with(user_id)
-    session.commit.assert_not_awaited()
+
+    denied = client.request(
+        "GET",
+        f"/api/v1/users/{foreign_id}",
+        headers=headers,
+        params=overrides,
+        json=overrides,
+    )
+    allowed = client.request(
+        "GET",
+        f"/api/v1/users/{user.id}",
+        headers=headers,
+        params={key: str(foreign_id) for key in overrides},
+        json={key: str(foreign_id) for key in overrides},
+    )
+
+    assert denied.status_code == 404
+    assert denied.json()["error"]["message"] == "User not found"
+    assert allowed.status_code == 200
+    assert allowed.json()["id"] == str(user.id)
+    route_service_factory.assert_not_called()
 
 
-def test_get_user_rejects_invalid_uuid_before_service_invocation(get_user_api):
-    client, session, _user, service_factory, get_by_id = get_user_api
+def test_get_user_rejects_authenticated_malformed_uuid_before_route_lookup(
+    get_user_api,
+):
+    (
+        client,
+        session,
+        _user,
+        access_token,
+        _authentication_service_factory,
+        _get_by_digest,
+        route_service_factory,
+    ) = get_user_api
 
-    response = client.get("/api/v1/users/not-a-uuid")
+    response = client.get(
+        "/api/v1/users/not-a-uuid",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
 
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "VALIDATION_ERROR"
-    service_factory.assert_not_called()
-    get_by_id.assert_not_awaited()
+    route_service_factory.assert_not_called()
+    session.execute.assert_not_awaited()
+    session.flush.assert_not_awaited()
+    session.commit.assert_not_awaited()
+    session.rollback.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    "headers",
+    [
+        {},
+        {"Authorization": "Basic credential"},
+        {"Authorization": "Bearer short"},
+        _PROVISIONING_HEADERS,
+    ],
+)
+def test_get_user_requires_uniform_bearer_authentication(get_user_api, headers):
+    (
+        client,
+        session,
+        user,
+        _access_token,
+        authentication_service_factory,
+        get_by_digest,
+        route_service_factory,
+    ) = get_user_api
+
+    response = client.get(f"/api/v1/users/{user.id}", headers=headers)
+
+    assert response.status_code == 401
+    assert response.headers["WWW-Authenticate"] == "Bearer"
+    assert response.json()["error"] == {
+        "code": "HTTP_ERROR",
+        "message": "Invalid authentication credentials",
+    }
+    authentication_service_factory.assert_not_called()
+    get_by_digest.assert_not_awaited()
+    route_service_factory.assert_not_called()
+    session.execute.assert_not_awaited()
+    session.flush.assert_not_awaited()
+    session.commit.assert_not_awaited()
+    session.rollback.assert_not_awaited()
+
+
+def test_get_user_unknown_bearer_uses_same_credential_free_401(get_user_api):
+    (
+        client,
+        session,
+        user,
+        access_token,
+        authentication_service_factory,
+        get_by_digest,
+        route_service_factory,
+    ) = get_user_api
+    get_by_digest.return_value = None
+
+    response = client.get(
+        f"/api/v1/users/{user.id}",
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+
+    assert response.status_code == 401
+    assert response.headers["WWW-Authenticate"] == "Bearer"
+    assert response.json()["error"] == {
+        "code": "HTTP_ERROR",
+        "message": "Invalid authentication credentials",
+    }
+    assert access_token not in response.text
+    authentication_service_factory.assert_called_once_with(session)
+    get_by_digest.assert_awaited_once_with(user.access_token_digest)
+    route_service_factory.assert_not_called()
+    session.execute.assert_not_awaited()
+    session.flush.assert_not_awaited()
     session.commit.assert_not_awaited()
 
 

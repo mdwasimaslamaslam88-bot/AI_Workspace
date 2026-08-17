@@ -105,12 +105,11 @@ async def rotate_access_token(
 @router.get("/{user_id}", response_model=UserResponse)
 async def get_user(
     user_id: UUID,
-    session: Annotated[AsyncSession, Depends(get_db_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> UserResponse:
-    user = await UserService(session).get_by_id(user_id)
-    if user is None:
+    if user_id != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found",
         )
-    return UserResponse.model_validate(user)
+    return UserResponse.model_validate(current_user)

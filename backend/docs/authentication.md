@@ -36,6 +36,14 @@ Authorization: Bearer <access_token>
 malformed, and unknown credentials all receive the same HTTP 401 response.
 User UUIDs are public identifiers and are never accepted as proof of identity.
 
+`GET /api/v1/users/{user_id}` is also authenticated and self-only. The path UUID
+must equal the bearer credential's `current_user.id`; on a match, the endpoint
+returns that already-loaded current user with the same `id`, `created_at`, and
+`updated_at` response shape and performs no second user lookup. Every non-self
+UUID, whether it belongs to another user or does not exist, receives the same
+HTTP 404 response with `User not found`. Query and body identity fields cannot
+override the authenticated current user.
+
 The plaintext credential is not persisted. PostgreSQL stores only its SHA-256
 digest in the nullable, unique `users.access_token_digest` column. Application
 code must not log either the Authorization header or a plaintext credential.
