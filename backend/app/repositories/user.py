@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 
 from app.models.user import User
 from app.repositories.base import BaseRepository
@@ -26,3 +26,21 @@ class UserRepository(BaseRepository):
         )
         result = await self.session.execute(statement)
         return result.scalar_one_or_none()
+
+    async def rotate_access_token_digest(
+        self,
+        user_id: UUID,
+        expected_access_token_digest: str,
+        replacement_access_token_digest: str,
+    ) -> bool:
+        statement = (
+            update(User)
+            .where(
+                User.id == user_id,
+                User.access_token_digest == expected_access_token_digest,
+            )
+            .values(access_token_digest=replacement_access_token_digest)
+            .returning(User.id)
+        )
+        result = await self.session.execute(statement)
+        return result.scalar_one_or_none() is not None

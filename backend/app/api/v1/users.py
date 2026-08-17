@@ -7,7 +7,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.dependencies import get_current_user
 from app.db.dependencies import get_db_session
 from app.models.user import User
-from app.schemas.user import UserCreate, UserProvisionResponse, UserResponse
+from app.schemas.user import (
+    AccessTokenResponse,
+    AccessTokenRotationRequest,
+    UserCreate,
+    UserProvisionResponse,
+    UserResponse,
+)
 from app.services.user import UserService
 
 
@@ -39,6 +45,39 @@ async def get_authenticated_user(
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> UserResponse:
     return UserResponse.model_validate(current_user)
+
+
+@router.post(
+    "/me/access-token/rotate",
+    response_model=AccessTokenResponse,
+)
+async def rotate_access_token(
+    response: Response,
+    current_user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+    _request: Annotated[AccessTokenRotationRequest, Body()] = (
+        AccessTokenRotationRequest()
+    ),
+) -> AccessTokenResponse:
+    expected_digest = current_user.access_token_digest
+    if expected_digest is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Access token rotation conflict",
+        )
+
+    access_token = await UserService(session).rotate_access_token(
+        current_user.id,
+        expected_digest,
+    )
+    if access_token is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Access token rotation conflict",
+        )
+
+    response.headers["Cache-Control"] = "no-store"
+    return AccessTokenResponse(access_token=access_token)
 
 
 @router.get("/{user_id}", response_model=UserResponse)

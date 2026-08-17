@@ -32,6 +32,28 @@ class UserService:
             await self.session.rollback()
             raise
 
+    async def rotate_access_token(
+        self,
+        user_id: UUID,
+        expected_access_token_digest: str,
+    ) -> str | None:
+        try:
+            access_token = generate_access_token()
+            replacement_digest = digest_access_token(access_token)
+            rotated = await self.repository.rotate_access_token_digest(
+                user_id,
+                expected_access_token_digest,
+                replacement_digest,
+            )
+            if not rotated:
+                await self.session.rollback()
+                return None
+            await self.session.commit()
+            return access_token
+        except BaseException:
+            await self.session.rollback()
+            raise
+
     async def get_by_id(self, user_id: UUID) -> User | None:
         try:
             return await self.repository.get_by_id(user_id)

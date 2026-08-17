@@ -263,3 +263,178 @@ def test_get_user_rejects_invalid_uuid_before_service_invocation(get_user_api):
     service_factory.assert_not_called()
     get_by_id.assert_not_awaited()
     session.commit.assert_not_awaited()
+
+
+@pytest.fixture
+def rotate_access_token_api(monkeypatch):
+    session = AsyncMock(spec=AsyncSession)
+    current_user = User(
+        id=uuid4(),
+        access_token_digest="a" * 64,
+        created_at=datetime(2026, 8, 10, 8, 30, tzinfo=timezone.utc),
+        updated_at=datetime(2026, 8, 10, 8, 31, tzinfo=timezone.utc),
+    )
+    replacement_token = "B" * 43
+    rotate = AsyncMock(return_value=replacement_token)
+    service = Mock()
+    service.rotate_access_token = rotate
+    service_factory = Mock(return_value=service)
+    monkeypatch.setattr(users_module, "UserService", service_factory)
+
+    async def override_db_session():
+        yield session
+
+    async def override_current_user():
+        return current_user
+
+    app.dependency_overrides[get_db_session] = override_db_session
+    app.dependency_overrides[get_current_user] = override_current_user
+    try:
+        with TestClient(app, raise_server_exceptions=False) as client:
+            yield (
+                client,
+                session,
+                current_user,
+                replacement_token,
+                service_factory,
+                rotate,
+            )
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
+        app.dependency_overrides.pop(get_db_session, None)
+
+
+@pytest.mark.parametrize("payload", [None, {}])
+def test_rotate_access_token_accepts_omitted_or_empty_body_with_exact_response(
+    rotate_access_token_api,
+    payload,
+):
+    (
+        client,
+        session,
+        current_user,
+        replacement_token,
+        service_factory,
+        rotate,
+    ) = rotate_access_token_api
+
+    if payload is None:
+        response = client.post("/api/v1/users/me/access-token/rotate")
+    else:
+        response = client.post(
+            "/api/v1/users/me/access-token/rotate",
+            json=payload,
+        )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "access_token": replacement_token,
+        "token_type": "bearer",
+    }
+    assert response.headers["Cache-Control"] == "no-store"
+    assert response.text.count(replacement_token) == 1
+    assert "user_id" not in response.text
+    assert "owner_id" not in response.text
+    assert "digest" not in response.text
+    service_factory.assert_called_once_with(session)
+    rotate.assert_awaited_once_with(
+        current_user.id,
+        current_user.access_token_digest,
+    )
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"user_id": str(uuid4())},
+        {"owner_id": str(uuid4())},
+        {"token": "client-controlled"},
+        {"access_token": "client-controlled"},
+        {"digest": "client-controlled"},
+        {"access_token_digest": "client-controlled"},
+        {"unknown": "client-controlled"},
+    ],
+)
+def test_rotate_access_token_rejects_all_fields_before_service_construction(
+    rotate_access_token_api,
+    payload,
+):
+    client, session, _user, _token, service_factory, rotate = (
+        rotate_access_token_api
+    )
+
+    response = client.post(
+        "/api/v1/users/me/access-token/rotate",
+        json=payload,
+    )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+    service_factory.assert_not_called()
+    rotate.assert_not_awaited()
+    session.commit.assert_not_awaited()
+
+
+def test_rotate_access_token_compare_and_swap_miss_returns_exact_conflict(
+    rotate_access_token_api,
+):
+    client, session, current_user, replacement_token, service_factory, rotate = (
+        rotate_access_token_api
+    )
+    rotate.return_value = None
+
+    response = client.post("/api/v1/users/me/access-token/rotate")
+
+    assert response.status_code == 409
+    assert response.json()["error"] == {
+        "code": "HTTP_ERROR",
+        "message": "Access token rotation conflict",
+    }
+    assert replacement_token not in response.text
+    assert "access_token" not in response.text
+    service_factory.assert_called_once_with(session)
+    rotate.assert_awaited_once_with(
+        current_user.id,
+        current_user.access_token_digest,
+    )
+
+
+def test_rotate_access_token_without_authenticated_digest_conflicts_before_service(
+    rotate_access_token_api,
+):
+    client, session, current_user, _token, service_factory, rotate = (
+        rotate_access_token_api
+    )
+    current_user.access_token_digest = None
+
+    response = client.post("/api/v1/users/me/access-token/rotate")
+
+    assert response.status_code == 409
+    assert response.json()["error"]["message"] == (
+        "Access token rotation conflict"
+    )
+    service_factory.assert_not_called()
+    rotate.assert_not_awaited()
+    session.commit.assert_not_awaited()
+
+
+def test_rotate_access_token_failure_uses_safe_existing_error_contract(
+    rotate_access_token_api,
+):
+    client, session, current_user, replacement_token, service_factory, rotate = (
+        rotate_access_token_api
+    )
+    rotate.side_effect = RuntimeError("sensitive credential persistence detail")
+
+    response = client.post("/api/v1/users/me/access-token/rotate")
+
+    assert response.status_code == 500
+    assert response.json()["error"] == {
+        "code": "INTERNAL_SERVER_ERROR",
+        "message": "An unexpected error occurred.",
+    }
+    assert replacement_token not in response.text
+    assert current_user.access_token_digest not in response.text
+    assert "sensitive credential persistence detail" not in response.text
+    service_factory.assert_called_once_with(session)
+    rotate.assert_awaited_once()

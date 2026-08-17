@@ -702,6 +702,196 @@ async def test_user_access_credential_flush_can_be_rolled_back(
 
 
 @pytest.mark.asyncio
+async def test_authenticated_access_token_rotation_is_atomic_and_preserves_owner_data(
+    test_database_engine: AsyncEngine,
+    monkeypatch,
+):
+    session_factory = async_sessionmaker(
+        test_database_engine,
+        class_=AsyncSession,
+        expire_on_commit=False,
+    )
+    missing = object()
+    previous_factory = getattr(app.state, "db_session_factory", missing)
+    app.state.db_session_factory = session_factory
+
+    try:
+        transport = ASGITransport(app=app)
+        async with AsyncClient(
+            transport=transport,
+            base_url="http://testserver",
+        ) as client:
+            provisioned = await client.post("/api/v1/users")
+            assert provisioned.status_code == 201
+            provisioned_payload = provisioned.json()
+            user_id = UUID(provisioned_payload["id"])
+            original_token = provisioned_payload["access_token"]
+
+            created = await client.post(
+                "/api/v1/conversations",
+                headers={"Authorization": f"Bearer {original_token}"},
+                json={
+                    "title": "Credential rotation ownership",
+                    "initial_message": "Persist across credential rotation",
+                },
+            )
+            assert created.status_code == 201
+            created_payload = created.json()
+            conversation_id = UUID(created_payload["id"])
+            message_id = UUID(created_payload["initial_message"]["id"])
+
+            rotated = await client.post(
+                "/api/v1/users/me/access-token/rotate",
+                headers={"Authorization": f"Bearer {original_token}"},
+                json={},
+            )
+            assert rotated.status_code == 200
+            first_replacement = rotated.json()["access_token"]
+            assert rotated.json() == {
+                "access_token": first_replacement,
+                "token_type": "bearer",
+            }
+            assert rotated.headers["Cache-Control"] == "no-store"
+            assert rotated.text.count(first_replacement) == 1
+
+            rejected_original = await client.get(
+                "/api/v1/users/me",
+                headers={"Authorization": f"Bearer {original_token}"},
+            )
+            assert rejected_original.status_code == 401
+            assert rejected_original.json()["error"]["message"] == (
+                "Invalid authentication credentials"
+            )
+
+            resolved_replacement = await client.get(
+                "/api/v1/users/me",
+                headers={"Authorization": f"Bearer {first_replacement}"},
+            )
+            assert resolved_replacement.status_code == 200
+            assert UUID(resolved_replacement.json()["id"]) == user_id
+
+            original_rotate = UserService.rotate_access_token
+            both_authenticated = asyncio.Event()
+            arrivals = 0
+
+            async def coordinated_rotate(
+                service,
+                authenticated_user_id,
+                expected_access_token_digest,
+            ):
+                nonlocal arrivals
+                arrivals += 1
+                if arrivals == 2:
+                    both_authenticated.set()
+                await asyncio.wait_for(both_authenticated.wait(), timeout=5)
+                return await original_rotate(
+                    service,
+                    authenticated_user_id,
+                    expected_access_token_digest,
+                )
+
+            monkeypatch.setattr(
+                UserService,
+                "rotate_access_token",
+                coordinated_rotate,
+            )
+            concurrent_headers = {
+                "Authorization": f"Bearer {first_replacement}"
+            }
+            concurrent = await asyncio.gather(
+                client.post(
+                    "/api/v1/users/me/access-token/rotate",
+                    headers=concurrent_headers,
+                ),
+                client.post(
+                    "/api/v1/users/me/access-token/rotate",
+                    headers=concurrent_headers,
+                ),
+            )
+
+            assert sorted(response.status_code for response in concurrent) == [
+                200,
+                409,
+            ]
+            winner = next(
+                response for response in concurrent if response.status_code == 200
+            )
+            loser = next(
+                response for response in concurrent if response.status_code == 409
+            )
+            winning_token = winner.json()["access_token"]
+            assert winner.json() == {
+                "access_token": winning_token,
+                "token_type": "bearer",
+            }
+            assert winner.headers["Cache-Control"] == "no-store"
+            assert loser.json()["error"] == {
+                "code": "HTTP_ERROR",
+                "message": "Access token rotation conflict",
+            }
+            assert "access_token" not in loser.text
+            assert first_replacement not in loser.text
+
+            rejected_replaced = await client.get(
+                "/api/v1/users/me",
+                headers={"Authorization": f"Bearer {first_replacement}"},
+            )
+            assert rejected_replaced.status_code == 401
+
+            resolved_winner = await client.get(
+                "/api/v1/users/me",
+                headers={"Authorization": f"Bearer {winning_token}"},
+            )
+            assert resolved_winner.status_code == 200
+            assert UUID(resolved_winner.json()["id"]) == user_id
+
+            owned_conversation = await client.get(
+                f"/api/v1/conversations/{conversation_id}",
+                headers={"Authorization": f"Bearer {winning_token}"},
+            )
+            assert owned_conversation.status_code == 200
+            assert UUID(owned_conversation.json()["id"]) == conversation_id
+
+            owned_messages = await client.get(
+                f"/api/v1/conversations/{conversation_id}/messages",
+                headers={"Authorization": f"Bearer {winning_token}"},
+            )
+            assert owned_messages.status_code == 200
+            assert [UUID(item["id"]) for item in owned_messages.json()["items"]] == [
+                message_id
+            ]
+    finally:
+        if previous_factory is missing:
+            delattr(app.state, "db_session_factory")
+        else:
+            app.state.db_session_factory = previous_factory
+
+    async with AsyncSession(test_database_engine) as verification_session:
+        stored_user = await verification_session.get(User, user_id)
+        stored_conversation = await verification_session.get(
+            Conversation,
+            conversation_id,
+        )
+        stored_message = await verification_session.get(Message, message_id)
+
+        assert stored_user is not None
+        assert stored_user.id == user_id
+        assert stored_user.access_token_digest == digest_access_token(winning_token)
+        assert stored_user.access_token_digest not in {
+            original_token,
+            first_replacement,
+            winning_token,
+        }
+        assert stored_conversation is not None
+        assert stored_conversation.owner_id == user_id
+        assert stored_message is not None
+        assert stored_message.conversation_id == conversation_id
+        assert stored_message.role is MessageRole.USER
+        assert stored_message.content == "Persist across credential rotation"
+        assert stored_message.sequence_number == 1
+
+
+@pytest.mark.asyncio
 async def test_authenticated_conversation_creation_uses_current_user_and_sequence(
     test_database_engine: AsyncEngine,
 ):

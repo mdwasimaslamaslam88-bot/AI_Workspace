@@ -19,6 +19,30 @@ User UUIDs are public identifiers and are never accepted as proof of identity.
 The plaintext credential is not persisted. PostgreSQL stores only its SHA-256
 digest in the nullable, unique `users.access_token_digest` column. Application
 code must not log either the Authorization header or a plaintext credential.
+
+An authenticated user may replace that credential with
+`POST /api/v1/users/me/access-token/rotate`. The request body may be omitted or
+may be the strict empty object `{}`; identity, token, digest, and unknown fields
+are rejected. The server generates the replacement credential and atomically
+updates its digest only when both the authenticated user ID and the digest that
+authenticated the request still match. A successful HTTP 200 response contains
+only:
+
+```json
+{
+  "access_token": "<new opaque token>",
+  "token_type": "bearer"
+}
+```
+
+The response includes `Cache-Control: no-store`. After commit, the old
+credential receives the existing uniform HTTP 401 and the replacement resolves
+to the same user and owner-scoped data. Concurrent requests authenticated by
+the same old credential have one winner; a request whose conditional update
+loses returns HTTP 409 with `Access token rotation conflict` and no replacement
+credential. Rotation does not add expiration, refresh tokens, multiple sessions,
+logout, recovery, or account deletion.
+
 Owner-scoped Conversation and Message API operations derive `owner_id` from the
 authenticated current user rather than from client input. In particular,
 `POST /api/v1/conversations` creates a conversation and its initial user message

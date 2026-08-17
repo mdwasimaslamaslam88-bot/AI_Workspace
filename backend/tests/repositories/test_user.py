@@ -4,6 +4,7 @@ from uuid import uuid4
 import pytest
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql.dml import Update
 from sqlalchemy.sql.selectable import Select
 
 from app.models import User
@@ -95,6 +96,48 @@ async def test_get_by_access_token_digest_uses_bound_predicate_without_transacti
     assert "where users.access_token_digest =" in sql
     assert "join" not in sql
     assert access_token_digest in compiled.params.values()
+    session.add.assert_not_called()
+    session.flush.assert_not_awaited()
+    session.commit.assert_not_awaited()
+    session.rollback.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("matched", "expected_result"),
+    [(True, True), (False, False)],
+)
+async def test_rotate_access_token_digest_uses_one_atomic_conditional_update(
+    matched,
+    expected_result,
+):
+    user_id = uuid4()
+    expected_digest = "a" * 64
+    replacement_digest = "b" * 64
+    session = _session_with_scalar(user_id if matched else None)
+    repository = UserRepository(session)
+
+    rotated = await repository.rotate_access_token_digest(
+        user_id,
+        expected_digest,
+        replacement_digest,
+    )
+
+    assert rotated is expected_result
+    session.execute.assert_awaited_once()
+    statement = session.execute.await_args.args[0]
+    assert isinstance(statement, Update)
+    compiled = statement.compile(dialect=postgresql.dialect())
+    sql = " ".join(str(compiled).split()).lower()
+    assert sql.startswith("update users set")
+    assert "access_token_digest=" in sql
+    assert "where users.id =" in sql
+    assert "and users.access_token_digest =" in sql
+    assert "returning users.id" in sql
+    assert "select" not in sql
+    assert user_id in compiled.params.values()
+    assert expected_digest in compiled.params.values()
+    assert replacement_digest in compiled.params.values()
     session.add.assert_not_called()
     session.flush.assert_not_awaited()
     session.commit.assert_not_awaited()

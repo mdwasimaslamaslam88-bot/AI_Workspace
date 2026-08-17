@@ -264,3 +264,146 @@ async def test_access_token_lookup_failure_rolls_back_original_exception():
     assert caught.value is error
     session.rollback.assert_awaited_once_with()
     session.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_rotate_access_token_persists_only_replacement_digest_and_commits_once(
+    monkeypatch,
+):
+    events: list[str] = []
+    session = _service_session()
+    user_id = uuid4()
+    expected_digest = "a" * 64
+    replacement_token = "B" * 43
+    replacement_digest = "c" * 64
+    monkeypatch.setattr(
+        user_service_module,
+        "generate_access_token",
+        Mock(return_value=replacement_token),
+    )
+    digest = Mock(return_value=replacement_digest)
+    monkeypatch.setattr(user_service_module, "digest_access_token", digest)
+    service = UserService(session)
+
+    async def rotate(*_args):
+        events.append("update")
+        return True
+
+    replace_digest = AsyncMock(side_effect=rotate)
+    service.repository.rotate_access_token_digest = replace_digest
+
+    async def commit():
+        events.append("commit")
+
+    session.commit.side_effect = commit
+
+    returned_token = await service.rotate_access_token(
+        user_id,
+        expected_digest,
+    )
+
+    assert returned_token == replacement_token
+    digest.assert_called_once_with(replacement_token)
+    replace_digest.assert_awaited_once_with(
+        user_id,
+        expected_digest,
+        replacement_digest,
+    )
+    assert replacement_token not in replace_digest.await_args.args
+    assert events == ["update", "commit"]
+    session.commit.assert_awaited_once_with()
+    session.rollback.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_rotate_access_token_compare_and_swap_miss_rolls_back_without_token(
+    monkeypatch,
+):
+    events: list[str] = []
+    session = _service_session()
+    replacement_token = "B" * 43
+    replacement_digest = "c" * 64
+    monkeypatch.setattr(
+        user_service_module,
+        "generate_access_token",
+        Mock(return_value=replacement_token),
+    )
+    monkeypatch.setattr(
+        user_service_module,
+        "digest_access_token",
+        Mock(return_value=replacement_digest),
+    )
+    service = UserService(session)
+
+    async def rotate(*_args):
+        events.append("update")
+        return False
+
+    replace_digest = AsyncMock(side_effect=rotate)
+    service.repository.rotate_access_token_digest = replace_digest
+
+    async def rollback():
+        events.append("rollback")
+
+    session.rollback.side_effect = rollback
+
+    returned_token = await service.rotate_access_token(uuid4(), "a" * 64)
+
+    assert returned_token is None
+    assert events == ["update", "rollback"]
+    session.rollback.assert_awaited_once_with()
+    session.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure_stage", ["update", "commit"])
+async def test_rotate_access_token_failure_rolls_back_original_exception(
+    monkeypatch,
+    failure_stage,
+):
+    events: list[str] = []
+    session = _service_session()
+    error = IntegrityError(
+        "rotate access token",
+        {},
+        RuntimeError("credential uniqueness failure"),
+    )
+    monkeypatch.setattr(
+        user_service_module,
+        "generate_access_token",
+        Mock(return_value="B" * 43),
+    )
+    service = UserService(session)
+
+    async def rotate(*_args):
+        events.append("update")
+        if failure_stage == "update":
+            raise error
+        return True
+
+    service.repository.rotate_access_token_digest = AsyncMock(side_effect=rotate)
+
+    async def commit():
+        events.append("commit")
+        if failure_stage == "commit":
+            raise error
+
+    async def rollback():
+        events.append("rollback")
+
+    session.commit.side_effect = commit
+    session.rollback.side_effect = rollback
+
+    with pytest.raises(IntegrityError) as caught:
+        await service.rotate_access_token(uuid4(), "a" * 64)
+
+    assert caught.value is error
+    expected_events = ["update"]
+    if failure_stage == "commit":
+        expected_events.append("commit")
+    assert events == [*expected_events, "rollback"]
+    session.rollback.assert_awaited_once_with()
+    if failure_stage == "commit":
+        session.commit.assert_awaited_once_with()
+    else:
+        session.commit.assert_not_awaited()

@@ -9,6 +9,15 @@ class UserCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class AccessTokenRotationRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+
+class AccessTokenResponse(BaseModel):
+    access_token: str
+    token_type: Literal["bearer"] = "bearer"
+
+
 class UserResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
