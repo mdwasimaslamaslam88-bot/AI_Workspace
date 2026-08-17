@@ -70,6 +70,13 @@ class ConversationTextGenerationRequest(BaseModel):
         le=1.0,
         allow_inf_nan=False,
     )
+    repeat_penalty: float | None = Field(
+        default=None,
+        strict=True,
+        ge=0.5,
+        le=2.0,
+        allow_inf_nan=False,
+    )
 
     @field_validator("temperature", mode="before")
     @classmethod
@@ -149,6 +156,24 @@ class ConversationTextGenerationRequest(BaseModel):
             if not is_finite_min_p:
                 # Keep the existing public validation error JSON-serializable.
                 return "non-finite min_p"
+        return value
+
+    @field_validator("repeat_penalty", mode="before")
+    @classmethod
+    def validate_repeat_penalty_input(cls, value):
+        if value is None:
+            raise PydanticCustomError(
+                "repeat_penalty_null",
+                "repeat_penalty must not be null",
+            )
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            try:
+                is_finite_repeat_penalty = math.isfinite(value)
+            except OverflowError:
+                is_finite_repeat_penalty = False
+            if not is_finite_repeat_penalty:
+                # Keep the existing public validation error JSON-serializable.
+                return "non-finite repeat_penalty"
         return value
 
 

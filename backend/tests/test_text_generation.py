@@ -70,6 +70,7 @@ async def test_router_dispatches_by_runtime_not_parameter_class(parameter_class)
         top_p=None,
         top_k=None,
         min_p=None,
+        repeat_penalty=None,
     )
 
 
@@ -170,6 +171,7 @@ async def test_router_forwards_exact_valid_temperature(temperature):
         top_p=None,
         top_k=None,
         min_p=None,
+        repeat_penalty=None,
     )
 
 
@@ -203,6 +205,7 @@ async def test_router_forwards_exact_valid_seed(seed):
         top_p=None,
         top_k=None,
         min_p=None,
+        repeat_penalty=None,
     )
 
 
@@ -236,6 +239,7 @@ async def test_router_forwards_exact_valid_top_p(top_p):
         top_p=top_p,
         top_k=None,
         min_p=None,
+        repeat_penalty=None,
     )
 
 
@@ -269,6 +273,7 @@ async def test_router_forwards_exact_valid_top_k(top_k):
         top_p=None,
         top_k=top_k,
         min_p=None,
+        repeat_penalty=None,
     )
 
 
@@ -302,6 +307,41 @@ async def test_router_forwards_exact_valid_min_p(min_p):
         top_p=None,
         top_k=None,
         min_p=min_p,
+        repeat_penalty=None,
+    )
+
+
+@pytest.mark.parametrize("repeat_penalty", [0.5, 0.9, 1, 1.1, 1.5, 2.0])
+@pytest.mark.asyncio
+async def test_router_forwards_exact_valid_repeat_penalty(repeat_penalty):
+    generated = TextGenerationResult(content="answer")
+    generate_text = AsyncMock(return_value=generated)
+    runtime = Mock(runtime_id="local-runtime", generate_text=generate_text)
+    messages = (
+        TextGenerationMessage(
+            role=TextGenerationRole.USER,
+            content="prompt",
+        ),
+    )
+
+    result = await TextGenerationRouter((runtime,)).generate(
+        _resolved_model(),
+        messages,
+        max_output_tokens=1024,
+        repeat_penalty=repeat_penalty,
+    )
+
+    assert result is generated
+    generate_text.assert_awaited_once_with(
+        "/private/runtime/model:tag",
+        messages,
+        max_output_tokens=1024,
+        temperature=None,
+        seed=None,
+        top_p=None,
+        top_k=None,
+        min_p=None,
+        repeat_penalty=repeat_penalty,
     )
 
 
@@ -380,6 +420,48 @@ async def test_router_rejects_invalid_min_p_before_runtime(min_p):
             ),
             max_output_tokens=1024,
             min_p=min_p,
+        )
+
+    runtime.generate_text.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    "repeat_penalty",
+    [
+        True,
+        False,
+        "1.1",
+        [],
+        {},
+        float("nan"),
+        float("inf"),
+        float("-inf"),
+        -0.01,
+        0.49,
+        2.01,
+        10**1000,
+    ],
+)
+@pytest.mark.asyncio
+async def test_router_rejects_invalid_repeat_penalty_before_runtime(
+    repeat_penalty,
+):
+    runtime = Mock(
+        runtime_id="local-runtime",
+        generate_text=AsyncMock(),
+    )
+
+    with pytest.raises((TypeError, ValueError)):
+        await TextGenerationRouter((runtime,)).generate(
+            _resolved_model(),
+            (
+                TextGenerationMessage(
+                    role=TextGenerationRole.USER,
+                    content="prompt",
+                ),
+            ),
+            max_output_tokens=1024,
+            repeat_penalty=repeat_penalty,
         )
 
     runtime.generate_text.assert_not_awaited()

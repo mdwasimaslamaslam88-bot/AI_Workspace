@@ -107,6 +107,11 @@ integer values 0 and 1. Explicit null, booleans, strings, arrays, objects,
 non-finite numbers, negative values, and values above 1.0 are rejected.
 Omitting `min_p` preserves the current runtime behavior without adding a
 min-p override.
+An optional finite numeric `repeat_penalty` from 0.5 through 2.0 is accepted,
+including integer values 1 and 2. Explicit null, booleans, strings, arrays,
+objects, non-finite numbers, values below 0.5, and values above 2.0 are
+rejected. Omitting `repeat_penalty` preserves the current runtime behavior
+without adding a repetition-penalty override.
 
 When `user_message` is supplied, the exact content is committed first as a
 server-assigned user Message before generation. Omission or null preserves

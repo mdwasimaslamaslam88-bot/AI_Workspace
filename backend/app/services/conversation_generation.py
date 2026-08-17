@@ -24,6 +24,8 @@ MAX_GENERATION_SEED = 2_147_483_647
 MAX_GENERATION_TOP_P = 1.0
 MAX_GENERATION_TOP_K = 100
 MAX_GENERATION_MIN_P = 1.0
+MIN_GENERATION_REPEAT_PENALTY = 0.5
+MAX_GENERATION_REPEAT_PENALTY = 2.0
 
 
 class ConversationGenerationNotFoundError(RuntimeError):
@@ -74,6 +76,7 @@ class ConversationGenerationService:
         top_p: float | None = None,
         top_k: int | None = None,
         min_p: float | None = None,
+        repeat_penalty: float | None = None,
     ) -> Message:
         if isinstance(max_output_tokens, bool) or not isinstance(
             max_output_tokens,
@@ -148,6 +151,27 @@ class ConversationGenerationService:
                 raise ValueError(
                     "min_p must be finite and between 0.0 and "
                     f"{MAX_GENERATION_MIN_P}"
+                )
+        if repeat_penalty is not None:
+            if isinstance(repeat_penalty, bool) or not isinstance(
+                repeat_penalty,
+                (int, float),
+            ):
+                raise TypeError("repeat_penalty must be numeric")
+            try:
+                is_finite_repeat_penalty = math.isfinite(repeat_penalty)
+            except OverflowError:
+                is_finite_repeat_penalty = False
+            if (
+                not is_finite_repeat_penalty
+                or not MIN_GENERATION_REPEAT_PENALTY
+                <= repeat_penalty
+                <= MAX_GENERATION_REPEAT_PENALTY
+            ):
+                raise ValueError(
+                    "repeat_penalty must be finite and between "
+                    f"{MIN_GENERATION_REPEAT_PENALTY} and "
+                    f"{MAX_GENERATION_REPEAT_PENALTY}"
                 )
 
         conversation = await ConversationService(self.session).get_for_owner(
@@ -264,6 +288,7 @@ class ConversationGenerationService:
             top_p=top_p,
             top_k=top_k,
             min_p=min_p,
+            repeat_penalty=repeat_penalty,
         )
         message = await MessageService(self.session).append_for_owner(
             owner_id,

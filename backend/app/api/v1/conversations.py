@@ -264,6 +264,7 @@ async def generate_assistant_message(
             top_p=generation_request.top_p,
             top_k=generation_request.top_k,
             min_p=generation_request.min_p,
+            repeat_penalty=generation_request.repeat_penalty,
         )
     except ConversationGenerationNotFoundError:
         raise HTTPException(
