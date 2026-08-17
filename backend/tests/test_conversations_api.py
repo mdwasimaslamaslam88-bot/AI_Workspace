@@ -2084,6 +2084,7 @@ def test_authenticated_generation_returns_exact_safe_created_message(
         temperature=None,
         seed=None,
         top_p=None,
+        top_k=None,
     )
     api["session"].commit.assert_not_awaited()
     api["session"].rollback.assert_not_awaited()
@@ -2205,6 +2206,37 @@ def test_authenticated_generation_returns_exact_safe_created_message(
                 '"top_p":-Infinity}'
             ).encode(),
         ),
+        ({"model_id": GENERATION_MODEL_ID, "top_k": None}, None),
+        ({"model_id": GENERATION_MODEL_ID, "top_k": True}, None),
+        ({"model_id": GENERATION_MODEL_ID, "top_k": False}, None),
+        ({"model_id": GENERATION_MODEL_ID, "top_k": "40"}, None),
+        ({"model_id": GENERATION_MODEL_ID, "top_k": 40.0}, None),
+        ({"model_id": GENERATION_MODEL_ID, "top_k": []}, None),
+        ({"model_id": GENERATION_MODEL_ID, "top_k": {}}, None),
+        ({"model_id": GENERATION_MODEL_ID, "top_k": 0}, None),
+        ({"model_id": GENERATION_MODEL_ID, "top_k": -1}, None),
+        ({"model_id": GENERATION_MODEL_ID, "top_k": 101}, None),
+        (
+            None,
+            (
+                f'{{"model_id":"{GENERATION_MODEL_ID}",'
+                '"top_k":NaN}'
+            ).encode(),
+        ),
+        (
+            None,
+            (
+                f'{{"model_id":"{GENERATION_MODEL_ID}",'
+                '"top_k":Infinity}'
+            ).encode(),
+        ),
+        (
+            None,
+            (
+                f'{{"model_id":"{GENERATION_MODEL_ID}",'
+                '"top_k":-Infinity}'
+            ).encode(),
+        ),
         ({"model_id": GENERATION_MODEL_ID, "owner_id": str(uuid4())}, None),
         ({"model_id": GENERATION_MODEL_ID, "user_id": str(uuid4())}, None),
         ({"model_id": GENERATION_MODEL_ID, "conversation_id": str(uuid4())}, None),
@@ -2268,6 +2300,7 @@ def test_generation_accepts_exact_bounded_output_tokens_without_response_change(
         temperature=None,
         seed=None,
         top_p=None,
+        top_k=None,
     )
 
 
@@ -2305,6 +2338,7 @@ def test_generation_accepts_exact_bounded_temperature_without_response_change(
         temperature=expected_temperature,
         seed=None,
         top_p=None,
+        top_k=None,
     )
 
 
@@ -2332,6 +2366,7 @@ def test_generation_accepts_exact_bounded_seed_without_response_change(
         temperature=None,
         seed=seed,
         top_p=None,
+        top_k=None,
     )
 
 
@@ -2369,6 +2404,35 @@ def test_generation_accepts_exact_bounded_top_p_without_response_change(
         temperature=None,
         seed=None,
         top_p=expected_top_p,
+        top_k=None,
+    )
+
+
+@pytest.mark.parametrize("top_k", [1, 40, 100])
+def test_generation_accepts_exact_bounded_top_k_without_response_change(
+    conversation_generation_api,
+    top_k,
+):
+    api = conversation_generation_api
+
+    response = api["client"].post(
+        f"/api/v1/conversations/{api['conversation_id']}/messages/generate",
+        json={"model_id": GENERATION_MODEL_ID, "top_k": top_k},
+    )
+
+    assert response.status_code == 201
+    assert set(response.json()) == {"model_id", "message"}
+    assert "top_k" not in response.text
+    api["generate"].assert_awaited_once_with(
+        api["current_user"].id,
+        api["conversation_id"],
+        GENERATION_MODEL_ID,
+        user_message=None,
+        max_output_tokens=1024,
+        temperature=None,
+        seed=None,
+        top_p=None,
+        top_k=top_k,
     )
 
 
@@ -2408,6 +2472,7 @@ def test_generation_accepts_exact_optional_user_message_without_response_change(
         temperature=None,
         seed=None,
         top_p=None,
+        top_k=None,
     )
 
 
@@ -2434,6 +2499,7 @@ def test_generation_explicit_null_user_message_preserves_existing_mode(
         temperature=None,
         seed=None,
         top_p=None,
+        top_k=None,
     )
 
 

@@ -22,6 +22,7 @@ MAX_GENERATION_OUTPUT_TOKENS = 1_024
 MAX_GENERATION_TEMPERATURE = 2.0
 MAX_GENERATION_SEED = 2_147_483_647
 MAX_GENERATION_TOP_P = 1.0
+MAX_GENERATION_TOP_K = 100
 
 
 class ConversationGenerationNotFoundError(RuntimeError):
@@ -70,6 +71,7 @@ class ConversationGenerationService:
         temperature: float | None = None,
         seed: int | None = None,
         top_p: float | None = None,
+        top_k: int | None = None,
     ) -> Message:
         if isinstance(max_output_tokens, bool) or not isinstance(
             max_output_tokens,
@@ -121,6 +123,14 @@ class ConversationGenerationService:
                 raise ValueError(
                     "top_p must be finite and between 0.0 and "
                     f"{MAX_GENERATION_TOP_P}"
+                )
+        if top_k is not None:
+            if isinstance(top_k, bool) or not isinstance(top_k, int):
+                raise TypeError("top_k must be an integer")
+            if not 1 <= top_k <= MAX_GENERATION_TOP_K:
+                raise ValueError(
+                    "top_k must be between 1 and "
+                    f"{MAX_GENERATION_TOP_K}"
                 )
 
         conversation = await ConversationService(self.session).get_for_owner(
@@ -235,6 +245,7 @@ class ConversationGenerationService:
             temperature=temperature,
             seed=seed,
             top_p=top_p,
+            top_k=top_k,
         )
         message = await MessageService(self.session).append_for_owner(
             owner_id,

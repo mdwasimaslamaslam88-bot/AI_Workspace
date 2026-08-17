@@ -262,6 +262,7 @@ async def generate_assistant_message(
             temperature=generation_request.temperature,
             seed=generation_request.seed,
             top_p=generation_request.top_p,
+            top_k=generation_request.top_k,
         )
     except ConversationGenerationNotFoundError:
         raise HTTPException(

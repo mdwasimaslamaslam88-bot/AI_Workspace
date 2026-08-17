@@ -431,6 +431,61 @@ async def test_ollama_generation_forwards_exact_valid_top_p(top_p):
     }
 
 
+@pytest.mark.parametrize("top_k", [1, 40, 100])
+@pytest.mark.asyncio
+async def test_ollama_generation_forwards_exact_valid_top_k(top_k):
+    requests: list[httpx.Request] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(
+            200,
+            json={
+                "done": True,
+                "message": {
+                    "role": "assistant",
+                    "content": "answer",
+                },
+            },
+        )
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        base_url="http://127.0.0.1:11434",
+        trust_env=False,
+        follow_redirects=False,
+    ) as client:
+        result = await OllamaTextGenerationRuntime(
+            client,
+            timeout_seconds=37,
+            local_model_allowlist=LOCAL_MODEL_ALLOWLIST,
+        ).generate_text(
+            LOCAL_MODEL_REFERENCE,
+            (
+                TextGenerationMessage(
+                    role=TextGenerationRole.USER,
+                    content="prompt",
+                ),
+            ),
+            max_output_tokens=128,
+            top_k=top_k,
+        )
+
+    assert result.content == "answer"
+    assert len(requests) == 1
+    import json
+
+    assert json.loads(requests[0].content) == {
+        "model": LOCAL_MODEL_REFERENCE,
+        "messages": [{"role": "user", "content": "prompt"}],
+        "stream": False,
+        "options": {
+            "num_predict": 128,
+            "top_k": top_k,
+        },
+    }
+
+
 @pytest.mark.asyncio
 async def test_ollama_generation_combines_all_bounded_options():
     requests: list[httpx.Request] = []
@@ -470,6 +525,7 @@ async def test_ollama_generation_combines_all_bounded_options():
             temperature=0.5,
             seed=42,
             top_p=0.9,
+            top_k=40,
         )
 
     assert result.content == "answer"
@@ -485,6 +541,7 @@ async def test_ollama_generation_combines_all_bounded_options():
             "temperature": 0.5,
             "seed": 42,
             "top_p": 0.9,
+            "top_k": 40,
         },
     }
 
@@ -606,6 +663,47 @@ async def test_ollama_generation_rejects_invalid_top_p_before_http(top_p):
             ),
             max_output_tokens=128,
             top_p=top_p,
+        )
+
+    client.post.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    "top_k",
+    [
+        True,
+        False,
+        "40",
+        40.0,
+        [],
+        {},
+        float("nan"),
+        float("inf"),
+        float("-inf"),
+        0,
+        -1,
+        101,
+    ],
+)
+@pytest.mark.asyncio
+async def test_ollama_generation_rejects_invalid_top_k_before_http(top_k):
+    client = Mock(post=AsyncMock())
+
+    with pytest.raises((TypeError, ValueError)):
+        await OllamaTextGenerationRuntime(
+            client,
+            timeout_seconds=37,
+            local_model_allowlist=LOCAL_MODEL_ALLOWLIST,
+        ).generate_text(
+            LOCAL_MODEL_REFERENCE,
+            (
+                TextGenerationMessage(
+                    role=TextGenerationRole.USER,
+                    content="prompt",
+                ),
+            ),
+            max_output_tokens=128,
+            top_k=top_k,
         )
 
     client.post.assert_not_awaited()

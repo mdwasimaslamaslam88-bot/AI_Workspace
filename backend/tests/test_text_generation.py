@@ -68,6 +68,7 @@ async def test_router_dispatches_by_runtime_not_parameter_class(parameter_class)
         temperature=None,
         seed=None,
         top_p=None,
+        top_k=None,
     )
 
 
@@ -166,6 +167,7 @@ async def test_router_forwards_exact_valid_temperature(temperature):
         temperature=temperature,
         seed=None,
         top_p=None,
+        top_k=None,
     )
 
 
@@ -197,6 +199,7 @@ async def test_router_forwards_exact_valid_seed(seed):
         temperature=None,
         seed=seed,
         top_p=None,
+        top_k=None,
     )
 
 
@@ -228,6 +231,39 @@ async def test_router_forwards_exact_valid_top_p(top_p):
         temperature=None,
         seed=None,
         top_p=top_p,
+        top_k=None,
+    )
+
+
+@pytest.mark.parametrize("top_k", [1, 40, 100])
+@pytest.mark.asyncio
+async def test_router_forwards_exact_valid_top_k(top_k):
+    generated = TextGenerationResult(content="answer")
+    generate_text = AsyncMock(return_value=generated)
+    runtime = Mock(runtime_id="local-runtime", generate_text=generate_text)
+    messages = (
+        TextGenerationMessage(
+            role=TextGenerationRole.USER,
+            content="prompt",
+        ),
+    )
+
+    result = await TextGenerationRouter((runtime,)).generate(
+        _resolved_model(),
+        messages,
+        max_output_tokens=1024,
+        top_k=top_k,
+    )
+
+    assert result is generated
+    generate_text.assert_awaited_once_with(
+        "/private/runtime/model:tag",
+        messages,
+        max_output_tokens=1024,
+        temperature=None,
+        seed=None,
+        top_p=None,
+        top_k=top_k,
     )
 
 
@@ -345,6 +381,46 @@ async def test_router_rejects_invalid_top_p_before_runtime(top_p):
             ),
             max_output_tokens=1024,
             top_p=top_p,
+        )
+
+    runtime.generate_text.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    "top_k",
+    [
+        True,
+        False,
+        "40",
+        40.0,
+        [],
+        {},
+        float("nan"),
+        float("inf"),
+        float("-inf"),
+        0,
+        -1,
+        101,
+    ],
+)
+@pytest.mark.asyncio
+async def test_router_rejects_invalid_top_k_before_runtime(top_k):
+    runtime = Mock(
+        runtime_id="local-runtime",
+        generate_text=AsyncMock(),
+    )
+
+    with pytest.raises((TypeError, ValueError)):
+        await TextGenerationRouter((runtime,)).generate(
+            _resolved_model(),
+            (
+                TextGenerationMessage(
+                    role=TextGenerationRole.USER,
+                    content="prompt",
+                ),
+            ),
+            max_output_tokens=1024,
+            top_k=top_k,
         )
 
     runtime.generate_text.assert_not_awaited()

@@ -58,6 +58,7 @@ class TextGenerationRuntime(Protocol):
         temperature: float | None = None,
         seed: int | None = None,
         top_p: float | None = None,
+        top_k: int | None = None,
     ) -> TextGenerationResult: ...
 
 
@@ -83,6 +84,7 @@ class TextGenerationRouter:
         temperature: float | None = None,
         seed: int | None = None,
         top_p: float | None = None,
+        top_k: int | None = None,
     ) -> TextGenerationResult:
         if not isinstance(model, ResolvedModel):
             raise TypeError("model must be a ResolvedModel")
@@ -129,6 +131,11 @@ class TextGenerationRouter:
                 raise ValueError(
                     "top_p must be finite and between 0.0 and 1.0"
                 )
+        if top_k is not None:
+            if isinstance(top_k, bool) or not isinstance(top_k, int):
+                raise TypeError("top_k must be an integer")
+            if not 1 <= top_k <= 100:
+                raise ValueError("top_k must be between 1 and 100")
 
         runtime = self._runtimes.get(model.descriptor.runtime_id)
         if runtime is None:
@@ -142,4 +149,5 @@ class TextGenerationRouter:
             temperature=temperature,
             seed=seed,
             top_p=top_p,
+            top_k=top_k,
         )
