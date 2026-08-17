@@ -97,6 +97,7 @@ class OllamaTextGenerationRuntime:
         max_output_tokens: int,
         temperature: float | None = None,
         seed: int | None = None,
+        top_p: float | None = None,
     ) -> TextGenerationResult:
         if temperature is not None:
             if isinstance(temperature, bool) or not isinstance(
@@ -119,6 +120,20 @@ class OllamaTextGenerationRuntime:
                 raise ValueError(
                     "seed must be between 0 and 2147483647"
                 )
+        if top_p is not None:
+            if isinstance(top_p, bool) or not isinstance(
+                top_p,
+                (int, float),
+            ):
+                raise TypeError("top_p must be numeric")
+            try:
+                is_finite_top_p = math.isfinite(top_p)
+            except OverflowError:
+                is_finite_top_p = False
+            if not is_finite_top_p or not 0.0 <= top_p <= 1.0:
+                raise ValueError(
+                    "top_p must be finite and between 0.0 and 1.0"
+                )
 
         if runtime_reference not in self.local_model_allowlist:
             raise TextGenerationRuntimeUnsupportedError(
@@ -131,6 +146,8 @@ class OllamaTextGenerationRuntime:
             options["temperature"] = temperature
         if seed is not None:
             options["seed"] = seed
+        if top_p is not None:
+            options["top_p"] = top_p
         try:
             response = await self.client.post(
                 "/api/chat",

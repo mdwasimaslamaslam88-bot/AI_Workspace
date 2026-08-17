@@ -23,6 +23,7 @@ from app.services.conversation_generation import (
     MAX_GENERATION_OUTPUT_TOKENS,
     MAX_GENERATION_SEED,
     MAX_GENERATION_TEMPERATURE,
+    MAX_GENERATION_TOP_P,
     ConversationChangedDuringGenerationError,
     ConversationGenerationContextTooLargeError,
     ConversationGenerationModelNotFoundError,
@@ -205,6 +206,7 @@ async def test_generation_releases_read_transaction_before_local_inference(
         max_output_tokens=MAX_GENERATION_OUTPUT_TOKENS,
         temperature=None,
         seed=None,
+        top_p=None,
     )
     dependencies["append"].assert_awaited_once_with(
         owner_id,
@@ -260,6 +262,7 @@ async def test_generation_forwards_exact_valid_output_bound(
         max_output_tokens=max_output_tokens,
         temperature=None,
         seed=None,
+        top_p=None,
     )
 
 
@@ -354,6 +357,7 @@ async def test_generation_forwards_exact_valid_temperature(
         max_output_tokens=MAX_GENERATION_OUTPUT_TOKENS,
         temperature=temperature,
         seed=None,
+        top_p=None,
     )
 
 
@@ -400,6 +404,54 @@ async def test_generation_forwards_exact_valid_seed(
         max_output_tokens=MAX_GENERATION_OUTPUT_TOKENS,
         temperature=None,
         seed=seed,
+        top_p=None,
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("top_p", [0, 1, 0.5, 0.9, MAX_GENERATION_TOP_P])
+async def test_generation_forwards_exact_valid_top_p(
+    monkeypatch,
+    top_p,
+):
+    owner_id = uuid4()
+    conversation_id = uuid4()
+    session = AsyncMock(spec=AsyncSession)
+    messages = (
+        _message(conversation_id, MessageRole.USER, "question", 1),
+    )
+    appended = _message(
+        conversation_id,
+        MessageRole.ASSISTANT,
+        "answer",
+        2,
+    )
+    dependencies = _dependencies(
+        monkeypatch,
+        conversation=_conversation(owner_id, conversation_id, 2),
+        context=messages,
+        appended=appended,
+    )
+
+    result = await ConversationGenerationService(
+        session,
+        dependencies["catalog"],
+        dependencies["router"],
+    ).generate_for_owner(
+        owner_id,
+        conversation_id,
+        MODEL_ID,
+        top_p=top_p,
+    )
+
+    assert result is appended
+    dependencies["router"].generate.assert_awaited_once_with(
+        _resolved(),
+        dependencies["router"].generate.await_args.args[1],
+        max_output_tokens=MAX_GENERATION_OUTPUT_TOKENS,
+        temperature=None,
+        seed=None,
+        top_p=top_p,
     )
 
 
@@ -510,6 +562,66 @@ async def test_generation_rejects_invalid_seed_before_side_effects(
             MODEL_ID,
             user_message="must not persist",
             seed=seed,
+        )
+
+    dependencies["conversation_factory"].assert_not_called()
+    dependencies["get"].assert_not_awaited()
+    dependencies["message_factory"].assert_not_called()
+    dependencies["context"].assert_not_awaited()
+    dependencies["append"].assert_not_awaited()
+    dependencies["catalog"].resolve_model.assert_not_awaited()
+    dependencies["router"].generate.assert_not_awaited()
+    session.commit.assert_not_awaited()
+    session.rollback.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "top_p",
+    [
+        True,
+        False,
+        "0.9",
+        [],
+        {},
+        float("nan"),
+        float("inf"),
+        float("-inf"),
+        -0.01,
+        MAX_GENERATION_TOP_P + 0.01,
+        10**1000,
+    ],
+)
+async def test_generation_rejects_invalid_top_p_before_side_effects(
+    monkeypatch,
+    top_p,
+):
+    owner_id = uuid4()
+    conversation_id = uuid4()
+    session = AsyncMock(spec=AsyncSession)
+    dependencies = _dependencies(
+        monkeypatch,
+        conversation=_conversation(owner_id, conversation_id, 2),
+        context=(_message(conversation_id, MessageRole.USER, "question", 1),),
+        appended=_message(
+            conversation_id,
+            MessageRole.ASSISTANT,
+            "answer",
+            2,
+        ),
+    )
+
+    with pytest.raises((TypeError, ValueError)):
+        await ConversationGenerationService(
+            session,
+            dependencies["catalog"],
+            dependencies["router"],
+        ).generate_for_owner(
+            owner_id,
+            conversation_id,
+            MODEL_ID,
+            user_message="must not persist",
+            top_p=top_p,
         )
 
     dependencies["conversation_factory"].assert_not_called()

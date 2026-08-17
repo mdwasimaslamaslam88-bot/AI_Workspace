@@ -93,6 +93,11 @@ negative values, and values above that bound are rejected. Omitting `seed`
 adds no seed override. A seed can support repeatability only with the same
 model, context, runtime, and runtime version; it does not guarantee
 cross-version determinism.
+An optional finite numeric `top_p` from 0.0 through 1.0 is accepted, including
+integer values 0 and 1. Explicit null, booleans, strings, arrays, objects,
+non-finite numbers, negative values, and values above 1.0 are rejected.
+Omitting `top_p` preserves the current runtime behavior without adding a
+top-p override.
 
 When `user_message` is supplied, the exact content is committed first as a
 server-assigned user Message before generation. Omission or null preserves

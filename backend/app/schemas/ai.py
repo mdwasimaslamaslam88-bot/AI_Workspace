@@ -50,6 +50,13 @@ class ConversationTextGenerationRequest(BaseModel):
         ge=0,
         le=2_147_483_647,
     )
+    top_p: float | None = Field(
+        default=None,
+        strict=True,
+        ge=0.0,
+        le=1.0,
+        allow_inf_nan=False,
+    )
 
     @field_validator("temperature", mode="before")
     @classmethod
@@ -80,6 +87,24 @@ class ConversationTextGenerationRequest(BaseModel):
         if isinstance(value, float) and not math.isfinite(value):
             # Keep the existing public validation error JSON-serializable.
             return "non-finite seed"
+        return value
+
+    @field_validator("top_p", mode="before")
+    @classmethod
+    def validate_top_p_input(cls, value):
+        if value is None:
+            raise PydanticCustomError(
+                "top_p_null",
+                "top_p must not be null",
+            )
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            try:
+                is_finite_top_p = math.isfinite(value)
+            except OverflowError:
+                is_finite_top_p = False
+            if not is_finite_top_p:
+                # Keep the existing public validation error JSON-serializable.
+                return "non-finite top_p"
         return value
 
 
