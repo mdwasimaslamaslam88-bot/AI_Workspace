@@ -118,6 +118,11 @@ bounded token-history window. Explicit null, booleans, strings, floats, arrays,
 objects, non-finite values, negative values including Ollama's `-1` sentinel,
 and values above 2,048 are rejected. Omitting `repeat_last_n` preserves the
 current runtime behavior without adding a repetition-window override.
+An optional finite numeric `typical_p` from 0.0 through 1.0 is accepted,
+including integer values 0 and 1. Explicit null, booleans, strings, arrays,
+objects, non-finite numbers, negative values, and values above 1.0 are rejected.
+Omitting `typical_p` preserves the current runtime behavior without adding a
+locally typical sampling override.
 
 When `user_message` is supplied, the exact content is committed first as a
 server-assigned user Message before generation. Omission or null preserves

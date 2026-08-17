@@ -62,6 +62,7 @@ class TextGenerationRuntime(Protocol):
         min_p: float | None = None,
         repeat_penalty: float | None = None,
         repeat_last_n: int | None = None,
+        typical_p: float | None = None,
     ) -> TextGenerationResult: ...
 
 
@@ -91,6 +92,7 @@ class TextGenerationRouter:
         min_p: float | None = None,
         repeat_penalty: float | None = None,
         repeat_last_n: int | None = None,
+        typical_p: float | None = None,
     ) -> TextGenerationResult:
         if not isinstance(model, ResolvedModel):
             raise TypeError("model must be a ResolvedModel")
@@ -181,6 +183,20 @@ class TextGenerationRouter:
                 raise TypeError("repeat_last_n must be an integer")
             if not 0 <= repeat_last_n <= 2_048:
                 raise ValueError("repeat_last_n must be between 0 and 2048")
+        if typical_p is not None:
+            if isinstance(typical_p, bool) or not isinstance(
+                typical_p,
+                (int, float),
+            ):
+                raise TypeError("typical_p must be numeric")
+            try:
+                is_finite_typical_p = math.isfinite(typical_p)
+            except OverflowError:
+                is_finite_typical_p = False
+            if not is_finite_typical_p or not 0.0 <= typical_p <= 1.0:
+                raise ValueError(
+                    "typical_p must be finite and between 0.0 and 1.0"
+                )
 
         runtime = self._runtimes.get(model.descriptor.runtime_id)
         if runtime is None:
@@ -198,4 +214,5 @@ class TextGenerationRouter:
             min_p=min_p,
             repeat_penalty=repeat_penalty,
             repeat_last_n=repeat_last_n,
+            typical_p=typical_p,
         )

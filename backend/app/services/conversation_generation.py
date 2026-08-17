@@ -27,6 +27,7 @@ MAX_GENERATION_MIN_P = 1.0
 MIN_GENERATION_REPEAT_PENALTY = 0.5
 MAX_GENERATION_REPEAT_PENALTY = 2.0
 MAX_GENERATION_REPEAT_LAST_N = 2_048
+MAX_GENERATION_TYPICAL_P = 1.0
 
 
 class ConversationGenerationNotFoundError(RuntimeError):
@@ -79,6 +80,7 @@ class ConversationGenerationService:
         min_p: float | None = None,
         repeat_penalty: float | None = None,
         repeat_last_n: int | None = None,
+        typical_p: float | None = None,
     ) -> Message:
         if isinstance(max_output_tokens, bool) or not isinstance(
             max_output_tokens,
@@ -185,6 +187,24 @@ class ConversationGenerationService:
                 raise ValueError(
                     "repeat_last_n must be between 0 and "
                     f"{MAX_GENERATION_REPEAT_LAST_N}"
+                )
+        if typical_p is not None:
+            if isinstance(typical_p, bool) or not isinstance(
+                typical_p,
+                (int, float),
+            ):
+                raise TypeError("typical_p must be numeric")
+            try:
+                is_finite_typical_p = math.isfinite(typical_p)
+            except OverflowError:
+                is_finite_typical_p = False
+            if (
+                not is_finite_typical_p
+                or not 0.0 <= typical_p <= MAX_GENERATION_TYPICAL_P
+            ):
+                raise ValueError(
+                    "typical_p must be finite and between 0.0 and "
+                    f"{MAX_GENERATION_TYPICAL_P}"
                 )
 
         conversation = await ConversationService(self.session).get_for_owner(
@@ -303,6 +323,7 @@ class ConversationGenerationService:
             min_p=min_p,
             repeat_penalty=repeat_penalty,
             repeat_last_n=repeat_last_n,
+            typical_p=typical_p,
         )
         message = await MessageService(self.session).append_for_owner(
             owner_id,
