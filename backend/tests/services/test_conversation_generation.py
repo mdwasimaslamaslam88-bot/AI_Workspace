@@ -25,10 +25,12 @@ from app.services.conversation_generation import (
     MAX_GENERATION_REPEAT_PENALTY,
     MAX_GENERATION_REPEAT_LAST_N,
     MAX_GENERATION_TYPICAL_P,
+    MAX_GENERATION_PRESENCE_PENALTY,
     MAX_GENERATION_SEED,
     MAX_GENERATION_TEMPERATURE,
     MAX_GENERATION_TOP_K,
     MAX_GENERATION_TOP_P,
+    MIN_GENERATION_PRESENCE_PENALTY,
     MIN_GENERATION_REPEAT_PENALTY,
     ConversationChangedDuringGenerationError,
     ConversationGenerationContextTooLargeError,
@@ -218,6 +220,7 @@ async def test_generation_releases_read_transaction_before_local_inference(
         repeat_penalty=None,
         repeat_last_n=None,
         typical_p=None,
+        presence_penalty=None,
     )
     dependencies["append"].assert_awaited_once_with(
         owner_id,
@@ -279,6 +282,7 @@ async def test_generation_forwards_exact_valid_output_bound(
         repeat_penalty=None,
         repeat_last_n=None,
         typical_p=None,
+        presence_penalty=None,
     )
 
 
@@ -379,6 +383,7 @@ async def test_generation_forwards_exact_valid_temperature(
         repeat_penalty=None,
         repeat_last_n=None,
         typical_p=None,
+        presence_penalty=None,
     )
 
 
@@ -431,6 +436,7 @@ async def test_generation_forwards_exact_valid_seed(
         repeat_penalty=None,
         repeat_last_n=None,
         typical_p=None,
+        presence_penalty=None,
     )
 
 
@@ -483,6 +489,7 @@ async def test_generation_forwards_exact_valid_top_p(
         repeat_penalty=None,
         repeat_last_n=None,
         typical_p=None,
+        presence_penalty=None,
     )
 
 
@@ -535,6 +542,7 @@ async def test_generation_forwards_exact_valid_top_k(
         repeat_penalty=None,
         repeat_last_n=None,
         typical_p=None,
+        presence_penalty=None,
     )
 
 
@@ -587,6 +595,7 @@ async def test_generation_forwards_exact_valid_min_p(
         repeat_penalty=None,
         repeat_last_n=None,
         typical_p=None,
+        presence_penalty=None,
     )
 
 
@@ -649,6 +658,7 @@ async def test_generation_forwards_exact_valid_repeat_penalty(
         repeat_penalty=repeat_penalty,
         repeat_last_n=None,
         typical_p=None,
+        presence_penalty=None,
     )
 
 
@@ -704,6 +714,7 @@ async def test_generation_forwards_exact_valid_repeat_last_n(
         repeat_penalty=None,
         repeat_last_n=repeat_last_n,
         typical_p=None,
+        presence_penalty=None,
     )
 
 
@@ -759,6 +770,71 @@ async def test_generation_forwards_exact_valid_typical_p(
         repeat_penalty=None,
         repeat_last_n=None,
         typical_p=typical_p,
+        presence_penalty=None,
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "presence_penalty",
+    [
+        MIN_GENERATION_PRESENCE_PENALTY,
+        -1,
+        0,
+        0.5,
+        1,
+        1.5,
+        MAX_GENERATION_PRESENCE_PENALTY,
+    ],
+)
+async def test_generation_forwards_exact_valid_presence_penalty(
+    monkeypatch,
+    presence_penalty,
+):
+    owner_id = uuid4()
+    conversation_id = uuid4()
+    session = AsyncMock(spec=AsyncSession)
+    messages = (
+        _message(conversation_id, MessageRole.USER, "question", 1),
+    )
+    appended = _message(
+        conversation_id,
+        MessageRole.ASSISTANT,
+        "answer",
+        2,
+    )
+    dependencies = _dependencies(
+        monkeypatch,
+        conversation=_conversation(owner_id, conversation_id, 2),
+        context=messages,
+        appended=appended,
+    )
+
+    result = await ConversationGenerationService(
+        session,
+        dependencies["catalog"],
+        dependencies["router"],
+    ).generate_for_owner(
+        owner_id,
+        conversation_id,
+        MODEL_ID,
+        presence_penalty=presence_penalty,
+    )
+
+    assert result is appended
+    dependencies["router"].generate.assert_awaited_once_with(
+        _resolved(),
+        dependencies["router"].generate.await_args.args[1],
+        max_output_tokens=MAX_GENERATION_OUTPUT_TOKENS,
+        temperature=None,
+        seed=None,
+        top_p=None,
+        top_k=None,
+        min_p=None,
+        repeat_penalty=None,
+        repeat_last_n=None,
+        typical_p=None,
+        presence_penalty=presence_penalty,
     )
 
 
@@ -1232,6 +1308,66 @@ async def test_generation_rejects_invalid_typical_p_before_side_effects(
             MODEL_ID,
             user_message="must not persist",
             typical_p=typical_p,
+        )
+
+    dependencies["conversation_factory"].assert_not_called()
+    dependencies["get"].assert_not_awaited()
+    dependencies["message_factory"].assert_not_called()
+    dependencies["context"].assert_not_awaited()
+    dependencies["append"].assert_not_awaited()
+    dependencies["catalog"].resolve_model.assert_not_awaited()
+    dependencies["router"].generate.assert_not_awaited()
+    session.commit.assert_not_awaited()
+    session.rollback.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "presence_penalty",
+    [
+        True,
+        False,
+        "1.5",
+        [],
+        {},
+        float("nan"),
+        float("inf"),
+        float("-inf"),
+        MIN_GENERATION_PRESENCE_PENALTY - 0.01,
+        MAX_GENERATION_PRESENCE_PENALTY + 0.01,
+        10**1000,
+    ],
+)
+async def test_generation_rejects_invalid_presence_penalty_before_side_effects(
+    monkeypatch,
+    presence_penalty,
+):
+    owner_id = uuid4()
+    conversation_id = uuid4()
+    session = AsyncMock(spec=AsyncSession)
+    dependencies = _dependencies(
+        monkeypatch,
+        conversation=_conversation(owner_id, conversation_id, 2),
+        context=(_message(conversation_id, MessageRole.USER, "question", 1),),
+        appended=_message(
+            conversation_id,
+            MessageRole.ASSISTANT,
+            "answer",
+            2,
+        ),
+    )
+
+    with pytest.raises((TypeError, ValueError)):
+        await ConversationGenerationService(
+            session,
+            dependencies["catalog"],
+            dependencies["router"],
+        ).generate_for_owner(
+            owner_id,
+            conversation_id,
+            MODEL_ID,
+            user_message="must not persist",
+            presence_penalty=presence_penalty,
         )
 
     dependencies["conversation_factory"].assert_not_called()

@@ -65,7 +65,7 @@ Conversation:
     Authorization: Bearer <access_token>
     Content-Type: application/json
 
-    {"model_id":"ollama-local:<opaque-id>","user_message":"Optional follow-up","max_output_tokens":128,"temperature":0.5,"seed":42,"top_p":0.9,"top_k":40,"min_p":0.05,"repeat_penalty":1.1,"repeat_last_n":64,"typical_p":0.7}
+    {"model_id":"ollama-local:<opaque-id>","user_message":"Optional follow-up","max_output_tokens":128,"temperature":0.5,"seed":42,"top_p":0.9,"top_k":40,"min_p":0.05,"repeat_penalty":1.1,"repeat_last_n":64,"typical_p":0.7,"presence_penalty":1.5}
 
 The public model_id must come from the model catalog. An optional nonblank
 `user_message` is committed first as an owner-scoped, server-assigned user
@@ -126,6 +126,15 @@ Omitting `typical_p` adds no locally typical sampling option to the Ollama
 request. Supplied values are forwarded only as the bounded Ollama
 `options.typical_p` sampling control.
 
+An optional finite numeric `presence_penalty` from -2.0 through 2.0 is
+accepted, including integer values within that range. Positive values
+discourage reuse of tokens already present, negative values encourage reuse,
+and zero applies no presence penalty. Explicit null, booleans, strings, arrays,
+objects, non-finite numbers, values below -2.0, and values above 2.0 are
+rejected. Omitting `presence_penalty` adds no presence-penalty option to the
+Ollama request. Supplied values are forwarded only as the bounded Ollama
+`options.presence_penalty` control.
+
 Conversation creation may persist one optional client-authored `system_prompt`
 as a server-assigned system Message before the required initial user Message.
 Both Messages are owner-scoped and committed atomically with the Conversation.
@@ -163,7 +172,9 @@ does not add a repetition-penalty option to the Ollama request. A supplied
 `repeat_last_n` is forwarded unchanged through the same boundary; omission does
 not add a repetition-window option to the Ollama request. A supplied
 `typical_p` is forwarded unchanged through the same boundary; omission does not
-add a locally typical sampling option to the Ollama request. Model parameter
+add a locally typical sampling option to the Ollama request. A supplied
+`presence_penalty` is forwarded unchanged through the same boundary; omission
+does not add a presence-penalty option to the Ollama request. Model parameter
 class is not used for routing or policy.
 
 The successful HTTP 201 response contains the selected public model_id and the
@@ -204,6 +215,6 @@ Runtime references, runtime URLs, local paths, credentials, hardware
 identifiers, persistence details, and internal exception text are not returned.
 This slice does not add streaming, client-controlled generation options beyond
 the bounded output-token, temperature, seed, top-p, top-k, min-p,
-repeat-penalty, repetition-window, and locally typical sampling fields, tools,
-model preferences, explicit model lifecycle controls, image/audio/video
-generation, or any cloud AI dependency.
+repeat-penalty, repetition-window, locally typical sampling, and presence-penalty
+fields, tools, model preferences, explicit model lifecycle controls,
+image/audio/video generation, or any cloud AI dependency.

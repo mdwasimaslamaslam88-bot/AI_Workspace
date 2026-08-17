@@ -123,6 +123,12 @@ including integer values 0 and 1. Explicit null, booleans, strings, arrays,
 objects, non-finite numbers, negative values, and values above 1.0 are rejected.
 Omitting `typical_p` preserves the current runtime behavior without adding a
 locally typical sampling override.
+An optional finite numeric `presence_penalty` from -2.0 through 2.0 is
+accepted, including integer values within that range. Positive values
+discourage reuse of tokens already present, negative values encourage reuse,
+and zero applies no presence penalty. Explicit null, booleans, strings, arrays,
+objects, non-finite numbers, and out-of-range values are rejected. Omitting
+`presence_penalty` adds no presence-penalty override.
 
 When `user_message` is supplied, the exact content is committed first as a
 server-assigned user Message before generation. Omission or null preserves

@@ -28,6 +28,8 @@ MIN_GENERATION_REPEAT_PENALTY = 0.5
 MAX_GENERATION_REPEAT_PENALTY = 2.0
 MAX_GENERATION_REPEAT_LAST_N = 2_048
 MAX_GENERATION_TYPICAL_P = 1.0
+MIN_GENERATION_PRESENCE_PENALTY = -2.0
+MAX_GENERATION_PRESENCE_PENALTY = 2.0
 
 
 class ConversationGenerationNotFoundError(RuntimeError):
@@ -81,6 +83,7 @@ class ConversationGenerationService:
         repeat_penalty: float | None = None,
         repeat_last_n: int | None = None,
         typical_p: float | None = None,
+        presence_penalty: float | None = None,
     ) -> Message:
         if isinstance(max_output_tokens, bool) or not isinstance(
             max_output_tokens,
@@ -206,6 +209,27 @@ class ConversationGenerationService:
                     "typical_p must be finite and between 0.0 and "
                     f"{MAX_GENERATION_TYPICAL_P}"
                 )
+        if presence_penalty is not None:
+            if isinstance(presence_penalty, bool) or not isinstance(
+                presence_penalty,
+                (int, float),
+            ):
+                raise TypeError("presence_penalty must be numeric")
+            try:
+                is_finite_presence_penalty = math.isfinite(presence_penalty)
+            except OverflowError:
+                is_finite_presence_penalty = False
+            if (
+                not is_finite_presence_penalty
+                or not MIN_GENERATION_PRESENCE_PENALTY
+                <= presence_penalty
+                <= MAX_GENERATION_PRESENCE_PENALTY
+            ):
+                raise ValueError(
+                    "presence_penalty must be finite and between "
+                    f"{MIN_GENERATION_PRESENCE_PENALTY} and "
+                    f"{MAX_GENERATION_PRESENCE_PENALTY}"
+                )
 
         conversation = await ConversationService(self.session).get_for_owner(
             owner_id,
@@ -324,6 +348,7 @@ class ConversationGenerationService:
             repeat_penalty=repeat_penalty,
             repeat_last_n=repeat_last_n,
             typical_p=typical_p,
+            presence_penalty=presence_penalty,
         )
         message = await MessageService(self.session).append_for_owner(
             owner_id,

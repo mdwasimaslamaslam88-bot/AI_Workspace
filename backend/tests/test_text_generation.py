@@ -73,6 +73,7 @@ async def test_router_dispatches_by_runtime_not_parameter_class(parameter_class)
         repeat_penalty=None,
         repeat_last_n=None,
         typical_p=None,
+        presence_penalty=None,
     )
 
 
@@ -176,6 +177,7 @@ async def test_router_forwards_exact_valid_temperature(temperature):
         repeat_penalty=None,
         repeat_last_n=None,
         typical_p=None,
+        presence_penalty=None,
     )
 
 
@@ -212,6 +214,7 @@ async def test_router_forwards_exact_valid_seed(seed):
         repeat_penalty=None,
         repeat_last_n=None,
         typical_p=None,
+        presence_penalty=None,
     )
 
 
@@ -248,6 +251,7 @@ async def test_router_forwards_exact_valid_top_p(top_p):
         repeat_penalty=None,
         repeat_last_n=None,
         typical_p=None,
+        presence_penalty=None,
     )
 
 
@@ -284,6 +288,7 @@ async def test_router_forwards_exact_valid_top_k(top_k):
         repeat_penalty=None,
         repeat_last_n=None,
         typical_p=None,
+        presence_penalty=None,
     )
 
 
@@ -320,6 +325,7 @@ async def test_router_forwards_exact_valid_min_p(min_p):
         repeat_penalty=None,
         repeat_last_n=None,
         typical_p=None,
+        presence_penalty=None,
     )
 
 
@@ -356,6 +362,7 @@ async def test_router_forwards_exact_valid_repeat_penalty(repeat_penalty):
         repeat_penalty=repeat_penalty,
         repeat_last_n=None,
         typical_p=None,
+        presence_penalty=None,
     )
 
 
@@ -392,6 +399,7 @@ async def test_router_forwards_exact_valid_repeat_last_n(repeat_last_n):
         repeat_penalty=None,
         repeat_last_n=repeat_last_n,
         typical_p=None,
+        presence_penalty=None,
     )
 
 
@@ -428,6 +436,47 @@ async def test_router_forwards_exact_valid_typical_p(typical_p):
         repeat_penalty=None,
         repeat_last_n=None,
         typical_p=typical_p,
+        presence_penalty=None,
+    )
+
+
+@pytest.mark.parametrize(
+    "presence_penalty",
+    [-2, -1, 0, 0.5, 1, 1.5, 2.0],
+)
+@pytest.mark.asyncio
+async def test_router_forwards_exact_valid_presence_penalty(presence_penalty):
+    generated = TextGenerationResult(content="answer")
+    generate_text = AsyncMock(return_value=generated)
+    runtime = Mock(runtime_id="local-runtime", generate_text=generate_text)
+    messages = (
+        TextGenerationMessage(
+            role=TextGenerationRole.USER,
+            content="prompt",
+        ),
+    )
+
+    result = await TextGenerationRouter((runtime,)).generate(
+        _resolved_model(),
+        messages,
+        max_output_tokens=1024,
+        presence_penalty=presence_penalty,
+    )
+
+    assert result is generated
+    generate_text.assert_awaited_once_with(
+        "/private/runtime/model:tag",
+        messages,
+        max_output_tokens=1024,
+        temperature=None,
+        seed=None,
+        top_p=None,
+        top_k=None,
+        min_p=None,
+        repeat_penalty=None,
+        repeat_last_n=None,
+        typical_p=None,
+        presence_penalty=presence_penalty,
     )
 
 
@@ -629,6 +678,47 @@ async def test_router_rejects_invalid_typical_p_before_runtime(typical_p):
             ),
             max_output_tokens=1024,
             typical_p=typical_p,
+        )
+
+    runtime.generate_text.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    "presence_penalty",
+    [
+        True,
+        False,
+        "1.5",
+        [],
+        {},
+        float("nan"),
+        float("inf"),
+        float("-inf"),
+        -2.01,
+        2.01,
+        10**1000,
+    ],
+)
+@pytest.mark.asyncio
+async def test_router_rejects_invalid_presence_penalty_before_runtime(
+    presence_penalty,
+):
+    runtime = Mock(
+        runtime_id="local-runtime",
+        generate_text=AsyncMock(),
+    )
+
+    with pytest.raises((TypeError, ValueError)):
+        await TextGenerationRouter((runtime,)).generate(
+            _resolved_model(),
+            (
+                TextGenerationMessage(
+                    role=TextGenerationRole.USER,
+                    content="prompt",
+                ),
+            ),
+            max_output_tokens=1024,
+            presence_penalty=presence_penalty,
         )
 
     runtime.generate_text.assert_not_awaited()
