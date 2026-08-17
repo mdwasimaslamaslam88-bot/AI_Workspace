@@ -75,6 +75,7 @@ async def test_router_dispatches_by_runtime_not_parameter_class(parameter_class)
         typical_p=None,
         presence_penalty=None,
         frequency_penalty=None,
+        stop_sequences=None,
     )
 
 
@@ -180,6 +181,7 @@ async def test_router_forwards_exact_valid_temperature(temperature):
         typical_p=None,
         presence_penalty=None,
         frequency_penalty=None,
+        stop_sequences=None,
     )
 
 
@@ -218,6 +220,7 @@ async def test_router_forwards_exact_valid_seed(seed):
         typical_p=None,
         presence_penalty=None,
         frequency_penalty=None,
+        stop_sequences=None,
     )
 
 
@@ -256,6 +259,7 @@ async def test_router_forwards_exact_valid_top_p(top_p):
         typical_p=None,
         presence_penalty=None,
         frequency_penalty=None,
+        stop_sequences=None,
     )
 
 
@@ -294,6 +298,7 @@ async def test_router_forwards_exact_valid_top_k(top_k):
         typical_p=None,
         presence_penalty=None,
         frequency_penalty=None,
+        stop_sequences=None,
     )
 
 
@@ -332,6 +337,7 @@ async def test_router_forwards_exact_valid_min_p(min_p):
         typical_p=None,
         presence_penalty=None,
         frequency_penalty=None,
+        stop_sequences=None,
     )
 
 
@@ -370,6 +376,7 @@ async def test_router_forwards_exact_valid_repeat_penalty(repeat_penalty):
         typical_p=None,
         presence_penalty=None,
         frequency_penalty=None,
+        stop_sequences=None,
     )
 
 
@@ -408,6 +415,7 @@ async def test_router_forwards_exact_valid_repeat_last_n(repeat_last_n):
         typical_p=None,
         presence_penalty=None,
         frequency_penalty=None,
+        stop_sequences=None,
     )
 
 
@@ -446,6 +454,7 @@ async def test_router_forwards_exact_valid_typical_p(typical_p):
         typical_p=typical_p,
         presence_penalty=None,
         frequency_penalty=None,
+        stop_sequences=None,
     )
 
 
@@ -487,6 +496,7 @@ async def test_router_forwards_exact_valid_presence_penalty(presence_penalty):
         typical_p=None,
         presence_penalty=presence_penalty,
         frequency_penalty=None,
+        stop_sequences=None,
     )
 
 
@@ -528,6 +538,54 @@ async def test_router_forwards_exact_valid_frequency_penalty(frequency_penalty):
         typical_p=None,
         presence_penalty=None,
         frequency_penalty=frequency_penalty,
+        stop_sequences=None,
+    )
+
+
+@pytest.mark.parametrize(
+    "stop_sequences",
+    [
+        ["END"],
+        ["\n", "\t", "\n", "\u0000"],
+        ["界" * 128],
+    ],
+)
+@pytest.mark.asyncio
+async def test_router_forwards_exact_valid_stop_sequences(stop_sequences):
+    generated = TextGenerationResult(content="answer")
+    generate_text = AsyncMock(return_value=generated)
+    runtime = Mock(runtime_id="local-runtime", generate_text=generate_text)
+    messages = (
+        TextGenerationMessage(
+            role=TextGenerationRole.USER,
+            content="prompt",
+        ),
+    )
+
+    result = await TextGenerationRouter((runtime,)).generate(
+        _resolved_model(),
+        messages,
+        max_output_tokens=1024,
+        stop_sequences=stop_sequences,
+    )
+
+    assert result is generated
+    assert generate_text.await_args.kwargs["stop_sequences"] is stop_sequences
+    generate_text.assert_awaited_once_with(
+        "/private/runtime/model:tag",
+        messages,
+        max_output_tokens=1024,
+        temperature=None,
+        seed=None,
+        top_p=None,
+        top_k=None,
+        min_p=None,
+        repeat_penalty=None,
+        repeat_last_n=None,
+        typical_p=None,
+        presence_penalty=None,
+        frequency_penalty=None,
+        stop_sequences=stop_sequences,
     )
 
 
@@ -811,6 +869,52 @@ async def test_router_rejects_invalid_frequency_penalty_before_runtime(
             ),
             max_output_tokens=1024,
             frequency_penalty=frequency_penalty,
+        )
+
+    runtime.generate_text.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    "stop_sequences",
+    [
+        "END",
+        True,
+        1,
+        1.0,
+        {},
+        (),
+        [],
+        ["a", "b", "c", "d", "e"],
+        [None],
+        [True],
+        [1],
+        [1.0],
+        [[]],
+        [{}],
+        [""],
+        ["x" * 129],
+    ],
+)
+@pytest.mark.asyncio
+async def test_router_rejects_invalid_stop_sequences_before_runtime(
+    stop_sequences,
+):
+    runtime = Mock(
+        runtime_id="local-runtime",
+        generate_text=AsyncMock(),
+    )
+
+    with pytest.raises((TypeError, ValueError)):
+        await TextGenerationRouter((runtime,)).generate(
+            _resolved_model(),
+            (
+                TextGenerationMessage(
+                    role=TextGenerationRole.USER,
+                    content="prompt",
+                ),
+            ),
+            max_output_tokens=1024,
+            stop_sequences=stop_sequences,
         )
 
     runtime.generate_text.assert_not_awaited()

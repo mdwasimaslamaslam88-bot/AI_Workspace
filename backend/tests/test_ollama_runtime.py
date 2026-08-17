@@ -316,6 +316,53 @@ async def test_ollama_generation_rejects_invalid_frequency_penalty_before_http(
 
 
 @pytest.mark.parametrize(
+    "stop_sequences",
+    [
+        "END",
+        True,
+        1,
+        1.0,
+        {},
+        (),
+        [],
+        ["a", "b", "c", "d", "e"],
+        [None],
+        [True],
+        [1],
+        [1.0],
+        [[]],
+        [{}],
+        [""],
+        ["x" * 129],
+    ],
+)
+@pytest.mark.asyncio
+async def test_ollama_generation_rejects_invalid_stop_sequences_before_http(
+    stop_sequences,
+):
+    client = Mock(post=AsyncMock())
+
+    with pytest.raises((TypeError, ValueError)):
+        await OllamaTextGenerationRuntime(
+            client,
+            timeout_seconds=37,
+            local_model_allowlist=LOCAL_MODEL_ALLOWLIST,
+        ).generate_text(
+            LOCAL_MODEL_REFERENCE,
+            (
+                TextGenerationMessage(
+                    role=TextGenerationRole.USER,
+                    content="prompt",
+                ),
+            ),
+            max_output_tokens=128,
+            stop_sequences=stop_sequences,
+        )
+
+    client.post.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
     "payload",
     [None, {}, {"models": None}, {"models": [None]}, {"models": [{}]}],
 )
@@ -999,6 +1046,70 @@ async def test_ollama_generation_forwards_exact_valid_frequency_penalty(
     }
 
 
+@pytest.mark.parametrize(
+    "stop_sequences",
+    [
+        ["END"],
+        ["\n", "\t", "\n", "\u0000"],
+        ["界" * 128],
+    ],
+)
+@pytest.mark.asyncio
+async def test_ollama_generation_forwards_exact_valid_stop_sequences(
+    stop_sequences,
+):
+    requests: list[httpx.Request] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(
+            200,
+            json={
+                "done": True,
+                "message": {
+                    "role": "assistant",
+                    "content": "answer",
+                },
+            },
+        )
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        base_url="http://127.0.0.1:11434",
+        trust_env=False,
+        follow_redirects=False,
+    ) as client:
+        result = await OllamaTextGenerationRuntime(
+            client,
+            timeout_seconds=37,
+            local_model_allowlist=LOCAL_MODEL_ALLOWLIST,
+        ).generate_text(
+            LOCAL_MODEL_REFERENCE,
+            (
+                TextGenerationMessage(
+                    role=TextGenerationRole.USER,
+                    content="prompt",
+                ),
+            ),
+            max_output_tokens=128,
+            stop_sequences=stop_sequences,
+        )
+
+    assert result.content == "answer"
+    assert len(requests) == 1
+    import json
+
+    assert json.loads(requests[0].content) == {
+        "model": LOCAL_MODEL_REFERENCE,
+        "messages": [{"role": "user", "content": "prompt"}],
+        "stream": False,
+        "options": {
+            "num_predict": 128,
+            "stop": stop_sequences,
+        },
+    }
+
+
 @pytest.mark.asyncio
 async def test_ollama_generation_combines_all_bounded_options():
     requests: list[httpx.Request] = []
@@ -1045,6 +1156,7 @@ async def test_ollama_generation_combines_all_bounded_options():
             typical_p=0.7,
             presence_penalty=1.5,
             frequency_penalty=0.75,
+            stop_sequences=["\n", "END", "\n"],
         )
 
     assert result.content == "answer"
@@ -1067,6 +1179,7 @@ async def test_ollama_generation_combines_all_bounded_options():
             "typical_p": 0.7,
             "presence_penalty": 1.5,
             "frequency_penalty": 0.75,
+            "stop": ["\n", "END", "\n"],
         },
     }
 

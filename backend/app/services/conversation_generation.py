@@ -32,6 +32,8 @@ MIN_GENERATION_PRESENCE_PENALTY = -2.0
 MAX_GENERATION_PRESENCE_PENALTY = 2.0
 MIN_GENERATION_FREQUENCY_PENALTY = -2.0
 MAX_GENERATION_FREQUENCY_PENALTY = 2.0
+MAX_GENERATION_STOP_SEQUENCES = 4
+MAX_GENERATION_STOP_SEQUENCE_CHARACTERS = 128
 
 
 class ConversationGenerationNotFoundError(RuntimeError):
@@ -87,6 +89,7 @@ class ConversationGenerationService:
         typical_p: float | None = None,
         presence_penalty: float | None = None,
         frequency_penalty: float | None = None,
+        stop_sequences: list[str] | None = None,
     ) -> Message:
         if isinstance(max_output_tokens, bool) or not isinstance(
             max_output_tokens,
@@ -254,6 +257,22 @@ class ConversationGenerationService:
                     f"{MIN_GENERATION_FREQUENCY_PENALTY} and "
                     f"{MAX_GENERATION_FREQUENCY_PENALTY}"
                 )
+        if stop_sequences is not None:
+            if not isinstance(stop_sequences, list):
+                raise TypeError("stop_sequences must be a list")
+            if not 1 <= len(stop_sequences) <= MAX_GENERATION_STOP_SEQUENCES:
+                raise ValueError(
+                    "stop_sequences must contain between 1 and "
+                    f"{MAX_GENERATION_STOP_SEQUENCES} entries"
+                )
+            for sequence in stop_sequences:
+                if not isinstance(sequence, str):
+                    raise TypeError("stop_sequences entries must be strings")
+                if not 1 <= len(sequence) <= MAX_GENERATION_STOP_SEQUENCE_CHARACTERS:
+                    raise ValueError(
+                        "stop_sequences entries must contain between 1 and "
+                        f"{MAX_GENERATION_STOP_SEQUENCE_CHARACTERS} characters"
+                    )
 
         conversation = await ConversationService(self.session).get_for_owner(
             owner_id,
@@ -374,6 +393,7 @@ class ConversationGenerationService:
             typical_p=typical_p,
             presence_penalty=presence_penalty,
             frequency_penalty=frequency_penalty,
+            stop_sequences=stop_sequences,
         )
         message = await MessageService(self.session).append_for_owner(
             owner_id,

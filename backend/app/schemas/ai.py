@@ -1,4 +1,5 @@
 import math
+from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pydantic_core import PydanticCustomError
@@ -104,6 +105,12 @@ class ConversationTextGenerationRequest(BaseModel):
         le=2.0,
         allow_inf_nan=False,
     )
+    stop_sequences: list[
+        Annotated[
+            str,
+            Field(strict=True, min_length=1, max_length=128),
+        ]
+    ] | None = Field(default=None, min_length=1, max_length=4)
 
     @field_validator("temperature", mode="before")
     @classmethod
@@ -268,6 +275,16 @@ class ConversationTextGenerationRequest(BaseModel):
             if not is_finite_frequency_penalty:
                 # Keep the existing public validation error JSON-serializable.
                 return "non-finite frequency_penalty"
+        return value
+
+    @field_validator("stop_sequences", mode="before")
+    @classmethod
+    def validate_stop_sequences_input(cls, value):
+        if value is None:
+            raise PydanticCustomError(
+                "stop_sequences_null",
+                "stop_sequences must not be null",
+            )
         return value
 
 

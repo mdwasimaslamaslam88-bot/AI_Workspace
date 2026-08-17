@@ -27,6 +27,8 @@ from app.services.conversation_generation import (
     MAX_GENERATION_TYPICAL_P,
     MAX_GENERATION_PRESENCE_PENALTY,
     MAX_GENERATION_FREQUENCY_PENALTY,
+    MAX_GENERATION_STOP_SEQUENCE_CHARACTERS,
+    MAX_GENERATION_STOP_SEQUENCES,
     MAX_GENERATION_SEED,
     MAX_GENERATION_TEMPERATURE,
     MAX_GENERATION_TOP_K,
@@ -224,6 +226,7 @@ async def test_generation_releases_read_transaction_before_local_inference(
         typical_p=None,
         presence_penalty=None,
         frequency_penalty=None,
+        stop_sequences=None,
     )
     dependencies["append"].assert_awaited_once_with(
         owner_id,
@@ -287,6 +290,7 @@ async def test_generation_forwards_exact_valid_output_bound(
         typical_p=None,
         presence_penalty=None,
         frequency_penalty=None,
+        stop_sequences=None,
     )
 
 
@@ -389,6 +393,7 @@ async def test_generation_forwards_exact_valid_temperature(
         typical_p=None,
         presence_penalty=None,
         frequency_penalty=None,
+        stop_sequences=None,
     )
 
 
@@ -443,6 +448,7 @@ async def test_generation_forwards_exact_valid_seed(
         typical_p=None,
         presence_penalty=None,
         frequency_penalty=None,
+        stop_sequences=None,
     )
 
 
@@ -497,6 +503,7 @@ async def test_generation_forwards_exact_valid_top_p(
         typical_p=None,
         presence_penalty=None,
         frequency_penalty=None,
+        stop_sequences=None,
     )
 
 
@@ -551,6 +558,7 @@ async def test_generation_forwards_exact_valid_top_k(
         typical_p=None,
         presence_penalty=None,
         frequency_penalty=None,
+        stop_sequences=None,
     )
 
 
@@ -605,6 +613,7 @@ async def test_generation_forwards_exact_valid_min_p(
         typical_p=None,
         presence_penalty=None,
         frequency_penalty=None,
+        stop_sequences=None,
     )
 
 
@@ -669,6 +678,7 @@ async def test_generation_forwards_exact_valid_repeat_penalty(
         typical_p=None,
         presence_penalty=None,
         frequency_penalty=None,
+        stop_sequences=None,
     )
 
 
@@ -726,6 +736,7 @@ async def test_generation_forwards_exact_valid_repeat_last_n(
         typical_p=None,
         presence_penalty=None,
         frequency_penalty=None,
+        stop_sequences=None,
     )
 
 
@@ -783,6 +794,7 @@ async def test_generation_forwards_exact_valid_typical_p(
         typical_p=typical_p,
         presence_penalty=None,
         frequency_penalty=None,
+        stop_sequences=None,
     )
 
 
@@ -848,6 +860,7 @@ async def test_generation_forwards_exact_valid_presence_penalty(
         typical_p=None,
         presence_penalty=presence_penalty,
         frequency_penalty=None,
+        stop_sequences=None,
     )
 
 
@@ -913,6 +926,73 @@ async def test_generation_forwards_exact_valid_frequency_penalty(
         typical_p=None,
         presence_penalty=None,
         frequency_penalty=frequency_penalty,
+        stop_sequences=None,
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "stop_sequences",
+    [
+        ["END"],
+        ["\n", "\t", "\n", "\u0000"],
+        ["界" * MAX_GENERATION_STOP_SEQUENCE_CHARACTERS],
+    ],
+)
+async def test_generation_forwards_exact_valid_stop_sequences(
+    monkeypatch,
+    stop_sequences,
+):
+    owner_id = uuid4()
+    conversation_id = uuid4()
+    session = AsyncMock(spec=AsyncSession)
+    messages = (
+        _message(conversation_id, MessageRole.USER, "question", 1),
+    )
+    appended = _message(
+        conversation_id,
+        MessageRole.ASSISTANT,
+        "answer",
+        2,
+    )
+    dependencies = _dependencies(
+        monkeypatch,
+        conversation=_conversation(owner_id, conversation_id, 2),
+        context=messages,
+        appended=appended,
+    )
+
+    result = await ConversationGenerationService(
+        session,
+        dependencies["catalog"],
+        dependencies["router"],
+    ).generate_for_owner(
+        owner_id,
+        conversation_id,
+        MODEL_ID,
+        stop_sequences=stop_sequences,
+    )
+
+    assert result is appended
+    assert (
+        dependencies["router"].generate.await_args.kwargs["stop_sequences"]
+        is stop_sequences
+    )
+    dependencies["router"].generate.assert_awaited_once_with(
+        _resolved(),
+        dependencies["router"].generate.await_args.args[1],
+        max_output_tokens=MAX_GENERATION_OUTPUT_TOKENS,
+        temperature=None,
+        seed=None,
+        top_p=None,
+        top_k=None,
+        min_p=None,
+        repeat_penalty=None,
+        repeat_last_n=None,
+        typical_p=None,
+        presence_penalty=None,
+        frequency_penalty=None,
+        stop_sequences=stop_sequences,
     )
 
 
@@ -1506,6 +1586,71 @@ async def test_generation_rejects_invalid_frequency_penalty_before_side_effects(
             MODEL_ID,
             user_message="must not persist",
             frequency_penalty=frequency_penalty,
+        )
+
+    dependencies["conversation_factory"].assert_not_called()
+    dependencies["get"].assert_not_awaited()
+    dependencies["message_factory"].assert_not_called()
+    dependencies["context"].assert_not_awaited()
+    dependencies["append"].assert_not_awaited()
+    dependencies["catalog"].resolve_model.assert_not_awaited()
+    dependencies["router"].generate.assert_not_awaited()
+    session.commit.assert_not_awaited()
+    session.rollback.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "stop_sequences",
+    [
+        "END",
+        True,
+        1,
+        1.0,
+        {},
+        (),
+        [],
+        ["a", "b", "c", "d", "e"],
+        [None],
+        [True],
+        [1],
+        [1.0],
+        [[]],
+        [{}],
+        [""],
+        ["x" * (MAX_GENERATION_STOP_SEQUENCE_CHARACTERS + 1)],
+    ],
+)
+async def test_generation_rejects_invalid_stop_sequences_before_side_effects(
+    monkeypatch,
+    stop_sequences,
+):
+    owner_id = uuid4()
+    conversation_id = uuid4()
+    session = AsyncMock(spec=AsyncSession)
+    dependencies = _dependencies(
+        monkeypatch,
+        conversation=_conversation(owner_id, conversation_id, 2),
+        context=(_message(conversation_id, MessageRole.USER, "question", 1),),
+        appended=_message(
+            conversation_id,
+            MessageRole.ASSISTANT,
+            "answer",
+            2,
+        ),
+    )
+
+    with pytest.raises((TypeError, ValueError)):
+        await ConversationGenerationService(
+            session,
+            dependencies["catalog"],
+            dependencies["router"],
+        ).generate_for_owner(
+            owner_id,
+            conversation_id,
+            MODEL_ID,
+            user_message="must not persist",
+            stop_sequences=stop_sequences,
         )
 
     dependencies["conversation_factory"].assert_not_called()

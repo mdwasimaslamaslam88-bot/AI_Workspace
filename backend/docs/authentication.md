@@ -135,13 +135,21 @@ discourage tokens proportionally to their prior frequency, negative values
 encourage reuse, and zero applies no frequency penalty. Explicit null,
 booleans, strings, arrays, objects, non-finite numbers, and out-of-range values
 are rejected. Omitting `frequency_penalty` adds no frequency-penalty override.
+An optional `stop_sequences` JSON array containing one through four strict
+strings is accepted. Each sequence must contain one through 128 Unicode
+characters. Exact content and order are preserved without trimming or
+normalization; non-empty whitespace and control text, including newline
+sequences, are valid, and duplicates remain unchanged. Explicit null, scalar
+values, objects, an empty array, more than four entries, non-string entries,
+empty strings, and strings longer than 128 characters are rejected. Omission is
+the only way to preserve model and runtime stop defaults.
 
 When `user_message` is supplied, the exact content is committed first as a
 server-assigned user Message before generation. Omission or null preserves
 generation-only behavior. User IDs, owner IDs, roles, sequences, raw runtime
-model references, client-supplied Message arrays, arbitrary generation options,
-Ollama's `-1` repetition-window sentinel, context controls, other sampling
-controls, and streaming flags are rejected.
+model references, client-supplied Message arrays, raw `stop`, arbitrary
+generation options, Ollama's `-1` repetition-window sentinel, context controls,
+other sampling controls, and streaming flags are rejected.
 
 Missing and foreign-owned Conversations return the same generic HTTP 404.
 Authentication completes before Conversation lookup, model discovery, or

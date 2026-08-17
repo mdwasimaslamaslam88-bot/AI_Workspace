@@ -65,6 +65,7 @@ class TextGenerationRuntime(Protocol):
         typical_p: float | None = None,
         presence_penalty: float | None = None,
         frequency_penalty: float | None = None,
+        stop_sequences: list[str] | None = None,
     ) -> TextGenerationResult: ...
 
 
@@ -97,6 +98,7 @@ class TextGenerationRouter:
         typical_p: float | None = None,
         presence_penalty: float | None = None,
         frequency_penalty: float | None = None,
+        stop_sequences: list[str] | None = None,
     ) -> TextGenerationResult:
         if not isinstance(model, ResolvedModel):
             raise TypeError("model must be a ResolvedModel")
@@ -235,6 +237,21 @@ class TextGenerationRouter:
                 raise ValueError(
                     "frequency_penalty must be finite and between -2.0 and 2.0"
                 )
+        if stop_sequences is not None:
+            if not isinstance(stop_sequences, list):
+                raise TypeError("stop_sequences must be a list")
+            if not 1 <= len(stop_sequences) <= 4:
+                raise ValueError(
+                    "stop_sequences must contain between 1 and 4 entries"
+                )
+            for sequence in stop_sequences:
+                if not isinstance(sequence, str):
+                    raise TypeError("stop_sequences entries must be strings")
+                if not 1 <= len(sequence) <= 128:
+                    raise ValueError(
+                        "stop_sequences entries must contain between 1 and "
+                        "128 characters"
+                    )
 
         runtime = self._runtimes.get(model.descriptor.runtime_id)
         if runtime is None:
@@ -255,4 +272,5 @@ class TextGenerationRouter:
             typical_p=typical_p,
             presence_penalty=presence_penalty,
             frequency_penalty=frequency_penalty,
+            stop_sequences=stop_sequences,
         )

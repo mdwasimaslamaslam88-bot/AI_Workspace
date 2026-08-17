@@ -65,7 +65,7 @@ Conversation:
     Authorization: Bearer <access_token>
     Content-Type: application/json
 
-    {"model_id":"ollama-local:<opaque-id>","user_message":"Optional follow-up","max_output_tokens":128,"temperature":0.5,"seed":42,"top_p":0.9,"top_k":40,"min_p":0.05,"repeat_penalty":1.1,"repeat_last_n":64,"typical_p":0.7,"presence_penalty":1.5,"frequency_penalty":0.75}
+    {"model_id":"ollama-local:<opaque-id>","user_message":"Optional follow-up","max_output_tokens":128,"temperature":0.5,"seed":42,"top_p":0.9,"top_k":40,"min_p":0.05,"repeat_penalty":1.1,"repeat_last_n":64,"typical_p":0.7,"presence_penalty":1.5,"frequency_penalty":0.75,"stop_sequences":["\n","END","\n"]}
 
 The public model_id must come from the model catalog. An optional nonblank
 `user_message` is committed first as an owner-scoped, server-assigned user
@@ -76,8 +76,8 @@ omission retains the 1,024-token default. An optional finite numeric
 range are accepted, while explicit null, booleans, strings, non-finite values,
 and out-of-range values are rejected. Omitting `temperature` leaves Ollama's
 current temperature behavior unchanged. Raw runtime tags, runtime URLs, owner
-IDs, roles, sequences, Message arrays, arbitrary generation options, other
-sampling controls, and streaming flags are not accepted.
+IDs, roles, sequences, Message arrays, raw `stop`, arbitrary generation
+options, other sampling controls, and streaming flags are not accepted.
 
 An optional strict integer `seed` from 0 through 2,147,483,647 is accepted.
 Explicit null, booleans, strings, floats, arrays, objects, non-finite values,
@@ -144,6 +144,17 @@ values above 2.0 are rejected. Omitting `frequency_penalty` adds no
 frequency-penalty option to the Ollama request. Supplied values are forwarded
 only as the bounded Ollama `options.frequency_penalty` control.
 
+An optional `stop_sequences` JSON array containing one through four strict
+strings is accepted. Each string must contain one through 128 Unicode
+characters. Exact content and order are preserved without trimming,
+normalization, or duplicate removal. This includes non-empty whitespace and
+control text representable as JSON strings, such as `"\n"`. Explicit null,
+scalar values, objects, an empty array, more than four entries, non-string
+entries, empty strings, and strings longer than 128 characters are rejected.
+Omission is the only way to preserve model or runtime stop defaults and adds no
+`stop` key to the Ollama request. Supplied sequences are forwarded unchanged
+only as Ollama `options.stop`.
+
 Conversation creation may persist one optional client-authored `system_prompt`
 as a server-assigned system Message before the required initial user Message.
 Both Messages are owner-scoped and committed atomically with the Conversation.
@@ -185,8 +196,10 @@ add a locally typical sampling option to the Ollama request. A supplied
 `presence_penalty` is forwarded unchanged through the same boundary; omission
 does not add a presence-penalty option to the Ollama request. A supplied
 `frequency_penalty` is forwarded unchanged through the same boundary; omission
-does not add a frequency-penalty option to the Ollama request. Model parameter
-class is not used for routing or policy.
+does not add a frequency-penalty option to the Ollama request. Supplied
+`stop_sequences` are forwarded unchanged through the same boundary and only as
+Ollama `options.stop`; omission adds no stop option. Model parameter class is
+not used for routing or policy.
 
 The successful HTTP 201 response contains the selected public model_id and the
 newly persisted assistant Message. Ollama is invoked through the runtime-neutral
@@ -227,5 +240,6 @@ identifiers, persistence details, and internal exception text are not returned.
 This slice does not add streaming, client-controlled generation options beyond
 the bounded output-token, temperature, seed, top-p, top-k, min-p,
 repeat-penalty, repetition-window, locally typical sampling, presence-penalty,
-and frequency-penalty fields, tools, model preferences, explicit model lifecycle
-controls, image/audio/video generation, or any cloud AI dependency.
+frequency-penalty, and bounded stop-sequence fields, tools, model preferences,
+explicit model lifecycle controls, image/audio/video generation, or any cloud
+AI dependency.

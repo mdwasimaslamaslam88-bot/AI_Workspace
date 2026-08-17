@@ -105,6 +105,7 @@ class OllamaTextGenerationRuntime:
         typical_p: float | None = None,
         presence_penalty: float | None = None,
         frequency_penalty: float | None = None,
+        stop_sequences: list[str] | None = None,
     ) -> TextGenerationResult:
         if temperature is not None:
             if isinstance(temperature, bool) or not isinstance(
@@ -233,12 +234,27 @@ class OllamaTextGenerationRuntime:
                 raise ValueError(
                     "frequency_penalty must be finite and between -2.0 and 2.0"
                 )
+        if stop_sequences is not None:
+            if not isinstance(stop_sequences, list):
+                raise TypeError("stop_sequences must be a list")
+            if not 1 <= len(stop_sequences) <= 4:
+                raise ValueError(
+                    "stop_sequences must contain between 1 and 4 entries"
+                )
+            for sequence in stop_sequences:
+                if not isinstance(sequence, str):
+                    raise TypeError("stop_sequences entries must be strings")
+                if not 1 <= len(sequence) <= 128:
+                    raise ValueError(
+                        "stop_sequences entries must contain between 1 and "
+                        "128 characters"
+                    )
 
         if runtime_reference not in self.local_model_allowlist:
             raise TextGenerationRuntimeUnsupportedError(
                 "model is not approved for local text generation"
             )
-        options: dict[str, int | float] = {
+        options: dict[str, int | float | list[str]] = {
             "num_predict": max_output_tokens,
         }
         if temperature is not None:
@@ -261,6 +277,8 @@ class OllamaTextGenerationRuntime:
             options["presence_penalty"] = presence_penalty
         if frequency_penalty is not None:
             options["frequency_penalty"] = frequency_penalty
+        if stop_sequences is not None:
+            options["stop"] = stop_sequences
         try:
             response = await self.client.post(
                 "/api/chat",

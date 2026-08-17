@@ -2091,6 +2091,7 @@ def test_authenticated_generation_returns_exact_safe_created_message(
         typical_p=None,
         presence_penalty=None,
         frequency_penalty=None,
+        stop_sequences=None,
     )
     api["session"].commit.assert_not_awaited()
     api["session"].rollback.assert_not_awaited()
@@ -2420,6 +2421,31 @@ def test_authenticated_generation_returns_exact_safe_created_message(
                 '"frequency_penalty":-Infinity}'
             ).encode(),
         ),
+        ({"model_id": GENERATION_MODEL_ID, "stop_sequences": None}, None),
+        ({"model_id": GENERATION_MODEL_ID, "stop_sequences": "END"}, None),
+        ({"model_id": GENERATION_MODEL_ID, "stop_sequences": True}, None),
+        ({"model_id": GENERATION_MODEL_ID, "stop_sequences": 1}, None),
+        ({"model_id": GENERATION_MODEL_ID, "stop_sequences": {}}, None),
+        ({"model_id": GENERATION_MODEL_ID, "stop_sequences": []}, None),
+        (
+            {
+                "model_id": GENERATION_MODEL_ID,
+                "stop_sequences": ["a", "b", "c", "d", "e"],
+            },
+            None,
+        ),
+        ({"model_id": GENERATION_MODEL_ID, "stop_sequences": [None]}, None),
+        ({"model_id": GENERATION_MODEL_ID, "stop_sequences": [True]}, None),
+        ({"model_id": GENERATION_MODEL_ID, "stop_sequences": [1]}, None),
+        ({"model_id": GENERATION_MODEL_ID, "stop_sequences": [1.0]}, None),
+        ({"model_id": GENERATION_MODEL_ID, "stop_sequences": [[]]}, None),
+        ({"model_id": GENERATION_MODEL_ID, "stop_sequences": [{}]}, None),
+        ({"model_id": GENERATION_MODEL_ID, "stop_sequences": [""]}, None),
+        (
+            {"model_id": GENERATION_MODEL_ID, "stop_sequences": ["x" * 129]},
+            None,
+        ),
+        ({"model_id": GENERATION_MODEL_ID, "stop": ["END"]}, None),
         ({"model_id": GENERATION_MODEL_ID, "owner_id": str(uuid4())}, None),
         ({"model_id": GENERATION_MODEL_ID, "user_id": str(uuid4())}, None),
         ({"model_id": GENERATION_MODEL_ID, "conversation_id": str(uuid4())}, None),
@@ -2490,6 +2516,7 @@ def test_generation_accepts_exact_bounded_output_tokens_without_response_change(
         typical_p=None,
         presence_penalty=None,
         frequency_penalty=None,
+        stop_sequences=None,
     )
 
 
@@ -2534,6 +2561,7 @@ def test_generation_accepts_exact_bounded_temperature_without_response_change(
         typical_p=None,
         presence_penalty=None,
         frequency_penalty=None,
+        stop_sequences=None,
     )
 
 
@@ -2568,6 +2596,7 @@ def test_generation_accepts_exact_bounded_seed_without_response_change(
         typical_p=None,
         presence_penalty=None,
         frequency_penalty=None,
+        stop_sequences=None,
     )
 
 
@@ -2612,6 +2641,7 @@ def test_generation_accepts_exact_bounded_top_p_without_response_change(
         typical_p=None,
         presence_penalty=None,
         frequency_penalty=None,
+        stop_sequences=None,
     )
 
 
@@ -2646,6 +2676,7 @@ def test_generation_accepts_exact_bounded_top_k_without_response_change(
         typical_p=None,
         presence_penalty=None,
         frequency_penalty=None,
+        stop_sequences=None,
     )
 
 
@@ -2690,6 +2721,7 @@ def test_generation_accepts_exact_bounded_min_p_without_response_change(
         typical_p=None,
         presence_penalty=None,
         frequency_penalty=None,
+        stop_sequences=None,
     )
 
 
@@ -2739,6 +2771,7 @@ def test_generation_accepts_exact_bounded_repeat_penalty_without_response_change
         typical_p=None,
         presence_penalty=None,
         frequency_penalty=None,
+        stop_sequences=None,
     )
 
 
@@ -2776,6 +2809,7 @@ def test_generation_accepts_exact_bounded_repeat_last_n_without_response_change(
         typical_p=None,
         presence_penalty=None,
         frequency_penalty=None,
+        stop_sequences=None,
     )
 
 
@@ -2820,6 +2854,7 @@ def test_generation_accepts_exact_bounded_typical_p_without_response_change(
         typical_p=expected_typical_p,
         presence_penalty=None,
         frequency_penalty=None,
+        stop_sequences=None,
     )
 
 
@@ -2869,6 +2904,7 @@ def test_generation_accepts_exact_bounded_presence_penalty_without_response_chan
         typical_p=None,
         presence_penalty=expected_presence_penalty,
         frequency_penalty=None,
+        stop_sequences=None,
     )
 
 
@@ -2918,6 +2954,52 @@ def test_generation_accepts_exact_bounded_frequency_penalty_without_response_cha
         typical_p=None,
         presence_penalty=None,
         frequency_penalty=expected_frequency_penalty,
+        stop_sequences=None,
+    )
+
+
+@pytest.mark.parametrize(
+    "stop_sequences",
+    [
+        ["END"],
+        ["\n", "\t", "\n", "\u0000"],
+        ["界" * 128],
+    ],
+)
+def test_generation_accepts_exact_bounded_stop_sequences_without_response_change(
+    conversation_generation_api,
+    stop_sequences,
+):
+    api = conversation_generation_api
+
+    response = api["client"].post(
+        f"/api/v1/conversations/{api['conversation_id']}/messages/generate",
+        json={
+            "model_id": GENERATION_MODEL_ID,
+            "stop_sequences": stop_sequences,
+        },
+    )
+
+    assert response.status_code == 201
+    assert set(response.json()) == {"model_id", "message"}
+    assert "stop_sequences" not in response.text
+    api["generate"].assert_awaited_once_with(
+        api["current_user"].id,
+        api["conversation_id"],
+        GENERATION_MODEL_ID,
+        user_message=None,
+        max_output_tokens=1024,
+        temperature=None,
+        seed=None,
+        top_p=None,
+        top_k=None,
+        min_p=None,
+        repeat_penalty=None,
+        repeat_last_n=None,
+        typical_p=None,
+        presence_penalty=None,
+        frequency_penalty=None,
+        stop_sequences=stop_sequences,
     )
 
 
@@ -2964,6 +3046,7 @@ def test_generation_accepts_exact_optional_user_message_without_response_change(
         typical_p=None,
         presence_penalty=None,
         frequency_penalty=None,
+        stop_sequences=None,
     )
 
 
@@ -2997,6 +3080,7 @@ def test_generation_explicit_null_user_message_preserves_existing_mode(
         typical_p=None,
         presence_penalty=None,
         frequency_penalty=None,
+        stop_sequences=None,
     )
 
 
