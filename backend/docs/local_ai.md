@@ -65,7 +65,7 @@ Conversation:
     Authorization: Bearer <access_token>
     Content-Type: application/json
 
-    {"model_id":"ollama-local:<opaque-id>","user_message":"Optional follow-up","max_output_tokens":128,"temperature":0.5,"seed":42,"top_p":0.9,"top_k":40,"min_p":0.05,"repeat_penalty":1.1}
+    {"model_id":"ollama-local:<opaque-id>","user_message":"Optional follow-up","max_output_tokens":128,"temperature":0.5,"seed":42,"top_p":0.9,"top_k":40,"min_p":0.05,"repeat_penalty":1.1,"repeat_last_n":64}
 
 The public model_id must come from the model catalog. An optional nonblank
 `user_message` is committed first as an owner-scoped, server-assigned user
@@ -111,6 +111,14 @@ rejected. Omitting `repeat_penalty` adds no repetition-penalty option to the
 Ollama request. Supplied values are forwarded only as the bounded Ollama
 `options.repeat_penalty` control.
 
+An optional strict integer `repeat_last_n` from 0 through 2,048 is accepted.
+Zero explicitly disables repetition lookback, while positive values select a
+bounded token-history window. Explicit null, booleans, strings, floats, arrays,
+objects, non-finite values, negative values including Ollama's `-1` sentinel,
+and values above 2,048 are rejected. Omitting `repeat_last_n` adds no
+repetition-window option to the Ollama request. Supplied values are forwarded
+only as the bounded Ollama `options.repeat_last_n` control.
+
 Conversation creation may persist one optional client-authored `system_prompt`
 as a server-assigned system Message before the required initial user Message.
 Both Messages are owner-scoped and committed atomically with the Conversation.
@@ -144,7 +152,9 @@ through the same boundary; omission does not add a top-k option to the Ollama
 request. A supplied `min_p` is forwarded unchanged through the same boundary;
 omission does not add a min-p option to the Ollama request. A supplied
 `repeat_penalty` is forwarded unchanged through the same boundary; omission
-does not add a repetition-penalty option to the Ollama request. Model parameter
+does not add a repetition-penalty option to the Ollama request. A supplied
+`repeat_last_n` is forwarded unchanged through the same boundary; omission does
+not add a repetition-window option to the Ollama request. Model parameter
 class is not used for routing or policy.
 
 The successful HTTP 201 response contains the selected public model_id and the
@@ -184,6 +194,7 @@ Error behavior is intentionally safe:
 Runtime references, runtime URLs, local paths, credentials, hardware
 identifiers, persistence details, and internal exception text are not returned.
 This slice does not add streaming, client-controlled generation options beyond
-the bounded output-token, temperature, seed, top-p, top-k, min-p, and
-repeat-penalty fields, tools, model preferences, explicit model lifecycle
-controls, image/audio/video generation, or any cloud AI dependency.
+the bounded output-token, temperature, seed, top-p, top-k, min-p,
+repeat-penalty, and repetition-window fields, tools, model preferences, explicit
+model lifecycle controls, image/audio/video generation, or any cloud AI
+dependency.

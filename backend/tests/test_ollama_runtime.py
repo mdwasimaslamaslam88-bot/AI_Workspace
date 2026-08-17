@@ -147,6 +147,49 @@ async def test_ollama_unsafe_metadata_is_not_promoted_to_public_fields():
 
 
 @pytest.mark.parametrize(
+    "repeat_last_n",
+    [
+        True,
+        False,
+        "64",
+        64.0,
+        [],
+        {},
+        float("nan"),
+        float("inf"),
+        float("-inf"),
+        -1,
+        -2,
+        2049,
+    ],
+)
+@pytest.mark.asyncio
+async def test_ollama_generation_rejects_invalid_repeat_last_n_before_http(
+    repeat_last_n,
+):
+    client = Mock(post=AsyncMock())
+
+    with pytest.raises((TypeError, ValueError)):
+        await OllamaTextGenerationRuntime(
+            client,
+            timeout_seconds=37,
+            local_model_allowlist=LOCAL_MODEL_ALLOWLIST,
+        ).generate_text(
+            LOCAL_MODEL_REFERENCE,
+            (
+                TextGenerationMessage(
+                    role=TextGenerationRole.USER,
+                    content="prompt",
+                ),
+            ),
+            max_output_tokens=128,
+            repeat_last_n=repeat_last_n,
+        )
+
+    client.post.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
     "payload",
     [None, {}, {"models": None}, {"models": [None]}, {"models": [{}]}],
 )
@@ -598,6 +641,63 @@ async def test_ollama_generation_forwards_exact_valid_repeat_penalty(
     }
 
 
+@pytest.mark.parametrize("repeat_last_n", [0, 1, 64, 2048])
+@pytest.mark.asyncio
+async def test_ollama_generation_forwards_exact_valid_repeat_last_n(
+    repeat_last_n,
+):
+    requests: list[httpx.Request] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(
+            200,
+            json={
+                "done": True,
+                "message": {
+                    "role": "assistant",
+                    "content": "answer",
+                },
+            },
+        )
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        base_url="http://127.0.0.1:11434",
+        trust_env=False,
+        follow_redirects=False,
+    ) as client:
+        result = await OllamaTextGenerationRuntime(
+            client,
+            timeout_seconds=37,
+            local_model_allowlist=LOCAL_MODEL_ALLOWLIST,
+        ).generate_text(
+            LOCAL_MODEL_REFERENCE,
+            (
+                TextGenerationMessage(
+                    role=TextGenerationRole.USER,
+                    content="prompt",
+                ),
+            ),
+            max_output_tokens=128,
+            repeat_last_n=repeat_last_n,
+        )
+
+    assert result.content == "answer"
+    assert len(requests) == 1
+    import json
+
+    assert json.loads(requests[0].content) == {
+        "model": LOCAL_MODEL_REFERENCE,
+        "messages": [{"role": "user", "content": "prompt"}],
+        "stream": False,
+        "options": {
+            "num_predict": 128,
+            "repeat_last_n": repeat_last_n,
+        },
+    }
+
+
 @pytest.mark.asyncio
 async def test_ollama_generation_combines_all_bounded_options():
     requests: list[httpx.Request] = []
@@ -640,6 +740,7 @@ async def test_ollama_generation_combines_all_bounded_options():
             top_k=40,
             min_p=0.05,
             repeat_penalty=1.1,
+            repeat_last_n=64,
         )
 
     assert result.content == "answer"
@@ -658,6 +759,7 @@ async def test_ollama_generation_combines_all_bounded_options():
             "top_k": 40,
             "min_p": 0.05,
             "repeat_penalty": 1.1,
+            "repeat_last_n": 64,
         },
     }
 

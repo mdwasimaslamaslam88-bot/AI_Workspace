@@ -2087,6 +2087,7 @@ def test_authenticated_generation_returns_exact_safe_created_message(
         top_k=None,
         min_p=None,
         repeat_penalty=None,
+        repeat_last_n=None,
     )
     api["session"].commit.assert_not_awaited()
     api["session"].rollback.assert_not_awaited()
@@ -2298,6 +2299,37 @@ def test_authenticated_generation_returns_exact_safe_created_message(
                 '"repeat_penalty":-Infinity}'
             ).encode(),
         ),
+        ({"model_id": GENERATION_MODEL_ID, "repeat_last_n": None}, None),
+        ({"model_id": GENERATION_MODEL_ID, "repeat_last_n": True}, None),
+        ({"model_id": GENERATION_MODEL_ID, "repeat_last_n": False}, None),
+        ({"model_id": GENERATION_MODEL_ID, "repeat_last_n": "64"}, None),
+        ({"model_id": GENERATION_MODEL_ID, "repeat_last_n": 64.0}, None),
+        ({"model_id": GENERATION_MODEL_ID, "repeat_last_n": []}, None),
+        ({"model_id": GENERATION_MODEL_ID, "repeat_last_n": {}}, None),
+        ({"model_id": GENERATION_MODEL_ID, "repeat_last_n": -1}, None),
+        ({"model_id": GENERATION_MODEL_ID, "repeat_last_n": -2}, None),
+        ({"model_id": GENERATION_MODEL_ID, "repeat_last_n": 2049}, None),
+        (
+            None,
+            (
+                f"{{\"model_id\":\"{GENERATION_MODEL_ID}\","
+                "\"repeat_last_n\":NaN}"
+            ).encode(),
+        ),
+        (
+            None,
+            (
+                f"{{\"model_id\":\"{GENERATION_MODEL_ID}\","
+                "\"repeat_last_n\":Infinity}"
+            ).encode(),
+        ),
+        (
+            None,
+            (
+                f"{{\"model_id\":\"{GENERATION_MODEL_ID}\","
+                "\"repeat_last_n\":-Infinity}"
+            ).encode(),
+        ),
         ({"model_id": GENERATION_MODEL_ID, "owner_id": str(uuid4())}, None),
         ({"model_id": GENERATION_MODEL_ID, "user_id": str(uuid4())}, None),
         ({"model_id": GENERATION_MODEL_ID, "conversation_id": str(uuid4())}, None),
@@ -2364,6 +2396,7 @@ def test_generation_accepts_exact_bounded_output_tokens_without_response_change(
         top_k=None,
         min_p=None,
         repeat_penalty=None,
+        repeat_last_n=None,
     )
 
 
@@ -2404,6 +2437,7 @@ def test_generation_accepts_exact_bounded_temperature_without_response_change(
         top_k=None,
         min_p=None,
         repeat_penalty=None,
+        repeat_last_n=None,
     )
 
 
@@ -2434,6 +2468,7 @@ def test_generation_accepts_exact_bounded_seed_without_response_change(
         top_k=None,
         min_p=None,
         repeat_penalty=None,
+        repeat_last_n=None,
     )
 
 
@@ -2474,6 +2509,7 @@ def test_generation_accepts_exact_bounded_top_p_without_response_change(
         top_k=None,
         min_p=None,
         repeat_penalty=None,
+        repeat_last_n=None,
     )
 
 
@@ -2504,6 +2540,7 @@ def test_generation_accepts_exact_bounded_top_k_without_response_change(
         top_k=top_k,
         min_p=None,
         repeat_penalty=None,
+        repeat_last_n=None,
     )
 
 
@@ -2544,6 +2581,7 @@ def test_generation_accepts_exact_bounded_min_p_without_response_change(
         top_k=None,
         min_p=expected_min_p,
         repeat_penalty=None,
+        repeat_last_n=None,
     )
 
 
@@ -2589,6 +2627,41 @@ def test_generation_accepts_exact_bounded_repeat_penalty_without_response_change
         top_k=None,
         min_p=None,
         repeat_penalty=expected_repeat_penalty,
+        repeat_last_n=None,
+    )
+
+
+@pytest.mark.parametrize("repeat_last_n", [0, 1, 64, 2048])
+def test_generation_accepts_exact_bounded_repeat_last_n_without_response_change(
+    conversation_generation_api,
+    repeat_last_n,
+):
+    api = conversation_generation_api
+
+    response = api["client"].post(
+        f"/api/v1/conversations/{api['conversation_id']}/messages/generate",
+        json={
+            "model_id": GENERATION_MODEL_ID,
+            "repeat_last_n": repeat_last_n,
+        },
+    )
+
+    assert response.status_code == 201
+    assert set(response.json()) == {"model_id", "message"}
+    assert "repeat_last_n" not in response.text
+    api["generate"].assert_awaited_once_with(
+        api["current_user"].id,
+        api["conversation_id"],
+        GENERATION_MODEL_ID,
+        user_message=None,
+        max_output_tokens=1024,
+        temperature=None,
+        seed=None,
+        top_p=None,
+        top_k=None,
+        min_p=None,
+        repeat_penalty=None,
+        repeat_last_n=repeat_last_n,
     )
 
 
@@ -2631,6 +2704,7 @@ def test_generation_accepts_exact_optional_user_message_without_response_change(
         top_k=None,
         min_p=None,
         repeat_penalty=None,
+        repeat_last_n=None,
     )
 
 
@@ -2660,6 +2734,7 @@ def test_generation_explicit_null_user_message_preserves_existing_mode(
         top_k=None,
         min_p=None,
         repeat_penalty=None,
+        repeat_last_n=None,
     )
 
 

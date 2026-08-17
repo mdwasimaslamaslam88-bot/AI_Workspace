@@ -112,12 +112,19 @@ including integer values 1 and 2. Explicit null, booleans, strings, arrays,
 objects, non-finite numbers, values below 0.5, and values above 2.0 are
 rejected. Omitting `repeat_penalty` preserves the current runtime behavior
 without adding a repetition-penalty override.
+An optional strict integer `repeat_last_n` from 0 through 2,048 is accepted.
+Zero explicitly disables repetition lookback, while positive values select a
+bounded token-history window. Explicit null, booleans, strings, floats, arrays,
+objects, non-finite values, negative values including Ollama's `-1` sentinel,
+and values above 2,048 are rejected. Omitting `repeat_last_n` preserves the
+current runtime behavior without adding a repetition-window override.
 
 When `user_message` is supplied, the exact content is committed first as a
 server-assigned user Message before generation. Omission or null preserves
 generation-only behavior. User IDs, owner IDs, roles, sequences, raw runtime
 model references, client-supplied Message arrays, arbitrary generation options,
-other sampling controls, and streaming flags are rejected.
+Ollama's `-1` repetition-window sentinel, context controls, other sampling
+controls, and streaming flags are rejected.
 
 Missing and foreign-owned Conversations return the same generic HTTP 404.
 Authentication completes before Conversation lookup, model discovery, or

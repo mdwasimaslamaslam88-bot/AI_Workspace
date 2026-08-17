@@ -77,6 +77,12 @@ class ConversationTextGenerationRequest(BaseModel):
         le=2.0,
         allow_inf_nan=False,
     )
+    repeat_last_n: int | None = Field(
+        default=None,
+        strict=True,
+        ge=0,
+        le=2048,
+    )
 
     @field_validator("temperature", mode="before")
     @classmethod
@@ -174,6 +180,19 @@ class ConversationTextGenerationRequest(BaseModel):
             if not is_finite_repeat_penalty:
                 # Keep the existing public validation error JSON-serializable.
                 return "non-finite repeat_penalty"
+        return value
+
+    @field_validator("repeat_last_n", mode="before")
+    @classmethod
+    def validate_repeat_last_n_input(cls, value):
+        if value is None:
+            raise PydanticCustomError(
+                "repeat_last_n_null",
+                "repeat_last_n must not be null",
+            )
+        if isinstance(value, float) and not math.isfinite(value):
+            # Keep the existing public validation error JSON-serializable.
+            return "non-finite repeat_last_n"
         return value
 
 
