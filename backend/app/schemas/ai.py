@@ -97,6 +97,13 @@ class ConversationTextGenerationRequest(BaseModel):
         le=2.0,
         allow_inf_nan=False,
     )
+    frequency_penalty: float | None = Field(
+        default=None,
+        strict=True,
+        ge=-2.0,
+        le=2.0,
+        allow_inf_nan=False,
+    )
 
     @field_validator("temperature", mode="before")
     @classmethod
@@ -243,6 +250,24 @@ class ConversationTextGenerationRequest(BaseModel):
             if not is_finite_presence_penalty:
                 # Keep the existing public validation error JSON-serializable.
                 return "non-finite presence_penalty"
+        return value
+
+    @field_validator("frequency_penalty", mode="before")
+    @classmethod
+    def validate_frequency_penalty_input(cls, value):
+        if value is None:
+            raise PydanticCustomError(
+                "frequency_penalty_null",
+                "frequency_penalty must not be null",
+            )
+        if isinstance(value, (int, float)) and not isinstance(value, bool):
+            try:
+                is_finite_frequency_penalty = math.isfinite(value)
+            except OverflowError:
+                is_finite_frequency_penalty = False
+            if not is_finite_frequency_penalty:
+                # Keep the existing public validation error JSON-serializable.
+                return "non-finite frequency_penalty"
         return value
 
 

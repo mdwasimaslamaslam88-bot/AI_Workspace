@@ -129,6 +129,12 @@ discourage reuse of tokens already present, negative values encourage reuse,
 and zero applies no presence penalty. Explicit null, booleans, strings, arrays,
 objects, non-finite numbers, and out-of-range values are rejected. Omitting
 `presence_penalty` adds no presence-penalty override.
+An optional finite numeric `frequency_penalty` from -2.0 through 2.0 is
+accepted, including integer values within that range. Positive values
+discourage tokens proportionally to their prior frequency, negative values
+encourage reuse, and zero applies no frequency penalty. Explicit null,
+booleans, strings, arrays, objects, non-finite numbers, and out-of-range values
+are rejected. Omitting `frequency_penalty` adds no frequency-penalty override.
 
 When `user_message` is supplied, the exact content is committed first as a
 server-assigned user Message before generation. Omission or null preserves

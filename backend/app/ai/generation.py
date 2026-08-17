@@ -64,6 +64,7 @@ class TextGenerationRuntime(Protocol):
         repeat_last_n: int | None = None,
         typical_p: float | None = None,
         presence_penalty: float | None = None,
+        frequency_penalty: float | None = None,
     ) -> TextGenerationResult: ...
 
 
@@ -95,6 +96,7 @@ class TextGenerationRouter:
         repeat_last_n: int | None = None,
         typical_p: float | None = None,
         presence_penalty: float | None = None,
+        frequency_penalty: float | None = None,
     ) -> TextGenerationResult:
         if not isinstance(model, ResolvedModel):
             raise TypeError("model must be a ResolvedModel")
@@ -216,6 +218,23 @@ class TextGenerationRouter:
                 raise ValueError(
                     "presence_penalty must be finite and between -2.0 and 2.0"
                 )
+        if frequency_penalty is not None:
+            if isinstance(frequency_penalty, bool) or not isinstance(
+                frequency_penalty,
+                (int, float),
+            ):
+                raise TypeError("frequency_penalty must be numeric")
+            try:
+                is_finite_frequency_penalty = math.isfinite(frequency_penalty)
+            except OverflowError:
+                is_finite_frequency_penalty = False
+            if (
+                not is_finite_frequency_penalty
+                or not -2.0 <= frequency_penalty <= 2.0
+            ):
+                raise ValueError(
+                    "frequency_penalty must be finite and between -2.0 and 2.0"
+                )
 
         runtime = self._runtimes.get(model.descriptor.runtime_id)
         if runtime is None:
@@ -235,4 +254,5 @@ class TextGenerationRouter:
             repeat_last_n=repeat_last_n,
             typical_p=typical_p,
             presence_penalty=presence_penalty,
+            frequency_penalty=frequency_penalty,
         )

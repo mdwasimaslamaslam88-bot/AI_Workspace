@@ -104,6 +104,7 @@ class OllamaTextGenerationRuntime:
         repeat_last_n: int | None = None,
         typical_p: float | None = None,
         presence_penalty: float | None = None,
+        frequency_penalty: float | None = None,
     ) -> TextGenerationResult:
         if temperature is not None:
             if isinstance(temperature, bool) or not isinstance(
@@ -215,6 +216,23 @@ class OllamaTextGenerationRuntime:
                 raise ValueError(
                     "presence_penalty must be finite and between -2.0 and 2.0"
                 )
+        if frequency_penalty is not None:
+            if isinstance(frequency_penalty, bool) or not isinstance(
+                frequency_penalty,
+                (int, float),
+            ):
+                raise TypeError("frequency_penalty must be numeric")
+            try:
+                is_finite_frequency_penalty = math.isfinite(frequency_penalty)
+            except OverflowError:
+                is_finite_frequency_penalty = False
+            if (
+                not is_finite_frequency_penalty
+                or not -2.0 <= frequency_penalty <= 2.0
+            ):
+                raise ValueError(
+                    "frequency_penalty must be finite and between -2.0 and 2.0"
+                )
 
         if runtime_reference not in self.local_model_allowlist:
             raise TextGenerationRuntimeUnsupportedError(
@@ -241,6 +259,8 @@ class OllamaTextGenerationRuntime:
             options["typical_p"] = typical_p
         if presence_penalty is not None:
             options["presence_penalty"] = presence_penalty
+        if frequency_penalty is not None:
+            options["frequency_penalty"] = frequency_penalty
         try:
             response = await self.client.post(
                 "/api/chat",
