@@ -159,6 +159,14 @@ with an expected-sequence condition. If the Conversation changes while
 generation is running, the stale output is not persisted and the request
 returns HTTP 409.
 
+After catalog resolution, Conversation generation requires the selected model
+to advertise the normalized `text_generation` capability obtained from
+Ollama's documented model-detail capability list. A model without that
+capability returns HTTP 409 with `Model does not support text generation` before
+runtime dispatch or assistant persistence. If the request already committed an
+optional `user_message`, that Message remains available for a generation-only
+retry with an eligible model.
+
 For a request containing `user_message`, the captured generation context must
 end at exactly that newly committed user Message. If another Message is
 committed first, generation does not start and the request returns HTTP 409.

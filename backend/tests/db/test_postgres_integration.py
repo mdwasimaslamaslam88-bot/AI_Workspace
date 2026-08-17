@@ -1843,7 +1843,11 @@ async def test_authenticated_conversation_generation_is_owner_scoped_and_stale_s
                     reference="/private/runtime/model:70b",
                     display_name="Integration 70B",
                     parameter_class="70B+",
-                    capabilities=("chat", "text-generation"),
+                    capabilities=(
+                        ()
+                        if self.mode == "descriptor-unsupported"
+                        else ("chat", "text-generation")
+                    ),
                     availability=(
                         ModelAvailability.UNAVAILABLE
                         if self.mode == "descriptor-unavailable"
@@ -2259,6 +2263,61 @@ async def test_authenticated_conversation_generation_is_owner_scoped_and_stale_s
                 "Conversation changed during generation"
             )
             assert len(runtime.generation_calls) == 4
+
+            unsupported_created = await client.post(
+                "/api/v1/conversations",
+                headers=owner_headers,
+                json={
+                    "title": "Capability retry target",
+                    "initial_message": "initial capability prompt",
+                },
+            )
+            assert unsupported_created.status_code == 201
+            unsupported_conversation_id = UUID(
+                unsupported_created.json()["id"]
+            )
+            runtime.mode = "descriptor-unsupported"
+            unsupported = await client.post(
+                "/api/v1/conversations/"
+                f"{unsupported_conversation_id}/messages/generate",
+                headers=owner_headers,
+                json={
+                    "model_id": model_id,
+                    "user_message": "committed capability retry prompt",
+                },
+            )
+            assert unsupported.status_code == 409
+            assert unsupported.json()["error"]["message"] == (
+                "Model does not support text generation"
+            )
+            assert len(runtime.generation_calls) == 4
+            unsupported_state, unsupported_messages = (
+                await persisted_conversation(unsupported_conversation_id)
+            )
+            assert unsupported_state is not None
+            assert unsupported_state.next_message_sequence == 3
+            assert [
+                (message.role, message.content, message.sequence_number)
+                for message in unsupported_messages
+            ] == [
+                (MessageRole.USER, "initial capability prompt", 1),
+                (
+                    MessageRole.USER,
+                    "committed capability retry prompt",
+                    2,
+                ),
+            ]
+
+            runtime.mode = "success"
+            capability_retry = await client.post(
+                "/api/v1/conversations/"
+                f"{unsupported_conversation_id}/messages/generate",
+                headers=owner_headers,
+                json={"model_id": model_id},
+            )
+            assert capability_retry.status_code == 201
+            assert capability_retry.json()["message"]["sequence_number"] == 3
+            assert len(runtime.generation_calls) == 5
 
             history_items = []
             cursor = None

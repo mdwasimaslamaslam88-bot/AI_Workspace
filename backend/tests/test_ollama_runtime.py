@@ -1,3 +1,4 @@
+import json
 from unittest.mock import AsyncMock, Mock
 
 import httpx
@@ -23,11 +24,30 @@ LOCAL_MODEL_ALLOWLIST = (LOCAL_MODEL_REFERENCE,)
 
 
 @pytest.mark.asyncio
-async def test_ollama_discovery_uses_only_inventory_and_hides_raw_reference():
+async def test_ollama_discovery_uses_documented_capabilities_and_hides_reference():
     requests: list[httpx.Request] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
         requests.append(request)
+        if request.url.path == "/api/show":
+            return httpx.Response(
+                200,
+                json={
+                    "capabilities": [
+                        "vision",
+                        "completion",
+                        "embedding",
+                        "tools",
+                        "completion",
+                        "thinking",
+                        "unknown-capability",
+                    ],
+                    "template": "must not infer chat",
+                    "parameters": "must not infer settings",
+                    "license": "must not become public metadata",
+                    "model_info": {"private.path": "/private/model"},
+                },
+            )
         return httpx.Response(
             200,
             json={
@@ -62,22 +82,33 @@ async def test_ollama_discovery_uses_only_inventory_and_hides_raw_reference():
         ).discover_models()
 
     assert [(request.method, request.url.path) for request in requests] == [
-        ("GET", "/api/tags")
+        ("GET", "/api/tags"),
+        ("POST", "/api/show"),
     ]
+    assert json.loads(requests[1].content) == {
+        "model": "/private/models/secret:14b"
+    }
     assert model.reference == "/private/models/secret:14b"
     assert model.display_name == "LocalFamily 14B"
     assert model.family == "LocalFamily"
     assert model.parameter_class == "14B"
     assert model.quantization == "Q4_K_M"
     assert model.capabilities == (
-        ModelCapability.CHAT,
+        ModelCapability.EMBEDDINGS,
         ModelCapability.TEXT_GENERATION,
+        ModelCapability.TOOL_CALLING,
+        ModelCapability.VISION_INPUT,
     )
 
 
 @pytest.mark.asyncio
 async def test_ollama_discovery_fails_closed_for_non_allowlisted_models():
-    async def handler(_request: httpx.Request) -> httpx.Response:
+    requests: list[httpx.Request] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if request.url.path == "/api/show":
+            return httpx.Response(200, json={"capabilities": ["completion"]})
         return httpx.Response(
             200,
             json={
@@ -101,20 +132,45 @@ async def test_ollama_discovery_fails_closed_for_non_allowlisted_models():
         empty_inventory = await OllamaModelDiscoveryRuntime(
             client
         ).discover_models()
+        absent_inventory = await OllamaModelDiscoveryRuntime(
+            client,
+            ("absent-local-model",),
+        ).discover_models()
         allowed_inventory = await OllamaModelDiscoveryRuntime(
             client,
             LOCAL_MODEL_ALLOWLIST,
         ).discover_models()
 
     assert empty_inventory == ()
+    assert absent_inventory == ()
     assert tuple(model.reference for model in allowed_inventory) == (
         LOCAL_MODEL_REFERENCE,
     )
+    assert [(request.method, request.url.path) for request in requests] == [
+        ("GET", "/api/tags"),
+        ("GET", "/api/tags"),
+        ("GET", "/api/tags"),
+        ("POST", "/api/show"),
+    ]
+    assert json.loads(requests[3].content) == {
+        "model": LOCAL_MODEL_REFERENCE
+    }
 
 
 @pytest.mark.asyncio
 async def test_ollama_unsafe_metadata_is_not_promoted_to_public_fields():
-    async def handler(_request: httpx.Request) -> httpx.Response:
+    async def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/show":
+            return httpx.Response(
+                200,
+                json={
+                    "capabilities": ["completion"],
+                    "template": "/private/template",
+                    "parameters": "https://external.invalid/settings",
+                    "license": "C:\\private\\license",
+                    "model_info": {"secret": "/private/model"},
+                },
+            )
         return httpx.Response(
             200,
             json={
@@ -144,6 +200,81 @@ async def test_ollama_unsafe_metadata_is_not_promoted_to_public_fields():
     assert model.family is None
     assert model.parameter_class is None
     assert model.quantization is None
+    assert model.capabilities == (ModelCapability.TEXT_GENERATION,)
+
+
+@pytest.mark.parametrize(
+    "detail_payload",
+    [
+        None,
+        [],
+        {},
+        {"capabilities": None},
+        {"capabilities": "completion"},
+        {"capabilities": ["completion", 1]},
+    ],
+)
+@pytest.mark.asyncio
+async def test_ollama_discovery_rejects_malformed_capability_details(
+    detail_payload,
+):
+    async def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/show":
+            return httpx.Response(200, json=detail_payload)
+        return httpx.Response(
+            200,
+            json={
+                "models": [
+                    {
+                        "model": LOCAL_MODEL_REFERENCE,
+                        "details": {"family": "VerifiedLocal"},
+                    }
+                ]
+            },
+        )
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        base_url="http://127.0.0.1:11434",
+    ) as client:
+        with pytest.raises(ModelRuntimeUnavailableError):
+            await OllamaModelDiscoveryRuntime(
+                client,
+                LOCAL_MODEL_ALLOWLIST,
+            ).discover_models()
+
+
+@pytest.mark.asyncio
+async def test_ollama_discovery_rejects_unavailable_capability_details():
+    async def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/show":
+            return httpx.Response(503, text="secret runtime detail")
+        return httpx.Response(
+            200,
+            json={
+                "models": [
+                    {
+                        "model": LOCAL_MODEL_REFERENCE,
+                        "details": {"family": "VerifiedLocal"},
+                    }
+                ]
+            },
+        )
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        base_url="http://127.0.0.1:11434",
+    ) as client:
+        with pytest.raises(
+            ModelRuntimeUnavailableError,
+            match="inventory is unavailable",
+        ) as raised:
+            await OllamaModelDiscoveryRuntime(
+                client,
+                LOCAL_MODEL_ALLOWLIST,
+            ).discover_models()
+
+    assert "secret runtime detail" not in str(raised.value)
 
 
 @pytest.mark.parametrize(

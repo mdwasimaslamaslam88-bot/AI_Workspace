@@ -5,7 +5,7 @@ from enum import StrEnum
 import math
 from typing import Protocol, runtime_checkable
 
-from app.ai.catalog import ResolvedModel
+from app.ai.catalog import ModelCapability, ResolvedModel
 
 
 class TextGenerationRole(StrEnum):
@@ -102,6 +102,13 @@ class TextGenerationRouter:
     ) -> TextGenerationResult:
         if not isinstance(model, ResolvedModel):
             raise TypeError("model must be a ResolvedModel")
+        if (
+            ModelCapability.TEXT_GENERATION
+            not in model.descriptor.capabilities
+        ):
+            raise TextGenerationRuntimeUnsupportedError(
+                "model does not support text generation"
+            )
         if not messages:
             raise ValueError("generation messages must not be empty")
         if isinstance(max_output_tokens, bool) or not isinstance(

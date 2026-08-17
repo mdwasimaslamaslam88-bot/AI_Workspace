@@ -5,11 +5,12 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.ai.catalog import ModelAvailability, ModelCatalog
+from app.ai.catalog import ModelAvailability, ModelCapability, ModelCatalog
 from app.ai.generation import (
     TextGenerationMessage,
     TextGenerationRole,
     TextGenerationRouter,
+    TextGenerationRuntimeUnsupportedError,
 )
 from app.models.message import Message, MessageRole
 from app.services.conversation import ConversationService
@@ -378,6 +379,13 @@ class ConversationGenerationService:
         if model.descriptor.availability is ModelAvailability.UNAVAILABLE:
             raise ConversationGenerationModelUnavailableError(
                 "model is not currently available"
+            )
+        if (
+            ModelCapability.TEXT_GENERATION
+            not in model.descriptor.capabilities
+        ):
+            raise TextGenerationRuntimeUnsupportedError(
+                "model does not support text generation"
             )
         generated = await self.generation_router.generate(
             model,

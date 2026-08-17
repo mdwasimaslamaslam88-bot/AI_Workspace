@@ -47,6 +47,18 @@ model reference. Runtime URLs, raw tags/references, local filesystem paths,
 hardware identifiers, and credentials are never included in the response.
 Unknown metadata remains `null` instead of being inferred from a model name.
 
+Ollama discovery uses `GET /api/tags` only for installed-model inventory. The
+exact local-model allowlist is applied to that inventory before any detail
+request. For each installed and allowlisted reference, the adapter calls
+`POST /api/show` with only that internal reference and reads only the documented
+`capabilities` list. Ollama `completion`, `vision`, `embedding`, and `tools`
+values map respectively to the public `text_generation`, `vision_input`,
+`embeddings`, and `tool_calling` capabilities. Unknown values are ignored.
+Templates, parameters, model information, licenses, paths, filenames, tags, and
+other detail fields are never used to infer capabilities or promoted to the
+public response. Missing, malformed, or unavailable capability details fail
+closed as a generic unavailable local model runtime.
+
 Parameter classes such as 7B, 14B, 32B, and 70B+ are descriptive metadata, not
 application routing branches. Future generation requests can select the public
 `model_id`; the catalog can then resolve the appropriate local adapter without
@@ -78,6 +90,13 @@ and out-of-range values are rejected. Omitting `temperature` leaves Ollama's
 current temperature behavior unchanged. Raw runtime tags, runtime URLs, owner
 IDs, roles, sequences, Message arrays, raw `stop`, arbitrary generation
 options, other sampling controls, and streaming flags are not accepted.
+
+The resolved catalog model must advertise `text_generation`. Models that expose
+only capabilities such as `embeddings` or `vision_input` remain catalog-visible
+but are rejected from Conversation text generation with HTTP 409 before the
+runtime router is invoked or an assistant Message is persisted. When the same
+request committed an optional `user_message`, that committed Message remains
+available for a generation-only retry with a text-generation-capable model.
 
 An optional strict integer `seed` from 0 through 2,147,483,647 is accepted.
 Explicit null, booleans, strings, floats, arrays, objects, non-finite values,
@@ -228,8 +247,9 @@ Error behavior is intentionally safe:
 
 - missing and foreign-owned Conversations return the same generic HTTP 404;
 - an unknown public model ID returns HTTP 404;
-- unsupported Conversation state, unsupported generation adapter, or a changed
-  Conversation returns HTTP 409;
+- unsupported Conversation state, a model without the `text_generation`
+  capability, an unsupported generation adapter, or a changed Conversation
+  returns HTTP 409;
 - oversized context returns HTTP 413;
 - a model marked unavailable and unavailable or malformed local runtime
   responses return the same generic HTTP 503;

@@ -4,6 +4,7 @@ import pytest
 
 from app.ai.catalog import (
     ModelAvailability,
+    ModelCapability,
     ModelDescriptor,
     ModelModality,
     ResolvedModel,
@@ -21,6 +22,9 @@ def _resolved_model(
     *,
     runtime_id: str = "local-runtime",
     parameter_class: str | None = "7B",
+    capabilities: tuple[ModelCapability, ...] = (
+        ModelCapability.TEXT_GENERATION,
+    ),
 ) -> ResolvedModel:
     return ResolvedModel(
         descriptor=ModelDescriptor(
@@ -30,7 +34,7 @@ def _resolved_model(
             modality=ModelModality.TEXT,
             family=None,
             parameter_class=parameter_class,
-            capabilities=(),
+            capabilities=capabilities,
             context_window=None,
             quantization=None,
             estimated_vram_bytes=None,
@@ -92,6 +96,29 @@ async def test_router_rejects_model_without_registered_generation_adapter():
             ),
             max_output_tokens=1024,
         )
+
+
+@pytest.mark.asyncio
+async def test_router_rejects_model_without_text_generation_before_runtime():
+    generate_text = AsyncMock()
+    runtime = Mock(runtime_id="local-runtime", generate_text=generate_text)
+
+    with pytest.raises(
+        TextGenerationRuntimeUnsupportedError,
+        match="does not support text generation",
+    ):
+        await TextGenerationRouter((runtime,)).generate(
+            _resolved_model(capabilities=(ModelCapability.EMBEDDINGS,)),
+            (
+                TextGenerationMessage(
+                    role=TextGenerationRole.USER,
+                    content="prompt",
+                ),
+            ),
+            max_output_tokens=1024,
+        )
+
+    generate_text.assert_not_awaited()
 
 
 def test_router_rejects_duplicate_runtime_ids():

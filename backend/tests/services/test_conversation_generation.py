@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import app.services.conversation_generation as generation_module
 from app.ai.catalog import (
     ModelAvailability,
+    ModelCapability,
     ModelDescriptor,
     ModelModality,
     ResolvedModel,
@@ -15,6 +16,7 @@ from app.ai.catalog import (
 from app.ai.generation import (
     TextGenerationResult,
     TextGenerationRuntimeUnavailableError,
+    TextGenerationRuntimeUnsupportedError,
 )
 from app.models import Conversation, Message, MessageRole
 from app.services.conversation_generation import (
@@ -74,6 +76,9 @@ def _message(conversation_id, role, content: str, sequence: int) -> Message:
 
 def _resolved(
     availability: ModelAvailability = ModelAvailability.AVAILABLE,
+    capabilities: tuple[ModelCapability, ...] = (
+        ModelCapability.TEXT_GENERATION,
+    ),
 ) -> ResolvedModel:
     return ResolvedModel(
         descriptor=ModelDescriptor(
@@ -83,7 +88,7 @@ def _resolved(
             modality=ModelModality.TEXT,
             family=None,
             parameter_class="70B+",
-            capabilities=(),
+            capabilities=capabilities,
             context_window=None,
             quantization=None,
             estimated_vram_bytes=None,
@@ -2140,6 +2145,57 @@ async def test_unavailable_model_stops_before_inference_or_append(monkeypatch):
 
     dependencies["router"].generate.assert_not_awaited()
     dependencies["append"].assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_non_text_model_preserves_committed_user_and_skips_router(
+    monkeypatch,
+):
+    owner_id = uuid4()
+    conversation_id = uuid4()
+    session = AsyncMock(spec=AsyncSession)
+    appended_user = _message(
+        conversation_id,
+        MessageRole.USER,
+        "follow-up",
+        2,
+    )
+    dependencies = _dependencies(
+        monkeypatch,
+        conversation=_conversation(owner_id, conversation_id, 2),
+        context=(
+            _message(conversation_id, MessageRole.USER, "question", 1),
+            appended_user,
+        ),
+        appended=appended_user,
+    )
+    dependencies["catalog"].resolve_model.return_value = _resolved(
+        capabilities=(ModelCapability.EMBEDDINGS,)
+    )
+
+    with pytest.raises(
+        TextGenerationRuntimeUnsupportedError,
+        match="does not support text generation",
+    ):
+        await ConversationGenerationService(
+            session,
+            dependencies["catalog"],
+            dependencies["router"],
+        ).generate_for_owner(
+            owner_id,
+            conversation_id,
+            MODEL_ID,
+            user_message="follow-up",
+        )
+
+    dependencies["append"].assert_awaited_once_with(
+        owner_id,
+        conversation_id,
+        MessageRole.USER,
+        "follow-up",
+    )
+    dependencies["router"].generate.assert_not_awaited()
+    session.rollback.assert_awaited_once_with()
 
 
 @pytest.mark.asyncio

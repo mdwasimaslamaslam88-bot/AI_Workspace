@@ -1,11 +1,16 @@
 from collections.abc import Mapping
+from dataclasses import replace
 import math
 import re
 from typing import Any
 
 import httpx
 
-from app.ai.catalog import ModelRuntimeUnavailableError, RuntimeModel
+from app.ai.catalog import (
+    ModelCapability,
+    ModelRuntimeUnavailableError,
+    RuntimeModel,
+)
 from app.ai.generation import (
     TextGenerationMessage,
     TextGenerationResult,
@@ -55,7 +60,23 @@ class OllamaModelDiscoveryRuntime:
             response = await self.client.get("/api/tags")
             response.raise_for_status()
             payload = response.json()
-            return _parse_inventory(payload, self.local_model_allowlist)
+            models = _parse_inventory(payload, self.local_model_allowlist)
+            discovered: list[RuntimeModel] = []
+            for model in models:
+                detail_response = await self.client.post(
+                    "/api/show",
+                    json={"model": model.reference},
+                )
+                detail_response.raise_for_status()
+                discovered.append(
+                    replace(
+                        model,
+                        capabilities=_parse_capabilities(
+                            detail_response.json()
+                        ),
+                    )
+                )
+            return tuple(discovered)
         except ModelRuntimeUnavailableError:
             raise
         except (httpx.HTTPError, ValueError, TypeError) as exc:
@@ -368,12 +389,6 @@ def _parse_inventory(
         family = _safe_optional_text(details.get("family"))
         parameter_class = _safe_optional_text(details.get("parameter_size"))
         quantization = _safe_optional_text(details.get("quantization_level"))
-        capabilities_value = item.get("capabilities", ())
-        if not isinstance(capabilities_value, list):
-            capabilities_value = ()
-        capabilities = tuple(
-            value for value in capabilities_value if isinstance(value, str)
-        )
         display_parts = [part for part in (family, parameter_class) if part]
         display_name = " ".join(display_parts) or "Local text model"
         parsed.append(
@@ -382,11 +397,41 @@ def _parse_inventory(
                 display_name=display_name,
                 family=family,
                 parameter_class=parameter_class,
-                capabilities=capabilities,
                 quantization=quantization,
             )
         )
     return tuple(parsed)
+
+
+def _parse_capabilities(payload: Any) -> tuple[ModelCapability, ...]:
+    if not isinstance(payload, Mapping):
+        raise ModelRuntimeUnavailableError(
+            "local model runtime returned invalid model details"
+        )
+    capabilities = payload.get("capabilities")
+    if not isinstance(capabilities, list) or any(
+        not isinstance(capability, str) for capability in capabilities
+    ):
+        raise ModelRuntimeUnavailableError(
+            "local model runtime returned invalid model details"
+        )
+
+    mapping = {
+        "completion": ModelCapability.TEXT_GENERATION,
+        "vision": ModelCapability.VISION_INPUT,
+        "embedding": ModelCapability.EMBEDDINGS,
+        "tools": ModelCapability.TOOL_CALLING,
+    }
+    return tuple(
+        sorted(
+            {
+                mapping[capability]
+                for capability in capabilities
+                if capability in mapping
+            },
+            key=lambda capability: capability.value,
+        )
+    )
 
 
 def _safe_optional_text(value: Any) -> str | None:
