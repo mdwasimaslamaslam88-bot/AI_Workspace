@@ -255,6 +255,19 @@ The successful HTTP 201 response contains the selected public model_id and the
 newly persisted assistant Message. Ollama is invoked through the runtime-neutral
 text-generation boundary using /api/chat with stream set to false.
 
+Generation requests are serialized once into bounded UTF-8 chunks before any
+Ollama transport call. Configure `OLLAMA_GENERATION_MAX_REQUEST_BYTES` as a
+strict integer from 1 through 1,048,576 bytes; the default is 1,048,576 bytes
+(1 MiB). The bound covers the exact compact JSON representation, including the
+model reference, ordered roles and content, `stream: false`, `num_predict`, and
+all supplied generation options and stop sequences. Accepted requests carry an
+exact `Content-Length` and `application/json` content type without compression
+or a second serialization pass. An overflow is rejected before connection or
+upload through the generic HTTP 503 `Local model runtime unavailable` contract;
+content is never truncated or normalized, an already committed optional user
+Message remains available for generation-only retry, and admission release is
+unchanged.
+
 Generation responses are transport-bounded even though application/token
 streaming is not enabled. Configure
 `OLLAMA_GENERATION_MAX_RESPONSE_BYTES` as a strict integer from 1 through

@@ -1,4 +1,4 @@
-from collections.abc import Mapping
+from collections.abc import AsyncIterator, Mapping
 from dataclasses import replace
 import json
 import math
@@ -19,10 +19,52 @@ from app.ai.generation import (
     TextGenerationRuntimeUnavailableError,
     TextGenerationRuntimeUnsupportedError,
 )
-from app.core.config import MAX_OLLAMA_GENERATION_RESPONSE_BYTES
+from app.core.config import (
+    MAX_OLLAMA_GENERATION_REQUEST_BYTES,
+    MAX_OLLAMA_GENERATION_RESPONSE_BYTES,
+)
 
 
 _SAFE_METADATA_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ +()-]{0,254}$")
+
+
+class _BoundedJSONRequestStream(httpx.AsyncByteStream):
+    def __init__(self, chunks: tuple[bytes, ...]) -> None:
+        self._chunks = chunks
+        self.closed = False
+
+    async def __aiter__(self) -> AsyncIterator[bytes]:
+        for chunk in self._chunks:
+            if self.closed:
+                raise httpx.StreamClosed()
+            yield chunk
+
+    async def aclose(self) -> None:
+        self.closed = True
+        self._chunks = ()
+
+
+def _encode_bounded_json_request(
+    payload: Mapping[str, Any],
+    max_request_bytes: int,
+) -> tuple[_BoundedJSONRequestStream, int]:
+    encoder = json.JSONEncoder(
+        ensure_ascii=False,
+        separators=(",", ":"),
+        allow_nan=False,
+    )
+    encoded_chunks: list[bytes] = []
+    encoded_length = 0
+    for serialized_chunk in encoder.iterencode(payload):
+        encoded_chunk = serialized_chunk.encode("utf-8")
+        if len(encoded_chunk) > max_request_bytes - encoded_length:
+            raise TextGenerationRuntimeUnavailableError(
+                "local text generation is unavailable"
+            )
+        if encoded_chunk:
+            encoded_chunks.append(encoded_chunk)
+            encoded_length += len(encoded_chunk)
+    return _BoundedJSONRequestStream(tuple(encoded_chunks)), encoded_length
 
 
 def _validated_local_model_allowlist(
@@ -96,6 +138,7 @@ class OllamaTextGenerationRuntime:
         timeout_seconds: float,
         local_model_allowlist: tuple[str, ...] = (),
         *,
+        max_request_bytes: int = 1_048_576,
         max_response_bytes: int = 262_144,
     ) -> None:
         if isinstance(timeout_seconds, bool) or not isinstance(
@@ -108,6 +151,16 @@ class OllamaTextGenerationRuntime:
             is_finite = False
         if not is_finite or timeout_seconds <= 0:
             raise ValueError("generation timeout must be positive and finite")
+        if isinstance(max_request_bytes, bool) or not isinstance(
+            max_request_bytes,
+            int,
+        ):
+            raise TypeError("generation request cap must be an integer")
+        if not 1 <= max_request_bytes <= MAX_OLLAMA_GENERATION_REQUEST_BYTES:
+            raise ValueError(
+                "generation request cap must be between 1 and "
+                f"{MAX_OLLAMA_GENERATION_REQUEST_BYTES}"
+            )
         if isinstance(max_response_bytes, bool) or not isinstance(
             max_response_bytes,
             int,
@@ -120,6 +173,7 @@ class OllamaTextGenerationRuntime:
             )
         self.client = client
         self.timeout_seconds = float(timeout_seconds)
+        self.max_request_bytes = max_request_bytes
         self.max_response_bytes = max_response_bytes
         self.local_model_allowlist = _validated_local_model_allowlist(
             local_model_allowlist
@@ -315,23 +369,33 @@ class OllamaTextGenerationRuntime:
             options["frequency_penalty"] = frequency_penalty
         if stop_sequences is not None:
             options["stop"] = stop_sequences
+        payload = {
+            "model": runtime_reference,
+            "messages": [
+                {
+                    "role": message.role.value,
+                    "content": message.content,
+                }
+                for message in messages
+            ],
+            "stream": False,
+            "options": options,
+        }
+        request_body: _BoundedJSONRequestStream | None = None
         try:
+            request_body, request_body_length = _encode_bounded_json_request(
+                payload,
+                self.max_request_bytes,
+            )
             async with self.client.stream(
                 "POST",
                 "/api/chat",
-                headers={"Accept-Encoding": "identity"},
-                json={
-                    "model": runtime_reference,
-                    "messages": [
-                        {
-                            "role": message.role.value,
-                            "content": message.content,
-                        }
-                        for message in messages
-                    ],
-                    "stream": False,
-                    "options": options,
+                headers={
+                    "Accept-Encoding": "identity",
+                    "Content-Length": str(request_body_length),
+                    "Content-Type": "application/json",
                 },
+                content=request_body,
                 timeout=self.timeout_seconds,
             ) as response:
                 response.raise_for_status()
@@ -359,6 +423,9 @@ class OllamaTextGenerationRuntime:
             raise TextGenerationRuntimeUnavailableError(
                 "local text generation is unavailable"
             ) from exc
+        finally:
+            if request_body is not None:
+                await request_body.aclose()
 
 
 def _response_content_length(response: httpx.Response) -> int | None:

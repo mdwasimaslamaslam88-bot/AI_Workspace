@@ -2,6 +2,7 @@ import pytest
 from pydantic import ValidationError
 from app.core.config import (
     MAX_GENERATION_ACTIVE_PER_PROCESS,
+    MAX_OLLAMA_GENERATION_REQUEST_BYTES,
     MAX_OLLAMA_GENERATION_RESPONSE_BYTES,
     MAX_REQUEST_BODY_BYTES,
     Settings,
@@ -15,6 +16,7 @@ def test_settings_preserve_application_defaults():
     assert settings.DATABASE_URL is None
     assert settings.REDIS_URL is None
     assert settings.OLLAMA_BASE_URL is None
+    assert settings.OLLAMA_GENERATION_MAX_REQUEST_BYTES == 1_048_576
     assert settings.OLLAMA_GENERATION_MAX_RESPONSE_BYTES == 262_144
     assert settings.OLLAMA_LOCAL_MODEL_ALLOWLIST == ()
     assert settings.OLLAMA_GENERATION_TIMEOUT_SECONDS == 120.0
@@ -216,6 +218,39 @@ def test_request_body_cap_accepts_documented_bounds(value):
     )
 
     assert configured.REQUEST_MAX_BODY_BYTES == value
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        True,
+        False,
+        "1",
+        1.0,
+        0,
+        -1,
+        MAX_OLLAMA_GENERATION_REQUEST_BYTES + 1,
+    ],
+)
+def test_ollama_generation_request_cap_rejects_unsafe_values(value):
+    with pytest.raises(ValidationError):
+        Settings(
+            _env_file=None,
+            OLLAMA_GENERATION_MAX_REQUEST_BYTES=value,
+        )
+
+
+@pytest.mark.parametrize(
+    "value",
+    [1, 262_144, MAX_OLLAMA_GENERATION_REQUEST_BYTES],
+)
+def test_ollama_generation_request_cap_accepts_documented_bounds(value):
+    configured = Settings(
+        _env_file=None,
+        OLLAMA_GENERATION_MAX_REQUEST_BYTES=value,
+    )
+
+    assert configured.OLLAMA_GENERATION_MAX_REQUEST_BYTES == value
 
 
 @pytest.mark.parametrize(

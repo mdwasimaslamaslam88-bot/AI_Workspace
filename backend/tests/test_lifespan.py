@@ -109,6 +109,11 @@ async def test_lifespan_registers_configured_local_runtime_catalog(monkeypatch):
     )
     monkeypatch.setattr(
         lifespan_module.settings,
+        "OLLAMA_GENERATION_MAX_REQUEST_BYTES",
+        54_321,
+    )
+    monkeypatch.setattr(
+        lifespan_module.settings,
         "OLLAMA_GENERATION_MAX_RESPONSE_BYTES",
         12_345,
     )
@@ -127,6 +132,7 @@ async def test_lifespan_registers_configured_local_runtime_catalog(monkeypatch):
         )
         assert generation_runtime.client is ollama_client
         assert generation_runtime.timeout_seconds == 120.0
+        assert generation_runtime.max_request_bytes == 54_321
         assert generation_runtime.max_response_bytes == 12_345
         assert generation_runtime.local_model_allowlist == {
             "verified-local:latest"

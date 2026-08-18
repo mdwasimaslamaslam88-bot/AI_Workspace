@@ -6,6 +6,7 @@ import httpx
 import pytest
 
 import app.clients.ollama as ollama_client_module
+import app.runtimes.ollama as ollama_runtime_module
 from app.ai.catalog import ModelCapability, ModelRuntimeUnavailableError
 from app.ai.generation import (
     TextGenerationMessage,
@@ -15,6 +16,7 @@ from app.ai.generation import (
 )
 from app.clients.ollama import create_ollama_client
 from app.core.config import (
+    MAX_OLLAMA_GENERATION_REQUEST_BYTES,
     MAX_OLLAMA_GENERATION_RESPONSE_BYTES,
     Settings,
 )
@@ -2129,3 +2131,407 @@ async def test_ollama_generation_cancellation_closes_stream_and_propagates():
 
     assert stream.iteration_count == 1
     assert stream.closed is True
+
+
+@pytest.mark.parametrize(
+    "max_request_bytes",
+    [
+        None,
+        True,
+        False,
+        "1",
+        1.0,
+        0,
+        -1,
+        MAX_OLLAMA_GENERATION_REQUEST_BYTES + 1,
+    ],
+)
+def test_ollama_generation_runtime_rejects_invalid_request_caps(
+    max_request_bytes,
+):
+    with pytest.raises((TypeError, ValueError)):
+        OllamaTextGenerationRuntime(
+            object(),
+            10,
+            LOCAL_MODEL_ALLOWLIST,
+            max_request_bytes=max_request_bytes,
+        )
+
+
+@pytest.mark.parametrize(
+    "max_request_bytes",
+    [1, 262_144, MAX_OLLAMA_GENERATION_REQUEST_BYTES],
+)
+def test_ollama_generation_runtime_accepts_bounded_request_caps(
+    max_request_bytes,
+):
+    runtime = OllamaTextGenerationRuntime(
+        object(),
+        10,
+        LOCAL_MODEL_ALLOWLIST,
+        max_request_bytes=max_request_bytes,
+    )
+
+    assert runtime.max_request_bytes == max_request_bytes
+
+
+@pytest.mark.asyncio
+async def test_ollama_generation_serializes_exactly_once_into_bounded_chunks(
+    monkeypatch,
+):
+    runtime_reference = 'private/"model\\path-界-🧠:latest'
+    messages = (
+        TextGenerationMessage(
+            role=TextGenerationRole.SYSTEM,
+            content='ASCII "quoted" \\ \b\f\n\r\t\u0000\u001f',
+        ),
+        TextGenerationMessage(
+            role=TextGenerationRole.ASSISTANT,
+            content="é界🧠",
+        ),
+        TextGenerationMessage(
+            role=TextGenerationRole.USER,
+            content='mixed " \\ \n é界🧠',
+        ),
+    )
+    stop_sequences = ["END", '"\\\n', "界🧠"]
+    expected_payload = {
+        "model": runtime_reference,
+        "messages": [
+            {"role": message.role.value, "content": message.content}
+            for message in messages
+        ],
+        "stream": False,
+        "options": {
+            "num_predict": 128,
+            "temperature": 0.5,
+            "seed": 42,
+            "top_p": 0.9,
+            "top_k": 40,
+            "min_p": 0.05,
+            "repeat_penalty": 1.1,
+            "repeat_last_n": 64,
+            "typical_p": 0.7,
+            "presence_penalty": 1.5,
+            "frequency_penalty": 0.75,
+            "stop": stop_sequences,
+        },
+    }
+    expected_body = json.dumps(
+        expected_payload,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        allow_nan=False,
+    ).encode("utf-8")
+    response_body = _generation_response_body("answer")
+    requests: list[httpx.Request] = []
+    observed_request_streams = []
+    observed_chunks: list[tuple[bytes, ...]] = []
+
+    class ObservingTransport(httpx.AsyncBaseTransport):
+        async def handle_async_request(self, request):
+            requests.append(request)
+            request_stream = request.stream._stream
+            observed_request_streams.append(request_stream)
+            observed_chunks.append(request_stream._chunks)
+            await request.aread()
+            return httpx.Response(200, content=response_body)
+
+    encoder = json.JSONEncoder(
+        ensure_ascii=False,
+        separators=(",", ":"),
+        allow_nan=False,
+    )
+    iterencode = Mock(wraps=encoder.iterencode)
+    encoder.iterencode = iterencode
+    encoder_factory = Mock(return_value=encoder)
+    monkeypatch.setattr(
+        ollama_runtime_module.json,
+        "JSONEncoder",
+        encoder_factory,
+    )
+
+    async with httpx.AsyncClient(
+        transport=ObservingTransport(),
+        base_url="http://127.0.0.1:11434",
+    ) as client:
+        stream_call = Mock(wraps=client.stream)
+        monkeypatch.setattr(client, "stream", stream_call)
+        result = await OllamaTextGenerationRuntime(
+            client,
+            37,
+            (runtime_reference,),
+            max_request_bytes=len(expected_body),
+        ).generate_text(
+            runtime_reference,
+            messages,
+            max_output_tokens=128,
+            temperature=0.5,
+            seed=42,
+            top_p=0.9,
+            top_k=40,
+            min_p=0.05,
+            repeat_penalty=1.1,
+            repeat_last_n=64,
+            typical_p=0.7,
+            presence_penalty=1.5,
+            frequency_penalty=0.75,
+            stop_sequences=stop_sequences,
+        )
+
+    assert result.content == "answer"
+    assert len(requests) == 1
+    request = requests[0]
+    assert request.content == expected_body
+    assert json.loads(request.content) == expected_payload
+    assert request.headers["Content-Length"] == str(len(expected_body))
+    assert request.headers["Content-Type"] == "application/json"
+    assert request.headers["Accept-Encoding"] == "identity"
+    assert request.headers.get("Transfer-Encoding") is None
+    encoder_factory.assert_called_once_with(
+        ensure_ascii=False,
+        separators=(",", ":"),
+        allow_nan=False,
+    )
+    iterencode.assert_called_once_with(expected_payload)
+    request_kwargs = stream_call.call_args.kwargs
+    assert "json" not in request_kwargs
+    assert request_kwargs["content"] is observed_request_streams[0]
+    assert not isinstance(request_kwargs["content"], bytes)
+    assert len(observed_chunks[0]) > 1
+    assert sum(len(chunk) for chunk in observed_chunks[0]) == len(expected_body)
+    assert all(len(chunk) < len(expected_body) for chunk in observed_chunks[0])
+    assert observed_request_streams[0].closed is True
+    assert observed_request_streams[0]._chunks == ()
+
+
+@pytest.mark.parametrize("headroom", [0, 1])
+@pytest.mark.asyncio
+async def test_ollama_generation_accepts_request_at_or_below_cap(headroom):
+    expected_payload = {
+        "model": LOCAL_MODEL_REFERENCE,
+        "messages": [{"role": "user", "content": "bounded prompt"}],
+        "stream": False,
+        "options": {"num_predict": 128},
+    }
+    expected_body = json.dumps(
+        expected_payload,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        allow_nan=False,
+    ).encode("utf-8")
+    requests: list[httpx.Request] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(
+            200,
+            content=_generation_response_body("answer"),
+        )
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        base_url="http://127.0.0.1:11434",
+    ) as client:
+        result = await OllamaTextGenerationRuntime(
+            client,
+            10,
+            LOCAL_MODEL_ALLOWLIST,
+            max_request_bytes=len(expected_body) + headroom,
+        ).generate_text(
+            LOCAL_MODEL_REFERENCE,
+            (
+                TextGenerationMessage(
+                    role=TextGenerationRole.USER,
+                    content="bounded prompt",
+                ),
+            ),
+            max_output_tokens=128,
+        )
+
+    assert result.content == "answer"
+    assert len(requests) == 1
+    assert requests[0].content == expected_body
+
+
+@pytest.mark.asyncio
+async def test_ollama_generation_rejects_request_at_cap_plus_one_before_transport(
+    caplog,
+):
+    private_content = "private-request-fragment"
+    expected_body = json.dumps(
+        {
+            "model": LOCAL_MODEL_REFERENCE,
+            "messages": [{"role": "user", "content": private_content}],
+            "stream": False,
+            "options": {"num_predict": 128},
+        },
+        ensure_ascii=False,
+        separators=(",", ":"),
+        allow_nan=False,
+    ).encode("utf-8")
+    requests: list[httpx.Request] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(
+            200,
+            content=_generation_response_body("must-not-run"),
+        )
+
+    cap = len(expected_body) - 1
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        base_url="http://127.0.0.1:11434",
+    ) as client:
+        with pytest.raises(TextGenerationRuntimeUnavailableError) as captured:
+            await OllamaTextGenerationRuntime(
+                client,
+                10,
+                LOCAL_MODEL_ALLOWLIST,
+                max_request_bytes=cap,
+            ).generate_text(
+                LOCAL_MODEL_REFERENCE,
+                (
+                    TextGenerationMessage(
+                        role=TextGenerationRole.USER,
+                        content=private_content,
+                    ),
+                ),
+                max_output_tokens=128,
+            )
+
+    assert requests == []
+    safe_output = str(captured.value) + caplog.text
+    assert private_content not in safe_output
+    assert LOCAL_MODEL_REFERENCE not in safe_output
+    assert str(cap) not in safe_output
+    assert str(len(expected_body)) not in safe_output
+
+
+@pytest.mark.asyncio
+async def test_ollama_generation_stops_encoding_immediately_on_request_overflow(
+    monkeypatch,
+):
+    transport_calls: list[httpx.Request] = []
+    cap = 32
+
+    class OverflowingEncoder:
+        def iterencode(self, _payload):
+            yield '{"partial":'
+            yield '"' + ("x" * cap) + '"'
+            raise AssertionError("encoder continued after request overflow")
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        transport_calls.append(request)
+        return httpx.Response(200)
+
+    monkeypatch.setattr(
+        ollama_runtime_module.json,
+        "JSONEncoder",
+        Mock(return_value=OverflowingEncoder()),
+    )
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        base_url="http://127.0.0.1:11434",
+    ) as client:
+        with pytest.raises(TextGenerationRuntimeUnavailableError):
+            await _generate_with_runtime(
+                OllamaTextGenerationRuntime(
+                    client,
+                    10,
+                    LOCAL_MODEL_ALLOWLIST,
+                    max_request_bytes=cap,
+                )
+            )
+
+    assert transport_calls == []
+
+
+@pytest.mark.asyncio
+async def test_ollama_generation_rejects_unencodable_request_before_transport(
+    caplog,
+):
+    private_content = "private-\ud800-fragment"
+    transport_calls: list[httpx.Request] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        transport_calls.append(request)
+        return httpx.Response(200)
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        base_url="http://127.0.0.1:11434",
+    ) as client:
+        with pytest.raises(TextGenerationRuntimeUnavailableError) as captured:
+            await OllamaTextGenerationRuntime(
+                client,
+                10,
+                LOCAL_MODEL_ALLOWLIST,
+            ).generate_text(
+                LOCAL_MODEL_REFERENCE,
+                (
+                    TextGenerationMessage(
+                        role=TextGenerationRole.USER,
+                        content=private_content,
+                    ),
+                ),
+                max_output_tokens=128,
+            )
+
+    assert transport_calls == []
+    safe_output = str(captured.value) + caplog.text
+    assert "private-" not in safe_output
+    assert LOCAL_MODEL_REFERENCE not in safe_output
+
+
+class _BlockingRequestBodyTransport(httpx.AsyncBaseTransport):
+    def __init__(self):
+        self.started = asyncio.Event()
+        self.release = asyncio.Event()
+        self.request_body = None
+        self.first_chunk: bytes | None = None
+
+    async def handle_async_request(
+        self,
+        request: httpx.Request,
+    ) -> httpx.Response:
+        self.request_body = request.stream._stream
+        request_iterator = request.stream.__aiter__()
+        self.first_chunk = await anext(request_iterator)
+        self.started.set()
+        await self.release.wait()
+        async for _chunk in request_iterator:
+            pass
+        return httpx.Response(
+            200,
+            content=_generation_response_body("answer"),
+        )
+
+
+@pytest.mark.asyncio
+async def test_ollama_generation_request_cancellation_closes_body_and_propagates():
+    transport = _BlockingRequestBodyTransport()
+
+    async with httpx.AsyncClient(
+        transport=transport,
+        base_url="http://127.0.0.1:11434",
+    ) as client:
+        task = asyncio.create_task(
+            _generate_with_runtime(
+                OllamaTextGenerationRuntime(
+                    client,
+                    10,
+                    LOCAL_MODEL_ALLOWLIST,
+                )
+            )
+        )
+        await transport.started.wait()
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+    assert transport.first_chunk
+    assert transport.request_body is not None
+    assert transport.request_body.closed is True
+    assert transport.request_body._chunks == ()

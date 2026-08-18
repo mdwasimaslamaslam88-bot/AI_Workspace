@@ -256,6 +256,18 @@ runtime dispatch or assistant persistence. If the request already committed an
 optional `user_message`, that Message remains available for a generation-only
 retry with an eligible model.
 
+Before an Ollama `/api/chat` request is transmitted, its complete compact JSON
+representation is encoded exactly once into bounded UTF-8 chunks.
+`OLLAMA_GENERATION_MAX_REQUEST_BYTES` is a strict integer from 1 through
+1,048,576 bytes and defaults to 1,048,576 bytes (1 MiB). The exact byte count
+includes the internal model reference, ordered Message roles and content,
+`stream: false`, `num_predict`, and all supplied generation options and stop
+sequences. Accepted requests use an exact `Content-Length`; oversized requests
+are rejected before connection or upload with the existing generic HTTP 503
+`Local model runtime unavailable` response. No content is truncated or
+normalized, and an optional user Message already committed before encoding
+remains available for a generation-only retry.
+
 Every Ollama `/api/chat` generation response is bounded before JSON parsing by
 `OLLAMA_GENERATION_MAX_RESPONSE_BYTES`, a strict integer from 1 through
 1,048,576 bytes that defaults to 262,144 bytes (256 KiB). The runtime uses an
