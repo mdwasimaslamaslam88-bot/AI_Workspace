@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from uuid import UUID
 
-from sqlalchemy import Integer, bindparam, select, update
+from sqlalchemy import Integer, bindparam, func, select, update
 
 from app.models.conversation import Conversation
 from app.models.message import Message, MessageRole, validate_message_content
@@ -10,6 +10,7 @@ from app.repositories.base import BaseRepository
 
 DEFAULT_MESSAGE_PAGE_SIZE = 50
 MAX_MESSAGE_PAGE_SIZE = 100
+MAX_MESSAGE_PAGE_CONTENT_CHARACTERS = 100_000
 
 
 @dataclass(frozen=True, slots=True)
@@ -113,8 +114,14 @@ class MessageRepository(BaseRepository):
         elif not isinstance(pagination, MessagePagination):
             raise TypeError("pagination must be a MessagePagination")
 
-        statement = (
-            select(Message)
+        candidates = (
+            select(
+                Message.id.label("message_id"),
+                Message.sequence_number.label("sequence_number"),
+                func.char_length(Message.content).label(
+                    "content_characters"
+                ),
+            )
             .join(
                 Conversation,
                 Conversation.id == Message.conversation_id,
@@ -126,7 +133,7 @@ class MessageRepository(BaseRepository):
             )
         )
         if pagination.cursor is not None:
-            statement = statement.where(
+            candidates = candidates.where(
                 Message.sequence_number
                 > bindparam(
                     "message_cursor_sequence_number",
@@ -135,18 +142,76 @@ class MessageRepository(BaseRepository):
                 )
             )
 
-        statement = statement.order_by(Message.sequence_number.asc()).limit(
-            bindparam(
-                "message_fetch_limit",
-                pagination.limit + 1,
-                type_=Integer(),
+        candidates = (
+            candidates.order_by(Message.sequence_number.asc())
+            .limit(
+                bindparam(
+                    "message_candidate_limit",
+                    pagination.limit + 1,
+                    type_=Integer(),
+                )
             )
+            .cte("message_page_candidates")
+        )
+        ranked_candidates = select(
+            candidates.c.message_id,
+            candidates.c.sequence_number,
+            func.row_number()
+            .over(order_by=candidates.c.sequence_number.asc())
+            .label("candidate_position"),
+            func.sum(candidates.c.content_characters)
+            .over(
+                order_by=candidates.c.sequence_number.asc(),
+                rows=(None, 0),
+            )
+            .label("cumulative_content_characters"),
+            func.count().over().label("candidate_count"),
+        ).cte("ranked_message_page_candidates")
+        selected_candidates = (
+            select(
+                ranked_candidates.c.message_id,
+                ranked_candidates.c.sequence_number,
+                ranked_candidates.c.candidate_count,
+            )
+            .where(
+                ranked_candidates.c.candidate_position
+                <= bindparam(
+                    "message_page_limit",
+                    pagination.limit,
+                    type_=Integer(),
+                ),
+                ranked_candidates.c.cumulative_content_characters
+                <= bindparam(
+                    "message_page_content_character_limit",
+                    MAX_MESSAGE_PAGE_CONTENT_CHARACTERS,
+                    type_=Integer(),
+                ),
+            )
+            .cte("selected_message_page_candidates")
+        )
+        statement = (
+            select(Message, selected_candidates.c.candidate_count)
+            .join(
+                selected_candidates,
+                selected_candidates.c.message_id == Message.id,
+            )
+            .join(
+                Conversation,
+                Conversation.id == Message.conversation_id,
+            )
+            .where(
+                Conversation.owner_id == owner_id,
+                Conversation.id == conversation_id,
+                Message.conversation_id == conversation_id,
+            )
+            .order_by(Message.sequence_number.asc())
         )
 
         result = await self.session.execute(statement)
-        messages = list(result.scalars().all())
-        has_more = len(messages) > pagination.limit
-        items = tuple(messages[: pagination.limit])
+        rows = result.all()
+        items = tuple(row[0] for row in rows)
+        candidate_count = rows[0][1] if rows else 0
+        has_more = candidate_count > len(items)
         next_cursor = None
         if has_more:
             next_cursor = MessageCursor(

@@ -13,6 +13,8 @@ from app.models.message import (
     MessageContentTooLargeError,
 )
 from app.repositories.message import (
+    DEFAULT_MESSAGE_PAGE_SIZE,
+    MAX_MESSAGE_PAGE_CONTENT_CHARACTERS,
     MAX_MESSAGE_PAGE_SIZE,
     MessageCursor,
     MessagePagination,
@@ -20,11 +22,17 @@ from app.repositories.message import (
 )
 
 
-def _session_with_allocated_sequence(sequence_number: int | None, *, rows=()):
+def _session_with_allocated_sequence(
+    sequence_number: int | None,
+    *,
+    rows=(),
+    page_rows=(),
+):
     session = AsyncMock(spec=AsyncSession)
     result = Mock()
     result.scalar_one_or_none.return_value = sequence_number
     result.scalars.return_value.all.return_value = list(rows)
+    result.all.return_value = list(page_rows)
     session.execute.return_value = result
     return session
 
@@ -190,7 +198,7 @@ async def test_first_message_page_is_owner_scoped_bounded_and_sequence_ordered()
     extra = _message(3)
     session = _session_with_allocated_sequence(
         None,
-        rows=(first, second, extra),
+        page_rows=((first, 3), (second, 3)),
     )
     repository = MessageRepository(session)
 
@@ -205,17 +213,34 @@ async def test_first_message_page_is_owner_scoped_bounded_and_sequence_ordered()
     statement = session.execute.await_args.args[0]
     assert isinstance(statement, Select)
     compiled, sql = _compile(statement)
-    assert sql.startswith("select messages.id, messages.conversation_id")
+    assert sql.startswith("with message_page_candidates as")
+    candidate_sql = sql.split("), ranked_message_page_candidates as", 1)[0]
+    assert "select messages.id as message_id" in candidate_sql
+    assert "messages.sequence_number as sequence_number" in candidate_sql
+    assert "char_length(messages.content) as content_characters" in candidate_sql
+    assert "messages.role" not in candidate_sql
+    assert "messages.created_at" not in candidate_sql
+    assert "messages.updated_at" not in candidate_sql
     assert "join conversations on conversations.id = messages.conversation_id" in sql
-    assert "where conversations.owner_id =" in sql
-    assert "and conversations.id =" in sql
-    assert "and messages.conversation_id =" in sql
+    assert sql.count("conversations.owner_id =") == 2
+    assert sql.count("conversations.id =") == 4
+    assert sql.count("messages.conversation_id =") == 2
+    assert "sum(message_page_candidates.content_characters) over" in sql
+    assert "rows between unbounded preceding and current row" in sql
+    assert "ranked_message_page_candidates.cumulative_content_characters" in sql
+    assert "join selected_message_page_candidates" in sql
+    assert "select messages.id, messages.conversation_id" in sql
     assert "order by messages.sequence_number asc" in sql
     assert "offset" not in sql
-    assert compiled.params["message_fetch_limit"] == 3
+    assert compiled.params["message_candidate_limit"] == 3
+    assert compiled.params["message_page_limit"] == 2
+    assert compiled.params["message_page_content_character_limit"] == (
+        MAX_MESSAGE_PAGE_CONTENT_CHARACTERS
+    )
     assert "message_cursor_sequence_number" not in compiled.params
     assert owner_id in compiled.params.values()
-    assert list(compiled.params.values()).count(conversation_id) == 2
+    assert list(compiled.params.values()).count(owner_id) == 2
+    assert list(compiled.params.values()).count(conversation_id) == 4
     session.execute.assert_awaited_once()
     session.commit.assert_not_awaited()
     session.rollback.assert_not_awaited()
@@ -227,7 +252,10 @@ async def test_next_message_page_uses_strict_sequence_cursor():
     conversation_id = uuid4()
     remaining = _message(3)
     cursor = MessageCursor(sequence_number=2)
-    session = _session_with_allocated_sequence(None, rows=(remaining,))
+    session = _session_with_allocated_sequence(
+        None,
+        page_rows=((remaining, 1),),
+    )
     repository = MessageRepository(session)
 
     page = await repository.list_for_owner(
@@ -243,9 +271,14 @@ async def test_next_message_page_uses_strict_sequence_cursor():
     assert "messages.sequence_number >" in sql
     assert "order by messages.sequence_number asc" in sql
     assert compiled.params["message_cursor_sequence_number"] == 2
-    assert compiled.params["message_fetch_limit"] == 3
+    assert compiled.params["message_candidate_limit"] == 3
+    assert compiled.params["message_page_limit"] == 2
+    assert compiled.params["message_page_content_character_limit"] == (
+        MAX_MESSAGE_PAGE_CONTENT_CHARACTERS
+    )
     assert owner_id in compiled.params.values()
-    assert list(compiled.params.values()).count(conversation_id) == 2
+    assert list(compiled.params.values()).count(owner_id) == 2
+    assert list(compiled.params.values()).count(conversation_id) == 4
     session.commit.assert_not_awaited()
     session.rollback.assert_not_awaited()
 
@@ -279,9 +312,190 @@ async def test_maximum_message_page_size_remains_bounded():
 
     statement = session.execute.await_args.args[0]
     compiled, _sql = _compile(statement)
-    assert compiled.params["message_fetch_limit"] == MAX_MESSAGE_PAGE_SIZE + 1
+    assert compiled.params["message_candidate_limit"] == MAX_MESSAGE_PAGE_SIZE + 1
+    assert compiled.params["message_page_limit"] == MAX_MESSAGE_PAGE_SIZE
+    assert compiled.params["message_page_content_character_limit"] == (
+        MAX_MESSAGE_PAGE_CONTENT_CHARACTERS
+    )
     session.commit.assert_not_awaited()
     session.rollback.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_default_message_page_size_limits_candidate_inspection():
+    session = _session_with_allocated_sequence(None)
+
+    await MessageRepository(session).list_for_owner(uuid4(), uuid4())
+
+    statement = session.execute.await_args.args[0]
+    compiled, _sql = _compile(statement)
+    assert compiled.params["message_candidate_limit"] == (
+        DEFAULT_MESSAGE_PAGE_SIZE + 1
+    )
+    assert compiled.params["message_page_limit"] == DEFAULT_MESSAGE_PAGE_SIZE
+
+
+@pytest.mark.asyncio
+async def test_exact_content_budget_message_is_returned_intact():
+    message = Message(
+        conversation_id=uuid4(),
+        role=MessageRole.USER,
+        content="é" * MAX_MESSAGE_PAGE_CONTENT_CHARACTERS,
+        sequence_number=1,
+    )
+    session = _session_with_allocated_sequence(
+        None,
+        page_rows=((message, 1),),
+    )
+
+    page = await MessageRepository(session).list_for_owner(
+        uuid4(),
+        message.conversation_id,
+        MessagePagination(limit=100),
+    )
+
+    assert page.items == (message,)
+    assert page.items[0].content == message.content
+    assert len(page.items[0].content) == MAX_MESSAGE_PAGE_CONTENT_CHARACTERS
+    assert page.next_cursor is None
+
+
+@pytest.mark.asyncio
+async def test_content_budget_defers_next_whole_message_with_cursor():
+    conversation_id = uuid4()
+    first = Message(
+        id=uuid4(),
+        conversation_id=conversation_id,
+        role=MessageRole.USER,
+        content="a" * 60_000,
+        sequence_number=1,
+    )
+    excluded = Message(
+        conversation_id=conversation_id,
+        role=MessageRole.ASSISTANT,
+        content="b" * 60_000,
+        sequence_number=2,
+    )
+    session = _session_with_allocated_sequence(
+        None,
+        page_rows=((first, 2),),
+    )
+
+    page = await MessageRepository(session).list_for_owner(
+        uuid4(),
+        conversation_id,
+        MessagePagination(limit=100),
+    )
+
+    assert page.items == (first,)
+    assert excluded not in page.items
+    assert page.next_cursor == MessageCursor(sequence_number=1)
+
+
+@pytest.mark.asyncio
+async def test_cumulative_content_exactly_at_budget_accepts_full_prefix():
+    conversation_id = uuid4()
+    first = Message(
+        conversation_id=conversation_id,
+        role=MessageRole.USER,
+        content="a" * 40_000,
+        sequence_number=1,
+    )
+    second = Message(
+        id=uuid4(),
+        conversation_id=conversation_id,
+        role=MessageRole.ASSISTANT,
+        content="b" * 60_000,
+        sequence_number=2,
+    )
+    session = _session_with_allocated_sequence(
+        None,
+        page_rows=((first, 2), (second, 2)),
+    )
+
+    page = await MessageRepository(session).list_for_owner(
+        uuid4(),
+        conversation_id,
+        MessagePagination(limit=100),
+    )
+
+    assert page.items == (first, second)
+    assert sum(len(message.content) for message in page.items) == (
+        MAX_MESSAGE_PAGE_CONTENT_CHARACTERS
+    )
+    assert page.next_cursor is None
+
+
+@pytest.mark.asyncio
+async def test_cumulative_content_over_budget_excludes_complete_next_message():
+    conversation_id = uuid4()
+    first = Message(
+        conversation_id=conversation_id,
+        role=MessageRole.USER,
+        content="a" * 60_000,
+        sequence_number=1,
+    )
+    session = _session_with_allocated_sequence(
+        None,
+        page_rows=((first, 2),),
+    )
+
+    page = await MessageRepository(session).list_for_owner(
+        uuid4(),
+        conversation_id,
+        MessagePagination(limit=100),
+    )
+
+    assert sum(len(message.content) for message in page.items) == 60_000
+    assert MAX_MESSAGE_PAGE_CONTENT_CHARACTERS - 60_000 == 40_000
+    assert page.next_cursor == MessageCursor(sequence_number=1)
+
+
+@pytest.mark.asyncio
+async def test_content_budget_cursor_traversal_has_no_gaps_or_duplicates():
+    conversation_id = uuid4()
+    first = Message(
+        id=uuid4(),
+        conversation_id=conversation_id,
+        role=MessageRole.USER,
+        content="a" * 60_000,
+        sequence_number=1,
+    )
+    second = Message(
+        id=uuid4(),
+        conversation_id=conversation_id,
+        role=MessageRole.ASSISTANT,
+        content="b" * 60_000,
+        sequence_number=2,
+    )
+    first_result = Mock()
+    first_result.all.return_value = [(first, 2)]
+    second_result = Mock()
+    second_result.all.return_value = [(second, 1)]
+    session = AsyncMock(spec=AsyncSession)
+    session.execute.side_effect = [first_result, second_result]
+    repository = MessageRepository(session)
+    owner_id = uuid4()
+
+    first_page = await repository.list_for_owner(
+        owner_id,
+        conversation_id,
+        MessagePagination(limit=100),
+    )
+    second_page = await repository.list_for_owner(
+        owner_id,
+        conversation_id,
+        MessagePagination(limit=100, cursor=first_page.next_cursor),
+    )
+
+    assert first_page.next_cursor == MessageCursor(sequence_number=1)
+    assert second_page.next_cursor is None
+    assert first_page.items + second_page.items == (first, second)
+    assert len({message.id for message in first_page.items + second_page.items}) == 2
+    second_statement = session.execute.await_args_list[1].args[0]
+    compiled, sql = _compile(second_statement)
+    assert "messages.sequence_number >" in sql
+    assert compiled.params["message_cursor_sequence_number"] == 1
 
 
 @pytest.mark.parametrize("limit", [0, -1, MAX_MESSAGE_PAGE_SIZE + 1])

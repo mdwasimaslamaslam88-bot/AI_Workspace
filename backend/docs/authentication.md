@@ -156,9 +156,12 @@ foreign-owned conversations receive the same generic HTTP 404 response.
 from a conversation owned by the bearer credential's current user, ordered by
 ascending message sequence. `limit` defaults to 50 and is bounded from 1 to
 100. An optional positive integer `cursor` is the last sequence number returned
-by the previous page. The response provides that sequence number as
-`next_cursor` only when another page exists. Empty, missing, and foreign-owned
-conversations all return the same empty page without disclosing ownership.
+by the previous page. A page returns the longest whole-Message prefix that fits
+both the requested count and a 100,000-Unicode-character cumulative content
+budget. Message content is never truncated or normalized. The response provides
+the final returned sequence number as `next_cursor` when either boundary defers
+another Message. Empty, missing, and foreign-owned conversations all return the
+same empty page without disclosing ownership.
 
 POST /api/v1/conversations/{conversation_id}/messages/generate resolves the
 current owner exclusively from the bearer credential and generates one

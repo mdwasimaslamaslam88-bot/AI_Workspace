@@ -49,6 +49,19 @@ that content. Application services reject oversized content before persistence,
 repositories repeat the check before sequence allocation, and PostgreSQL is the
 final authority for direct or bypass writes.
 
+Public Message history pagination applies a separate 100,000-character
+cumulative page budget without changing the durable per-Message invariant.
+`MessageRepository.list_for_owner()` uses one owner-scoped SQL statement: a
+sequence-ordered candidate CTE inspects at most `limit + 1` rows and selects
+only Message IDs, sequence numbers, and PostgreSQL `char_length(content)`; a
+window sum finds the longest whole-Message prefix within the page budget; and
+the final join materializes complete ORM Messages only for that prefix. The
+same owner and Conversation filters are enforced in both the candidate and
+final stages. Count- or character-limited pages use the final returned sequence
+as the existing keyset cursor, so the unique `(conversation_id,
+sequence_number)` constraint and ascending index access remain sufficient.
+Generation-context reads are not changed by this history-only boundary.
+
 ## PostgreSQL integration tests
 
 The default `python -m pytest -q` run remains database-free. Real PostgreSQL

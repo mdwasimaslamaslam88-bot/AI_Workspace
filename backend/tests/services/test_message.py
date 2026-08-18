@@ -1,3 +1,4 @@
+import asyncio
 from unittest.mock import AsyncMock, Mock
 from uuid import uuid4
 
@@ -15,11 +16,17 @@ from app.repositories.message import MessageCursor, MessagePagination
 from app.services.message import MessageAppendConflictError, MessageService
 
 
-def _service_session(sequence_number: int | None = 1, *, rows=()):
+def _service_session(
+    sequence_number: int | None = 1,
+    *,
+    rows=(),
+    page_rows=(),
+):
     session = AsyncMock(spec=AsyncSession)
     result = Mock()
     result.scalar_one_or_none.return_value = sequence_number
     result.scalars.return_value.all.return_value = list(rows)
+    result.all.return_value = list(page_rows)
     session.execute.return_value = result
     return session
 
@@ -200,7 +207,7 @@ async def test_message_list_returns_page_without_committing():
         content="second",
         sequence_number=2,
     )
-    session = _service_session(None, rows=(first, second))
+    session = _service_session(None, page_rows=((first, 2),))
     service = MessageService(session)
 
     page = await service.list_for_owner(
@@ -216,6 +223,48 @@ async def test_message_list_returns_page_without_committing():
     session.flush.assert_not_awaited()
     session.commit.assert_not_awaited()
     session.rollback.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_message_list_preserves_exact_bounded_content_and_cursor():
+    conversation_id = uuid4()
+    first_content = "é" * 60_000
+    first = Message(
+        conversation_id=conversation_id,
+        role=MessageRole.USER,
+        content=first_content,
+        sequence_number=1,
+    )
+    session = _service_session(None, page_rows=((first, 2),))
+
+    page = await MessageService(session).list_for_owner(
+        uuid4(),
+        conversation_id,
+        MessagePagination(limit=100),
+    )
+
+    assert page.items == (first,)
+    assert page.items[0].content == first_content
+    assert page.next_cursor == MessageCursor(sequence_number=1)
+    session.execute.assert_awaited_once()
+    session.commit.assert_not_awaited()
+    session.rollback.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_message_list_cancellation_rolls_back_and_propagates():
+    session = _service_session(None)
+    session.execute.side_effect = asyncio.CancelledError
+
+    with pytest.raises(asyncio.CancelledError):
+        await MessageService(session).list_for_owner(
+            uuid4(),
+            uuid4(),
+            MessagePagination(limit=100),
+        )
+
+    session.rollback.assert_awaited_once_with()
+    session.commit.assert_not_awaited()
 
 
 @pytest.mark.asyncio

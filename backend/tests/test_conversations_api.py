@@ -1813,6 +1813,56 @@ def test_list_messages_returns_last_sequence_as_next_cursor(conversation_api):
     )
 
 
+def test_list_messages_preserves_exact_content_at_budget_boundary(
+    conversation_api,
+):
+    api = conversation_api
+    exact_content = "é" * 60_000
+    bounded_message = Message(
+        id=uuid4(),
+        conversation_id=api["conversation"].id,
+        role=MessageRole.ASSISTANT,
+        content=exact_content,
+        sequence_number=7,
+        created_at=datetime(2026, 8, 11, 9, 4, tzinfo=timezone.utc),
+        updated_at=datetime(2026, 8, 11, 9, 5, tzinfo=timezone.utc),
+    )
+    api["list_messages"].return_value = MessagePage(
+        items=(bounded_message,),
+        next_cursor=MessageCursor(sequence_number=7),
+    )
+
+    response = api["client"].get(
+        f"/api/v1/conversations/{api['conversation'].id}/messages",
+        params={"limit": 100},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload == {
+        "items": [
+            {
+                "id": str(bounded_message.id),
+                "conversation_id": str(api["conversation"].id),
+                "role": "assistant",
+                "content": exact_content,
+                "sequence_number": 7,
+                "created_at": "2026-08-11T09:04:00Z",
+                "updated_at": "2026-08-11T09:05:00Z",
+            }
+        ],
+        "next_cursor": 7,
+    }
+    lowered_response = response.text.lower()
+    for internal_detail in ("budget", "candidate", "char_length", "sql"):
+        assert internal_detail not in lowered_response
+    api["list_messages"].assert_awaited_once_with(
+        api["current_user"].id,
+        api["conversation"].id,
+        MessagePagination(limit=100),
+    )
+
+
 def test_list_messages_maps_cursor_to_existing_pagination(conversation_api):
     api = conversation_api
     api["list_messages"].return_value = MessagePage(

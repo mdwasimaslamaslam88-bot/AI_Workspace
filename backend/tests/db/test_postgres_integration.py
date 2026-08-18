@@ -635,6 +635,114 @@ async def test_message_ordered_pagination_and_owner_isolation(
 
 
 @pytest.mark.asyncio
+async def test_message_history_uses_sql_character_budgeted_pages(
+    test_database_engine: AsyncEngine,
+):
+    async with AsyncSession(test_database_engine, expire_on_commit=False) as session:
+        owner = await UserService(session).create(User())
+        other_owner = await UserService(session).create(User())
+        owner_id = owner.id
+        other_owner_id = other_owner.id
+        service = MessageService(session)
+
+        boundary_conversation = await ConversationService(session).create(
+            owner_id,
+            "Boundary-sized history",
+        )
+        boundary_contents = (
+            "é" * MAX_MESSAGE_CONTENT_CHARACTERS,
+            "u" * MAX_MESSAGE_CONTENT_CHARACTERS,
+            "a" * MAX_MESSAGE_CONTENT_CHARACTERS,
+        )
+        for role, content in zip(
+            (MessageRole.SYSTEM, MessageRole.USER, MessageRole.ASSISTANT),
+            boundary_contents,
+            strict=True,
+        ):
+            appended = await service.append_for_owner(
+                owner_id,
+                boundary_conversation.id,
+                role,
+                content,
+            )
+            assert appended is not None
+
+        cursor = None
+        for expected_sequence, expected_content in enumerate(
+            boundary_contents,
+            start=1,
+        ):
+            page = await service.list_for_owner(
+                owner_id,
+                boundary_conversation.id,
+                MessagePagination(limit=100, cursor=cursor),
+            )
+            assert [message.sequence_number for message in page.items] == [
+                expected_sequence
+            ]
+            assert page.items[0].content == expected_content
+            if expected_sequence < len(boundary_contents):
+                assert page.next_cursor is not None
+                assert page.next_cursor.sequence_number == expected_sequence
+            else:
+                assert page.next_cursor is None
+            cursor = page.next_cursor
+
+        mixed_conversation = await ConversationService(session).create(
+            owner_id,
+            "Mixed-sized history",
+        )
+        mixed_contents = ("m" * 40_000, "界" * 60_000, "z")
+        for content in mixed_contents:
+            appended = await service.append_for_owner(
+                owner_id,
+                mixed_conversation.id,
+                MessageRole.USER,
+                content,
+            )
+            assert appended is not None
+
+        mixed_first_page = await service.list_for_owner(
+            owner_id,
+            mixed_conversation.id,
+            MessagePagination(limit=100),
+        )
+        assert [message.content for message in mixed_first_page.items] == list(
+            mixed_contents[:2]
+        )
+        assert mixed_first_page.next_cursor is not None
+        assert mixed_first_page.next_cursor.sequence_number == 2
+        mixed_second_page = await service.list_for_owner(
+            owner_id,
+            mixed_conversation.id,
+            MessagePagination(limit=100, cursor=mixed_first_page.next_cursor),
+        )
+        assert [message.content for message in mixed_second_page.items] == [
+            mixed_contents[2]
+        ]
+        assert mixed_second_page.next_cursor is None
+
+        foreign_conversation = await ConversationService(session).create(
+            other_owner_id,
+            "Foreign bounded history",
+        )
+        foreign_message = await service.append_for_owner(
+            other_owner_id,
+            foreign_conversation.id,
+            MessageRole.USER,
+            "f" * MAX_MESSAGE_CONTENT_CHARACTERS,
+        )
+        assert foreign_message is not None
+        wrong_owner_page = await service.list_for_owner(
+            owner_id,
+            foreign_conversation.id,
+            MessagePagination(limit=100),
+        )
+        assert wrong_owner_page.items == ()
+        assert wrong_owner_page.next_cursor is None
+
+
+@pytest.mark.asyncio
 async def test_concurrent_message_appends_allocate_unique_contiguous_sequences(
     test_database_engine: AsyncEngine,
 ):
