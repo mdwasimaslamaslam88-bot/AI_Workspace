@@ -3113,3 +3113,400 @@ async def test_stale_rejection_releases_admission_and_allows_retry(monkeypatch):
     assert result is appended
     assert dependencies["admission"]._active_users == set()
     assert dependencies["admission"]._active_count == 0
+
+
+class _TrackingDeadline:
+    def __init__(self) -> None:
+        self.active = False
+        self.enter_count = 0
+        self.exit_count = 0
+
+    async def __aenter__(self):
+        self.active = True
+        self.enter_count += 1
+        return self
+
+    async def __aexit__(self, _exc_type, _exc, _traceback):
+        self.active = False
+        self.exit_count += 1
+        return False
+
+    def expired(self) -> bool:
+        return False
+
+
+@pytest.mark.asyncio
+async def test_one_deadline_starts_after_ownership_and_covers_all_stages(
+    monkeypatch,
+):
+    owner_id = uuid4()
+    conversation_id = uuid4()
+    session = AsyncMock(spec=AsyncSession)
+    initial = _message(conversation_id, MessageRole.USER, "initial", 1)
+    appended_user = _message(
+        conversation_id,
+        MessageRole.USER,
+        "follow-up",
+        2,
+    )
+    appended_assistant = _message(
+        conversation_id,
+        MessageRole.ASSISTANT,
+        "answer",
+        3,
+    )
+    dependencies = _dependencies(
+        monkeypatch,
+        conversation=_conversation(owner_id, conversation_id, 2),
+        context=(initial, appended_user),
+        appended=None,
+    )
+    deadline = _TrackingDeadline()
+    deadline_calls: list[float] = []
+
+    def timeout_at(deadline_at):
+        assert owner_id in dependencies["admission"]._active_users
+        deadline_calls.append(deadline_at)
+        return deadline
+    events: list[str] = []
+
+    async def get_for_owner(*_args):
+        assert deadline_calls == []
+        events.append("ownership")
+        return _conversation(owner_id, conversation_id, 2)
+
+    async def append(_owner, _conversation, role, _content, **_kwargs):
+        assert deadline.active
+        events.append(f"append:{role.value}")
+        if role is MessageRole.USER:
+            return appended_user
+        return appended_assistant
+
+    async def context(*_args, **_kwargs):
+        assert deadline.active
+        events.append("context")
+        return _context_snapshot((initial, appended_user))
+
+    async def rollback():
+        assert deadline.active
+        events.append("rollback")
+
+    async def resolve(_model_id):
+        assert deadline.active
+        events.append("catalog")
+        return _resolved()
+
+    async def generate(*_args, **_kwargs):
+        assert deadline.active
+        events.append("runtime")
+        return TextGenerationResult(content="answer")
+
+    dependencies["get"].side_effect = get_for_owner
+    dependencies["append"].side_effect = append
+    dependencies["context"].side_effect = context
+    session.rollback.side_effect = rollback
+    dependencies["catalog"].resolve_model.side_effect = resolve
+    dependencies["router"].generate.side_effect = generate
+    monkeypatch.setattr(generation_module.asyncio, "timeout_at", timeout_at)
+
+    result = await ConversationGenerationService(
+        session,
+        dependencies["catalog"],
+        dependencies["router"],
+        dependencies["admission"],
+        73.25,
+    ).generate_for_owner(
+        owner_id,
+        conversation_id,
+        MODEL_ID,
+        user_message="follow-up",
+    )
+
+    assert result is appended_assistant
+    assert events == [
+        "ownership",
+        "append:user",
+        "context",
+        "rollback",
+        "catalog",
+        "runtime",
+        "append:assistant",
+    ]
+    assert len(deadline_calls) == 1
+    assert deadline.enter_count == 1
+    assert deadline.exit_count == 1
+    assert not deadline.active
+
+
+@pytest.mark.asyncio
+async def test_rejected_admission_does_not_create_deadline(monkeypatch):
+    owner_id = uuid4()
+    conversation_id = uuid4()
+    dependencies = _dependencies(
+        monkeypatch,
+        conversation=_conversation(owner_id, conversation_id, 2),
+        context=(_message(conversation_id, MessageRole.USER, "question", 1),),
+        appended=None,
+    )
+    timeout_at = Mock()
+    monkeypatch.setattr(generation_module.asyncio, "timeout_at", timeout_at)
+    service = ConversationGenerationService(
+        AsyncMock(spec=AsyncSession),
+        dependencies["catalog"],
+        dependencies["router"],
+        dependencies["admission"],
+    )
+
+    async with dependencies["admission"].admit(owner_id):
+        with pytest.raises(GenerationAdmissionRejectedError):
+            await service.generate_for_owner(owner_id, conversation_id, MODEL_ID)
+
+    dependencies["get"].assert_awaited_once_with(owner_id, conversation_id)
+    timeout_at.assert_not_called()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "blocked_stage",
+    [
+        "user_commit",
+        "context",
+        "rollback",
+        "catalog",
+        "runtime_request",
+        "runtime_response",
+        "assistant_commit",
+    ],
+)
+async def test_hard_deadline_releases_admission_at_every_blocked_stage(
+    monkeypatch,
+    blocked_stage,
+):
+    owner_id = uuid4()
+    conversation_id = uuid4()
+    session = AsyncMock(spec=AsyncSession)
+    initial = _message(conversation_id, MessageRole.USER, "initial", 1)
+    appended_user = _message(
+        conversation_id,
+        MessageRole.USER,
+        "committed user",
+        2,
+    )
+    appended_assistant = _message(
+        conversation_id,
+        MessageRole.ASSISTANT,
+        "answer",
+        3,
+    )
+    snapshot = _context_snapshot((initial, appended_user))
+    dependencies = _dependencies(
+        monkeypatch,
+        conversation=_conversation(owner_id, conversation_id, 2),
+        context=snapshot,
+        appended=None,
+    )
+    entered = asyncio.Event()
+    blocker = asyncio.Event()
+    user_committed = False
+    assistant_persisted = False
+
+    async def block():
+        entered.set()
+        await blocker.wait()
+
+    async def append(_owner, _conversation, role, _content, **_kwargs):
+        nonlocal user_committed, assistant_persisted
+        if role is MessageRole.USER:
+            if blocked_stage == "user_commit":
+                await block()
+            user_committed = True
+            return appended_user
+        if blocked_stage == "assistant_commit":
+            await block()
+        assistant_persisted = True
+        return appended_assistant
+
+    async def context(*_args, **_kwargs):
+        if blocked_stage == "context":
+            await block()
+        return snapshot
+
+    async def rollback():
+        if blocked_stage == "rollback":
+            await block()
+
+    async def resolve(_model_id):
+        if blocked_stage == "catalog":
+            await block()
+        return _resolved()
+
+    async def generate(*_args, **_kwargs):
+        if blocked_stage in {"runtime_request", "runtime_response"}:
+            await block()
+        return TextGenerationResult(content="answer")
+
+    dependencies["append"].side_effect = append
+    dependencies["context"].side_effect = context
+    session.rollback.side_effect = rollback
+    dependencies["catalog"].resolve_model.side_effect = resolve
+    dependencies["router"].generate.side_effect = generate
+    service = ConversationGenerationService(
+        session,
+        dependencies["catalog"],
+        dependencies["router"],
+        dependencies["admission"],
+        0.05,
+    )
+
+    task = asyncio.create_task(
+        service.generate_for_owner(
+            owner_id,
+            conversation_id,
+            MODEL_ID,
+            user_message="committed user",
+        )
+    )
+    await asyncio.wait_for(entered.wait(), timeout=1)
+
+    with pytest.raises(TextGenerationRuntimeUnavailableError) as captured:
+        await task
+
+    assert str(captured.value) == "local text generation is unavailable"
+    assert blocked_stage not in str(captured.value)
+    assert not assistant_persisted
+    assert user_committed is (blocked_stage != "user_commit")
+    assert dependencies["admission"]._active_users == set()
+    assert dependencies["admission"]._active_count == 0
+    async with dependencies["admission"].admit(owner_id):
+        pass
+    async with dependencies["admission"].admit(uuid4()):
+        pass
+
+
+@pytest.mark.asyncio
+async def test_deadline_after_user_commit_preserves_generation_only_retry(
+    monkeypatch,
+):
+    owner_id = uuid4()
+    conversation_id = uuid4()
+    session = AsyncMock(spec=AsyncSession)
+    initial = _message(conversation_id, MessageRole.USER, "initial", 1)
+    appended_user = _message(
+        conversation_id,
+        MessageRole.USER,
+        "committed user",
+        2,
+    )
+    appended_assistant = _message(
+        conversation_id,
+        MessageRole.ASSISTANT,
+        "answer",
+        3,
+    )
+    snapshot = _context_snapshot((initial, appended_user))
+    dependencies = _dependencies(
+        monkeypatch,
+        conversation=_conversation(owner_id, conversation_id, 2),
+        context=snapshot,
+        appended=None,
+    )
+    runtime_entered = asyncio.Event()
+    blocker = asyncio.Event()
+    runtime_calls = 0
+
+    async def append(_owner, _conversation, role, _content, **_kwargs):
+        if role is MessageRole.USER:
+            return appended_user
+        return appended_assistant
+
+    async def generate(*_args, **_kwargs):
+        nonlocal runtime_calls
+        runtime_calls += 1
+        if runtime_calls == 1:
+            runtime_entered.set()
+            await blocker.wait()
+        return TextGenerationResult(content="answer")
+
+    dependencies["append"].side_effect = append
+    dependencies["router"].generate.side_effect = generate
+    service = ConversationGenerationService(
+        session,
+        dependencies["catalog"],
+        dependencies["router"],
+        dependencies["admission"],
+        0.05,
+    )
+    first = asyncio.create_task(
+        service.generate_for_owner(
+            owner_id,
+            conversation_id,
+            MODEL_ID,
+            user_message="committed user",
+        )
+    )
+    await asyncio.wait_for(runtime_entered.wait(), timeout=1)
+
+    with pytest.raises(TextGenerationRuntimeUnavailableError):
+        await first
+
+    assert dependencies["append"].await_args_list == [
+        call(
+            owner_id,
+            conversation_id,
+            MessageRole.USER,
+            "committed user",
+        )
+    ]
+    assert dependencies["admission"]._active_users == set()
+    assert dependencies["admission"]._active_count == 0
+
+    service.max_duration_seconds = 1.0
+    dependencies["get"].return_value = _conversation(
+        owner_id,
+        conversation_id,
+        3,
+    )
+    result = await service.generate_for_owner(
+        owner_id,
+        conversation_id,
+        MODEL_ID,
+    )
+
+    assert result is appended_assistant
+    assert dependencies["append"].await_args_list[-1] == call(
+        owner_id,
+        conversation_id,
+        MessageRole.ASSISTANT,
+        "answer",
+        expected_sequence_number=3,
+    )
+
+
+@pytest.mark.asyncio
+async def test_non_deadline_timeout_is_not_reclassified(monkeypatch):
+    owner_id = uuid4()
+    conversation_id = uuid4()
+    dependencies = _dependencies(
+        monkeypatch,
+        conversation=_conversation(owner_id, conversation_id, 2),
+        context=(
+            _message(conversation_id, MessageRole.USER, "question", 1),
+        ),
+        appended=None,
+    )
+    dependencies["router"].generate.side_effect = TimeoutError(
+        "narrower operation timeout"
+    )
+    service = ConversationGenerationService(
+        AsyncMock(spec=AsyncSession),
+        dependencies["catalog"],
+        dependencies["router"],
+        dependencies["admission"],
+        1.0,
+    )
+
+    with pytest.raises(TimeoutError, match="narrower operation timeout"):
+        await service.generate_for_owner(owner_id, conversation_id, MODEL_ID)
+
+    assert dependencies["admission"]._active_users == set()
+    assert dependencies["admission"]._active_count == 0

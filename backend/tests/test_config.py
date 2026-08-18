@@ -2,6 +2,7 @@ import pytest
 from pydantic import ValidationError
 from app.core.config import (
     MAX_GENERATION_ACTIVE_PER_PROCESS,
+    MAX_GENERATION_DURATION_SECONDS,
     MAX_OLLAMA_GENERATION_REQUEST_BYTES,
     MAX_OLLAMA_GENERATION_RESPONSE_BYTES,
     MAX_REQUEST_BODY_BYTES,
@@ -21,6 +22,7 @@ def test_settings_preserve_application_defaults():
     assert settings.OLLAMA_LOCAL_MODEL_ALLOWLIST == ()
     assert settings.OLLAMA_GENERATION_TIMEOUT_SECONDS == 120.0
     assert settings.GENERATION_MAX_ACTIVE_PER_PROCESS == 1
+    assert settings.GENERATION_MAX_DURATION_SECONDS == 180.0
     assert settings.REQUEST_MAX_BODY_BYTES == 262_144
     assert settings.USER_PROVISIONING_TOKEN_DIGEST is None
 
@@ -185,6 +187,46 @@ def test_generation_process_cap_accepts_documented_bounds(value):
     )
 
     assert settings.GENERATION_MAX_ACTIVE_PER_PROCESS == value
+
+
+@pytest.mark.parametrize(
+    "value",
+    [0.001, 1, 180.0, MAX_GENERATION_DURATION_SECONDS],
+)
+def test_generation_max_duration_accepts_positive_finite_values(value):
+    configured = Settings(
+        _env_file=None,
+        GENERATION_MAX_DURATION_SECONDS=value,
+    )
+
+    assert configured.GENERATION_MAX_DURATION_SECONDS == float(value)
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        True,
+        False,
+        "180.0",
+        0,
+        -1,
+        float("nan"),
+        float("inf"),
+        float("-inf"),
+        MAX_GENERATION_DURATION_SECONDS + 0.0001,
+    ],
+)
+def test_generation_max_duration_rejects_unsafe_values(value):
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None, GENERATION_MAX_DURATION_SECONDS=value)
+
+
+def test_generation_max_duration_parses_environment_value(monkeypatch):
+    monkeypatch.setenv("GENERATION_MAX_DURATION_SECONDS", "42.5")
+
+    configured = Settings(_env_file=None)
+
+    assert configured.GENERATION_MAX_DURATION_SECONDS == 42.5
 
 
 @pytest.mark.parametrize(

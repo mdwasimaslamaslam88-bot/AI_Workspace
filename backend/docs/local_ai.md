@@ -80,8 +80,8 @@ actual-byte counting. Invalid or ambiguous `Content-Length` receives HTTP 400.
 The generic 413 message is `Request body is too large`; responses expose no
 limit, count, header, body, credential, or field content. This ingress byte
 limit does not itself add a Message-field, database, context, WebSocket, rate,
-quota, or deadline limit. Persisted Message content and the Ollama response body
-have separate boundaries documented below.
+or quota limit. Persisted Message content, the Ollama response body, and the
+admitted-generation lifetime have separate boundaries documented below.
 
 An authenticated user may generate one local assistant response for an owned
 Conversation:
@@ -315,6 +315,23 @@ wait or create a queue. The permit is released after assistant persistence or
 on every failure, stale-generation rejection, and request cancellation. This
 controller coordinates one application process only; it adds no Redis lease,
 database lock, distributed scheduler, or job system.
+
+Each admitted generation has one hard monotonic wall-clock deadline configured by
+`GENERATION_MAX_DURATION_SECONDS`. The finite numeric value defaults to 180.0
+seconds, must be greater than zero, and cannot exceed 600.0 seconds. The timer is
+created only after admission succeeds and is never reset. It covers the optional
+USER append and commit, SQL-gated context capture, transaction rollback, context
+validation, catalog discovery and resolution, Ollama request encoding and
+upload, Ollama response handling, and the guarded assistant append and commit.
+The existing PostgreSQL, catalog, and generation HTTPX timeouts remain narrower
+defenses within this total lifetime.
+
+Deadline expiry uses the existing generic HTTP 503 `Local model runtime
+unavailable` contract and releases the admission permit after the generation
+task stops. A USER committed before expiry remains available for a
+generation-only retry; an uncommitted USER and a not-yet-committed assistant are
+rolled back through the existing cleanup paths. External task cancellation is
+not converted to HTTP 503 and continues to propagate while releasing admission.
 
 The service copies the owner-scoped Conversation history and rolls back its
 read transaction before local inference. The generated assistant Message is

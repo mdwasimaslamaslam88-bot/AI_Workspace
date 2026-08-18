@@ -262,10 +262,16 @@ async def generate_assistant_message(
         "generation_admission_controller",
         None,
     )
+    generation_max_duration_seconds = getattr(
+        request.app.state,
+        "generation_max_duration_seconds",
+        None,
+    )
     if (
         catalog is None
         or generation_router is None
         or admission_controller is None
+        or generation_max_duration_seconds is None
     ):
         raise RuntimeError("Local text generation is not configured")
 
@@ -275,6 +281,7 @@ async def generate_assistant_message(
             catalog,
             generation_router,
             admission_controller,
+            generation_max_duration_seconds,
         ).generate_for_owner(
             current_user.id,
             conversation_id,

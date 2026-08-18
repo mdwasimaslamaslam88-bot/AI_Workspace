@@ -2747,12 +2747,16 @@ async def test_authenticated_conversation_generation_is_owner_scoped_and_stale_s
     previous_admission = getattr(
         app.state, "generation_admission_controller", missing
     )
+    previous_duration = getattr(
+        app.state, "generation_max_duration_seconds", missing
+    )
     app.state.db_session_factory = session_factory
     app.state.model_catalog = catalog
     app.state.text_generation_router = generation_router
     app.state.generation_admission_controller = (
         GenerationAdmissionController(1)
     )
+    app.state.generation_max_duration_seconds = 180.0
 
     try:
         schema_before = normalized_schema(
@@ -3415,6 +3419,11 @@ async def test_authenticated_conversation_generation_is_owner_scoped_and_stale_s
             app.state.generation_admission_controller = (
                 previous_admission
             )
+        if previous_duration is missing:
+            delattr(app.state, "generation_max_duration_seconds")
+        else:
+            app.state.generation_max_duration_seconds = previous_duration
+
 
 
 @pytest.mark.asyncio
@@ -3499,10 +3508,14 @@ async def test_generation_admission_is_user_scoped_globally_bounded_and_rotation
         "generation_admission_controller",
         missing,
     )
+    previous_duration = getattr(
+        app.state, "generation_max_duration_seconds", missing
+    )
     app.state.db_session_factory = session_factory
     app.state.model_catalog = catalog
     app.state.text_generation_router = generation_router
     app.state.generation_admission_controller = GenerationAdmissionController(1)
+    app.state.generation_max_duration_seconds = 180.0
 
     async def create_conversation(client, headers, initial_message):
         response = await client.post(
@@ -3722,3 +3735,270 @@ async def test_generation_admission_is_user_scoped_globally_bounded_and_rotation
             delattr(app.state, "generation_admission_controller")
         else:
             app.state.generation_admission_controller = previous_admission
+        if previous_duration is missing:
+            delattr(app.state, "generation_max_duration_seconds")
+        else:
+            app.state.generation_max_duration_seconds = previous_duration
+
+
+@pytest.mark.asyncio
+async def test_generation_deadline_preserves_retry_and_releases_postgres_resources(
+    test_database_engine: AsyncEngine,
+):
+    class DeadlineLocalTextRuntime:
+        runtime_id = "deadline-local"
+
+        def __init__(self) -> None:
+            self.block = True
+            self.entered = asyncio.Event()
+            self.release = asyncio.Event()
+            self.active_calls = 0
+
+        async def discover_models(self) -> tuple[RuntimeModel, ...]:
+            return (
+                RuntimeModel(
+                    reference="/private/runtime/deadline-model",
+                    display_name="Deadline model",
+                    parameter_class="7B",
+                    capabilities=("chat", "text-generation"),
+                    availability=ModelAvailability.AVAILABLE,
+                ),
+            )
+
+        async def generate_text(
+            self,
+            runtime_reference,
+            messages,
+            *,
+            max_output_tokens,
+            temperature=None,
+            seed=None,
+            top_p=None,
+            top_k=None,
+            min_p=None,
+            repeat_penalty=None,
+            repeat_last_n=None,
+            typical_p=None,
+            presence_penalty=None,
+            frequency_penalty=None,
+            stop_sequences=None,
+        ) -> TextGenerationResult:
+            self.active_calls += 1
+            self.entered.set()
+            try:
+                if self.block:
+                    await self.release.wait()
+                return TextGenerationResult(content="deadline-safe answer")
+            finally:
+                self.active_calls -= 1
+
+        def prepare_blocked_call(self) -> None:
+            self.block = True
+            self.entered = asyncio.Event()
+            self.release = asyncio.Event()
+
+    runtime = DeadlineLocalTextRuntime()
+    catalog = ModelCatalog((runtime,))
+    generation_router = TextGenerationRouter((runtime,))
+    admission = GenerationAdmissionController(1)
+    session_factory = async_sessionmaker(
+        test_database_engine,
+        class_=AsyncSession,
+        expire_on_commit=False,
+    )
+    missing = object()
+    previous_factory = getattr(app.state, "db_session_factory", missing)
+    previous_catalog = getattr(app.state, "model_catalog", missing)
+    previous_router = getattr(app.state, "text_generation_router", missing)
+    previous_admission = getattr(
+        app.state,
+        "generation_admission_controller",
+        missing,
+    )
+    previous_duration = getattr(
+        app.state,
+        "generation_max_duration_seconds",
+        missing,
+    )
+    app.state.db_session_factory = session_factory
+    app.state.model_catalog = catalog
+    app.state.text_generation_router = generation_router
+    app.state.generation_admission_controller = admission
+    app.state.generation_max_duration_seconds = 0.25
+
+    async def create_conversation(client, headers, content):
+        response = await client.post(
+            "/api/v1/conversations",
+            headers=headers,
+            json={"initial_message": content},
+        )
+        assert response.status_code == 201
+        return UUID(response.json()["id"])
+
+    try:
+        transport = ASGITransport(app=app)
+        async with AsyncClient(
+            transport=transport,
+            base_url="http://testserver",
+        ) as client:
+            owner_response = await client.post(
+                "/api/v1/users",
+                headers=_PROVISIONING_HEADERS,
+            )
+            other_response = await client.post(
+                "/api/v1/users",
+                headers=_PROVISIONING_HEADERS,
+            )
+            assert owner_response.status_code == 201
+            assert other_response.status_code == 201
+            owner_headers = {
+                "Authorization": (
+                    f"Bearer {owner_response.json()['access_token']}"
+                )
+            }
+            other_headers = {
+                "Authorization": (
+                    f"Bearer {other_response.json()['access_token']}"
+                )
+            }
+            owner_conversation = await create_conversation(
+                client,
+                owner_headers,
+                "owner initial",
+            )
+            other_conversation = await create_conversation(
+                client,
+                other_headers,
+                "other initial",
+            )
+            models = await client.get(
+                "/api/v1/ai/models",
+                headers=owner_headers,
+            )
+            assert models.status_code == 200
+            model_id = models.json()["items"][0]["model_id"]
+
+            timed_out_task = asyncio.create_task(
+                client.post(
+                    f"/api/v1/conversations/{owner_conversation}/messages/generate",
+                    headers=owner_headers,
+                    json={
+                        "model_id": model_id,
+                        "user_message": "committed before deadline",
+                    },
+                )
+            )
+            await asyncio.wait_for(runtime.entered.wait(), timeout=1)
+
+            async with AsyncSession(test_database_engine) as observer:
+                idle_in_transaction = await observer.scalar(
+                    sa.text(
+                        "SELECT count(*) FROM pg_stat_activity "
+                        "WHERE datname = current_database() "
+                        "AND pid <> pg_backend_pid() "
+                        "AND state = 'idle in transaction'"
+                    )
+                )
+            assert idle_in_transaction == 0
+
+            timed_out = await timed_out_task
+            assert timed_out.status_code == 503
+            assert timed_out.json()["error"] == {
+                "code": "HTTP_ERROR",
+                "message": "Local model runtime unavailable",
+            }
+            assert "0.25" not in timed_out.text
+            assert "deadline-model" not in timed_out.text
+            assert runtime.active_calls == 0
+            assert admission._active_users == set()
+            assert admission._active_count == 0
+
+            timed_out_history = await client.get(
+                f"/api/v1/conversations/{owner_conversation}/messages",
+                headers=owner_headers,
+            )
+            assert timed_out_history.status_code == 200
+            assert [
+                (item["role"], item["content"])
+                for item in timed_out_history.json()["items"]
+            ] == [
+                ("user", "owner initial"),
+                ("user", "committed before deadline"),
+            ]
+
+            runtime.block = False
+            app.state.generation_max_duration_seconds = 1.0
+            retry = await client.post(
+                f"/api/v1/conversations/{owner_conversation}/messages/generate",
+                headers=owner_headers,
+                json={"model_id": model_id},
+            )
+            assert retry.status_code == 201
+            assert retry.json()["message"]["content"] == "deadline-safe answer"
+
+            other_user_generation = await client.post(
+                f"/api/v1/conversations/{other_conversation}/messages/generate",
+                headers=other_headers,
+                json={"model_id": model_id},
+            )
+            assert other_user_generation.status_code == 201
+            assert admission._active_users == set()
+            assert admission._active_count == 0
+
+            cancelled_conversation = await create_conversation(
+                client,
+                owner_headers,
+                "cancellation initial",
+            )
+            runtime.prepare_blocked_call()
+            cancelled_task = asyncio.create_task(
+                client.post(
+                    f"/api/v1/conversations/{cancelled_conversation}/messages/generate",
+                    headers=owner_headers,
+                    json={
+                        "model_id": model_id,
+                        "user_message": "committed before cancellation",
+                    },
+                )
+            )
+            await asyncio.wait_for(runtime.entered.wait(), timeout=1)
+            cancelled_task.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await cancelled_task
+
+            assert runtime.active_calls == 0
+            assert admission._active_users == set()
+            assert admission._active_count == 0
+            cancelled_history = await client.get(
+                f"/api/v1/conversations/{cancelled_conversation}/messages",
+                headers=owner_headers,
+            )
+            assert cancelled_history.status_code == 200
+            assert [
+                (item["role"], item["content"])
+                for item in cancelled_history.json()["items"]
+            ] == [
+                ("user", "cancellation initial"),
+                ("user", "committed before cancellation"),
+            ]
+    finally:
+        if previous_factory is missing:
+            delattr(app.state, "db_session_factory")
+        else:
+            app.state.db_session_factory = previous_factory
+        if previous_catalog is missing:
+            delattr(app.state, "model_catalog")
+        else:
+            app.state.model_catalog = previous_catalog
+        if previous_router is missing:
+            delattr(app.state, "text_generation_router")
+        else:
+            app.state.text_generation_router = previous_router
+        if previous_admission is missing:
+            delattr(app.state, "generation_admission_controller")
+        else:
+            app.state.generation_admission_controller = previous_admission
+        if previous_duration is missing:
+            delattr(app.state, "generation_max_duration_seconds")
+        else:
+            app.state.generation_max_duration_seconds = previous_duration

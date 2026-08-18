@@ -1,12 +1,21 @@
 import ipaddress
 from typing import Literal
 
-from pydantic import AnyHttpUrl, Field, PostgresDsn, RedisDsn, field_validator
+from pydantic import (
+    AnyHttpUrl,
+    Field,
+    PostgresDsn,
+    RedisDsn,
+    StrictFloat,
+    StrictInt,
+    field_validator,
+)
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 DatabaseSslMode = Literal["disable", "require", "verify-ca", "verify-full"]
 MAX_GENERATION_ACTIVE_PER_PROCESS = 8
+MAX_GENERATION_DURATION_SECONDS = 600.0
 MAX_OLLAMA_GENERATION_REQUEST_BYTES = 1_048_576
 MAX_OLLAMA_GENERATION_RESPONSE_BYTES = 1_048_576
 MAX_REQUEST_BODY_BYTES = 1_048_576
@@ -59,6 +68,12 @@ class Settings(BaseSettings):
         strict=True,
         ge=1,
         le=MAX_GENERATION_ACTIVE_PER_PROCESS,
+    )
+    GENERATION_MAX_DURATION_SECONDS: StrictFloat | StrictInt = Field(
+        default=180.0,
+        gt=0,
+        le=MAX_GENERATION_DURATION_SECONDS,
+        allow_inf_nan=False,
     )
     REQUEST_MAX_BODY_BYTES: int = Field(
         default=262_144,
@@ -121,6 +136,13 @@ class Settings(BaseSettings):
     def reject_boolean_generation_timeout(cls, value):
         if isinstance(value, bool):
             raise ValueError("OLLAMA_GENERATION_TIMEOUT_SECONDS must be numeric")
+        return value
+
+    @field_validator("GENERATION_MAX_DURATION_SECONDS", mode="before")
+    @classmethod
+    def validate_generation_max_duration(cls, value):
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise ValueError("GENERATION_MAX_DURATION_SECONDS must be numeric")
         return value
 
     @field_validator("OLLAMA_LOCAL_MODEL_ALLOWLIST")

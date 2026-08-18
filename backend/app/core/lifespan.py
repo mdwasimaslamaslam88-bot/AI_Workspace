@@ -29,6 +29,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.generation_admission_controller = GenerationAdmissionController(
         settings.GENERATION_MAX_ACTIVE_PER_PROCESS
     )
+    app.state.generation_max_duration_seconds = (
+        settings.GENERATION_MAX_DURATION_SECONDS
+    )
     app.state.model_catalog = ModelCatalog(
         (
             OllamaModelDiscoveryRuntime(

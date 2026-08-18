@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import asyncio
 import math
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -75,11 +78,13 @@ class ConversationGenerationService:
         catalog: ModelCatalog,
         generation_router: TextGenerationRouter,
         admission_controller: GenerationAdmissionController,
+        max_duration_seconds: float = 180.0,
     ) -> None:
         self.session = session
         self.catalog = catalog
         self.generation_router = generation_router
         self.admission_controller = admission_controller
+        self.max_duration_seconds = max_duration_seconds
 
     async def generate_for_owner(
         self,
@@ -296,7 +301,7 @@ class ConversationGenerationService:
                 "conversation is not available to the current user"
             )
 
-        async with self.admission_controller.admit(owner_id):
+        async with self._admitted_generation(owner_id):
             appended_user_sequence: int | None = None
             if user_message is not None:
                 appended_user = await MessageService(self.session).append_for_owner(
@@ -431,3 +436,22 @@ class ConversationGenerationService:
                     "conversation changed during generation"
                 )
             return message
+
+    @asynccontextmanager
+    async def _admitted_generation(
+        self,
+        owner_id: UUID,
+    ) -> AsyncIterator[None]:
+        async with self.admission_controller.admit(owner_id):
+            deadline_scope = asyncio.timeout_at(
+                asyncio.get_running_loop().time() + self.max_duration_seconds
+            )
+            try:
+                async with deadline_scope:
+                    yield
+            except TimeoutError as exc:
+                if not deadline_scope.expired():
+                    raise
+                raise TextGenerationRuntimeUnavailableError(
+                    "local text generation is unavailable"
+                ) from exc

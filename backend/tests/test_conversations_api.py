@@ -2148,6 +2148,9 @@ def conversation_generation_api(monkeypatch):
     previous_admission = getattr(
         app.state, "generation_admission_controller", missing
     )
+    previous_duration = getattr(
+        app.state, "generation_max_duration_seconds", missing
+    )
     try:
         with TestClient(app, raise_server_exceptions=False) as client:
             catalog = object()
@@ -2156,6 +2159,7 @@ def conversation_generation_api(monkeypatch):
             app.state.model_catalog = catalog
             app.state.text_generation_router = generation_router
             app.state.generation_admission_controller = admission_controller
+            app.state.generation_max_duration_seconds = 73.25
             yield {
                 "client": client,
                 "session": session,
@@ -2165,6 +2169,7 @@ def conversation_generation_api(monkeypatch):
                 "catalog": catalog,
                 "router": generation_router,
                 "admission": admission_controller,
+                "duration": 73.25,
                 "service_factory": service_factory,
                 "generate": generate,
             }
@@ -2188,6 +2193,11 @@ def conversation_generation_api(monkeypatch):
             app.state.generation_admission_controller = (
                 previous_admission
             )
+        if previous_duration is missing:
+            if hasattr(app.state, "generation_max_duration_seconds"):
+                delattr(app.state, "generation_max_duration_seconds")
+        else:
+            app.state.generation_max_duration_seconds = previous_duration
 
 
 def test_authenticated_generation_returns_exact_safe_created_message(
@@ -2218,6 +2228,7 @@ def test_authenticated_generation_returns_exact_safe_created_message(
         api["catalog"],
         api["router"],
         api["admission"],
+        api["duration"],
     )
     api["generate"].assert_awaited_once_with(
         api["current_user"].id,
@@ -3369,6 +3380,26 @@ def test_generation_unexpected_failure_uses_generic_500(
         "message": "An unexpected error occurred.",
     }
     assert "secret internal generation failure" not in response.text
+
+
+def test_generation_missing_deadline_state_fails_safely(
+    conversation_generation_api,
+):
+    api = conversation_generation_api
+    delattr(app.state, "generation_max_duration_seconds")
+
+    response = api["client"].post(
+        f"/api/v1/conversations/{api['conversation_id']}/messages/generate",
+        json={"model_id": GENERATION_MODEL_ID},
+    )
+
+    assert response.status_code == 500
+    assert response.json()["error"] == {
+        "code": "INTERNAL_SERVER_ERROR",
+        "message": "An unexpected error occurred.",
+    }
+    api["service_factory"].assert_not_called()
+    assert "generation_max_duration_seconds" not in response.text
 
 
 @pytest.mark.parametrize(

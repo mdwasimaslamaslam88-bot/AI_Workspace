@@ -315,3 +315,19 @@ capacity is returned. Admitted permits cover the optional USER commit through
 the guarded assistant commit and are released on success, failure, stale-output
 rejection, and cancellation. Admission does not wait or create a queue and does
 not use Redis or PostgreSQL locks.
+
+Every admitted generation is bounded by the same single monotonic deadline.
+`GENERATION_MAX_DURATION_SECONDS` defaults to 180.0 seconds, accepts only
+finite numeric values greater than zero through 600.0, and is not exposed to
+clients. The timer starts immediately after successful admission, so
+authentication, schema validation, ownership lookup, and rejected admission do
+not consume it. It is not reset between optional USER persistence, SQL-gated
+context capture, catalog/model resolution, Ollama request and response work, or
+the expected-sequence assistant commit.
+
+Expiry retains the existing HTTP 503 `Local model runtime unavailable` response
+without exposing the duration or internal stage. The task remains admitted until
+deadline cancellation has stopped it and the existing admission `finally`
+releases the permit. A USER already committed before expiry remains available
+for a generation-only retry. External cancellation still propagates as
+cancellation and uses the existing database and admission cleanup behavior.
