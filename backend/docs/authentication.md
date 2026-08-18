@@ -1,5 +1,30 @@
 # Authentication and current-user identity
 
+Every HTTP request is protected by a raw body-size boundary before FastAPI
+parses JSON or resolves authentication, provisioning authorization, database,
+Conversation, Message, generation-admission, catalog, or runtime dependencies.
+Configure `REQUEST_MAX_BODY_BYTES` as a strict integer from 1 through 1,048,576
+bytes. The default is 262,144 bytes (256 KiB); values outside that range are
+rejected at startup.
+
+A single syntactically valid, non-negative `Content-Length` above the configured
+cap receives HTTP 413 without reading the body or invoking the downstream
+application. Missing or understated `Content-Length` does not bypass the limit:
+actual `http.request` bytes are counted cumulatively and the first chunk that
+would exceed the cap is not forwarded. Exactly the configured byte count is
+accepted. Malformed, negative, conflicting, or comma-ambiguous
+`Content-Length` receives HTTP 400 without invoking downstream. Repeated header
+fields are accepted only when every value describes the same unambiguous
+decimal length.
+
+Oversized requests use the existing safe error envelope with `HTTP_ERROR` and
+`Request body is too large`; invalid length declarations use the generic
+`Invalid request headers`. Neither response exposes limits, counts, header
+values, body fragments, credentials, or parsed fields. Request IDs and
+applicable CORS response headers are preserved. This byte boundary applies only
+to HTTP request ingress; it adds no semantic Message-field, database-storage,
+Ollama-response, WebSocket, rate, quota, or deadline limit.
+
 User provisioning is fail-closed and requires a dedicated operator credential.
 Configure `USER_PROVISIONING_TOKEN_DIGEST` with exactly the 64-character
 lowercase hexadecimal SHA-256 digest of a separate 43-character URL-safe opaque
@@ -77,8 +102,9 @@ authenticated current user rather than from client input. In particular,
 atomically for the bearer credential's current user. The request may also
 include an optional nonblank `system_prompt`. The required `initial_message`
 must contain at least one non-whitespace character. Validation neither trims
-its leading or trailing whitespace nor adds a length limit. The server assigns
-system prompt content the system role at sequence 1 and the initial user
+its leading or trailing whitespace nor adds a semantic field-length limit; the
+entire JSON request remains subject to `REQUEST_MAX_BODY_BYTES`. The server
+assigns system prompt content the system role at sequence 1 and the initial user
 Message sequence 2. When the system prompt is omitted or null, the initial user
 Message remains sequence 1. The Conversation and all bootstrap Messages are
 committed once as one transaction, and the response shape remains unchanged.
@@ -115,11 +141,12 @@ cascade. Missing and foreign-owned conversations receive the same generic HTTP
 `POST /api/v1/conversations/{conversation_id}/messages` appends a user message
 only when the bearer credential's current user owns the conversation. The API
 requires `content` containing at least one non-whitespace character and
-preserves its exact leading and trailing whitespace without adding a length
-limit. The API always supplies the user role and the database allocates the
-sequence number; clients cannot supply identity, role, conversation, or
-sequence fields in the request body. Missing and foreign-owned conversations
-receive the same generic HTTP 404 response.
+preserves its exact leading and trailing whitespace without adding a semantic
+field-length limit. The whole request is still bounded by
+`REQUEST_MAX_BODY_BYTES`. The API always supplies the user role and
+the database allocates the sequence number; clients cannot supply identity,
+role, conversation, or sequence fields in the request body. Missing and
+foreign-owned conversations receive the same generic HTTP 404 response.
 
 `GET /api/v1/conversations/{conversation_id}/messages` returns only messages
 from a conversation owned by the bearer credential's current user, ordered by

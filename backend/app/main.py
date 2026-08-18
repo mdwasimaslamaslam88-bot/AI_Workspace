@@ -7,6 +7,7 @@ from app.core.config import settings
 from app.core.lifespan import lifespan
 from app.api.v1.router import router as api_v1_router
 from app.exceptions.handlers import register_exception_handlers
+from app.middleware.request_body_limit import RequestBodyLimitMiddleware
 from app.middleware.request_id import RequestIDMiddleware
 
 app = FastAPI(
@@ -16,6 +17,10 @@ app = FastAPI(
 )
 
 register_exception_handlers(app)
+app.add_middleware(
+    RequestBodyLimitMiddleware,
+    max_body_bytes=settings.REQUEST_MAX_BODY_BYTES,
+)
 app.add_middleware(RequestIDMiddleware)
 
 origins = settings.BACKEND_CORS_ORIGINS

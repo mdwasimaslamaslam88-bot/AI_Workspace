@@ -2,6 +2,7 @@ import pytest
 from pydantic import ValidationError
 from app.core.config import (
     MAX_GENERATION_ACTIVE_PER_PROCESS,
+    MAX_REQUEST_BODY_BYTES,
     Settings,
 )
 
@@ -16,6 +17,7 @@ def test_settings_preserve_application_defaults():
     assert settings.OLLAMA_LOCAL_MODEL_ALLOWLIST == ()
     assert settings.OLLAMA_GENERATION_TIMEOUT_SECONDS == 120.0
     assert settings.GENERATION_MAX_ACTIVE_PER_PROCESS == 1
+    assert settings.REQUEST_MAX_BODY_BYTES == 262_144
     assert settings.USER_PROVISIONING_TOKEN_DIGEST is None
 
 def test_blank_runtime_urls_are_unconfigured():
@@ -179,3 +181,36 @@ def test_generation_process_cap_accepts_documented_bounds(value):
     )
 
     assert settings.GENERATION_MAX_ACTIVE_PER_PROCESS == value
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        True,
+        False,
+        "1",
+        1.0,
+        0,
+        -1,
+        MAX_REQUEST_BODY_BYTES + 1,
+    ],
+)
+def test_request_body_cap_rejects_unsafe_values(value):
+    with pytest.raises(ValidationError):
+        Settings(
+            _env_file=None,
+            REQUEST_MAX_BODY_BYTES=value,
+        )
+
+
+@pytest.mark.parametrize(
+    "value",
+    [1, 262_144, MAX_REQUEST_BODY_BYTES],
+)
+def test_request_body_cap_accepts_documented_bounds(value):
+    configured = Settings(
+        _env_file=None,
+        REQUEST_MAX_BODY_BYTES=value,
+    )
+
+    assert configured.REQUEST_MAX_BODY_BYTES == value

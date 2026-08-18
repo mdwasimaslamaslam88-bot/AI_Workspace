@@ -70,6 +70,18 @@ active model, or persist a user preference.
 
 ## Non-streaming conversation generation
 
+All generation requests first pass through the global raw HTTP body limit.
+`REQUEST_MAX_BODY_BYTES` is a strict integer from 1 through 1,048,576 bytes
+and defaults to 262,144 bytes (256 KiB). A valid declared length above the cap
+is rejected with HTTP 413 before body consumption, authentication, Conversation
+lookup, generation admission, catalog discovery, runtime dispatch, or
+persistence. Missing or understated declarations remain subject to cumulative
+actual-byte counting. Invalid or ambiguous `Content-Length` receives HTTP 400.
+The generic 413 message is `Request body is too large`; responses expose no
+limit, count, header, body, credential, or field content. This is an ingress
+byte limit only and does not add a Message-field, database, context,
+Ollama-response, WebSocket, rate, quota, or deadline limit.
+
 An authenticated user may generate one local assistant response for an owned
 Conversation:
 
@@ -184,10 +196,11 @@ accepts no client-controlled role fields.
 The required `initial_message` at Conversation creation and required `content`
 at the standalone user-Message append endpoint must each contain at least one
 non-whitespace character. Their exact leading and trailing whitespace is
-preserved, and neither field gains a length limit. This validation does not
-change the generation endpoint's optional nonblank `user_message`: omission or
-null still performs generation only, while supplied content is still committed
-before generation.
+preserved, and neither field gains a semantic field-length limit. The complete
+HTTP request remains subject to `REQUEST_MAX_BODY_BYTES`. This validation does
+not change the generation endpoint's optional nonblank `user_message`:
+omission or null still performs generation only, while supplied content is
+still committed before generation.
 
 The application accepts at most 100 existing Messages in ascending sequence
 order, with a fixed 100,000-character context bound. It fetches up to 101

@@ -7,6 +7,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 DatabaseSslMode = Literal["disable", "require", "verify-ca", "verify-full"]
 MAX_GENERATION_ACTIVE_PER_PROCESS = 8
+MAX_REQUEST_BODY_BYTES = 1_048_576
 
 
 class Settings(BaseSettings):
@@ -44,6 +45,12 @@ class Settings(BaseSettings):
         strict=True,
         ge=1,
         le=MAX_GENERATION_ACTIVE_PER_PROCESS,
+    )
+    REQUEST_MAX_BODY_BYTES: int = Field(
+        default=262_144,
+        strict=True,
+        ge=1,
+        le=MAX_REQUEST_BODY_BYTES,
     )
 
     @field_validator(
