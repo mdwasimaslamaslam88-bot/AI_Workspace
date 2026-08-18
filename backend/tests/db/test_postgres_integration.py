@@ -743,6 +743,131 @@ async def test_message_history_uses_sql_character_budgeted_pages(
 
 
 @pytest.mark.asyncio
+async def test_generation_context_snapshot_is_sql_gated_and_owner_scoped(
+    test_database_engine: AsyncEngine,
+):
+    async with AsyncSession(test_database_engine, expire_on_commit=False) as session:
+        owner = await UserService(session).create(User())
+        other_owner = await UserService(session).create(User())
+
+        async def seed_context(owner_id: UUID, contents: tuple[str, ...]) -> UUID:
+            conversation = Conversation(
+                owner_id=owner_id,
+                title="Generation context snapshot",
+                next_message_sequence=len(contents) + 1,
+            )
+            session.add(conversation)
+            await session.flush()
+            session.add_all(
+                Message(
+                    conversation_id=conversation.id,
+                    role=MessageRole.USER,
+                    content=content,
+                    sequence_number=sequence_number,
+                )
+                for sequence_number, content in enumerate(contents, start=1)
+            )
+            await session.commit()
+            return conversation.id
+
+        valid_count_id = await seed_context(
+            owner.id,
+            ("a", "界", "🧠") + ("x",) * 97,
+        )
+        count_overflow_id = await seed_context(owner.id, ("x",) * 101)
+        exact_character_content = "a" * 99_997 + "é界🧠"
+        exact_characters_id = await seed_context(
+            owner.id,
+            (exact_character_content,),
+        )
+        character_overflow_id = await seed_context(
+            owner.id,
+            (exact_character_content, "x"),
+        )
+        two_large_messages_id = await seed_context(
+            owner.id,
+            ("a" * 60_000, "界" * 60_000),
+        )
+        foreign_id = await seed_context(
+            other_owner.id,
+            ("f" * MAX_MESSAGE_CONTENT_CHARACTERS,),
+        )
+
+    async with AsyncSession(test_database_engine) as session:
+        service = MessageService(session)
+        valid_count = await service.list_generation_context_for_owner(
+            owner.id,
+            valid_count_id,
+            max_messages=100,
+            max_context_characters=100_000,
+        )
+        assert len(valid_count.messages) == 100
+        assert valid_count.candidate_count == 100
+        assert valid_count.final_sequence_number == 100
+        assert valid_count.oversized is False
+        assert [item.content for item in valid_count.messages[:3]] == [
+            "a",
+            "界",
+            "🧠",
+        ]
+        assert [item.sequence_number for item in valid_count.messages] == list(
+            range(1, 101)
+        )
+
+        count_overflow = await service.list_generation_context_for_owner(
+            owner.id,
+            count_overflow_id,
+            max_messages=100,
+            max_context_characters=100_000,
+        )
+        assert count_overflow.messages == ()
+        assert count_overflow.candidate_count == 101
+        assert count_overflow.final_sequence_number == 101
+        assert count_overflow.oversized is True
+
+        exact_characters = await service.list_generation_context_for_owner(
+            owner.id,
+            exact_characters_id,
+            max_messages=100,
+            max_context_characters=100_000,
+        )
+        assert [item.content for item in exact_characters.messages] == [
+            exact_character_content
+        ]
+        assert len(exact_characters.messages[0].content) == 100_000
+        assert exact_characters.oversized is False
+
+        for oversized_id, expected_count in (
+            (character_overflow_id, 2),
+            (two_large_messages_id, 2),
+        ):
+            oversized = await service.list_generation_context_for_owner(
+                owner.id,
+                oversized_id,
+                max_messages=100,
+                max_context_characters=100_000,
+            )
+            assert oversized.messages == ()
+            assert oversized.candidate_count == expected_count
+            assert oversized.final_sequence_number == expected_count
+            assert oversized.oversized is True
+
+        wrong_owner = await service.list_generation_context_for_owner(
+            owner.id,
+            foreign_id,
+            max_messages=100,
+            max_context_characters=100_000,
+        )
+        assert wrong_owner.messages == ()
+        assert wrong_owner.candidate_count == 0
+        assert wrong_owner.final_sequence_number is None
+        assert wrong_owner.oversized is False
+        assert not any(
+            isinstance(value, Message) for value in session.identity_map.values()
+        )
+
+
+@pytest.mark.asyncio
 async def test_concurrent_message_appends_allocate_unique_contiguous_sequences(
     test_database_engine: AsyncEngine,
 ):
@@ -2579,6 +2704,7 @@ async def test_authenticated_conversation_generation_is_owner_scoped_and_stale_s
             conversation_id,
             *,
             max_messages,
+            max_context_characters,
         ):
             if runtime.mode == "pre-context-stale":
                 runtime.mode = "success"
@@ -2599,6 +2725,7 @@ async def test_authenticated_conversation_generation_is_owner_scoped_and_stale_s
                 owner_id,
                 conversation_id,
                 max_messages=max_messages,
+                max_context_characters=max_context_characters,
             )
 
     monkeypatch.setattr(
@@ -3155,6 +3282,107 @@ async def test_authenticated_conversation_generation_is_owner_scoped_and_stale_s
                 (message.role, message.content, message.sequence_number)
                 for message in foreign_messages
             ] == [(MessageRole.USER, "foreign prompt", 1)]
+
+            async def seed_api_context(contents: tuple[str, ...]) -> UUID:
+                async with AsyncSession(
+                    test_database_engine,
+                    expire_on_commit=False,
+                ) as seed_session:
+                    seeded = Conversation(
+                        owner_id=UUID(owner["id"]),
+                        title="API generation context boundary",
+                        next_message_sequence=len(contents) + 1,
+                    )
+                    seed_session.add(seeded)
+                    await seed_session.flush()
+                    seed_session.add_all(
+                        Message(
+                            conversation_id=seeded.id,
+                            role=MessageRole.USER,
+                            content=content,
+                            sequence_number=sequence_number,
+                        )
+                        for sequence_number, content in enumerate(
+                            contents,
+                            start=1,
+                        )
+                    )
+                    await seed_session.commit()
+                    return seeded.id
+
+            runtime.mode = "success"
+            valid_count_id = await seed_api_context(("x",) * 100)
+            calls_before_context_boundaries = len(runtime.generation_calls)
+            valid_count_generation = await client.post(
+                "/api/v1/conversations/"
+                f"{valid_count_id}/messages/generate",
+                headers=owner_headers,
+                json={"model_id": model_id},
+            )
+            assert valid_count_generation.status_code == 201
+            assert len(runtime.generation_calls) == (
+                calls_before_context_boundaries + 1
+            )
+            assert len(runtime.generation_calls[-1][1]) == 100
+
+            count_overflow_id = await seed_api_context(("x",) * 101)
+            calls_before_count_overflow = len(runtime.generation_calls)
+            count_overflow = await client.post(
+                "/api/v1/conversations/"
+                f"{count_overflow_id}/messages/generate",
+                headers=owner_headers,
+                json={"model_id": model_id},
+            )
+            assert count_overflow.status_code == 413
+            assert count_overflow.json()["error"] == {
+                "code": "HTTP_ERROR",
+                "message": "Conversation context is too large",
+            }
+            assert len(runtime.generation_calls) == calls_before_count_overflow
+
+            exact_context = "a" * 99_997 + "é界🧠"
+            exact_characters_id = await seed_api_context((exact_context,))
+            exact_characters = await client.post(
+                "/api/v1/conversations/"
+                f"{exact_characters_id}/messages/generate",
+                headers=owner_headers,
+                json={"model_id": model_id},
+            )
+            assert exact_characters.status_code == 201
+            assert runtime.generation_calls[-1][1][0].content == exact_context
+
+            for oversized_contents in (
+                (exact_context, "x"),
+                ("a" * 60_000, "界" * 60_000),
+            ):
+                oversized_context_id = await seed_api_context(
+                    oversized_contents
+                )
+                calls_before_character_overflow = len(
+                    runtime.generation_calls
+                )
+                character_overflow = await client.post(
+                    "/api/v1/conversations/"
+                    f"{oversized_context_id}/messages/generate",
+                    headers=owner_headers,
+                    json={"model_id": model_id},
+                )
+                assert character_overflow.status_code == 413
+                assert character_overflow.json()["error"] == {
+                    "code": "HTTP_ERROR",
+                    "message": "Conversation context is too large",
+                }
+                assert len(runtime.generation_calls) == (
+                    calls_before_character_overflow
+                )
+                lowered_error = character_overflow.text.lower()
+                for internal_detail in (
+                    "candidate",
+                    "char_length",
+                    "budget",
+                    "sql",
+                ):
+                    assert internal_detail not in lowered_error
 
             listed = await client.get(
                 "/api/v1/conversations",

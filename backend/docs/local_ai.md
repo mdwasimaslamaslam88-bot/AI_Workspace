@@ -216,12 +216,17 @@ the invariant, and PostgreSQL independently enforces
 No layer truncates or normalizes content.
 
 The application accepts at most 100 existing Messages in ascending sequence
-order, with a fixed 100,000-character context bound. It fetches up to 101
-Messages so the extra row can detect overflow. The history must be contiguous,
-must end in a user Message, and may contain only system, user, and assistant
-roles. Prompt construction uses a dedicated owner-scoped internal context
-query; it does not reuse public Message pagination, cursors, or offsets, and
-oversized histories are rejected rather than truncated. The output bound
+order, with a fixed 100,000-character context bound. One owner-scoped SQL
+statement examines at most 101 candidate IDs, sequence numbers, and PostgreSQL
+`char_length(content)` values. Aggregate metadata detects Message-count and
+character overflow before content crosses the database boundary. The final
+projection materializes only role, content, and sequence for a complete context
+that satisfies both limits; oversized contexts return metadata only and are
+never partially sent to generation. The history must be contiguous, must end in
+a user Message, and may contain only system, user, and assistant roles. Prompt
+construction uses this dedicated internal query; it does not reuse public
+Message pagination, cursors, or offsets, and oversized histories are rejected
+rather than truncated. The output bound
 defaults to 1,024 tokens and may be lowered per request without exceeding that
 ceiling. A supplied temperature is forwarded through the runtime-neutral
 generation boundary; omission does not add a temperature option to the Ollama

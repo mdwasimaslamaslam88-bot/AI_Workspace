@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.message import Message, MessageRole, validate_message_content
 from app.repositories.message import (
+    GenerationContextSnapshot,
     MessagePage,
     MessagePagination,
     MessageRepository,
@@ -83,12 +84,14 @@ class MessageService:
         conversation_id: UUID,
         *,
         max_messages: int,
-    ) -> tuple[Message, ...]:
+        max_context_characters: int,
+    ) -> GenerationContextSnapshot:
         try:
             return await self.repository.list_generation_context_for_owner(
                 owner_id,
                 conversation_id,
                 max_messages=max_messages,
+                max_context_characters=max_context_characters,
             )
         except BaseException:
             await self.session.rollback()

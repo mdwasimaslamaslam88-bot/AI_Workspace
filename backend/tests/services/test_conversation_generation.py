@@ -24,6 +24,10 @@ from app.models.message import (
     MAX_MESSAGE_CONTENT_CHARACTERS,
     MessageContentTooLargeError,
 )
+from app.repositories.message import (
+    GenerationContextMessage,
+    GenerationContextSnapshot,
+)
 from app.services.conversation_generation import (
     MAX_GENERATION_CONTEXT_CHARACTERS,
     MAX_GENERATION_CONTEXT_MESSAGES,
@@ -107,6 +111,37 @@ def _resolved(
     )
 
 
+def _context_snapshot(
+    context,
+    *,
+    candidate_count: int | None = None,
+    final_sequence_number: int | None = None,
+    oversized: bool = False,
+) -> GenerationContextSnapshot:
+    if isinstance(context, GenerationContextSnapshot):
+        return context
+    messages = tuple(
+        GenerationContextMessage(
+            role=message.role,
+            content=message.content,
+            sequence_number=message.sequence_number,
+        )
+        for message in context
+    )
+    return GenerationContextSnapshot(
+        messages=messages,
+        candidate_count=(
+            len(messages) if candidate_count is None else candidate_count
+        ),
+        final_sequence_number=(
+            messages[-1].sequence_number
+            if final_sequence_number is None and messages
+            else final_sequence_number
+        ),
+        oversized=oversized,
+    )
+
+
 def _dependencies(
     monkeypatch,
     *,
@@ -119,7 +154,7 @@ def _dependencies(
     conversation_factory = Mock(
         return_value=Mock(get_for_owner=get_for_owner)
     )
-    context_for_owner = AsyncMock(return_value=context)
+    context_for_owner = AsyncMock(return_value=_context_snapshot(context))
     append_for_owner = AsyncMock(return_value=appended)
     message_factory = Mock(
         return_value=Mock(
@@ -182,7 +217,7 @@ async def test_generation_releases_read_transaction_before_local_inference(
         events.append("get") or _conversation(owner_id, conversation_id, 5)
     )
     dependencies["context"].side_effect = lambda *_args, **_kwargs: (
-        events.append("context") or messages
+        events.append("context") or _context_snapshot(messages)
     )
 
     async def rollback():
@@ -221,6 +256,7 @@ async def test_generation_releases_read_transaction_before_local_inference(
         owner_id,
         conversation_id,
         max_messages=MAX_GENERATION_CONTEXT_MESSAGES,
+        max_context_characters=MAX_GENERATION_CONTEXT_CHARACTERS,
     )
     generated_messages = dependencies["router"].generate.await_args.args[1]
     assert [(message.role.value, message.content) for message in generated_messages] == [
@@ -1750,7 +1786,7 @@ async def test_generation_appends_exact_user_message_before_context_and_inferenc
 
     dependencies["append"].side_effect = append
     dependencies["context"].side_effect = lambda *_args, **_kwargs: (
-        events.append("context") or messages
+        events.append("context") or _context_snapshot(messages)
     )
 
     async def rollback():
@@ -2077,15 +2113,11 @@ async def test_message_winning_before_context_capture_stops_before_discovery(
     dependencies = _dependencies(
         monkeypatch,
         conversation=_conversation(owner_id, conversation_id, 2),
-        context=(
-            _message(conversation_id, MessageRole.USER, "existing", 1),
-            appended_user,
-            _message(
-                conversation_id,
-                MessageRole.USER,
-                "x" * (MAX_GENERATION_CONTEXT_CHARACTERS + 1),
-                3,
-            ),
+        context=GenerationContextSnapshot(
+            messages=(),
+            candidate_count=3,
+            final_sequence_number=3,
+            oversized=True,
         ),
         appended=appended_user,
     )
@@ -2245,26 +2277,21 @@ async def test_context_bounds_stop_before_discovery(monkeypatch, limit_case):
     conversation_id = uuid4()
     session = AsyncMock(spec=AsyncSession)
     if limit_case == "count":
-        context = tuple(
-            _message(
-                conversation_id,
-                MessageRole.USER,
-                "x",
-                sequence,
-            )
-            for sequence in range(1, MAX_GENERATION_CONTEXT_MESSAGES + 2)
+        context = GenerationContextSnapshot(
+            messages=(),
+            candidate_count=MAX_GENERATION_CONTEXT_MESSAGES + 1,
+            final_sequence_number=MAX_GENERATION_CONTEXT_MESSAGES + 1,
+            oversized=True,
         )
         next_sequence = MAX_GENERATION_CONTEXT_MESSAGES + 2
     else:
-        context = (
-            _message(
-                conversation_id,
-                MessageRole.USER,
-                "x" * (MAX_GENERATION_CONTEXT_CHARACTERS + 1),
-                1,
-            ),
+        context = GenerationContextSnapshot(
+            messages=(),
+            candidate_count=2,
+            final_sequence_number=2,
+            oversized=True,
         )
-        next_sequence = 2
+        next_sequence = 3
     dependencies = _dependencies(
         monkeypatch,
         conversation=_conversation(owner_id, conversation_id, next_sequence),
@@ -2283,6 +2310,187 @@ async def test_context_bounds_stop_before_discovery(monkeypatch, limit_case):
     session.rollback.assert_awaited_once_with()
     dependencies["catalog"].resolve_model.assert_not_awaited()
     dependencies["router"].generate.assert_not_awaited()
+    dependencies["append"].assert_not_awaited()
+    assert dependencies["admission"]._active_users == set()
+    assert dependencies["admission"]._active_count == 0
+
+
+@pytest.mark.asyncio
+async def test_exact_generation_context_limits_reach_runtime_unchanged(
+    monkeypatch,
+):
+    owner_id = uuid4()
+    conversation_id = uuid4()
+    session = AsyncMock(spec=AsyncSession)
+    messages = tuple(
+        _message(
+            conversation_id,
+            MessageRole.USER,
+            "🧠" * 99_901 if sequence == 100 else "界",
+            sequence,
+        )
+        for sequence in range(1, MAX_GENERATION_CONTEXT_MESSAGES + 1)
+    )
+    appended_assistant = _message(
+        conversation_id,
+        MessageRole.ASSISTANT,
+        "answer",
+        101,
+    )
+    dependencies = _dependencies(
+        monkeypatch,
+        conversation=_conversation(owner_id, conversation_id, 101),
+        context=messages,
+        appended=appended_assistant,
+    )
+
+    result = await ConversationGenerationService(
+        session,
+        dependencies["catalog"],
+        dependencies["router"],
+        dependencies["admission"],
+    ).generate_for_owner(owner_id, conversation_id, MODEL_ID)
+
+    assert result is appended_assistant
+    generated_context = dependencies["router"].generate.await_args.args[1]
+    assert len(generated_context) == MAX_GENERATION_CONTEXT_MESSAGES
+    assert sum(len(item.content) for item in generated_context) == (
+        MAX_GENERATION_CONTEXT_CHARACTERS
+    )
+    assert [item.content for item in generated_context] == [
+        message.content for message in messages
+    ]
+    assert generated_context[-1].content == "🧠" * 99_901
+
+
+@pytest.mark.asyncio
+async def test_context_rejection_preserves_committed_user_and_allows_retry(
+    monkeypatch,
+):
+    owner_id = uuid4()
+    conversation_id = uuid4()
+    session = AsyncMock(spec=AsyncSession)
+    initial = _message(conversation_id, MessageRole.USER, "initial", 1)
+    appended_user = _message(
+        conversation_id,
+        MessageRole.USER,
+        "committed user",
+        2,
+    )
+    appended_assistant = _message(
+        conversation_id,
+        MessageRole.ASSISTANT,
+        "answer",
+        3,
+    )
+    oversized = GenerationContextSnapshot(
+        messages=(),
+        candidate_count=2,
+        final_sequence_number=2,
+        oversized=True,
+    )
+    valid_retry = _context_snapshot((initial, appended_user))
+    dependencies = _dependencies(
+        monkeypatch,
+        conversation=_conversation(owner_id, conversation_id, 2),
+        context=oversized,
+        appended=None,
+    )
+    dependencies["context"].side_effect = [oversized, valid_retry]
+
+    async def append(_owner, _conversation_id, role, _content, **_kwargs):
+        if role is MessageRole.USER:
+            return appended_user
+        return appended_assistant
+
+    dependencies["append"].side_effect = append
+    service = ConversationGenerationService(
+        session,
+        dependencies["catalog"],
+        dependencies["router"],
+        dependencies["admission"],
+    )
+
+    with pytest.raises(ConversationGenerationContextTooLargeError):
+        await service.generate_for_owner(
+            owner_id,
+            conversation_id,
+            MODEL_ID,
+            user_message="committed user",
+        )
+
+    assert dependencies["append"].await_args_list == [
+        call(
+            owner_id,
+            conversation_id,
+            MessageRole.USER,
+            "committed user",
+        )
+    ]
+    dependencies["catalog"].resolve_model.assert_not_awaited()
+    dependencies["router"].generate.assert_not_awaited()
+    assert dependencies["admission"]._active_users == set()
+    assert dependencies["admission"]._active_count == 0
+
+    dependencies["get"].return_value = _conversation(
+        owner_id,
+        conversation_id,
+        3,
+    )
+    result = await service.generate_for_owner(
+        owner_id,
+        conversation_id,
+        MODEL_ID,
+    )
+
+    assert result is appended_assistant
+    assert dependencies["append"].await_args_list[-1] == call(
+        owner_id,
+        conversation_id,
+        MessageRole.ASSISTANT,
+        "  exact answer  ",
+        expected_sequence_number=3,
+    )
+
+
+@pytest.mark.asyncio
+async def test_context_query_cancellation_releases_admission_and_allows_retry(
+    monkeypatch,
+):
+    owner_id = uuid4()
+    conversation_id = uuid4()
+    valid = _context_snapshot(
+        (_message(conversation_id, MessageRole.USER, "question", 1),)
+    )
+    dependencies = _dependencies(
+        monkeypatch,
+        conversation=_conversation(owner_id, conversation_id, 2),
+        context=valid,
+        appended=_message(
+            conversation_id,
+            MessageRole.ASSISTANT,
+            "answer",
+            2,
+        ),
+    )
+    dependencies["context"].side_effect = [asyncio.CancelledError, valid]
+    service = ConversationGenerationService(
+        AsyncMock(spec=AsyncSession),
+        dependencies["catalog"],
+        dependencies["router"],
+        dependencies["admission"],
+    )
+
+    with pytest.raises(asyncio.CancelledError):
+        await service.generate_for_owner(owner_id, conversation_id, MODEL_ID)
+
+    assert dependencies["admission"]._active_users == set()
+    assert dependencies["admission"]._active_count == 0
+    dependencies["catalog"].resolve_model.assert_not_awaited()
+    dependencies["router"].generate.assert_not_awaited()
+
+    result = await service.generate_for_owner(owner_id, conversation_id, MODEL_ID)
+    assert result.role is MessageRole.ASSISTANT
 
 
 @pytest.mark.asyncio
@@ -2554,13 +2762,15 @@ async def test_simultaneous_same_user_generation_invokes_runtime_once(
         )
     )
     dependencies["context"].side_effect = (
-        lambda _owner, requested_conversation, **_kwargs: (
-            _message(
-                requested_conversation,
-                MessageRole.USER,
-                "question",
-                1,
-            ),
+        lambda _owner, requested_conversation, **_kwargs: _context_snapshot(
+            (
+                _message(
+                    requested_conversation,
+                    MessageRole.USER,
+                    "question",
+                    1,
+                ),
+            )
         )
     )
 
@@ -2644,13 +2854,15 @@ async def test_different_users_never_exceed_global_runtime_cap(monkeypatch):
         )
     )
     dependencies["context"].side_effect = (
-        lambda _owner, requested_conversation, **_kwargs: (
-            _message(
-                requested_conversation,
-                MessageRole.USER,
-                "question",
-                1,
-            ),
+        lambda _owner, requested_conversation, **_kwargs: _context_snapshot(
+            (
+                _message(
+                    requested_conversation,
+                    MessageRole.USER,
+                    "question",
+                    1,
+                ),
+            )
         )
     )
 

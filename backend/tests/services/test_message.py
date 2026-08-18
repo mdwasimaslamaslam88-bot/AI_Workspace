@@ -12,7 +12,12 @@ from app.models.message import (
     MAX_MESSAGE_CONTENT_CHARACTERS,
     MessageContentTooLargeError,
 )
-from app.repositories.message import MessageCursor, MessagePagination
+from app.repositories.message import (
+    GenerationContextMessage,
+    GenerationContextSnapshot,
+    MessageCursor,
+    MessagePagination,
+)
 from app.services.message import MessageAppendConflictError, MessageService
 
 
@@ -273,13 +278,17 @@ async def test_generation_context_forwards_internal_bound_without_committing(
 ):
     conversation_id = uuid4()
     owner_id = uuid4()
-    context = (
-        Message(
-            conversation_id=conversation_id,
-            role=MessageRole.USER,
-            content="question",
-            sequence_number=1,
+    context = GenerationContextSnapshot(
+        messages=(
+            GenerationContextMessage(
+                role=MessageRole.USER,
+                content="question",
+                sequence_number=1,
+            ),
         ),
+        candidate_count=1,
+        final_sequence_number=1,
+        oversized=False,
     )
     session = _service_session(None)
     service = MessageService(session)
@@ -294,6 +303,7 @@ async def test_generation_context_forwards_internal_bound_without_committing(
         owner_id,
         conversation_id,
         max_messages=100,
+        max_context_characters=100_000,
     )
 
     assert result == context
@@ -301,6 +311,7 @@ async def test_generation_context_forwards_internal_bound_without_committing(
         owner_id,
         conversation_id,
         max_messages=100,
+        max_context_characters=100_000,
     )
     session.commit.assert_not_awaited()
     session.rollback.assert_not_awaited()
@@ -325,9 +336,35 @@ async def test_generation_context_failure_rolls_back_original_exception(
             uuid4(),
             uuid4(),
             max_messages=100,
+            max_context_characters=100_000,
         )
 
     assert caught.value is error
+    session.rollback.assert_awaited_once_with()
+    session.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_generation_context_cancellation_rolls_back_and_propagates(
+    monkeypatch,
+):
+    session = _service_session(None)
+    service = MessageService(session)
+    context_read = AsyncMock(side_effect=asyncio.CancelledError)
+    monkeypatch.setattr(
+        service.repository,
+        "list_generation_context_for_owner",
+        context_read,
+    )
+
+    with pytest.raises(asyncio.CancelledError):
+        await service.list_generation_context_for_owner(
+            uuid4(),
+            uuid4(),
+            max_messages=100,
+            max_context_characters=100_000,
+        )
+
     session.rollback.assert_awaited_once_with()
     session.commit.assert_not_awaited()
 

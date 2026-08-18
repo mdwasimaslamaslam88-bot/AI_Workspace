@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from uuid import UUID
 
-from sqlalchemy import Integer, bindparam, func, select, update
+from sqlalchemy import Integer, bindparam, func, or_, select, true, update
 
 from app.models.conversation import Conversation
 from app.models.message import Message, MessageRole, validate_message_content
@@ -47,6 +47,21 @@ class MessagePagination:
 class MessagePage:
     items: tuple[Message, ...]
     next_cursor: MessageCursor | None
+
+
+@dataclass(frozen=True, slots=True)
+class GenerationContextMessage:
+    role: MessageRole
+    content: str
+    sequence_number: int
+
+
+@dataclass(frozen=True, slots=True)
+class GenerationContextSnapshot:
+    messages: tuple[GenerationContextMessage, ...]
+    candidate_count: int
+    final_sequence_number: int | None
+    oversized: bool
 
 
 class MessageRepository(BaseRepository):
@@ -226,14 +241,28 @@ class MessageRepository(BaseRepository):
         conversation_id: UUID,
         *,
         max_messages: int,
-    ) -> tuple[Message, ...]:
+        max_context_characters: int,
+    ) -> GenerationContextSnapshot:
         if isinstance(max_messages, bool) or not isinstance(max_messages, int):
             raise TypeError("max_messages must be an integer")
         if max_messages < 1:
             raise ValueError("max_messages must be positive")
+        if isinstance(max_context_characters, bool) or not isinstance(
+            max_context_characters,
+            int,
+        ):
+            raise TypeError("max_context_characters must be an integer")
+        if max_context_characters < 1:
+            raise ValueError("max_context_characters must be positive")
 
-        statement = (
-            select(Message)
+        candidates = (
+            select(
+                Message.id.label("message_id"),
+                Message.sequence_number.label("sequence_number"),
+                func.char_length(Message.content).label(
+                    "content_characters"
+                ),
+            )
             .join(
                 Conversation,
                 Conversation.id == Message.conversation_id,
@@ -251,7 +280,112 @@ class MessageRepository(BaseRepository):
                     type_=Integer(),
                 )
             )
+            .cte("generation_context_candidates")
+        )
+        metadata = (
+            select(
+                func.count().label("candidate_count"),
+                func.coalesce(
+                    func.sum(candidates.c.content_characters),
+                    0,
+                ).label("cumulative_content_characters"),
+                func.max(candidates.c.sequence_number).label(
+                    "final_candidate_sequence_number"
+                ),
+            )
+            .select_from(candidates)
+            .cte("generation_context_metadata")
+        )
+        eligible_candidates = (
+            select(
+                candidates.c.message_id,
+                candidates.c.sequence_number,
+            )
+            .select_from(candidates)
+            .join(metadata, true())
+            .where(
+                metadata.c.candidate_count
+                <= bindparam(
+                    "generation_context_message_limit",
+                    max_messages,
+                    type_=Integer(),
+                ),
+                metadata.c.cumulative_content_characters
+                <= bindparam(
+                    "generation_context_character_limit",
+                    max_context_characters,
+                    type_=Integer(),
+                ),
+            )
+            .cte("eligible_generation_context_candidates")
+        )
+        projected_messages = (
+            select(
+                Message.role.label("message_role"),
+                Message.content.label("message_content"),
+                Message.sequence_number.label("message_sequence_number"),
+            )
+            .select_from(eligible_candidates)
+            .join(
+                Message,
+                Message.id == eligible_candidates.c.message_id,
+            )
+            .join(
+                Conversation,
+                Conversation.id == Message.conversation_id,
+            )
+            .where(
+                Conversation.owner_id == owner_id,
+                Conversation.id == conversation_id,
+                Message.conversation_id == conversation_id,
+            )
+            .cte("projected_generation_context_messages")
+        )
+        oversized = or_(
+            metadata.c.candidate_count
+            > bindparam(
+                "generation_context_message_limit",
+                max_messages,
+                type_=Integer(),
+            ),
+            metadata.c.cumulative_content_characters
+            > bindparam(
+                "generation_context_character_limit",
+                max_context_characters,
+                type_=Integer(),
+            ),
+        ).label("generation_context_oversized")
+        statement = (
+            select(
+                projected_messages.c.message_role,
+                projected_messages.c.message_content,
+                projected_messages.c.message_sequence_number,
+                metadata.c.candidate_count,
+                metadata.c.final_candidate_sequence_number,
+                oversized,
+            )
+            .select_from(metadata)
+            .outerjoin(projected_messages, true())
+            .order_by(projected_messages.c.message_sequence_number.asc())
         )
 
         result = await self.session.execute(statement)
-        return tuple(result.scalars().all())
+        rows = result.all()
+        first_row = rows[0]
+        messages = tuple(
+            GenerationContextMessage(
+                role=row.message_role,
+                content=row.message_content,
+                sequence_number=row.message_sequence_number,
+            )
+            for row in rows
+            if row.message_sequence_number is not None
+        )
+        return GenerationContextSnapshot(
+            messages=messages,
+            candidate_count=first_row.candidate_count,
+            final_sequence_number=(
+                first_row.final_candidate_sequence_number
+            ),
+            oversized=first_row.generation_context_oversized,
+        )

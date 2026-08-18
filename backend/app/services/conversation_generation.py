@@ -311,45 +311,43 @@ class ConversationGenerationService:
                     )
                 appended_user_sequence = appended_user.sequence_number
 
-            messages = await MessageService(
+            context_snapshot = await MessageService(
                 self.session
             ).list_generation_context_for_owner(
                 owner_id,
                 conversation_id,
                 max_messages=MAX_GENERATION_CONTEXT_MESSAGES,
+                max_context_characters=MAX_GENERATION_CONTEXT_CHARACTERS,
             )
             expected_sequence_number = (
                 appended_user_sequence + 1
                 if appended_user_sequence is not None
                 else conversation.next_message_sequence
             )
-            snapshot = tuple(
-                (
-                    message.role,
-                    message.content,
-                    message.sequence_number,
-                )
-                for message in messages
-            )
+            snapshot = context_snapshot.messages
 
             # Do not hold a database transaction open during local inference.
             await self.session.rollback()
 
             if appended_user_sequence is not None and (
-                not snapshot
-                or snapshot[-1][2] != appended_user_sequence
+                context_snapshot.final_sequence_number
+                != appended_user_sequence
             ):
                 raise ConversationChangedDuringGenerationError(
                     "conversation changed before generation context was captured"
                 )
 
-            if len(snapshot) > MAX_GENERATION_CONTEXT_MESSAGES:
+            if (
+                context_snapshot.candidate_count
+                > MAX_GENERATION_CONTEXT_MESSAGES
+                or len(snapshot) > MAX_GENERATION_CONTEXT_MESSAGES
+            ):
                 raise ConversationGenerationContextTooLargeError(
                     "conversation contains too many messages"
                 )
-            if sum(len(content) for _role, content, _sequence in snapshot) > (
-                MAX_GENERATION_CONTEXT_CHARACTERS
-            ):
+            if context_snapshot.oversized or sum(
+                len(message.content) for message in snapshot
+            ) > MAX_GENERATION_CONTEXT_CHARACTERS:
                 raise ConversationGenerationContextTooLargeError(
                     "conversation context is too large"
                 )
@@ -357,7 +355,7 @@ class ConversationGenerationService:
                 raise ConversationGenerationNotReadyError(
                     "conversation has no user message"
                 )
-            if tuple(sequence for _role, _content, sequence in snapshot) != tuple(
+            if tuple(message.sequence_number for message in snapshot) != tuple(
                 range(1, expected_sequence_number)
             ):
                 raise ConversationChangedDuringGenerationError(
@@ -365,9 +363,9 @@ class ConversationGenerationService:
                 )
 
             context: list[TextGenerationMessage] = []
-            for role, content, _sequence in snapshot:
+            for message in snapshot:
                 try:
-                    generation_role = TextGenerationRole(role.value)
+                    generation_role = TextGenerationRole(message.role.value)
                 except ValueError:
                     raise ConversationGenerationNotReadyError(
                         "conversation contains an unsupported message role"
@@ -375,10 +373,10 @@ class ConversationGenerationService:
                 context.append(
                     TextGenerationMessage(
                         role=generation_role,
-                        content=content,
+                        content=message.content,
                     )
                 )
-            if snapshot[-1][0] is not MessageRole.USER:
+            if snapshot[-1].role is not MessageRole.USER:
                 raise ConversationGenerationNotReadyError(
                     "conversation must end with a user message"
                 )

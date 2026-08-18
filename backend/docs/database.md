@@ -60,7 +60,20 @@ same owner and Conversation filters are enforced in both the candidate and
 final stages. Count- or character-limited pages use the final returned sequence
 as the existing keyset cursor, so the unique `(conversation_id,
 sequence_number)` constraint and ascending index access remain sufficient.
-Generation-context reads are not changed by this history-only boundary.
+Public history and internal generation-context reads remain separate.
+
+The internal generation-context query has its own non-paginated, SQL-gated
+snapshot boundary. A candidate CTE inspects at most 101 owner-scoped rows in
+ascending sequence order and selects only Message ID, sequence number, and
+`char_length(content)`. Aggregate metadata determines the complete candidate
+count, cumulative characters, and final candidate sequence. Only when the
+complete context contains at most 100 Messages and 100,000 characters does a
+second stage in the same SQL statement project role, content, and sequence.
+Oversized contexts return metadata without any content rows, allowing the
+application to preserve final-sequence race precedence while avoiding partial
+generation or ORM Message materialization. This remains one database round trip
+and does not change the public history CTE, transaction ownership, schema, or
+the existing `(conversation_id, sequence_number)` index.
 
 ## PostgreSQL integration tests
 

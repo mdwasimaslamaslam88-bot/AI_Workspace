@@ -1,3 +1,5 @@
+import asyncio
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 from uuid import uuid4
 
@@ -14,6 +16,8 @@ from app.models.message import (
 )
 from app.repositories.message import (
     DEFAULT_MESSAGE_PAGE_SIZE,
+    GenerationContextMessage,
+    GenerationContextSnapshot,
     MAX_MESSAGE_PAGE_CONTENT_CHARACTERS,
     MAX_MESSAGE_PAGE_SIZE,
     MessageCursor,
@@ -49,6 +53,25 @@ def _message(sequence_number: int) -> Message:
         role=MessageRole.USER,
         content=f"message {sequence_number}",
         sequence_number=sequence_number,
+    )
+
+
+def _context_row(
+    *,
+    role: MessageRole | None,
+    content: str | None,
+    sequence_number: int | None,
+    candidate_count: int,
+    final_sequence_number: int | None,
+    oversized: bool,
+):
+    return SimpleNamespace(
+        message_role=role,
+        message_content=content,
+        message_sequence_number=sequence_number,
+        candidate_count=candidate_count,
+        final_candidate_sequence_number=final_sequence_number,
+        generation_context_oversized=oversized,
     )
 
 
@@ -544,33 +567,214 @@ async def test_message_repository_rejects_wrong_pagination_before_querying():
 async def test_generation_context_is_owner_scoped_ordered_and_bounded_without_cursor():
     owner_id = uuid4()
     conversation_id = uuid4()
-    rows = (_message(1), _message(2))
-    session = _session_with_allocated_sequence(None, rows=rows)
+    rows = (
+        _context_row(
+            role=MessageRole.SYSTEM,
+            content="system",
+            sequence_number=1,
+            candidate_count=2,
+            final_sequence_number=2,
+            oversized=False,
+        ),
+        _context_row(
+            role=MessageRole.USER,
+            content="question",
+            sequence_number=2,
+            candidate_count=2,
+            final_sequence_number=2,
+            oversized=False,
+        ),
+    )
+    session = _session_with_allocated_sequence(None, page_rows=rows)
 
-    context = await MessageRepository(
+    snapshot = await MessageRepository(
         session
     ).list_generation_context_for_owner(
         owner_id,
         conversation_id,
         max_messages=100,
+        max_context_characters=100_000,
     )
 
-    assert context == rows
+    assert snapshot == GenerationContextSnapshot(
+        messages=(
+            GenerationContextMessage(MessageRole.SYSTEM, "system", 1),
+            GenerationContextMessage(MessageRole.USER, "question", 2),
+        ),
+        candidate_count=2,
+        final_sequence_number=2,
+        oversized=False,
+    )
+    assert all(not isinstance(item, Message) for item in snapshot.messages)
     statement = session.execute.await_args.args[0]
     assert isinstance(statement, Select)
     compiled, sql = _compile(statement)
-    assert "join conversations" in sql
-    assert "conversations.owner_id =" in sql
-    assert "conversations.id =" in sql
-    assert "messages.conversation_id =" in sql
-    assert "order by messages.sequence_number asc" in sql
+    assert sql.startswith("with generation_context_candidates as")
+    candidate_sql = sql.split("), generation_context_metadata as", 1)[0]
+    assert "select messages.id as message_id" in candidate_sql
+    assert "messages.sequence_number as sequence_number" in candidate_sql
+    assert "char_length(messages.content) as content_characters" in candidate_sql
+    assert "messages.role" not in candidate_sql
+    assert "messages.created_at" not in candidate_sql
+    assert "messages.updated_at" not in candidate_sql
+    assert "messages.conversation_id as" not in candidate_sql
+    assert "count(*) as candidate_count" in sql
+    assert "sum(generation_context_candidates.content_characters)" in sql
+    assert "max(generation_context_candidates.sequence_number)" in sql
+    assert "projected_generation_context_messages.message_role" in sql
+    assert "projected_generation_context_messages.message_content" in sql
+    assert "projected_generation_context_messages.message_sequence_number" in sql
+    assert "messages.id, messages.conversation_id" not in sql
+    assert "messages.created_at" not in sql
+    assert "messages.updated_at" not in sql
+    assert sql.count("conversations.owner_id =") == 2
+    assert sql.count("messages.conversation_id =") == 2
+    assert "order by projected_generation_context_messages.message_sequence_number asc" in sql
     assert "offset" not in sql
     assert "cursor" not in sql
+    assert "message_page_candidates" not in sql
     assert compiled.params["generation_context_fetch_limit"] == 101
+    assert compiled.params["generation_context_message_limit"] == 100
+    assert compiled.params["generation_context_character_limit"] == 100_000
     assert owner_id in compiled.params.values()
     assert conversation_id in compiled.params.values()
+    session.execute.assert_awaited_once_with(statement)
     session.commit.assert_not_awaited()
     session.rollback.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_generation_context_empty_metadata_returns_no_messages():
+    session = _session_with_allocated_sequence(
+        None,
+        page_rows=(
+            _context_row(
+                role=None,
+                content=None,
+                sequence_number=None,
+                candidate_count=0,
+                final_sequence_number=None,
+                oversized=False,
+            ),
+        ),
+    )
+
+    snapshot = await MessageRepository(
+        session
+    ).list_generation_context_for_owner(
+        uuid4(),
+        uuid4(),
+        max_messages=100,
+        max_context_characters=100_000,
+    )
+
+    assert snapshot == GenerationContextSnapshot((), 0, None, False)
+    session.execute.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_generation_context_accepts_exact_message_and_character_limits():
+    rows = tuple(
+        _context_row(
+            role=MessageRole.USER,
+            content=("界" * 99_901 if sequence == 100 else "x"),
+            sequence_number=sequence,
+            candidate_count=100,
+            final_sequence_number=100,
+            oversized=False,
+        )
+        for sequence in range(1, 101)
+    )
+    session = _session_with_allocated_sequence(None, page_rows=rows)
+
+    snapshot = await MessageRepository(
+        session
+    ).list_generation_context_for_owner(
+        uuid4(),
+        uuid4(),
+        max_messages=100,
+        max_context_characters=100_000,
+    )
+
+    assert len(snapshot.messages) == 100
+    assert sum(len(item.content) for item in snapshot.messages) == 100_000
+    assert snapshot.candidate_count == 100
+    assert snapshot.final_sequence_number == 100
+    assert snapshot.oversized is False
+    assert snapshot.messages[-1].content == "界" * 99_901
+
+
+@pytest.mark.asyncio
+async def test_generation_context_message_overflow_returns_metadata_only():
+    session = _session_with_allocated_sequence(
+        None,
+        page_rows=(
+            _context_row(
+                role=None,
+                content=None,
+                sequence_number=None,
+                candidate_count=101,
+                final_sequence_number=101,
+                oversized=True,
+            ),
+        ),
+    )
+
+    snapshot = await MessageRepository(
+        session
+    ).list_generation_context_for_owner(
+        uuid4(),
+        uuid4(),
+        max_messages=100,
+        max_context_characters=100_000,
+    )
+
+    assert snapshot.messages == ()
+    assert snapshot.candidate_count == 101
+    assert snapshot.final_sequence_number == 101
+    assert snapshot.oversized is True
+    session.execute.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("candidate_count", "final_sequence_number"),
+    [(2, 2), (1, 1)],
+)
+async def test_generation_context_character_overflow_returns_metadata_only(
+    candidate_count,
+    final_sequence_number,
+):
+    session = _session_with_allocated_sequence(
+        None,
+        page_rows=(
+            _context_row(
+                role=None,
+                content=None,
+                sequence_number=None,
+                candidate_count=candidate_count,
+                final_sequence_number=final_sequence_number,
+                oversized=True,
+            ),
+        ),
+    )
+
+    snapshot = await MessageRepository(
+        session
+    ).list_generation_context_for_owner(
+        uuid4(),
+        uuid4(),
+        max_messages=100,
+        max_context_characters=100_000,
+    )
+
+    assert snapshot == GenerationContextSnapshot(
+        messages=(),
+        candidate_count=candidate_count,
+        final_sequence_number=final_sequence_number,
+        oversized=True,
+    )
+    session.execute.assert_awaited_once()
 
 
 @pytest.mark.parametrize("max_messages", [True, 1.5, "100", 0, -1])
@@ -587,11 +791,53 @@ async def test_generation_context_rejects_invalid_bound_before_querying(
             uuid4(),
             uuid4(),
             max_messages=max_messages,
+            max_context_characters=100_000,
         )
 
     session.execute.assert_not_awaited()
     session.commit.assert_not_awaited()
     session.rollback.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    "max_context_characters",
+    [True, 1.5, "100000", 0, -1],
+)
+@pytest.mark.asyncio
+async def test_generation_context_rejects_invalid_character_bound_before_querying(
+    max_context_characters,
+):
+    session = _session_with_allocated_sequence(None)
+
+    with pytest.raises((TypeError, ValueError)):
+        await MessageRepository(
+            session
+        ).list_generation_context_for_owner(
+            uuid4(),
+            uuid4(),
+            max_messages=100,
+            max_context_characters=max_context_characters,
+        )
+
+    session.execute.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_generation_context_query_cancellation_propagates():
+    session = _session_with_allocated_sequence(None)
+    session.execute.side_effect = asyncio.CancelledError
+
+    with pytest.raises(asyncio.CancelledError):
+        await MessageRepository(
+            session
+        ).list_generation_context_for_owner(
+            uuid4(),
+            uuid4(),
+            max_messages=100,
+            max_context_characters=100_000,
+        )
+
+    session.execute.assert_awaited_once()
 
 
 @pytest.mark.asyncio
