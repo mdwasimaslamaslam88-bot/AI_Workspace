@@ -22,8 +22,9 @@ Oversized requests use the existing safe error envelope with `HTTP_ERROR` and
 `Invalid request headers`. Neither response exposes limits, counts, header
 values, body fragments, credentials, or parsed fields. Request IDs and
 applicable CORS response headers are preserved. This byte boundary applies only
-to HTTP request ingress; it adds no semantic Message-field, database-storage,
-Ollama-response, WebSocket, rate, quota, or deadline limit.
+to HTTP request ingress; it does not itself add a semantic Message-field,
+database-storage, WebSocket, rate, quota, or deadline limit. The separate
+Ollama response-body boundary is described with generation below.
 
 User provisioning is fail-closed and requires a dedicated operator credential.
 Configure `USER_PROVISIONING_TOKEN_DIGEST` with exactly the 64-character
@@ -245,6 +246,20 @@ capability returns HTTP 409 with `Model does not support text generation` before
 runtime dispatch or assistant persistence. If the request already committed an
 optional `user_message`, that Message remains available for a generation-only
 retry with an eligible model.
+
+Every Ollama `/api/chat` generation response is bounded before JSON parsing by
+`OLLAMA_GENERATION_MAX_RESPONSE_BYTES`, a strict integer from 1 through
+1,048,576 bytes that defaults to 262,144 bytes (256 KiB). The runtime uses an
+HTTPX response stream only to enforce this transport bound and continues to send
+`stream: false` to Ollama.
+
+Unexpected content encoding, invalid or ambiguous `Content-Length`, a
+declared or actual overflow, malformed JSON, an invalid generation envelope, or
+a non-success status all follow the existing generic HTTP 503
+`Local model runtime unavailable` path. Headers, body fragments, counts, limits,
+model references,
+credentials, and internal errors are not exposed, and rejected assistant
+content is never persisted.
 
 For a request containing `user_message`, the captured generation context must
 end at exactly that newly committed user Message. If another Message is

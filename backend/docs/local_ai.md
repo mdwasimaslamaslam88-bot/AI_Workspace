@@ -78,9 +78,10 @@ lookup, generation admission, catalog discovery, runtime dispatch, or
 persistence. Missing or understated declarations remain subject to cumulative
 actual-byte counting. Invalid or ambiguous `Content-Length` receives HTTP 400.
 The generic 413 message is `Request body is too large`; responses expose no
-limit, count, header, body, credential, or field content. This is an ingress
-byte limit only and does not add a Message-field, database, context,
-Ollama-response, WebSocket, rate, quota, or deadline limit.
+limit, count, header, body, credential, or field content. This ingress byte
+limit does not itself add a Message-field, database, context, WebSocket, rate,
+quota, or deadline limit. The separate Ollama response-body boundary is
+documented below.
 
 An authenticated user may generate one local assistant response for an owned
 Conversation:
@@ -235,12 +236,27 @@ not used for routing or policy.
 
 The successful HTTP 201 response contains the selected public model_id and the
 newly persisted assistant Message. Ollama is invoked through the runtime-neutral
-text-generation boundary using /api/chat with stream set to false. Generation
-may cause Ollama to load the selected model into memory. The application does
-not override `keep_alive`, so Ollama's configured keep-alive policy applies;
-Ollama's default is to retain a loaded model for five minutes. The application
-does not pull or download models and exposes no preload, unload, or global
-model-selection endpoint.
+text-generation boundary using /api/chat with stream set to false.
+
+Generation responses are transport-bounded even though application/token
+streaming is not enabled. Configure
+`OLLAMA_GENERATION_MAX_RESPONSE_BYTES` as a strict integer from 1 through
+1,048,576 bytes; the default is 262,144 bytes (256 KiB). The runtime requests
+identity encoding, rejects unexpected content encoding, checks a single
+unambiguous non-negative `Content-Length` before body consumption, and still
+counts actual response chunks cumulatively. Exactly the configured byte count
+is allowed; reading stops as soon as the next chunk would exceed it. JSON is
+parsed only after the bounded body is complete. Oversized, malformed-header,
+encoded, malformed-JSON, invalid-envelope, and non-success responses retain the
+generic HTTP 503 `Local model runtime unavailable` contract without exposing
+headers, body fragments, byte counts, limits, model references, or internal
+errors, and rejected assistant content is never persisted.
+
+Generation may cause Ollama to load the selected model into memory. The
+application does not override `keep_alive`, so Ollama's configured keep-alive
+policy applies; Ollama's default is to retain a loaded model for five minutes.
+The application does not pull or download models and exposes no preload,
+unload, or global model-selection endpoint.
 
 Generation admission is fail-fast and process-local. Configure
 `GENERATION_MAX_ACTIVE_PER_PROCESS` as a strict integer from 1 through 8; the

@@ -1,3 +1,4 @@
+import asyncio
 import json
 from unittest.mock import AsyncMock, Mock
 
@@ -13,7 +14,10 @@ from app.ai.generation import (
     TextGenerationRuntimeUnsupportedError,
 )
 from app.clients.ollama import create_ollama_client
-from app.core.config import Settings
+from app.core.config import (
+    MAX_OLLAMA_GENERATION_RESPONSE_BYTES,
+    Settings,
+)
 from app.runtimes.ollama import (
     OllamaModelDiscoveryRuntime,
     OllamaTextGenerationRuntime,
@@ -593,6 +597,7 @@ async def test_ollama_generation_is_non_streaming_bounded_and_preserves_content(
     assert len(requests) == 1
     request = requests[0]
     assert (request.method, request.url.path) == ("POST", "/api/chat")
+    assert request.headers["Accept-Encoding"] == "identity"
     assert request.extensions["timeout"] == {
         "connect": 37.0,
         "read": 37.0,
@@ -1704,3 +1709,423 @@ async def test_ollama_generation_transport_failures_are_generic(failure):
             )
 
     assert "secret" not in str(captured.value)
+
+
+class _RecordingAsyncByteStream(httpx.AsyncByteStream):
+    def __init__(
+        self,
+        chunks,
+        *,
+        blocked: asyncio.Event | None = None,
+        release: asyncio.Event | None = None,
+    ):
+        self.chunks = tuple(chunks)
+        self.blocked = blocked
+        self.release = release
+        self.iteration_count = 0
+        self.closed = False
+
+    async def __aiter__(self):
+        for index, chunk in enumerate(self.chunks):
+            self.iteration_count += 1
+            yield chunk
+            if index == 0 and self.blocked is not None:
+                self.blocked.set()
+                if self.release is None:
+                    raise AssertionError("blocked stream requires a release event")
+                await self.release.wait()
+
+    async def aclose(self):
+        self.closed = True
+
+
+def _generation_response_body(content: str) -> bytes:
+    return json.dumps(
+        {
+            "done": True,
+            "message": {
+                "role": "assistant",
+                "content": content,
+            },
+        },
+        separators=(",", ":"),
+    ).encode()
+
+
+def _exact_generation_response_body(size: int) -> bytes:
+    empty = _generation_response_body("")
+    content_size = size - len(empty)
+    if content_size < 1:
+        raise ValueError("test response size cannot hold nonblank content")
+    body = _generation_response_body("x" * content_size)
+    assert len(body) == size
+    return body
+
+
+def _generation_transport(
+    stream: _RecordingAsyncByteStream,
+    *,
+    status_code: int = 200,
+    headers=(),
+):
+    requests: list[httpx.Request] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(
+            status_code,
+            headers=list(headers),
+            stream=stream,
+        )
+
+    return httpx.MockTransport(handler), requests
+
+
+async def _generate_with_runtime(
+    runtime: OllamaTextGenerationRuntime,
+    *,
+    max_output_tokens: int = 128,
+):
+    return await runtime.generate_text(
+        LOCAL_MODEL_REFERENCE,
+        (
+            TextGenerationMessage(
+                role=TextGenerationRole.USER,
+                content="prompt",
+            ),
+        ),
+        max_output_tokens=max_output_tokens,
+    )
+
+
+@pytest.mark.parametrize(
+    "max_response_bytes",
+    [
+        None,
+        True,
+        False,
+        "1",
+        1.0,
+        0,
+        -1,
+        MAX_OLLAMA_GENERATION_RESPONSE_BYTES + 1,
+    ],
+)
+def test_ollama_generation_runtime_rejects_invalid_response_caps(
+    max_response_bytes,
+):
+    with pytest.raises((TypeError, ValueError)):
+        OllamaTextGenerationRuntime(
+            object(),
+            10,
+            LOCAL_MODEL_ALLOWLIST,
+            max_response_bytes=max_response_bytes,
+        )
+
+
+@pytest.mark.parametrize(
+    "max_response_bytes",
+    [1, 262_144, MAX_OLLAMA_GENERATION_RESPONSE_BYTES],
+)
+def test_ollama_generation_runtime_accepts_bounded_response_caps(
+    max_response_bytes,
+):
+    runtime = OllamaTextGenerationRuntime(
+        object(),
+        10,
+        LOCAL_MODEL_ALLOWLIST,
+        max_response_bytes=max_response_bytes,
+    )
+
+    assert runtime.max_response_bytes == max_response_bytes
+
+
+@pytest.mark.asyncio
+async def test_ollama_generation_accepts_valid_response_exactly_at_cap():
+    cap = 128
+    body = _exact_generation_response_body(cap)
+    stream = _RecordingAsyncByteStream((body[:47], body[47:]))
+    transport, requests = _generation_transport(
+        stream,
+        headers=((b"content-length", str(cap).encode()),),
+    )
+
+    async with httpx.AsyncClient(
+        transport=transport,
+        base_url="http://127.0.0.1:11434",
+    ) as client:
+        result = await _generate_with_runtime(
+            OllamaTextGenerationRuntime(
+                client,
+                10,
+                LOCAL_MODEL_ALLOWLIST,
+                max_response_bytes=cap,
+            )
+        )
+
+    assert result.content == "x" * (
+        cap - len(_generation_response_body(""))
+    )
+    assert len(requests) == 1
+    assert stream.iteration_count == 2
+    assert stream.closed is True
+
+
+@pytest.mark.asyncio
+async def test_ollama_generation_absent_length_stops_at_cap_plus_one_and_is_safe(
+    caplog,
+):
+    cap = 65_537
+    response_fragment = b"private-response-fragment credential-never-consumed"
+    stream = _RecordingAsyncByteStream(
+        (
+            b"x" * cap,
+            b"y",
+            response_fragment,
+        )
+    )
+    transport, requests = _generation_transport(stream)
+
+    async with httpx.AsyncClient(
+        transport=transport,
+        base_url="http://127.0.0.1:11434",
+    ) as client:
+        with pytest.raises(TextGenerationRuntimeUnavailableError) as captured:
+            await _generate_with_runtime(
+                OllamaTextGenerationRuntime(
+                    client,
+                    10,
+                    LOCAL_MODEL_ALLOWLIST,
+                    max_response_bytes=cap,
+                ),
+                max_output_tokens=1,
+            )
+
+    assert stream.iteration_count == 2
+    assert stream.closed is True
+    assert len(requests) == 1
+    outgoing = json.loads(requests[0].content)
+    assert outgoing["stream"] is False
+    assert outgoing["options"]["num_predict"] == 1
+    safe_output = str(captured.value) + caplog.text
+    for unsafe in (
+        response_fragment.decode(),
+        "credential-never-consumed",
+        str(cap),
+        str(cap + 1),
+        LOCAL_MODEL_REFERENCE,
+    ):
+        assert unsafe not in safe_output
+
+
+@pytest.mark.asyncio
+async def test_ollama_generation_understated_length_cannot_bypass_actual_cap():
+    cap = 64
+    stream = _RecordingAsyncByteStream((b"x" * cap, b"y"))
+    transport, _requests = _generation_transport(
+        stream,
+        headers=((b"content-length", b"1"),),
+    )
+
+    async with httpx.AsyncClient(
+        transport=transport,
+        base_url="http://127.0.0.1:11434",
+    ) as client:
+        with pytest.raises(TextGenerationRuntimeUnavailableError):
+            await _generate_with_runtime(
+                OllamaTextGenerationRuntime(
+                    client,
+                    10,
+                    LOCAL_MODEL_ALLOWLIST,
+                    max_response_bytes=cap,
+                )
+            )
+
+    assert stream.iteration_count == 2
+    assert stream.closed is True
+
+
+@pytest.mark.asyncio
+async def test_ollama_generation_declared_oversize_does_not_iterate_body():
+    cap = 64
+    stream = _RecordingAsyncByteStream((b"must-not-be-consumed",))
+    transport, _requests = _generation_transport(
+        stream,
+        headers=((b"content-length", str(cap + 1).encode()),),
+    )
+
+    async with httpx.AsyncClient(
+        transport=transport,
+        base_url="http://127.0.0.1:11434",
+    ) as client:
+        with pytest.raises(TextGenerationRuntimeUnavailableError):
+            await _generate_with_runtime(
+                OllamaTextGenerationRuntime(
+                    client,
+                    10,
+                    LOCAL_MODEL_ALLOWLIST,
+                    max_response_bytes=cap,
+                )
+            )
+
+    assert stream.iteration_count == 0
+    assert stream.closed is True
+
+
+@pytest.mark.parametrize(
+    ("headers", "private_header"),
+    [
+        (
+            ((b"content-length", b"invalid-private-length"),),
+            "invalid-private-length",
+        ),
+        (((b"content-length", b"-123456"),), "-123456"),
+        (((b"content-length", b"123456, 123456"),), "123456, 123456"),
+        (
+            (
+                (b"content-length", b"123456"),
+                (b"content-length", b"234567"),
+            ),
+            "123456",
+        ),
+    ],
+    ids=["malformed", "negative", "comma-ambiguous", "conflicting-duplicate"],
+)
+@pytest.mark.asyncio
+async def test_ollama_generation_rejects_unsafe_length_headers_without_reading(
+    headers,
+    private_header,
+    caplog,
+):
+    stream = _RecordingAsyncByteStream((b"must-not-be-consumed",))
+    transport, _requests = _generation_transport(stream, headers=headers)
+
+    async with httpx.AsyncClient(
+        transport=transport,
+        base_url="http://127.0.0.1:11434",
+    ) as client:
+        with pytest.raises(TextGenerationRuntimeUnavailableError) as captured:
+            await _generate_with_runtime(
+                OllamaTextGenerationRuntime(
+                    client,
+                    10,
+                    LOCAL_MODEL_ALLOWLIST,
+                    max_response_bytes=64,
+                )
+            )
+
+    assert stream.iteration_count == 0
+    assert stream.closed is True
+    assert private_header not in (str(captured.value) + caplog.text)
+
+
+@pytest.mark.asyncio
+async def test_ollama_generation_non_success_status_does_not_consume_body():
+    stream = _RecordingAsyncByteStream((b"large private runtime error",))
+    transport, _requests = _generation_transport(
+        stream,
+        status_code=503,
+        headers=((b"content-length", b"999999"),),
+    )
+
+    async with httpx.AsyncClient(
+        transport=transport,
+        base_url="http://127.0.0.1:11434",
+    ) as client:
+        with pytest.raises(TextGenerationRuntimeUnavailableError) as captured:
+            await _generate_with_runtime(
+                OllamaTextGenerationRuntime(
+                    client,
+                    10,
+                    LOCAL_MODEL_ALLOWLIST,
+                    max_response_bytes=64,
+                )
+            )
+
+    assert stream.iteration_count == 0
+    assert stream.closed is True
+    assert "large private runtime error" not in str(captured.value)
+    assert "503" not in str(captured.value)
+
+
+@pytest.mark.asyncio
+async def test_ollama_generation_rejects_compressed_response_before_reading():
+    stream = _RecordingAsyncByteStream((b"compressed-private-body",))
+    transport, _requests = _generation_transport(
+        stream,
+        headers=((b"content-encoding", b"gzip"),),
+    )
+
+    async with httpx.AsyncClient(
+        transport=transport,
+        base_url="http://127.0.0.1:11434",
+    ) as client:
+        with pytest.raises(TextGenerationRuntimeUnavailableError) as captured:
+            await _generate_with_runtime(
+                OllamaTextGenerationRuntime(
+                    client,
+                    10,
+                    LOCAL_MODEL_ALLOWLIST,
+                    max_response_bytes=64,
+                )
+            )
+
+    assert stream.iteration_count == 0
+    assert stream.closed is True
+    assert "gzip" not in str(captured.value)
+    assert "compressed-private-body" not in str(captured.value)
+
+
+@pytest.mark.asyncio
+async def test_ollama_generation_malformed_json_remains_generic_unavailable():
+    stream = _RecordingAsyncByteStream((b'{"done":', b"not-json"))
+    transport, _requests = _generation_transport(stream)
+
+    async with httpx.AsyncClient(
+        transport=transport,
+        base_url="http://127.0.0.1:11434",
+    ) as client:
+        with pytest.raises(TextGenerationRuntimeUnavailableError) as captured:
+            await _generate_with_runtime(
+                OllamaTextGenerationRuntime(
+                    client,
+                    10,
+                    LOCAL_MODEL_ALLOWLIST,
+                    max_response_bytes=64,
+                )
+            )
+
+    assert stream.closed is True
+    assert "not-json" not in str(captured.value)
+
+
+@pytest.mark.asyncio
+async def test_ollama_generation_cancellation_closes_stream_and_propagates():
+    blocked = asyncio.Event()
+    release = asyncio.Event()
+    body = _generation_response_body("answer")
+    stream = _RecordingAsyncByteStream(
+        (body[:8], body[8:]),
+        blocked=blocked,
+        release=release,
+    )
+    transport, _requests = _generation_transport(stream)
+
+    async with httpx.AsyncClient(
+        transport=transport,
+        base_url="http://127.0.0.1:11434",
+    ) as client:
+        runtime = OllamaTextGenerationRuntime(
+            client,
+            10,
+            LOCAL_MODEL_ALLOWLIST,
+            max_response_bytes=128,
+        )
+        task = asyncio.create_task(_generate_with_runtime(runtime))
+        await blocked.wait()
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+    assert stream.iteration_count == 1
+    assert stream.closed is True

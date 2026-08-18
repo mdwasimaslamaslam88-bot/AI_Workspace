@@ -7,6 +7,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 DatabaseSslMode = Literal["disable", "require", "verify-ca", "verify-full"]
 MAX_GENERATION_ACTIVE_PER_PROCESS = 8
+MAX_OLLAMA_GENERATION_RESPONSE_BYTES = 1_048_576
 MAX_REQUEST_BODY_BYTES = 1_048_576
 
 
@@ -39,6 +40,12 @@ class Settings(BaseSettings):
         default=120.0,
         gt=0,
         allow_inf_nan=False,
+    )
+    OLLAMA_GENERATION_MAX_RESPONSE_BYTES: int = Field(
+        default=262_144,
+        strict=True,
+        ge=1,
+        le=MAX_OLLAMA_GENERATION_RESPONSE_BYTES,
     )
     GENERATION_MAX_ACTIVE_PER_PROCESS: int = Field(
         default=1,

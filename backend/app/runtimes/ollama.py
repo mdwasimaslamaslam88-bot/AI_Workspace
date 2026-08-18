@@ -1,5 +1,6 @@
 from collections.abc import Mapping
 from dataclasses import replace
+import json
 import math
 import re
 from typing import Any
@@ -18,6 +19,7 @@ from app.ai.generation import (
     TextGenerationRuntimeUnavailableError,
     TextGenerationRuntimeUnsupportedError,
 )
+from app.core.config import MAX_OLLAMA_GENERATION_RESPONSE_BYTES
 
 
 _SAFE_METADATA_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ +()-]{0,254}$")
@@ -93,6 +95,8 @@ class OllamaTextGenerationRuntime:
         client: httpx.AsyncClient,
         timeout_seconds: float,
         local_model_allowlist: tuple[str, ...] = (),
+        *,
+        max_response_bytes: int = 262_144,
     ) -> None:
         if isinstance(timeout_seconds, bool) or not isinstance(
             timeout_seconds, (int, float)
@@ -104,8 +108,19 @@ class OllamaTextGenerationRuntime:
             is_finite = False
         if not is_finite or timeout_seconds <= 0:
             raise ValueError("generation timeout must be positive and finite")
+        if isinstance(max_response_bytes, bool) or not isinstance(
+            max_response_bytes,
+            int,
+        ):
+            raise TypeError("generation response cap must be an integer")
+        if not 1 <= max_response_bytes <= MAX_OLLAMA_GENERATION_RESPONSE_BYTES:
+            raise ValueError(
+                "generation response cap must be between 1 and "
+                f"{MAX_OLLAMA_GENERATION_RESPONSE_BYTES}"
+            )
         self.client = client
         self.timeout_seconds = float(timeout_seconds)
+        self.max_response_bytes = max_response_bytes
         self.local_model_allowlist = _validated_local_model_allowlist(
             local_model_allowlist
         )
@@ -301,8 +316,10 @@ class OllamaTextGenerationRuntime:
         if stop_sequences is not None:
             options["stop"] = stop_sequences
         try:
-            response = await self.client.post(
+            async with self.client.stream(
+                "POST",
                 "/api/chat",
+                headers={"Accept-Encoding": "identity"},
                 json={
                     "model": runtime_reference,
                     "messages": [
@@ -316,15 +333,73 @@ class OllamaTextGenerationRuntime:
                     "options": options,
                 },
                 timeout=self.timeout_seconds,
-            )
-            response.raise_for_status()
-            return _parse_generation(response.json())
+            ) as response:
+                response.raise_for_status()
+                _validate_identity_content_encoding(response)
+                declared_length = _response_content_length(response)
+                if (
+                    declared_length is not None
+                    and declared_length > self.max_response_bytes
+                ):
+                    raise TextGenerationRuntimeUnavailableError(
+                        "local text runtime returned an invalid response"
+                    )
+
+                response_body = bytearray()
+                async for chunk in response.aiter_bytes():
+                    if len(chunk) > self.max_response_bytes - len(response_body):
+                        raise TextGenerationRuntimeUnavailableError(
+                            "local text runtime returned an invalid response"
+                        )
+                    response_body.extend(chunk)
+                return _parse_generation(json.loads(response_body))
         except TextGenerationRuntimeUnavailableError:
             raise
         except (httpx.HTTPError, ValueError, TypeError) as exc:
             raise TextGenerationRuntimeUnavailableError(
                 "local text generation is unavailable"
             ) from exc
+
+
+def _response_content_length(response: httpx.Response) -> int | None:
+    values = [
+        value
+        for name, value in response.headers.raw
+        if name.lower() == b"content-length"
+    ]
+    if not values:
+        return None
+
+    parsed: list[int] = []
+    for value in values:
+        if b"," in value:
+            raise TextGenerationRuntimeUnavailableError(
+                "local text runtime returned an invalid response"
+            )
+        normalized = value.strip(b" \t")
+        if not normalized or not normalized.isdigit():
+            raise TextGenerationRuntimeUnavailableError(
+                "local text runtime returned an invalid response"
+            )
+        parsed.append(int(normalized))
+
+    if len(set(parsed)) != 1:
+        raise TextGenerationRuntimeUnavailableError(
+            "local text runtime returned an invalid response"
+        )
+    return parsed[0]
+
+
+def _validate_identity_content_encoding(response: httpx.Response) -> None:
+    values = [
+        value.strip(b" \t").lower()
+        for name, value in response.headers.raw
+        if name.lower() == b"content-encoding"
+    ]
+    if values and values != [b"identity"]:
+        raise TextGenerationRuntimeUnavailableError(
+            "local text runtime returned an invalid response"
+        )
 
 
 def _parse_generation(payload: Any) -> TextGenerationResult:
