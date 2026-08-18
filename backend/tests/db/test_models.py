@@ -1,5 +1,6 @@
 from uuid import UUID
 
+import pytest
 from sqlalchemy import (
     BigInteger,
     CheckConstraint,
@@ -17,6 +18,11 @@ from sqlalchemy.schema import CreateIndex
 import app.models  # noqa: F401  # Populate the model registry.
 from app.db.base import Base
 from app.models import Conversation, Message, MessageRole, User
+from app.models.message import (
+    MAX_MESSAGE_CONTENT_CHARACTERS,
+    MessageContentTooLargeError,
+    validate_message_content,
+)
 
 
 EXPECTED_TABLES = {"users", "conversations", "messages"}
@@ -195,7 +201,14 @@ def test_message_columns_constraints_and_conversation_foreign_key():
         "role IN ('system', 'user', 'assistant', 'tool')"
     )
     assert checks["ck_messages_sequence_number_positive"] == "sequence_number >= 1"
-    assert all("content" not in sqltext for sqltext in checks.values())
+    assert checks["ck_messages_content_length_bounded"] == (
+        "char_length(content) <= 100000"
+    )
+    assert set(checks) == {
+        "ck_messages_role_allowed",
+        "ck_messages_sequence_number_positive",
+        "ck_messages_content_length_bounded",
+    }
 
     unique_constraints = [
         constraint
@@ -238,3 +251,35 @@ def test_mapper_relationships_resolve_with_async_safe_loading():
     assert message_conversation.back_populates == "messages"
     assert message_conversation.lazy == "raise"
     assert set(Base.metadata.tables) == EXPECTED_TABLES
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        "x" * MAX_MESSAGE_CONTENT_CHARACTERS,
+        "é" * MAX_MESSAGE_CONTENT_CHARACTERS,
+    ],
+)
+def test_message_content_validator_accepts_the_character_boundary(content):
+    assert validate_message_content(content) is None
+
+
+def test_message_content_validator_rejects_one_character_over_safely():
+    fragment = "private-message-fragment"
+    content = fragment + "x" * (
+        MAX_MESSAGE_CONTENT_CHARACTERS + 1 - len(fragment)
+    )
+
+    with pytest.raises(MessageContentTooLargeError) as captured:
+        validate_message_content(content)
+
+    assert str(captured.value) == "persisted text is too large"
+    assert fragment not in str(captured.value)
+    assert str(MAX_MESSAGE_CONTENT_CHARACTERS) not in str(captured.value)
+    assert "content" not in str(captured.value)
+
+
+@pytest.mark.parametrize("content", [None, b"text", 1, True])
+def test_message_content_validator_accepts_only_strings(content):
+    with pytest.raises(TypeError, match="^value must be a string$"):
+        validate_message_content(content)

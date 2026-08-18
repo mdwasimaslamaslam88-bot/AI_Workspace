@@ -103,8 +103,10 @@ authenticated current user rather than from client input. In particular,
 atomically for the bearer credential's current user. The request may also
 include an optional nonblank `system_prompt`. The required `initial_message`
 must contain at least one non-whitespace character. Validation neither trims
-its leading or trailing whitespace nor adds a semantic field-length limit; the
-entire JSON request remains subject to `REQUEST_MAX_BODY_BYTES`. The server
+nor normalizes leading or trailing whitespace. Both bootstrap contents are
+limited to 100,000 Unicode characters by the shared persisted-Message
+invariant, while the entire JSON request remains independently subject to
+`REQUEST_MAX_BODY_BYTES`. The server
 assigns system prompt content the system role at sequence 1 and the initial user
 Message sequence 2. When the system prompt is omitted or null, the initial user
 Message remains sequence 1. The Conversation and all bootstrap Messages are
@@ -142,9 +144,10 @@ cascade. Missing and foreign-owned conversations receive the same generic HTTP
 `POST /api/v1/conversations/{conversation_id}/messages` appends a user message
 only when the bearer credential's current user owns the conversation. The API
 requires `content` containing at least one non-whitespace character and
-preserves its exact leading and trailing whitespace without adding a semantic
-field-length limit. The whole request is still bounded by
-`REQUEST_MAX_BODY_BYTES`. The API always supplies the user role and
+preserves its exact leading and trailing whitespace. Content containing exactly
+100,000 Unicode characters is accepted; 100,001 is rejected with HTTP 413 and
+`Message content is too large`. The whole request is still independently
+bounded by `REQUEST_MAX_BODY_BYTES`. The API always supplies the user role and
 the database allocates the sequence number; clients cannot supply identity,
 role, conversation, or sequence fields in the request body. Missing and
 foreign-owned conversations receive the same generic HTTP 404 response.
@@ -225,8 +228,11 @@ empty strings, and strings longer than 128 characters are rejected. Omission is
 the only way to preserve model and runtime stop defaults.
 
 When `user_message` is supplied, the exact content is committed first as a
-server-assigned user Message before generation. Omission or null preserves
-generation-only behavior. User IDs, owner IDs, roles, sequences, raw runtime
+server-assigned user Message before generation. It is subject to the same
+100,000-character persisted-Message invariant and an oversized value returns
+HTTP 413 before admission, persistence, context capture, catalog discovery, or
+runtime dispatch. Omission or null preserves generation-only behavior. User
+IDs, owner IDs, roles, sequences, raw runtime
 model references, client-supplied Message arrays, raw `stop`, arbitrary
 generation options, Ollama's `-1` repetition-window sentinel, context controls,
 other sampling controls, and streaming flags are rejected.
@@ -260,6 +266,17 @@ a non-success status all follow the existing generic HTTP 503
 model references,
 credentials, and internal errors are not exposed, and rejected assistant
 content is never persisted.
+
+Every persisted system, user, and assistant Message shares one durable maximum
+of 100,000 Unicode characters. The application validates client-authored text
+before persistence work and repositories validate again before sequence
+allocation. PostgreSQL enforces the same invariant with
+`ck_messages_content_length_bounded` using `char_length(content)`, so the bound
+counts characters rather than UTF-8 bytes. Content is never truncated or
+normalized. A generated assistant over the bound follows the existing generic
+HTTP 503 `Local model runtime unavailable` contract and is not appended; an
+optional user Message already committed before inference remains available for
+a generation-only retry.
 
 For a request containing `user_message`, the captured generation context must
 end at exactly that newly committed user Message. If another Message is

@@ -10,9 +10,15 @@ from app.ai.generation import (
     TextGenerationMessage,
     TextGenerationRole,
     TextGenerationRouter,
+    TextGenerationRuntimeUnavailableError,
     TextGenerationRuntimeUnsupportedError,
 )
-from app.models.message import Message, MessageRole
+from app.models.message import (
+    Message,
+    MessageContentTooLargeError,
+    MessageRole,
+    validate_message_content,
+)
 from app.services.conversation import ConversationService
 from app.services.generation_admission import GenerationAdmissionController
 from app.services.message import MessageService
@@ -95,6 +101,8 @@ class ConversationGenerationService:
         frequency_penalty: float | None = None,
         stop_sequences: list[str] | None = None,
     ) -> Message:
+        if user_message is not None:
+            validate_message_content(user_message)
         if isinstance(max_output_tokens, bool) or not isinstance(
             max_output_tokens,
             int,
@@ -407,6 +415,12 @@ class ConversationGenerationService:
                 frequency_penalty=frequency_penalty,
                 stop_sequences=stop_sequences,
             )
+            try:
+                validate_message_content(generated.content)
+            except MessageContentTooLargeError as exc:
+                raise TextGenerationRuntimeUnavailableError(
+                    "local text generation is unavailable"
+                ) from exc
             message = await MessageService(self.session).append_for_owner(
                 owner_id,
                 conversation_id,

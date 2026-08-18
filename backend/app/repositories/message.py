@@ -4,7 +4,7 @@ from uuid import UUID
 from sqlalchemy import Integer, bindparam, select, update
 
 from app.models.conversation import Conversation
-from app.models.message import Message, MessageRole
+from app.models.message import Message, MessageRole, validate_message_content
 from app.repositories.base import BaseRepository
 
 
@@ -58,6 +58,7 @@ class MessageRepository(BaseRepository):
         *,
         expected_sequence_number: int | None = None,
     ) -> Message | None:
+        validate_message_content(content)
         if expected_sequence_number is not None:
             if isinstance(expected_sequence_number, bool) or not isinstance(
                 expected_sequence_number, int

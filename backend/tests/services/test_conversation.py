@@ -6,6 +6,10 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Conversation, Message, MessageRole
+from app.models.message import (
+    MAX_MESSAGE_CONTENT_CHARACTERS,
+    MessageContentTooLargeError,
+)
 from app.repositories.conversation import ConversationPagination
 from app.services.conversation import ConversationService
 from app.services.message import MessageService
@@ -195,6 +199,64 @@ async def test_create_with_system_prompt_assigns_roles_and_commits_once(
     assert session.execute.await_count == 2
     assert session.flush.await_count == 3
     session.commit.assert_awaited_once_with()
+    session.rollback.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_create_with_system_prompt_accepts_exact_character_boundary():
+    events: list[str] = []
+    session = _service_session()
+    session.execute.return_value.scalar_one_or_none.side_effect = [1, 2]
+    added = _observe_orchestration(session, events)
+    system_prompt = "é" * MAX_MESSAGE_CONTENT_CHARACTERS
+
+    created = await ConversationService(
+        session
+    ).create_with_initial_message_for_owner(
+        uuid4(),
+        "Boundary",
+        MessageRole.USER,
+        "initial",
+        system_prompt=system_prompt,
+    )
+
+    assert created is not None
+    assert added[1].role is MessageRole.SYSTEM
+    assert added[1].content == system_prompt
+    assert len(added[1].content) == MAX_MESSAGE_CONTENT_CHARACTERS
+    session.commit.assert_awaited_once_with()
+    session.rollback.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("oversized_field", ["system_prompt", "initial_message"])
+async def test_create_with_initial_messages_rejects_before_atomic_work(
+    oversized_field,
+):
+    events: list[str] = []
+    session = _service_session(scalar=1)
+    _observe_orchestration(session, events)
+    oversized = "x" * (MAX_MESSAGE_CONTENT_CHARACTERS + 1)
+    content = oversized if oversized_field == "initial_message" else "initial"
+    system_prompt = oversized if oversized_field == "system_prompt" else None
+
+    with pytest.raises(MessageContentTooLargeError) as captured:
+        await ConversationService(
+            session
+        ).create_with_initial_message_for_owner(
+            uuid4(),
+            "Rejected",
+            MessageRole.USER,
+            content,
+            system_prompt=system_prompt,
+        )
+
+    assert str(captured.value) == "persisted text is too large"
+    assert events == []
+    session.execute.assert_not_awaited()
+    session.add.assert_not_called()
+    session.flush.assert_not_awaited()
+    session.commit.assert_not_awaited()
     session.rollback.assert_not_awaited()
 
 

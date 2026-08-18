@@ -20,6 +20,10 @@ from app.ai.generation import (
     TextGenerationRuntimeUnsupportedError,
 )
 from app.models import Conversation, Message, MessageRole
+from app.models.message import (
+    MAX_MESSAGE_CONTENT_CHARACTERS,
+    MessageContentTooLargeError,
+)
 from app.services.conversation_generation import (
     MAX_GENERATION_CONTEXT_CHARACTERS,
     MAX_GENERATION_CONTEXT_MESSAGES,
@@ -1813,6 +1817,179 @@ async def test_generation_appends_exact_user_message_before_context_and_inferenc
     ]
     session.rollback.assert_awaited_once_with()
     session.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_oversized_generation_user_message_stops_before_admission(
+    monkeypatch,
+):
+    owner_id = uuid4()
+    conversation_id = uuid4()
+    session = AsyncMock(spec=AsyncSession)
+    dependencies = _dependencies(
+        monkeypatch,
+        conversation=_conversation(owner_id, conversation_id, 2),
+        context=(),
+        appended=None,
+    )
+    dependencies["admission"].admit = Mock(
+        side_effect=AssertionError("admission must not be acquired")
+    )
+
+    with pytest.raises(MessageContentTooLargeError) as captured:
+        await ConversationGenerationService(
+            session,
+            dependencies["catalog"],
+            dependencies["router"],
+            dependencies["admission"],
+        ).generate_for_owner(
+            owner_id,
+            conversation_id,
+            MODEL_ID,
+            user_message="x" * (MAX_MESSAGE_CONTENT_CHARACTERS + 1),
+        )
+
+    assert str(captured.value) == "persisted text is too large"
+    dependencies["admission"].admit.assert_not_called()
+    dependencies["conversation_factory"].assert_not_called()
+    dependencies["get"].assert_not_awaited()
+    dependencies["message_factory"].assert_not_called()
+    dependencies["append"].assert_not_awaited()
+    dependencies["context"].assert_not_awaited()
+    dependencies["catalog"].resolve_model.assert_not_awaited()
+    dependencies["router"].generate.assert_not_awaited()
+    session.commit.assert_not_awaited()
+    session.rollback.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_generated_assistant_at_exact_character_boundary_persists(
+    monkeypatch,
+):
+    owner_id = uuid4()
+    conversation_id = uuid4()
+    content = "é" * MAX_MESSAGE_CONTENT_CHARACTERS
+    appended = _message(
+        conversation_id,
+        MessageRole.ASSISTANT,
+        content,
+        2,
+    )
+    dependencies = _dependencies(
+        monkeypatch,
+        conversation=_conversation(owner_id, conversation_id, 2),
+        context=(
+            _message(conversation_id, MessageRole.USER, "question", 1),
+        ),
+        appended=appended,
+        generated=TextGenerationResult(content=content),
+    )
+
+    result = await ConversationGenerationService(
+        AsyncMock(spec=AsyncSession),
+        dependencies["catalog"],
+        dependencies["router"],
+        dependencies["admission"],
+    ).generate_for_owner(owner_id, conversation_id, MODEL_ID)
+
+    assert result is appended
+    dependencies["append"].assert_awaited_once_with(
+        owner_id,
+        conversation_id,
+        MessageRole.ASSISTANT,
+        content,
+        expected_sequence_number=2,
+    )
+
+
+@pytest.mark.asyncio
+async def test_oversized_assistant_preserves_committed_user_and_allows_retry(
+    monkeypatch,
+):
+    owner_id = uuid4()
+    conversation_id = uuid4()
+    appended_user = _message(
+        conversation_id,
+        MessageRole.USER,
+        "committed user",
+        2,
+    )
+    appended_assistant = _message(
+        conversation_id,
+        MessageRole.ASSISTANT,
+        "answer",
+        3,
+    )
+    dependencies = _dependencies(
+        monkeypatch,
+        conversation=_conversation(owner_id, conversation_id, 2),
+        context=(
+            _message(conversation_id, MessageRole.USER, "initial", 1),
+            appended_user,
+        ),
+        appended=None,
+        generated=TextGenerationResult(
+            content="x" * (MAX_MESSAGE_CONTENT_CHARACTERS + 1)
+        ),
+    )
+
+    async def append(_owner, _conversation, role, _content, **_kwargs):
+        if role is MessageRole.USER:
+            return appended_user
+        return appended_assistant
+
+    dependencies["append"].side_effect = append
+    service = ConversationGenerationService(
+        AsyncMock(spec=AsyncSession),
+        dependencies["catalog"],
+        dependencies["router"],
+        dependencies["admission"],
+    )
+
+    with pytest.raises(TextGenerationRuntimeUnavailableError) as captured:
+        await service.generate_for_owner(
+            owner_id,
+            conversation_id,
+            MODEL_ID,
+            user_message="committed user",
+        )
+
+    assert str(captured.value) == "local text generation is unavailable"
+    assert dependencies["append"].await_args_list == [
+        call(
+            owner_id,
+            conversation_id,
+            MessageRole.USER,
+            "committed user",
+        )
+    ]
+    assert dependencies["admission"]._active_users == set()
+    assert dependencies["admission"]._active_count == 0
+
+    dependencies["get"].return_value = _conversation(
+        owner_id,
+        conversation_id,
+        3,
+    )
+    dependencies["router"].generate.return_value = TextGenerationResult(
+        content="answer"
+    )
+    result = await service.generate_for_owner(
+        owner_id,
+        conversation_id,
+        MODEL_ID,
+    )
+
+    assert result is appended_assistant
+    assert dependencies["append"].await_args_list[-1] == call(
+        owner_id,
+        conversation_id,
+        MessageRole.ASSISTANT,
+        "answer",
+        expected_sequence_number=3,
+    )
+    assert dependencies["admission"]._active_users == set()
+    assert dependencies["admission"]._active_count == 0
 
 
 @pytest.mark.asyncio

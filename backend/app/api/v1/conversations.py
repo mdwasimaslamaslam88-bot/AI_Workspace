@@ -11,7 +11,7 @@ from app.ai.generation import (
 )
 from app.api.dependencies import get_current_user
 from app.db.dependencies import get_db_session
-from app.models.message import MessageRole
+from app.models.message import MessageContentTooLargeError, MessageRole
 from app.models.user import User
 from app.repositories.conversation import (
     ConversationCursor,
@@ -103,15 +103,21 @@ async def create_conversation(
     session: Annotated[AsyncSession, Depends(get_db_session)],
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> ConversationCreateResponse:
-    created = await ConversationService(
-        session
-    ).create_with_initial_message_for_owner(
-        current_user.id,
-        request.title,
-        MessageRole.USER,
-        request.initial_message,
-        system_prompt=request.system_prompt,
-    )
+    try:
+        created = await ConversationService(
+            session
+        ).create_with_initial_message_for_owner(
+            current_user.id,
+            request.title,
+            MessageRole.USER,
+            request.initial_message,
+            system_prompt=request.system_prompt,
+        )
+    except MessageContentTooLargeError:
+        raise HTTPException(
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+            detail="Message content is too large",
+        ) from None
     if created is None:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -213,6 +219,11 @@ async def append_message(
             MessageRole.USER,
             request.content,
         )
+    except MessageContentTooLargeError:
+        raise HTTPException(
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+            detail="Message content is too large",
+        ) from None
     except MessageAppendConflictError:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -286,6 +297,11 @@ async def generate_assistant_message(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Conversation not found",
+        ) from None
+    except MessageContentTooLargeError:
+        raise HTTPException(
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+            detail="Message content is too large",
         ) from None
     except GenerationAdmissionRejectedError:
         raise HTTPException(

@@ -3,7 +3,7 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.conversation import Conversation
-from app.models.message import Message, MessageRole
+from app.models.message import Message, MessageRole, validate_message_content
 from app.repositories.conversation import (
     ConversationPage,
     ConversationPagination,
@@ -36,6 +36,9 @@ class ConversationService:
         *,
         system_prompt: str | None = None,
     ) -> tuple[Conversation, Message] | None:
+        if system_prompt is not None:
+            validate_message_content(system_prompt)
+        validate_message_content(content)
         try:
             conversation = await self.repository.create(owner_id, title)
             if system_prompt is not None:

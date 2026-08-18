@@ -80,8 +80,8 @@ actual-byte counting. Invalid or ambiguous `Content-Length` receives HTTP 400.
 The generic 413 message is `Request body is too large`; responses expose no
 limit, count, header, body, credential, or field content. This ingress byte
 limit does not itself add a Message-field, database, context, WebSocket, rate,
-quota, or deadline limit. The separate Ollama response-body boundary is
-documented below.
+quota, or deadline limit. Persisted Message content and the Ollama response body
+have separate boundaries documented below.
 
 An authenticated user may generate one local assistant response for an owned
 Conversation:
@@ -197,11 +197,23 @@ accepts no client-controlled role fields.
 The required `initial_message` at Conversation creation and required `content`
 at the standalone user-Message append endpoint must each contain at least one
 non-whitespace character. Their exact leading and trailing whitespace is
-preserved, and neither field gains a semantic field-length limit. The complete
-HTTP request remains subject to `REQUEST_MAX_BODY_BYTES`. This validation does
-not change the generation endpoint's optional nonblank `user_message`:
-omission or null still performs generation only, while supplied content is
-still committed before generation.
+preserved without normalization. All persisted system, user, and assistant
+Message content is limited to 100,000 Unicode characters. Exactly 100,000 is
+accepted and 100,001 is rejected; this is a character count, not a UTF-8 byte
+count. The complete HTTP request remains independently subject to
+`REQUEST_MAX_BODY_BYTES`. The generation endpoint's optional nonblank
+`user_message` uses the same bound: omission or null still performs generation
+only, while valid supplied content is still committed before generation.
+
+Client-authored oversized `system_prompt`, `initial_message`, standalone
+`content`, and generation `user_message` values return HTTP 413 with `Message
+content is too large`. Conversation bootstrap validation occurs before the
+atomic transaction starts, standalone append validation occurs before sequence
+allocation, and generation user validation occurs before admission, context,
+catalog, or runtime work. The application service and repository layers share
+the invariant, and PostgreSQL independently enforces
+`ck_messages_content_length_bounded` with `char_length(content) <= 100000`.
+No layer truncates or normalizes content.
 
 The application accepts at most 100 existing Messages in ascending sequence
 order, with a fixed 100,000-character context bound. It fetches up to 101
@@ -252,6 +264,14 @@ generic HTTP 503 `Local model runtime unavailable` contract without exposing
 headers, body fragments, byte counts, limits, model references, or internal
 errors, and rejected assistant content is never persisted.
 
+After a successful runtime response is decoded, generated assistant content is
+validated against the same 100,000-character Message invariant before the
+expected-sequence append. An oversized assistant uses the existing generic HTTP
+503 `Local model runtime unavailable` response and is never persisted. If the
+request committed an optional user Message before inference, that Message
+remains committed and a generation-only retry is available. Admission release
+and stale-generation authority remain unchanged.
+
 Generation may cause Ollama to load the selected model into memory. The
 application does not override `keep_alive`, so Ollama's configured keep-alive
 policy applies; Ollama's default is to retain a loaded model for five minutes.
@@ -300,8 +320,10 @@ Error behavior is intentionally safe:
   capability, an unsupported generation adapter, or a changed Conversation
   returns HTTP 409;
 - oversized context returns HTTP 413;
+- oversized client-authored Message content returns HTTP 413;
 - a model marked unavailable and unavailable or malformed local runtime
-  responses return the same generic HTTP 503;
+  responses, including oversized generated assistant content, return the same
+  generic HTTP 503;
 - unexpected failures retain the application's generic HTTP 500 response.
 
 Runtime references, runtime URLs, local paths, credentials, hardware

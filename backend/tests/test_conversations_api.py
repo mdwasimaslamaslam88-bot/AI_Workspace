@@ -13,6 +13,10 @@ from app.core.security import digest_access_token
 from app.db.dependencies import get_db_session
 from app.main import app
 from app.models import Conversation, Message, MessageRole, User
+from app.models.message import (
+    MAX_MESSAGE_CONTENT_CHARACTERS,
+    MessageContentTooLargeError,
+)
 from app.repositories.conversation import (
     DEFAULT_CONVERSATION_PAGE_SIZE,
     MAX_CONVERSATION_PAGE_SIZE,
@@ -1219,6 +1223,57 @@ def test_create_conversation_persists_exact_optional_system_prompt(
     )
 
 
+def test_create_conversation_accepts_exact_message_character_boundary(
+    conversation_api,
+):
+    api = conversation_api
+    content = "é" * MAX_MESSAGE_CONTENT_CHARACTERS
+
+    response = api["client"].post(
+        "/api/v1/conversations",
+        json={
+            "system_prompt": content,
+            "initial_message": "initial",
+        },
+    )
+
+    assert response.status_code == 201
+    api["create"].assert_awaited_once_with(
+        api["current_user"].id,
+        None,
+        MessageRole.USER,
+        "initial",
+        system_prompt=content,
+    )
+
+
+@pytest.mark.parametrize("field", ["system_prompt", "initial_message"])
+def test_create_conversation_maps_oversized_message_to_safe_413(
+    conversation_api,
+    field,
+):
+    api = conversation_api
+    fragment = "private-bootstrap-fragment"
+    oversized = fragment + "x" * (
+        MAX_MESSAGE_CONTENT_CHARACTERS + 1 - len(fragment)
+    )
+    payload = {"initial_message": "initial", field: oversized}
+    api["create"].side_effect = MessageContentTooLargeError(
+        "persisted text is too large"
+    )
+
+    response = api["client"].post("/api/v1/conversations", json=payload)
+
+    assert response.status_code == 413
+    assert response.json()["error"] == {
+        "code": "HTTP_ERROR",
+        "message": "Message content is too large",
+    }
+    assert fragment not in response.text
+    assert field not in response.text
+    assert str(MAX_MESSAGE_CONTENT_CHARACTERS) not in response.text
+
+
 def test_create_conversation_explicit_null_system_prompt_preserves_behavior(
     conversation_api,
 ):
@@ -1561,6 +1616,30 @@ def test_append_message_maps_owner_scoped_miss_to_generic_404(conversation_api):
         MessageRole.USER,
         "hello",
     )
+
+
+def test_append_message_maps_oversized_content_to_safe_413(conversation_api):
+    api = conversation_api
+    fragment = "private-append-fragment"
+    oversized = fragment + "x" * (
+        MAX_MESSAGE_CONTENT_CHARACTERS + 1 - len(fragment)
+    )
+    api["append"].side_effect = MessageContentTooLargeError(
+        "persisted text is too large"
+    )
+
+    response = api["client"].post(
+        f"/api/v1/conversations/{api['conversation'].id}/messages",
+        json={"content": oversized},
+    )
+
+    assert response.status_code == 413
+    assert response.json()["error"] == {
+        "code": "HTTP_ERROR",
+        "message": "Message content is too large",
+    }
+    assert fragment not in response.text
+    assert str(MAX_MESSAGE_CONTENT_CHARACTERS) not in response.text
 
 
 def test_append_message_maps_conflict_to_generic_409(conversation_api):
@@ -3189,6 +3268,11 @@ def test_malformed_generation_uuid_is_422_before_service_construction(
             MessageAppendConflictError,
             409,
             "Message could not be appended",
+        ),
+        (
+            MessageContentTooLargeError,
+            413,
+            "Message content is too large",
         ),
     ],
 )

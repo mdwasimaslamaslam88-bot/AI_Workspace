@@ -24,6 +24,20 @@ if TYPE_CHECKING:
     from app.models.conversation import Conversation
 
 
+MAX_MESSAGE_CONTENT_CHARACTERS = 100_000
+
+
+class MessageContentTooLargeError(ValueError):
+    """A Message cannot be persisted within the fixed content bound."""
+
+
+def validate_message_content(content: str) -> None:
+    if not isinstance(content, str):
+        raise TypeError("value must be a string")
+    if len(content) > MAX_MESSAGE_CONTENT_CHARACTERS:
+        raise MessageContentTooLargeError("persisted text is too large")
+
+
 class MessageRole(StrEnum):
     SYSTEM = "system"
     USER = "user"
@@ -41,6 +55,10 @@ class Message(Base):
         CheckConstraint(
             "sequence_number >= 1",
             name="sequence_number_positive",
+        ),
+        CheckConstraint(
+            f"char_length(content) <= {MAX_MESSAGE_CONTENT_CHARACTERS}",
+            name="content_length_bounded",
         ),
         UniqueConstraint(
             "conversation_id",

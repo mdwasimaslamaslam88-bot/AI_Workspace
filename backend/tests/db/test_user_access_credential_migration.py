@@ -34,6 +34,9 @@ def test_upgrade_adds_only_nullable_unique_digest_and_matches_metadata():
     operations = RecordingOperations()
     initial, credential = _load_chain(operations)
     initial.upgrade()
+    initial_messages_signature = _table_signature(
+        operations.metadata.tables["messages"]
+    )
     operations.events.clear()
 
     credential.upgrade()
@@ -43,10 +46,12 @@ def test_upgrade_adds_only_nullable_unique_digest_and_matches_metadata():
         ("create_unique_constraint", "uq_users_access_token_digest"),
     ]
     assert set(operations.metadata.tables) == set(Base.metadata.tables)
-    for table_name in ("conversations", "messages"):
-        assert _table_signature(operations.metadata.tables[table_name]) == (
-            _table_signature(Base.metadata.tables[table_name])
-        )
+    assert _table_signature(operations.metadata.tables["conversations"]) == (
+        _table_signature(Base.metadata.tables["conversations"])
+    )
+    assert _table_signature(operations.metadata.tables["messages"]) == (
+        initial_messages_signature
+    )
 
     users = operations.metadata.tables["users"]
     model_users = Base.metadata.tables["users"]

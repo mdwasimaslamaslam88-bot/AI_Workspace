@@ -38,6 +38,17 @@ the `users`, `conversations`, and `messages` tables. Alembic imports the
 `app.models` registry before reading `Base.metadata`; future mapped-model
 modules must be imported by that registry.
 
+The `messages.content` column remains PostgreSQL `TEXT`, with one durable
+semantic invariant for system, user, and assistant Messages:
+`char_length(content) <= 100000`. Alembic revision
+`0003_bound_message_content` follows `0002_user_access_credential` and adds only
+the named `ck_messages_content_length_bounded` CHECK constraint. The migration
+does not rewrite, truncate, or normalize rows. If pre-existing content violates
+the invariant, PostgreSQL rejects the migration transaction instead of altering
+that content. Application services reject oversized content before persistence,
+repositories repeat the check before sequence allocation, and PostgreSQL is the
+final authority for direct or bypass writes.
+
 ## PostgreSQL integration tests
 
 The default `python -m pytest -q` run remains database-free. Real PostgreSQL

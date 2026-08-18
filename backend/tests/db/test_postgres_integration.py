@@ -25,6 +25,10 @@ from app.ai.generation import (
 from app.core.security import digest_access_token, generate_access_token
 from app.main import app
 from app.models import Conversation, Message, MessageRole, User
+from app.models.message import (
+    MAX_MESSAGE_CONTENT_CHARACTERS,
+    MessageContentTooLargeError,
+)
 from app.repositories.conversation import ConversationPagination
 from app.repositories.message import MessagePagination
 from app.repositories.user import UserRepository
@@ -169,6 +173,7 @@ async def test_migration_creates_exact_expected_postgresql_schema(
 
     message_checks = _checks_by_name(snapshot["message_checks"])
     assert set(message_checks) == {
+        "ck_messages_content_length_bounded",
         "ck_messages_role_allowed",
         "ck_messages_sequence_number_positive",
     }
@@ -180,6 +185,9 @@ async def test_migration_creates_exact_expected_postgresql_schema(
     sequence_check = message_checks["ck_messages_sequence_number_positive"]
     assert "sequence_number" in sequence_check
     assert ">= 1" in sequence_check
+    content_check = message_checks["ck_messages_content_length_bounded"]
+    assert "char_length(content)" in content_check
+    assert "<= 100000" in content_check
 
     message_unique = next(
         item
@@ -250,6 +258,147 @@ async def test_migration_creates_exact_expected_postgresql_schema(
     assert messages["sequence_number"]["nullable"] is False
     _assert_required_timestamp(messages["created_at"])
     _assert_required_timestamp(messages["updated_at"])
+
+
+@pytest.mark.asyncio
+async def test_message_content_boundary_is_application_and_database_durable(
+    test_database_engine: AsyncEngine,
+):
+    boundary = "é" * MAX_MESSAGE_CONTENT_CHARACTERS
+    oversized = "é" * (MAX_MESSAGE_CONTENT_CHARACTERS + 1)
+
+    async with AsyncSession(
+        test_database_engine,
+        expire_on_commit=False,
+    ) as session:
+        user = await UserService(session).create(User())
+        owner_id = user.id
+        bootstrap = await ConversationService(
+            session
+        ).create_with_initial_message_for_owner(
+            owner_id,
+            "Boundary roles",
+            MessageRole.USER,
+            "initial",
+            system_prompt=boundary,
+        )
+        assert bootstrap is not None
+        conversation, initial = bootstrap
+        conversation_id = conversation.id
+        assert initial.sequence_number == 2
+
+        user_message = await MessageService(session).append_for_owner(
+            owner_id,
+            conversation_id,
+            MessageRole.USER,
+            boundary,
+        )
+        assistant_message = await MessageService(session).append_for_owner(
+            owner_id,
+            conversation_id,
+            MessageRole.ASSISTANT,
+            boundary,
+        )
+        assert user_message is not None
+        assert assistant_message is not None
+        assert len(user_message.content) == MAX_MESSAGE_CONTENT_CHARACTERS
+        assert len(assistant_message.content) == MAX_MESSAGE_CONTENT_CHARACTERS
+
+        conversation_count_before = await session.scalar(
+            sa.select(sa.func.count()).select_from(Conversation)
+        )
+        with pytest.raises(MessageContentTooLargeError):
+            await ConversationService(
+                session
+            ).create_with_initial_message_for_owner(
+                owner_id,
+                "Rejected system",
+                MessageRole.USER,
+                "initial",
+                system_prompt=oversized,
+            )
+        with pytest.raises(MessageContentTooLargeError):
+            await ConversationService(
+                session
+            ).create_with_initial_message_for_owner(
+                owner_id,
+                "Rejected initial",
+                MessageRole.USER,
+                oversized,
+            )
+        assert await session.scalar(
+            sa.select(sa.func.count()).select_from(Conversation)
+        ) == conversation_count_before
+
+        next_sequence_before = conversation.next_message_sequence
+        with pytest.raises(MessageContentTooLargeError):
+            await MessageService(session).append_for_owner(
+                owner_id,
+                conversation_id,
+                MessageRole.USER,
+                oversized,
+            )
+        await session.refresh(conversation)
+        assert conversation.next_message_sequence == next_sequence_before
+
+        direct_conversation = await ConversationService(session).create(
+            owner_id,
+            "Direct database invariant",
+        )
+        direct_conversation.next_message_sequence = 2
+        direct_message = Message(
+            conversation_id=direct_conversation.id,
+            role=MessageRole.ASSISTANT,
+            content=boundary,
+            sequence_number=1,
+        )
+        session.add(direct_message)
+        await session.commit()
+        direct_conversation_id = direct_conversation.id
+        direct_message_id = direct_message.id
+
+    async with AsyncSession(
+        test_database_engine,
+        expire_on_commit=False,
+    ) as session:
+        direct_conversation = await session.get(
+            Conversation,
+            direct_conversation_id,
+        )
+        assert direct_conversation is not None
+        assert await session.get(Message, direct_message_id) is not None
+        direct_conversation.next_message_sequence = 3
+        session.add(
+            Message(
+                conversation_id=direct_conversation_id,
+                role=MessageRole.ASSISTANT,
+                content=oversized,
+                sequence_number=2,
+            )
+        )
+        with pytest.raises(IntegrityError) as captured:
+            await session.commit()
+        assert "ck_messages_content_length_bounded" in str(captured.value.orig)
+        await session.rollback()
+
+    async with AsyncSession(test_database_engine) as session:
+        direct_conversation = await session.get(
+            Conversation,
+            direct_conversation_id,
+        )
+        assert direct_conversation is not None
+        assert direct_conversation.next_message_sequence == 2
+        direct_messages = (
+            await session.execute(
+                sa.select(Message).where(
+                    Message.conversation_id == direct_conversation_id
+                )
+            )
+        ).scalars().all()
+        assert len(direct_messages) == 1
+        assert len(direct_messages[0].content) == (
+            MAX_MESSAGE_CONTENT_CHARACTERS
+        )
 
 
 @pytest.mark.asyncio
@@ -610,8 +759,8 @@ async def test_create_with_initial_message_failure_rolls_back_all_persistence(
             ).create_with_initial_message_for_owner(
                 owner_id,
                 "Must roll back",
-                MessageRole.USER,
                 None,  # type: ignore[arg-type]
+                "Initial content must also roll back",
                 system_prompt="System content must also roll back",
             )
 
@@ -2274,6 +2423,14 @@ async def test_authenticated_conversation_generation_is_owner_scoped_and_stale_s
                         "intervening user message",
                     )
                     assert intervening is not None
+            if self.mode == "boundary":
+                return TextGenerationResult(
+                    content="é" * MAX_MESSAGE_CONTENT_CHARACTERS
+                )
+            if self.mode == "oversized":
+                return TextGenerationResult(
+                    content="x" * (MAX_MESSAGE_CONTENT_CHARACTERS + 1)
+                )
             return TextGenerationResult(content="  exact local answer  ")
 
     def normalized_schema(value):
@@ -2390,6 +2547,35 @@ async def test_authenticated_conversation_generation_is_owner_scoped_and_stale_s
                 "Authorization": f"Bearer {foreign['access_token']}"
             }
 
+            oversized_client_message = "private-oversized-fragment" + "x" * (
+                MAX_MESSAGE_CONTENT_CHARACTERS
+                + 1
+                - len("private-oversized-fragment")
+            )
+            for field in ("system_prompt", "initial_message"):
+                rejected_bootstrap = await client.post(
+                    "/api/v1/conversations",
+                    headers=owner_headers,
+                    json={
+                        "initial_message": "initial",
+                        field: oversized_client_message,
+                    },
+                )
+                assert rejected_bootstrap.status_code == 413
+                assert rejected_bootstrap.json()["error"] == {
+                    "code": "HTTP_ERROR",
+                    "message": "Message content is too large",
+                }
+                assert "private-oversized-fragment" not in (
+                    rejected_bootstrap.text
+                )
+            before_valid_bootstrap = await client.get(
+                "/api/v1/conversations",
+                headers=owner_headers,
+            )
+            assert before_valid_bootstrap.status_code == 200
+            assert before_valid_bootstrap.json()["items"] == []
+
             owner_created = await client.post(
                 "/api/v1/conversations",
                 headers=owner_headers,
@@ -2411,6 +2597,43 @@ async def test_authenticated_conversation_generation_is_owner_scoped_and_stale_s
             assert foreign_created.status_code == 201
             conversation_id = UUID(owner_created.json()["id"])
             foreign_conversation_id = UUID(foreign_created.json()["id"])
+
+            before_oversized_client, messages_before_oversized_client = (
+                await persisted_conversation(conversation_id)
+            )
+            assert before_oversized_client is not None
+            rejected_append = await client.post(
+                f"/api/v1/conversations/{conversation_id}/messages",
+                headers=owner_headers,
+                json={"content": oversized_client_message},
+            )
+            rejected_generation_user = await client.post(
+                f"/api/v1/conversations/{conversation_id}/messages/generate",
+                headers=owner_headers,
+                json={
+                    "model_id": f"integration-local:{'a' * 24}",
+                    "user_message": oversized_client_message,
+                },
+            )
+            for rejected in (rejected_append, rejected_generation_user):
+                assert rejected.status_code == 413
+                assert rejected.json()["error"] == {
+                    "code": "HTTP_ERROR",
+                    "message": "Message content is too large",
+                }
+                assert "private-oversized-fragment" not in rejected.text
+            after_oversized_client, messages_after_oversized_client = (
+                await persisted_conversation(conversation_id)
+            )
+            assert after_oversized_client is not None
+            assert after_oversized_client.next_message_sequence == (
+                before_oversized_client.next_message_sequence
+            )
+            assert [message.id for message in messages_after_oversized_client] == [
+                message.id for message in messages_before_oversized_client
+            ]
+            assert runtime.discovery_calls == 0
+            assert runtime.generation_calls == []
 
             unauthenticated = await client.post(
                 f"/api/v1/conversations/{conversation_id}/messages/generate",
@@ -2692,6 +2915,86 @@ async def test_authenticated_conversation_generation_is_owner_scoped_and_stale_s
             assert capability_retry.status_code == 201
             assert capability_retry.json()["message"]["sequence_number"] == 3
             assert len(runtime.generation_calls) == 5
+
+            boundary_created = await client.post(
+                "/api/v1/conversations",
+                headers=owner_headers,
+                json={"initial_message": "boundary assistant target"},
+            )
+            assert boundary_created.status_code == 201
+            boundary_conversation_id = UUID(boundary_created.json()["id"])
+            runtime.mode = "boundary"
+            boundary_assistant = await client.post(
+                "/api/v1/conversations/"
+                f"{boundary_conversation_id}/messages/generate",
+                headers=owner_headers,
+                json={"model_id": model_id},
+            )
+            assert boundary_assistant.status_code == 201
+            assert len(boundary_assistant.json()["message"]["content"]) == (
+                MAX_MESSAGE_CONTENT_CHARACTERS
+            )
+            boundary_state, boundary_messages = await persisted_conversation(
+                boundary_conversation_id
+            )
+            assert boundary_state is not None
+            assert boundary_state.next_message_sequence == 3
+            assert [message.role for message in boundary_messages] == [
+                MessageRole.USER,
+                MessageRole.ASSISTANT,
+            ]
+            assert len(boundary_messages[1].content) == (
+                MAX_MESSAGE_CONTENT_CHARACTERS
+            )
+
+            oversized_created = await client.post(
+                "/api/v1/conversations",
+                headers=owner_headers,
+                json={"initial_message": "oversized assistant target"},
+            )
+            assert oversized_created.status_code == 201
+            oversized_conversation_id = UUID(oversized_created.json()["id"])
+            runtime.mode = "oversized"
+            oversized_assistant = await client.post(
+                "/api/v1/conversations/"
+                f"{oversized_conversation_id}/messages/generate",
+                headers=owner_headers,
+                json={
+                    "model_id": model_id,
+                    "user_message": "committed oversized-assistant user",
+                },
+            )
+            assert oversized_assistant.status_code == 503
+            assert oversized_assistant.json()["error"] == {
+                "code": "HTTP_ERROR",
+                "message": "Local model runtime unavailable",
+            }
+            oversized_state, oversized_messages = await persisted_conversation(
+                oversized_conversation_id
+            )
+            assert oversized_state is not None
+            assert oversized_state.next_message_sequence == 3
+            assert [
+                (message.role, message.content, message.sequence_number)
+                for message in oversized_messages
+            ] == [
+                (MessageRole.USER, "oversized assistant target", 1),
+                (
+                    MessageRole.USER,
+                    "committed oversized-assistant user",
+                    2,
+                ),
+            ]
+
+            runtime.mode = "success"
+            oversized_retry = await client.post(
+                "/api/v1/conversations/"
+                f"{oversized_conversation_id}/messages/generate",
+                headers=owner_headers,
+                json={"model_id": model_id},
+            )
+            assert oversized_retry.status_code == 201
+            assert oversized_retry.json()["message"]["sequence_number"] == 3
 
             history_items = []
             cursor = None

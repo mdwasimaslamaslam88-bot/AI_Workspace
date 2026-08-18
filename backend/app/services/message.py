@@ -3,7 +3,7 @@ from uuid import UUID
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.message import Message, MessageRole
+from app.models.message import Message, MessageRole, validate_message_content
 from app.repositories.message import (
     MessagePage,
     MessagePagination,
@@ -29,6 +29,7 @@ class MessageService:
         *,
         expected_sequence_number: int | None = None,
     ) -> Message | None:
+        validate_message_content(content)
         try:
             if expected_sequence_number is None:
                 message = await self.repository.append_for_owner(

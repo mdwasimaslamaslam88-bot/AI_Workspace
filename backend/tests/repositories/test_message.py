@@ -8,6 +8,10 @@ from sqlalchemy.sql.dml import Update
 from sqlalchemy.sql.selectable import Select
 
 from app.models import Message, MessageRole
+from app.models.message import (
+    MAX_MESSAGE_CONTENT_CHARACTERS,
+    MessageContentTooLargeError,
+)
 from app.repositories.message import (
     MAX_MESSAGE_PAGE_SIZE,
     MessageCursor,
@@ -113,6 +117,47 @@ async def test_sequence_update_precedes_insert_and_flush_on_the_same_session():
     assert message.sequence_number == 11
     assert events == ["allocate", "add", "flush"]
     session.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_append_accepts_exact_message_content_character_boundary():
+    session = _session_with_allocated_sequence(1)
+    repository = MessageRepository(session)
+    content = "é" * MAX_MESSAGE_CONTENT_CHARACTERS
+
+    message = await repository.append_for_owner(
+        uuid4(),
+        uuid4(),
+        MessageRole.USER,
+        content,
+    )
+
+    assert message is not None
+    assert message.content == content
+    session.execute.assert_awaited_once()
+    session.add.assert_called_once_with(message)
+    session.flush.assert_awaited_once_with()
+
+
+@pytest.mark.asyncio
+async def test_append_rejects_oversized_content_before_sequence_allocation():
+    session = _session_with_allocated_sequence(1)
+    repository = MessageRepository(session)
+
+    with pytest.raises(MessageContentTooLargeError) as captured:
+        await repository.append_for_owner(
+            uuid4(),
+            uuid4(),
+            MessageRole.ASSISTANT,
+            "x" * (MAX_MESSAGE_CONTENT_CHARACTERS + 1),
+        )
+
+    assert str(captured.value) == "persisted text is too large"
+    session.execute.assert_not_awaited()
+    session.add.assert_not_called()
+    session.flush.assert_not_awaited()
+    session.commit.assert_not_awaited()
+    session.rollback.assert_not_awaited()
 
 
 @pytest.mark.asyncio

@@ -7,6 +7,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 import app.services.message as message_service_module
 from app.models import Message, MessageRole
+from app.models.message import (
+    MAX_MESSAGE_CONTENT_CHARACTERS,
+    MessageContentTooLargeError,
+)
 from app.repositories.message import MessageCursor, MessagePagination
 from app.services.message import MessageAppendConflictError, MessageService
 
@@ -53,6 +57,27 @@ async def test_service_commits_once_after_all_repository_work_succeeds():
     assert message.sequence_number == 3
     assert events == ["allocate", "add", "flush", "commit"]
     session.commit.assert_awaited_once_with()
+    session.rollback.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_service_rejects_oversized_content_before_persistence_work():
+    session = _service_session(3)
+    service = MessageService(session)
+
+    with pytest.raises(MessageContentTooLargeError) as captured:
+        await service.append_for_owner(
+            uuid4(),
+            uuid4(),
+            MessageRole.USER,
+            "x" * (MAX_MESSAGE_CONTENT_CHARACTERS + 1),
+        )
+
+    assert str(captured.value) == "persisted text is too large"
+    session.execute.assert_not_awaited()
+    session.add.assert_not_called()
+    session.flush.assert_not_awaited()
+    session.commit.assert_not_awaited()
     session.rollback.assert_not_awaited()
 
 

@@ -70,6 +70,18 @@ class RecordingOperations:
         )
         self.events.append(("create_unique_constraint", constraint_name))
 
+    def create_check_constraint(
+        self,
+        constraint_name: str,
+        table_name: str,
+        condition,
+        **kwargs,
+    ) -> None:
+        table = self.metadata.tables[table_name]
+        constraint = sa.CheckConstraint(condition, name=constraint_name)
+        table.append_constraint(constraint)
+        self.events.append(("create_check_constraint", constraint_name))
+
     def drop_constraint(
         self,
         constraint_name: str,
@@ -215,10 +227,20 @@ def test_initial_revision_preserves_original_domain_schema():
         "conversations",
         "messages",
     }
-    for table_name in ("conversations", "messages"):
-        assert _table_signature(operations.metadata.tables[table_name]) == (
-            _table_signature(Base.metadata.tables[table_name])
-        )
+    assert _table_signature(operations.metadata.tables["conversations"]) == (
+        _table_signature(Base.metadata.tables["conversations"])
+    )
+    initial_message_signature = _table_signature(
+        operations.metadata.tables["messages"]
+    )
+    current_message_signature = _table_signature(Base.metadata.tables["messages"])
+    assert initial_message_signature[0] == current_message_signature[0]
+    assert initial_message_signature[2] == current_message_signature[2]
+    assert set(initial_message_signature[1]) == {
+        constraint
+        for constraint in current_message_signature[1]
+        if constraint[1] != "ck_messages_content_length_bounded"
+    }
 
     initial_users = operations.metadata.tables["users"]
     current_users = Base.metadata.tables["users"]
