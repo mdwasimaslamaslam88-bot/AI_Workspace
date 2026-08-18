@@ -224,3 +224,20 @@ end at exactly that newly committed user Message. If another Message is
 committed first, generation does not start and the request returns HTTP 409.
 Failures after the user Message commit leave that Message available for a
 generation-only retry and do not persist an assistant Message.
+
+Generation admission is keyed by the authenticated current user's stable UUID,
+not by bearer-token text, so access-token rotation cannot create a second
+permit. Conversation ownership is confirmed before the process-local controller
+attempts fail-fast admission. At most one generation may be active per user,
+including across different owned Conversations, and different users share the
+`GENERATION_MAX_ACTIVE_PER_PROCESS` bound. This strict integer defaults to 1
+and accepts only 1 through 8 for a single application process.
+
+A request denied by either admission rule returns HTTP 429 with `Generation
+capacity is busy` in the existing safe error envelope. It does not persist an
+optional `user_message`, query generation context, discover a model, invoke
+Ollama, or append an assistant Message. No counter, user identity, or configured
+capacity is returned. Admitted permits cover the optional USER commit through
+the guarded assistant commit and are released on success, failure, stale-output
+rejection, and cancellation. Admission does not wait or create a queue and does
+not use Redis or PostgreSQL locks.

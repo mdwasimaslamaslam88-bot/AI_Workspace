@@ -1,6 +1,9 @@
 import pytest
 from pydantic import ValidationError
-from app.core.config import Settings
+from app.core.config import (
+    MAX_GENERATION_ACTIVE_PER_PROCESS,
+    Settings,
+)
 
 def test_settings_preserve_application_defaults():
     settings = Settings(_env_file=None)
@@ -12,6 +15,7 @@ def test_settings_preserve_application_defaults():
     assert settings.OLLAMA_BASE_URL is None
     assert settings.OLLAMA_LOCAL_MODEL_ALLOWLIST == ()
     assert settings.OLLAMA_GENERATION_TIMEOUT_SECONDS == 120.0
+    assert settings.GENERATION_MAX_ACTIVE_PER_PROCESS == 1
     assert settings.USER_PROVISIONING_TOKEN_DIGEST is None
 
 def test_blank_runtime_urls_are_unconfigured():
@@ -142,3 +146,36 @@ def test_user_provisioning_digest_rejects_unsafe_values(value):
             _env_file=None,
             USER_PROVISIONING_TOKEN_DIGEST=value,
         )
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        True,
+        False,
+        "1",
+        1.0,
+        0,
+        -1,
+        MAX_GENERATION_ACTIVE_PER_PROCESS + 1,
+    ],
+)
+def test_generation_process_cap_rejects_unsafe_values(value):
+    with pytest.raises(ValidationError):
+        Settings(
+            _env_file=None,
+            GENERATION_MAX_ACTIVE_PER_PROCESS=value,
+        )
+
+
+@pytest.mark.parametrize(
+    "value",
+    [1, MAX_GENERATION_ACTIVE_PER_PROCESS],
+)
+def test_generation_process_cap_accepts_documented_bounds(value):
+    settings = Settings(
+        _env_file=None,
+        GENERATION_MAX_ACTIVE_PER_PROCESS=value,
+    )
+
+    assert settings.GENERATION_MAX_ACTIVE_PER_PROCESS == value

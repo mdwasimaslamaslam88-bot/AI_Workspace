@@ -38,6 +38,7 @@ from app.schemas.conversation import (
 )
 from app.schemas.message import MessageCreate, MessagePageResponse, MessageResponse
 from app.services.conversation import ConversationService
+from app.services.generation_admission import GenerationAdmissionRejectedError
 from app.services.message import MessageAppendConflictError, MessageService
 from app.services.conversation_generation import (
     ConversationChangedDuringGenerationError,
@@ -245,7 +246,16 @@ async def generate_assistant_message(
         "text_generation_router",
         None,
     )
-    if catalog is None or generation_router is None:
+    admission_controller = getattr(
+        request.app.state,
+        "generation_admission_controller",
+        None,
+    )
+    if (
+        catalog is None
+        or generation_router is None
+        or admission_controller is None
+    ):
         raise RuntimeError("Local text generation is not configured")
 
     try:
@@ -253,6 +263,7 @@ async def generate_assistant_message(
             session,
             catalog,
             generation_router,
+            admission_controller,
         ).generate_for_owner(
             current_user.id,
             conversation_id,
@@ -275,6 +286,11 @@ async def generate_assistant_message(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Conversation not found",
+        ) from None
+    except GenerationAdmissionRejectedError:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Generation capacity is busy",
         ) from None
     except ConversationGenerationModelNotFoundError:
         raise HTTPException(

@@ -29,6 +29,7 @@ from app.repositories.conversation import ConversationPagination
 from app.repositories.message import MessagePagination
 from app.repositories.user import UserRepository
 from app.services.conversation import ConversationService
+from app.services.generation_admission import GenerationAdmissionController
 from app.services.message import MessageService
 from app.services.user import UserService
 
@@ -2351,9 +2352,15 @@ async def test_authenticated_conversation_generation_is_owner_scoped_and_stale_s
     previous_factory = getattr(app.state, "db_session_factory", missing)
     previous_catalog = getattr(app.state, "model_catalog", missing)
     previous_router = getattr(app.state, "text_generation_router", missing)
+    previous_admission = getattr(
+        app.state, "generation_admission_controller", missing
+    )
     app.state.db_session_factory = session_factory
     app.state.model_catalog = catalog
     app.state.text_generation_router = generation_router
+    app.state.generation_admission_controller = (
+        GenerationAdmissionController(1)
+    )
 
     try:
         schema_before = normalized_schema(
@@ -2763,3 +2770,316 @@ async def test_authenticated_conversation_generation_is_owner_scoped_and_stale_s
             delattr(app.state, "text_generation_router")
         else:
             app.state.text_generation_router = previous_router
+        if previous_admission is missing:
+            delattr(app.state, "generation_admission_controller")
+        else:
+            app.state.generation_admission_controller = (
+                previous_admission
+            )
+
+
+@pytest.mark.asyncio
+async def test_generation_admission_is_user_scoped_globally_bounded_and_rotation_safe(
+    test_database_engine: AsyncEngine,
+):
+    class BlockingLocalTextRuntime:
+        runtime_id = "admission-local"
+
+        def __init__(self) -> None:
+            self.active_calls = 0
+            self.maximum_active_calls = 0
+            self.stage_calls = 0
+            self.entered = asyncio.Event()
+            self.release = asyncio.Event()
+            self.expected_active = 1
+
+        def prepare(self, expected_active: int) -> None:
+            assert self.active_calls == 0
+            self.maximum_active_calls = 0
+            self.stage_calls = 0
+            self.entered = asyncio.Event()
+            self.release = asyncio.Event()
+            self.expected_active = expected_active
+
+        async def discover_models(self) -> tuple[RuntimeModel, ...]:
+            return (
+                RuntimeModel(
+                    reference="/private/runtime/admission:latest",
+                    display_name="Admission integration model",
+                    capabilities=("chat", "text-generation"),
+                ),
+            )
+
+        async def generate_text(
+            self,
+            _runtime_reference,
+            _messages,
+            *,
+            max_output_tokens,
+            temperature=None,
+            seed=None,
+            top_p=None,
+            top_k=None,
+            min_p=None,
+            repeat_penalty=None,
+            repeat_last_n=None,
+            typical_p=None,
+            presence_penalty=None,
+            frequency_penalty=None,
+            stop_sequences=None,
+        ) -> TextGenerationResult:
+            assert max_output_tokens == 1024
+            self.stage_calls += 1
+            self.active_calls += 1
+            self.maximum_active_calls = max(
+                self.maximum_active_calls,
+                self.active_calls,
+            )
+            if self.active_calls == self.expected_active:
+                self.entered.set()
+            try:
+                await self.release.wait()
+                return TextGenerationResult(content="admitted answer")
+            finally:
+                self.active_calls -= 1
+
+    runtime = BlockingLocalTextRuntime()
+    catalog = ModelCatalog((runtime,))
+    generation_router = TextGenerationRouter((runtime,))
+    session_factory = async_sessionmaker(
+        test_database_engine,
+        class_=AsyncSession,
+        expire_on_commit=False,
+    )
+    missing = object()
+    previous_factory = getattr(app.state, "db_session_factory", missing)
+    previous_catalog = getattr(app.state, "model_catalog", missing)
+    previous_router = getattr(app.state, "text_generation_router", missing)
+    previous_admission = getattr(
+        app.state,
+        "generation_admission_controller",
+        missing,
+    )
+    app.state.db_session_factory = session_factory
+    app.state.model_catalog = catalog
+    app.state.text_generation_router = generation_router
+    app.state.generation_admission_controller = GenerationAdmissionController(1)
+
+    async def create_conversation(client, headers, initial_message):
+        response = await client.post(
+            "/api/v1/conversations",
+            headers=headers,
+            json={"initial_message": initial_message},
+        )
+        assert response.status_code == 201
+        return UUID(response.json()["id"])
+
+    async def assert_busy(response):
+        assert response.status_code == 429
+        assert response.json()["error"] == {
+            "code": "HTTP_ERROR",
+            "message": "Generation capacity is busy",
+        }
+        assert "active" not in response.text.lower()
+        assert "capacity configuration" not in response.text.lower()
+
+    try:
+        transport = ASGITransport(app=app)
+        async with AsyncClient(
+            transport=transport,
+            base_url="http://testserver",
+        ) as client:
+            provisioned = []
+            for _position in range(3):
+                response = await client.post(
+                    "/api/v1/users",
+                    headers=_PROVISIONING_HEADERS,
+                )
+                assert response.status_code == 201
+                provisioned.append(response.json())
+
+            headers = [
+                {"Authorization": f"Bearer {user['access_token']}"}
+                for user in provisioned
+            ]
+            models = await client.get(
+                "/api/v1/ai/models",
+                headers=headers[0],
+            )
+            assert models.status_code == 200
+            model_id = models.json()["items"][0]["model_id"]
+
+            same_conversation = await create_conversation(
+                client,
+                headers[0],
+                "same-conversation initial",
+            )
+            runtime.prepare(1)
+            first = asyncio.create_task(
+                client.post(
+                    f"/api/v1/conversations/{same_conversation}/messages/generate",
+                    headers=headers[0],
+                    json={"model_id": model_id},
+                )
+            )
+            await runtime.entered.wait()
+            same_user_busy = await client.post(
+                f"/api/v1/conversations/{same_conversation}/messages/generate",
+                headers=headers[0],
+                json={
+                    "model_id": model_id,
+                    "user_message": "must not persist same conversation",
+                },
+            )
+            await assert_busy(same_user_busy)
+            assert runtime.stage_calls == 1
+            runtime.release.set()
+            assert (await first).status_code == 201
+            assert runtime.active_calls == 0
+
+            same_history = await client.get(
+                f"/api/v1/conversations/{same_conversation}/messages",
+                headers=headers[0],
+            )
+            assert same_history.status_code == 200
+            assert "must not persist same conversation" not in {
+                item["content"] for item in same_history.json()["items"]
+            }
+
+            first_owned = await create_conversation(
+                client,
+                headers[0],
+                "first owned initial",
+            )
+            second_owned = await create_conversation(
+                client,
+                headers[0],
+                "second owned initial",
+            )
+            runtime.prepare(1)
+            across_conversations = asyncio.create_task(
+                client.post(
+                    f"/api/v1/conversations/{first_owned}/messages/generate",
+                    headers=headers[0],
+                    json={"model_id": model_id},
+                )
+            )
+            await runtime.entered.wait()
+            second_conversation_busy = await client.post(
+                f"/api/v1/conversations/{second_owned}/messages/generate",
+                headers=headers[0],
+                json={
+                    "model_id": model_id,
+                    "user_message": "must not persist other conversation",
+                },
+            )
+            await assert_busy(second_conversation_busy)
+
+            rotated = await client.post(
+                "/api/v1/users/me/access-token/rotate",
+                headers=headers[0],
+            )
+            assert rotated.status_code == 200
+            headers[0] = {
+                "Authorization": f"Bearer {rotated.json()['access_token']}"
+            }
+            rotated_token_busy = await client.post(
+                f"/api/v1/conversations/{second_owned}/messages/generate",
+                headers=headers[0],
+                json={"model_id": model_id},
+            )
+            await assert_busy(rotated_token_busy)
+            assert runtime.stage_calls == 1
+            runtime.release.set()
+            assert (await across_conversations).status_code == 201
+            assert runtime.active_calls == 0
+
+            second_history = await client.get(
+                f"/api/v1/conversations/{second_owned}/messages",
+                headers=headers[0],
+            )
+            assert second_history.status_code == 200
+            assert [
+                item["content"] for item in second_history.json()["items"]
+            ] == ["second owned initial"]
+
+            app.state.generation_admission_controller = (
+                GenerationAdmissionController(2)
+            )
+            global_conversations = [
+                await create_conversation(
+                    client,
+                    headers[position],
+                    f"global initial {position}",
+                )
+                for position in range(3)
+            ]
+            runtime.prepare(2)
+            first_global = asyncio.create_task(
+                client.post(
+                    "/api/v1/conversations/"
+                    f"{global_conversations[0]}/messages/generate",
+                    headers=headers[0],
+                    json={"model_id": model_id},
+                )
+            )
+            second_global = asyncio.create_task(
+                client.post(
+                    "/api/v1/conversations/"
+                    f"{global_conversations[1]}/messages/generate",
+                    headers=headers[1],
+                    json={"model_id": model_id},
+                )
+            )
+            await runtime.entered.wait()
+            globally_busy = await client.post(
+                "/api/v1/conversations/"
+                f"{global_conversations[2]}/messages/generate",
+                headers=headers[2],
+                json={
+                    "model_id": model_id,
+                    "user_message": "must not persist global rejection",
+                },
+            )
+            await assert_busy(globally_busy)
+            assert runtime.stage_calls == 2
+            assert runtime.maximum_active_calls == 2
+            runtime.release.set()
+            global_results = await asyncio.gather(first_global, second_global)
+            assert [response.status_code for response in global_results] == [
+                201,
+                201,
+            ]
+            assert runtime.active_calls == 0
+            assert (
+                app.state.generation_admission_controller._active_users
+                == set()
+            )
+            assert app.state.generation_admission_controller._active_count == 0
+
+            rejected_history = await client.get(
+                "/api/v1/conversations/"
+                f"{global_conversations[2]}/messages",
+                headers=headers[2],
+            )
+            assert rejected_history.status_code == 200
+            assert [
+                item["content"] for item in rejected_history.json()["items"]
+            ] == ["global initial 2"]
+    finally:
+        if previous_factory is missing:
+            delattr(app.state, "db_session_factory")
+        else:
+            app.state.db_session_factory = previous_factory
+        if previous_catalog is missing:
+            delattr(app.state, "model_catalog")
+        else:
+            app.state.model_catalog = previous_catalog
+        if previous_router is missing:
+            delattr(app.state, "text_generation_router")
+        else:
+            app.state.text_generation_router = previous_router
+        if previous_admission is missing:
+            delattr(app.state, "generation_admission_controller")
+        else:
+            app.state.generation_admission_controller = previous_admission

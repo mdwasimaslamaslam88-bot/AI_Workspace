@@ -229,6 +229,26 @@ Ollama's default is to retain a loaded model for five minutes. The application
 does not pull or download models and exposes no preload, unload, or global
 model-selection endpoint.
 
+Generation admission is fail-fast and process-local. Configure
+`GENERATION_MAX_ACTIVE_PER_PROCESS` as a strict integer from 1 through 8; the
+default is 1. The bound is intentionally conservative for a single-process
+local AI service and values outside that range are rejected at startup. At
+most one generation may be active for an authenticated user UUID, even across
+different Conversations, and different users may proceed only until the
+process-wide cap is reached. Token rotation does not create a new admission
+identity because admission uses the stable authenticated user UUID.
+
+Conversation ownership is confirmed before admission. An admitted permit is
+acquired before an optional user Message is appended, before context or model
+discovery, and before runtime dispatch. A request rejected by either the
+per-user or process-wide bound receives HTTP 429 with `Generation capacity is
+busy`; it does not persist its optional `user_message` or invoke the local
+runtime, so the client may retry the same request later. Admission does not
+wait or create a queue. The permit is released after assistant persistence or
+on every failure, stale-generation rejection, and request cancellation. This
+controller coordinates one application process only; it adds no Redis lease,
+database lock, distributed scheduler, or job system.
+
 The service copies the owner-scoped Conversation history and rolls back its
 read transaction before local inference. The generated assistant Message is
 then appended through the existing atomic Message sequence allocator. That

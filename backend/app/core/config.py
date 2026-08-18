@@ -6,6 +6,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 DatabaseSslMode = Literal["disable", "require", "verify-ca", "verify-full"]
+MAX_GENERATION_ACTIVE_PER_PROCESS = 8
 
 
 class Settings(BaseSettings):
@@ -37,6 +38,12 @@ class Settings(BaseSettings):
         default=120.0,
         gt=0,
         allow_inf_nan=False,
+    )
+    GENERATION_MAX_ACTIVE_PER_PROCESS: int = Field(
+        default=1,
+        strict=True,
+        ge=1,
+        le=MAX_GENERATION_ACTIVE_PER_PROCESS,
     )
 
     @field_validator(

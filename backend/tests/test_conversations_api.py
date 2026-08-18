@@ -27,6 +27,7 @@ from app.repositories.message import (
     MessagePage,
     MessagePagination,
 )
+from app.services.generation_admission import GenerationAdmissionRejectedError
 from app.services.message import MessageAppendConflictError
 
 
@@ -2015,12 +2016,17 @@ def conversation_generation_api(monkeypatch):
     missing = object()
     previous_catalog = getattr(app.state, "model_catalog", missing)
     previous_router = getattr(app.state, "text_generation_router", missing)
+    previous_admission = getattr(
+        app.state, "generation_admission_controller", missing
+    )
     try:
         with TestClient(app, raise_server_exceptions=False) as client:
             catalog = object()
             generation_router = object()
+            admission_controller = object()
             app.state.model_catalog = catalog
             app.state.text_generation_router = generation_router
+            app.state.generation_admission_controller = admission_controller
             yield {
                 "client": client,
                 "session": session,
@@ -2029,6 +2035,7 @@ def conversation_generation_api(monkeypatch):
                 "message": generated_message,
                 "catalog": catalog,
                 "router": generation_router,
+                "admission": admission_controller,
                 "service_factory": service_factory,
                 "generate": generate,
             }
@@ -2045,6 +2052,13 @@ def conversation_generation_api(monkeypatch):
                 delattr(app.state, "text_generation_router")
         else:
             app.state.text_generation_router = previous_router
+        if previous_admission is missing:
+            if hasattr(app.state, "generation_admission_controller"):
+                delattr(app.state, "generation_admission_controller")
+        else:
+            app.state.generation_admission_controller = (
+                previous_admission
+            )
 
 
 def test_authenticated_generation_returns_exact_safe_created_message(
@@ -2074,6 +2088,7 @@ def test_authenticated_generation_returns_exact_safe_created_message(
         api["session"],
         api["catalog"],
         api["router"],
+        api["admission"],
     )
     api["generate"].assert_awaited_once_with(
         api["current_user"].id,
@@ -3101,6 +3116,11 @@ def test_malformed_generation_uuid_is_422_before_service_construction(
 @pytest.mark.parametrize(
     ("exception_type", "status_code", "message"),
     [
+        (
+            GenerationAdmissionRejectedError,
+            429,
+            "Generation capacity is busy",
+        ),
         (
             __import__(
                 "app.services.conversation_generation",

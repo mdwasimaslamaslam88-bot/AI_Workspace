@@ -26,6 +26,9 @@ async def test_lifespan_exposes_unconfigured_database_factory(monkeypatch):
         assert app.state.db_session_factory is None
         assert app.state.redis_client is None
         assert app.state.ollama_client is None
+        assert (
+            app.state.generation_admission_controller.max_active == 1
+        )
         assert await app.state.model_catalog.list_models() == ()
         assert app.state.text_generation_router._runtimes == {}
 
@@ -55,6 +58,9 @@ async def test_lifespan_creates_factory_and_disposes_configured_engine(monkeypat
     async with lifespan_module.lifespan(app):
         assert app.state.postgres_engine is engine
         assert app.state.db_session_factory is factory
+        assert (
+            app.state.generation_admission_controller.max_active == 1
+        )
         assert await app.state.model_catalog.list_models() == ()
         assert app.state.text_generation_router._runtimes == {}
         dispose_postgres.assert_not_awaited()
@@ -103,6 +109,9 @@ async def test_lifespan_registers_configured_local_runtime_catalog(monkeypatch):
     )
 
     async with lifespan_module.lifespan(app):
+        assert (
+            app.state.generation_admission_controller.max_active == 1
+        )
         assert len(app.state.model_catalog.runtimes) == 1
         runtime = app.state.model_catalog.runtimes[0]
         assert runtime.runtime_id == "ollama-local"

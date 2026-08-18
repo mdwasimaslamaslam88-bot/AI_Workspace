@@ -10,6 +10,10 @@ from app.services.conversation_generation import (
     ConversationGenerationNotReadyError,
     ConversationGenerationService,
 )
+from app.services.generation_admission import (
+    GenerationAdmissionController,
+    GenerationAdmissionRejectedError,
+)
 from app.services.message import MessageAppendConflictError, MessageService
 from app.services.user import UserService
 
@@ -22,6 +26,8 @@ __all__ = [
     "ConversationGenerationNotReadyError",
     "ConversationGenerationService",
     "ConversationService",
+    "GenerationAdmissionController",
+    "GenerationAdmissionRejectedError",
     "MessageAppendConflictError",
     "MessageService",
     "UserService",

@@ -14,6 +14,7 @@ from app.ai.generation import (
 )
 from app.models.message import Message, MessageRole
 from app.services.conversation import ConversationService
+from app.services.generation_admission import GenerationAdmissionController
 from app.services.message import MessageService
 
 
@@ -67,10 +68,12 @@ class ConversationGenerationService:
         session: AsyncSession,
         catalog: ModelCatalog,
         generation_router: TextGenerationRouter,
+        admission_controller: GenerationAdmissionController,
     ) -> None:
         self.session = session
         self.catalog = catalog
         self.generation_router = generation_router
+        self.admission_controller = admission_controller
 
     async def generate_for_owner(
         self,
@@ -285,133 +288,134 @@ class ConversationGenerationService:
                 "conversation is not available to the current user"
             )
 
-        appended_user_sequence: int | None = None
-        if user_message is not None:
-            appended_user = await MessageService(self.session).append_for_owner(
+        async with self.admission_controller.admit(owner_id):
+            appended_user_sequence: int | None = None
+            if user_message is not None:
+                appended_user = await MessageService(self.session).append_for_owner(
+                    owner_id,
+                    conversation_id,
+                    MessageRole.USER,
+                    user_message,
+                )
+                if appended_user is None:
+                    raise ConversationGenerationNotFoundError(
+                        "conversation is not available to the current user"
+                    )
+                appended_user_sequence = appended_user.sequence_number
+
+            messages = await MessageService(
+                self.session
+            ).list_generation_context_for_owner(
                 owner_id,
                 conversation_id,
-                MessageRole.USER,
-                user_message,
+                max_messages=MAX_GENERATION_CONTEXT_MESSAGES,
             )
-            if appended_user is None:
-                raise ConversationGenerationNotFoundError(
-                    "conversation is not available to the current user"
+            expected_sequence_number = (
+                appended_user_sequence + 1
+                if appended_user_sequence is not None
+                else conversation.next_message_sequence
+            )
+            snapshot = tuple(
+                (
+                    message.role,
+                    message.content,
+                    message.sequence_number,
                 )
-            appended_user_sequence = appended_user.sequence_number
-
-        messages = await MessageService(
-            self.session
-        ).list_generation_context_for_owner(
-            owner_id,
-            conversation_id,
-            max_messages=MAX_GENERATION_CONTEXT_MESSAGES,
-        )
-        expected_sequence_number = (
-            appended_user_sequence + 1
-            if appended_user_sequence is not None
-            else conversation.next_message_sequence
-        )
-        snapshot = tuple(
-            (
-                message.role,
-                message.content,
-                message.sequence_number,
-            )
-            for message in messages
-        )
-
-        # Do not hold a database transaction open during local inference.
-        await self.session.rollback()
-
-        if appended_user_sequence is not None and (
-            not snapshot
-            or snapshot[-1][2] != appended_user_sequence
-        ):
-            raise ConversationChangedDuringGenerationError(
-                "conversation changed before generation context was captured"
+                for message in messages
             )
 
-        if len(snapshot) > MAX_GENERATION_CONTEXT_MESSAGES:
-            raise ConversationGenerationContextTooLargeError(
-                "conversation contains too many messages"
-            )
-        if sum(len(content) for _role, content, _sequence in snapshot) > (
-            MAX_GENERATION_CONTEXT_CHARACTERS
-        ):
-            raise ConversationGenerationContextTooLargeError(
-                "conversation context is too large"
-            )
-        if not snapshot:
-            raise ConversationGenerationNotReadyError(
-                "conversation has no user message"
-            )
-        if tuple(sequence for _role, _content, sequence in snapshot) != tuple(
-            range(1, expected_sequence_number)
-        ):
-            raise ConversationChangedDuringGenerationError(
-                "conversation sequence changed while context was captured"
-            )
+            # Do not hold a database transaction open during local inference.
+            await self.session.rollback()
 
-        context: list[TextGenerationMessage] = []
-        for role, content, _sequence in snapshot:
-            try:
-                generation_role = TextGenerationRole(role.value)
-            except ValueError:
+            if appended_user_sequence is not None and (
+                not snapshot
+                or snapshot[-1][2] != appended_user_sequence
+            ):
+                raise ConversationChangedDuringGenerationError(
+                    "conversation changed before generation context was captured"
+                )
+
+            if len(snapshot) > MAX_GENERATION_CONTEXT_MESSAGES:
+                raise ConversationGenerationContextTooLargeError(
+                    "conversation contains too many messages"
+                )
+            if sum(len(content) for _role, content, _sequence in snapshot) > (
+                MAX_GENERATION_CONTEXT_CHARACTERS
+            ):
+                raise ConversationGenerationContextTooLargeError(
+                    "conversation context is too large"
+                )
+            if not snapshot:
                 raise ConversationGenerationNotReadyError(
-                    "conversation contains an unsupported message role"
-                ) from None
-            context.append(
-                TextGenerationMessage(
-                    role=generation_role,
-                    content=content,
+                    "conversation has no user message"
                 )
-            )
-        if snapshot[-1][0] is not MessageRole.USER:
-            raise ConversationGenerationNotReadyError(
-                "conversation must end with a user message"
-            )
+            if tuple(sequence for _role, _content, sequence in snapshot) != tuple(
+                range(1, expected_sequence_number)
+            ):
+                raise ConversationChangedDuringGenerationError(
+                    "conversation sequence changed while context was captured"
+                )
 
-        model = await self.catalog.resolve_model(model_id)
-        if model is None:
-            raise ConversationGenerationModelNotFoundError(
-                "model is not present in the local catalog"
+            context: list[TextGenerationMessage] = []
+            for role, content, _sequence in snapshot:
+                try:
+                    generation_role = TextGenerationRole(role.value)
+                except ValueError:
+                    raise ConversationGenerationNotReadyError(
+                        "conversation contains an unsupported message role"
+                    ) from None
+                context.append(
+                    TextGenerationMessage(
+                        role=generation_role,
+                        content=content,
+                    )
+                )
+            if snapshot[-1][0] is not MessageRole.USER:
+                raise ConversationGenerationNotReadyError(
+                    "conversation must end with a user message"
+                )
+
+            model = await self.catalog.resolve_model(model_id)
+            if model is None:
+                raise ConversationGenerationModelNotFoundError(
+                    "model is not present in the local catalog"
+                )
+            if model.descriptor.availability is ModelAvailability.UNAVAILABLE:
+                raise ConversationGenerationModelUnavailableError(
+                    "model is not currently available"
+                )
+            if (
+                ModelCapability.TEXT_GENERATION
+                not in model.descriptor.capabilities
+            ):
+                raise TextGenerationRuntimeUnsupportedError(
+                    "model does not support text generation"
+                )
+            generated = await self.generation_router.generate(
+                model,
+                tuple(context),
+                max_output_tokens=max_output_tokens,
+                temperature=temperature,
+                seed=seed,
+                top_p=top_p,
+                top_k=top_k,
+                min_p=min_p,
+                repeat_penalty=repeat_penalty,
+                repeat_last_n=repeat_last_n,
+                typical_p=typical_p,
+                presence_penalty=presence_penalty,
+                frequency_penalty=frequency_penalty,
+                stop_sequences=stop_sequences,
             )
-        if model.descriptor.availability is ModelAvailability.UNAVAILABLE:
-            raise ConversationGenerationModelUnavailableError(
-                "model is not currently available"
+            message = await MessageService(self.session).append_for_owner(
+                owner_id,
+                conversation_id,
+                MessageRole.ASSISTANT,
+                generated.content,
+                expected_sequence_number=expected_sequence_number,
             )
-        if (
-            ModelCapability.TEXT_GENERATION
-            not in model.descriptor.capabilities
-        ):
-            raise TextGenerationRuntimeUnsupportedError(
-                "model does not support text generation"
-            )
-        generated = await self.generation_router.generate(
-            model,
-            tuple(context),
-            max_output_tokens=max_output_tokens,
-            temperature=temperature,
-            seed=seed,
-            top_p=top_p,
-            top_k=top_k,
-            min_p=min_p,
-            repeat_penalty=repeat_penalty,
-            repeat_last_n=repeat_last_n,
-            typical_p=typical_p,
-            presence_penalty=presence_penalty,
-            frequency_penalty=frequency_penalty,
-            stop_sequences=stop_sequences,
-        )
-        message = await MessageService(self.session).append_for_owner(
-            owner_id,
-            conversation_id,
-            MessageRole.ASSISTANT,
-            generated.content,
-            expected_sequence_number=expected_sequence_number,
-        )
-        if message is None:
-            raise ConversationChangedDuringGenerationError(
-                "conversation changed during generation"
-            )
-        return message
+            if message is None:
+                raise ConversationChangedDuringGenerationError(
+                    "conversation changed during generation"
+                )
+            return message

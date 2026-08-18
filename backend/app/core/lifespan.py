@@ -14,6 +14,7 @@ from app.runtimes.ollama import (
     OllamaModelDiscoveryRuntime,
     OllamaTextGenerationRuntime,
 )
+from app.services.generation_admission import GenerationAdmissionController
 
 
 @asynccontextmanager
@@ -25,6 +26,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.db_session_factory = create_session_factory(postgres_engine)
     app.state.redis_client = redis_client
     app.state.ollama_client = ollama_client
+    app.state.generation_admission_controller = GenerationAdmissionController(
+        settings.GENERATION_MAX_ACTIVE_PER_PROCESS
+    )
     app.state.model_catalog = ModelCatalog(
         (
             OllamaModelDiscoveryRuntime(

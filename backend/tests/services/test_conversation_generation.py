@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, Mock, call
 from uuid import uuid4
@@ -45,6 +46,10 @@ from app.services.conversation_generation import (
     ConversationGenerationNotFoundError,
     ConversationGenerationNotReadyError,
     ConversationGenerationService,
+)
+from app.services.generation_admission import (
+    GenerationAdmissionController,
+    GenerationAdmissionRejectedError,
 )
 
 
@@ -120,6 +125,7 @@ def _dependencies(
     )
     catalog = Mock(resolve_model=AsyncMock(return_value=_resolved()))
     router = Mock(generate=AsyncMock(return_value=generated))
+    admission = GenerationAdmissionController(1)
     monkeypatch.setattr(
         generation_module,
         "ConversationService",
@@ -138,6 +144,7 @@ def _dependencies(
         "append": append_for_owner,
         "catalog": catalog,
         "router": router,
+        "admission": admission,
     }
 
 
@@ -198,6 +205,7 @@ async def test_generation_releases_read_transaction_before_local_inference(
         session,
         dependencies["catalog"],
         dependencies["router"],
+        dependencies["admission"],
     ).generate_for_owner(owner_id, conversation_id, MODEL_ID)
 
     assert result is appended
@@ -273,6 +281,7 @@ async def test_generation_forwards_exact_valid_output_bound(
         session,
         dependencies["catalog"],
         dependencies["router"],
+        dependencies["admission"],
     ).generate_for_owner(
         owner_id,
         conversation_id,
@@ -328,6 +337,7 @@ async def test_generation_rejects_invalid_output_bound_before_side_effects(
             session,
             dependencies["catalog"],
             dependencies["router"],
+            dependencies["admission"],
         ).generate_for_owner(
             owner_id,
             conversation_id,
@@ -376,6 +386,7 @@ async def test_generation_forwards_exact_valid_temperature(
         session,
         dependencies["catalog"],
         dependencies["router"],
+        dependencies["admission"],
     ).generate_for_owner(
         owner_id,
         conversation_id,
@@ -431,6 +442,7 @@ async def test_generation_forwards_exact_valid_seed(
         session,
         dependencies["catalog"],
         dependencies["router"],
+        dependencies["admission"],
     ).generate_for_owner(
         owner_id,
         conversation_id,
@@ -486,6 +498,7 @@ async def test_generation_forwards_exact_valid_top_p(
         session,
         dependencies["catalog"],
         dependencies["router"],
+        dependencies["admission"],
     ).generate_for_owner(
         owner_id,
         conversation_id,
@@ -541,6 +554,7 @@ async def test_generation_forwards_exact_valid_top_k(
         session,
         dependencies["catalog"],
         dependencies["router"],
+        dependencies["admission"],
     ).generate_for_owner(
         owner_id,
         conversation_id,
@@ -596,6 +610,7 @@ async def test_generation_forwards_exact_valid_min_p(
         session,
         dependencies["catalog"],
         dependencies["router"],
+        dependencies["admission"],
     ).generate_for_owner(
         owner_id,
         conversation_id,
@@ -661,6 +676,7 @@ async def test_generation_forwards_exact_valid_repeat_penalty(
         session,
         dependencies["catalog"],
         dependencies["router"],
+        dependencies["admission"],
     ).generate_for_owner(
         owner_id,
         conversation_id,
@@ -719,6 +735,7 @@ async def test_generation_forwards_exact_valid_repeat_last_n(
         session,
         dependencies["catalog"],
         dependencies["router"],
+        dependencies["admission"],
     ).generate_for_owner(
         owner_id,
         conversation_id,
@@ -777,6 +794,7 @@ async def test_generation_forwards_exact_valid_typical_p(
         session,
         dependencies["catalog"],
         dependencies["router"],
+        dependencies["admission"],
     ).generate_for_owner(
         owner_id,
         conversation_id,
@@ -843,6 +861,7 @@ async def test_generation_forwards_exact_valid_presence_penalty(
         session,
         dependencies["catalog"],
         dependencies["router"],
+        dependencies["admission"],
     ).generate_for_owner(
         owner_id,
         conversation_id,
@@ -909,6 +928,7 @@ async def test_generation_forwards_exact_valid_frequency_penalty(
         session,
         dependencies["catalog"],
         dependencies["router"],
+        dependencies["admission"],
     ).generate_for_owner(
         owner_id,
         conversation_id,
@@ -971,6 +991,7 @@ async def test_generation_forwards_exact_valid_stop_sequences(
         session,
         dependencies["catalog"],
         dependencies["router"],
+        dependencies["admission"],
     ).generate_for_owner(
         owner_id,
         conversation_id,
@@ -1042,6 +1063,7 @@ async def test_generation_rejects_invalid_temperature_before_side_effects(
             session,
             dependencies["catalog"],
             dependencies["router"],
+            dependencies["admission"],
         ).generate_for_owner(
             owner_id,
             conversation_id,
@@ -1102,6 +1124,7 @@ async def test_generation_rejects_invalid_seed_before_side_effects(
             session,
             dependencies["catalog"],
             dependencies["router"],
+            dependencies["admission"],
         ).generate_for_owner(
             owner_id,
             conversation_id,
@@ -1162,6 +1185,7 @@ async def test_generation_rejects_invalid_top_p_before_side_effects(
             session,
             dependencies["catalog"],
             dependencies["router"],
+            dependencies["admission"],
         ).generate_for_owner(
             owner_id,
             conversation_id,
@@ -1223,6 +1247,7 @@ async def test_generation_rejects_invalid_top_k_before_side_effects(
             session,
             dependencies["catalog"],
             dependencies["router"],
+            dependencies["admission"],
         ).generate_for_owner(
             owner_id,
             conversation_id,
@@ -1283,6 +1308,7 @@ async def test_generation_rejects_invalid_min_p_before_side_effects(
             session,
             dependencies["catalog"],
             dependencies["router"],
+            dependencies["admission"],
         ).generate_for_owner(
             owner_id,
             conversation_id,
@@ -1344,6 +1370,7 @@ async def test_generation_rejects_invalid_repeat_penalty_before_side_effects(
             session,
             dependencies["catalog"],
             dependencies["router"],
+            dependencies["admission"],
         ).generate_for_owner(
             owner_id,
             conversation_id,
@@ -1405,6 +1432,7 @@ async def test_generation_rejects_invalid_repeat_last_n_before_side_effects(
             session,
             dependencies["catalog"],
             dependencies["router"],
+            dependencies["admission"],
         ).generate_for_owner(
             owner_id,
             conversation_id,
@@ -1465,6 +1493,7 @@ async def test_generation_rejects_invalid_typical_p_before_side_effects(
             session,
             dependencies["catalog"],
             dependencies["router"],
+            dependencies["admission"],
         ).generate_for_owner(
             owner_id,
             conversation_id,
@@ -1525,6 +1554,7 @@ async def test_generation_rejects_invalid_presence_penalty_before_side_effects(
             session,
             dependencies["catalog"],
             dependencies["router"],
+            dependencies["admission"],
         ).generate_for_owner(
             owner_id,
             conversation_id,
@@ -1585,6 +1615,7 @@ async def test_generation_rejects_invalid_frequency_penalty_before_side_effects(
             session,
             dependencies["catalog"],
             dependencies["router"],
+            dependencies["admission"],
         ).generate_for_owner(
             owner_id,
             conversation_id,
@@ -1650,6 +1681,7 @@ async def test_generation_rejects_invalid_stop_sequences_before_side_effects(
             session,
             dependencies["catalog"],
             dependencies["router"],
+            dependencies["admission"],
         ).generate_for_owner(
             owner_id,
             conversation_id,
@@ -1736,6 +1768,7 @@ async def test_generation_appends_exact_user_message_before_context_and_inferenc
         session,
         dependencies["catalog"],
         dependencies["router"],
+        dependencies["admission"],
     ).generate_for_owner(
         owner_id,
         conversation_id,
@@ -1799,6 +1832,7 @@ async def test_combined_generation_owner_miss_stops_before_user_append_or_runtim
             session,
             dependencies["catalog"],
             dependencies["router"],
+            dependencies["admission"],
         ).generate_for_owner(
             uuid4(),
             uuid4(),
@@ -1831,6 +1865,7 @@ async def test_combined_generation_append_miss_stops_before_context_or_runtime(
             session,
             dependencies["catalog"],
             dependencies["router"],
+            dependencies["admission"],
         ).generate_for_owner(
             owner_id,
             conversation_id,
@@ -1883,6 +1918,7 @@ async def test_message_winning_before_context_capture_stops_before_discovery(
             session,
             dependencies["catalog"],
             dependencies["router"],
+            dependencies["admission"],
         ).generate_for_owner(
             owner_id,
             conversation_id,
@@ -1939,6 +1975,7 @@ async def test_failure_after_combined_user_append_never_appends_assistant(
             session,
             dependencies["catalog"],
             dependencies["router"],
+            dependencies["admission"],
         ).generate_for_owner(
             owner_id,
             conversation_id,
@@ -1971,6 +2008,7 @@ async def test_missing_or_foreign_conversation_stops_before_context_or_runtime(
             session,
             dependencies["catalog"],
             dependencies["router"],
+            dependencies["admission"],
         ).generate_for_owner(uuid4(), uuid4(), MODEL_ID)
 
     session.rollback.assert_awaited_once_with()
@@ -2015,6 +2053,7 @@ async def test_invalid_conversation_state_stops_before_discovery(
             session,
             dependencies["catalog"],
             dependencies["router"],
+            dependencies["admission"],
         ).generate_for_owner(owner_id, conversation_id, MODEL_ID)
 
     session.rollback.assert_awaited_once_with()
@@ -2061,6 +2100,7 @@ async def test_context_bounds_stop_before_discovery(monkeypatch, limit_case):
             session,
             dependencies["catalog"],
             dependencies["router"],
+            dependencies["admission"],
         ).generate_for_owner(owner_id, conversation_id, MODEL_ID)
 
     session.rollback.assert_awaited_once_with()
@@ -2087,6 +2127,7 @@ async def test_inconsistent_snapshot_stops_before_inference(monkeypatch):
             session,
             dependencies["catalog"],
             dependencies["router"],
+            dependencies["admission"],
         ).generate_for_owner(owner_id, conversation_id, MODEL_ID)
 
     dependencies["catalog"].resolve_model.assert_not_awaited()
@@ -2113,6 +2154,7 @@ async def test_unknown_model_does_not_invoke_generation_or_append(monkeypatch):
             session,
             dependencies["catalog"],
             dependencies["router"],
+            dependencies["admission"],
         ).generate_for_owner(owner_id, conversation_id, MODEL_ID)
 
     dependencies["router"].generate.assert_not_awaited()
@@ -2141,6 +2183,7 @@ async def test_unavailable_model_stops_before_inference_or_append(monkeypatch):
             session,
             dependencies["catalog"],
             dependencies["router"],
+            dependencies["admission"],
         ).generate_for_owner(owner_id, conversation_id, MODEL_ID)
 
     dependencies["router"].generate.assert_not_awaited()
@@ -2181,6 +2224,7 @@ async def test_non_text_model_preserves_committed_user_and_skips_router(
             session,
             dependencies["catalog"],
             dependencies["router"],
+            dependencies["admission"],
         ).generate_for_owner(
             owner_id,
             conversation_id,
@@ -2222,6 +2266,7 @@ async def test_incomplete_runtime_response_is_never_persisted(monkeypatch):
             session,
             dependencies["catalog"],
             dependencies["router"],
+            dependencies["admission"],
         ).generate_for_owner(owner_id, conversation_id, MODEL_ID)
 
     dependencies["router"].generate.assert_awaited_once()
@@ -2248,6 +2293,7 @@ async def test_changed_conversation_rejects_stale_generated_output(monkeypatch):
             session,
             dependencies["catalog"],
             dependencies["router"],
+            dependencies["admission"],
         ).generate_for_owner(owner_id, conversation_id, MODEL_ID)
 
     dependencies["router"].generate.assert_awaited_once()
@@ -2258,3 +2304,423 @@ async def test_changed_conversation_rejects_stale_generated_output(monkeypatch):
         "  exact answer  ",
         expected_sequence_number=2,
     )
+
+
+@pytest.mark.asyncio
+async def test_admission_denial_happens_after_owner_lookup_before_side_effects(
+    monkeypatch,
+):
+    owner_id = uuid4()
+    conversation_id = uuid4()
+    session = AsyncMock(spec=AsyncSession)
+    dependencies = _dependencies(
+        monkeypatch,
+        conversation=_conversation(owner_id, conversation_id, 2),
+        context=(_message(conversation_id, MessageRole.USER, "question", 1),),
+        appended=_message(
+            conversation_id,
+            MessageRole.ASSISTANT,
+            "answer",
+            2,
+        ),
+    )
+    service = ConversationGenerationService(
+        session,
+        dependencies["catalog"],
+        dependencies["router"],
+        dependencies["admission"],
+    )
+
+    async with dependencies["admission"].admit(owner_id):
+        with pytest.raises(GenerationAdmissionRejectedError):
+            await service.generate_for_owner(
+                owner_id,
+                conversation_id,
+                MODEL_ID,
+                user_message="must not persist",
+            )
+
+    dependencies["get"].assert_awaited_once_with(owner_id, conversation_id)
+    dependencies["append"].assert_not_awaited()
+    dependencies["context"].assert_not_awaited()
+    dependencies["catalog"].resolve_model.assert_not_awaited()
+    dependencies["router"].generate.assert_not_awaited()
+    assert dependencies["admission"]._active_users == set()
+    assert dependencies["admission"]._active_count == 0
+
+    result = await service.generate_for_owner(owner_id, conversation_id, MODEL_ID)
+    assert result.role is MessageRole.ASSISTANT
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("different_conversation", [False, True])
+async def test_simultaneous_same_user_generation_invokes_runtime_once(
+    monkeypatch,
+    different_conversation,
+):
+    owner_id = uuid4()
+    first_conversation_id = uuid4()
+    second_conversation_id = (
+        uuid4() if different_conversation else first_conversation_id
+    )
+    dependencies = _dependencies(
+        monkeypatch,
+        conversation=None,
+        context=(),
+        appended=None,
+    )
+    dependencies["get"].side_effect = (
+        lambda requested_owner, requested_conversation: _conversation(
+            requested_owner,
+            requested_conversation,
+            2,
+        )
+    )
+    dependencies["context"].side_effect = (
+        lambda _owner, requested_conversation, **_kwargs: (
+            _message(
+                requested_conversation,
+                MessageRole.USER,
+                "question",
+                1,
+            ),
+        )
+    )
+
+    async def append(
+        _owner,
+        requested_conversation,
+        role,
+        content,
+        **_kwargs,
+    ):
+        return _message(requested_conversation, role, content, 2)
+
+    dependencies["append"].side_effect = append
+    runtime_entered = asyncio.Event()
+    release_runtime = asyncio.Event()
+
+    async def generate(*_args, **_kwargs):
+        runtime_entered.set()
+        await release_runtime.wait()
+        return TextGenerationResult(content="answer")
+
+    dependencies["router"].generate.side_effect = generate
+    first_service = ConversationGenerationService(
+        AsyncMock(spec=AsyncSession),
+        dependencies["catalog"],
+        dependencies["router"],
+        dependencies["admission"],
+    )
+    second_service = ConversationGenerationService(
+        AsyncMock(spec=AsyncSession),
+        dependencies["catalog"],
+        dependencies["router"],
+        dependencies["admission"],
+    )
+
+    first = asyncio.create_task(
+        first_service.generate_for_owner(
+            owner_id,
+            first_conversation_id,
+            MODEL_ID,
+        )
+    )
+    await runtime_entered.wait()
+
+    with pytest.raises(GenerationAdmissionRejectedError):
+        await second_service.generate_for_owner(
+            owner_id,
+            second_conversation_id,
+            MODEL_ID,
+            user_message="rejected user message",
+        )
+
+    assert dependencies["router"].generate.await_count == 1
+    dependencies["append"].assert_not_awaited()
+    release_runtime.set()
+    result = await first
+
+    assert result.role is MessageRole.ASSISTANT
+    assert dependencies["router"].generate.await_count == 1
+    assert dependencies["append"].await_count == 1
+    assert dependencies["admission"]._active_users == set()
+    assert dependencies["admission"]._active_count == 0
+
+
+@pytest.mark.asyncio
+async def test_different_users_never_exceed_global_runtime_cap(monkeypatch):
+    users = [uuid4(), uuid4(), uuid4()]
+    conversations = [uuid4(), uuid4(), uuid4()]
+    dependencies = _dependencies(
+        monkeypatch,
+        conversation=None,
+        context=(),
+        appended=None,
+    )
+    admission = GenerationAdmissionController(2)
+    dependencies["get"].side_effect = (
+        lambda requested_owner, requested_conversation: _conversation(
+            requested_owner,
+            requested_conversation,
+            2,
+        )
+    )
+    dependencies["context"].side_effect = (
+        lambda _owner, requested_conversation, **_kwargs: (
+            _message(
+                requested_conversation,
+                MessageRole.USER,
+                "question",
+                1,
+            ),
+        )
+    )
+
+    async def append(
+        _owner,
+        requested_conversation,
+        role,
+        content,
+        **_kwargs,
+    ):
+        return _message(requested_conversation, role, content, 2)
+
+    dependencies["append"].side_effect = append
+    both_entered = asyncio.Event()
+    release_runtime = asyncio.Event()
+    active_runtime_calls = 0
+    maximum_runtime_calls = 0
+
+    async def generate(*_args, **_kwargs):
+        nonlocal active_runtime_calls, maximum_runtime_calls
+        active_runtime_calls += 1
+        maximum_runtime_calls = max(maximum_runtime_calls, active_runtime_calls)
+        if active_runtime_calls == 2:
+            both_entered.set()
+        try:
+            await release_runtime.wait()
+            return TextGenerationResult(content="answer")
+        finally:
+            active_runtime_calls -= 1
+
+    dependencies["router"].generate.side_effect = generate
+    services = [
+        ConversationGenerationService(
+            AsyncMock(spec=AsyncSession),
+            dependencies["catalog"],
+            dependencies["router"],
+            admission,
+        )
+        for _position in range(3)
+    ]
+    first = asyncio.create_task(
+        services[0].generate_for_owner(users[0], conversations[0], MODEL_ID)
+    )
+    second = asyncio.create_task(
+        services[1].generate_for_owner(users[1], conversations[1], MODEL_ID)
+    )
+    await both_entered.wait()
+
+    with pytest.raises(GenerationAdmissionRejectedError):
+        await services[2].generate_for_owner(
+            users[2],
+            conversations[2],
+            MODEL_ID,
+        )
+
+    assert dependencies["router"].generate.await_count == 2
+    assert maximum_runtime_calls == 2
+    release_runtime.set()
+    await asyncio.gather(first, second)
+
+    assert active_runtime_calls == 0
+    assert admission._active_users == set()
+    assert admission._active_count == 0
+    retry = await services[2].generate_for_owner(
+        users[2],
+        conversations[2],
+        MODEL_ID,
+    )
+    assert retry.role is MessageRole.ASSISTANT
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "failure",
+    [
+        TextGenerationRuntimeUnavailableError("domain failure"),
+        RuntimeError("unexpected failure"),
+    ],
+)
+async def test_runtime_failures_release_admission_and_allow_retry(
+    monkeypatch,
+    failure,
+):
+    owner_id = uuid4()
+    conversation_id = uuid4()
+    dependencies = _dependencies(
+        monkeypatch,
+        conversation=_conversation(owner_id, conversation_id, 2),
+        context=(_message(conversation_id, MessageRole.USER, "question", 1),),
+        appended=_message(
+            conversation_id,
+            MessageRole.ASSISTANT,
+            "answer",
+            2,
+        ),
+    )
+    dependencies["router"].generate.side_effect = failure
+    service = ConversationGenerationService(
+        AsyncMock(spec=AsyncSession),
+        dependencies["catalog"],
+        dependencies["router"],
+        dependencies["admission"],
+    )
+
+    with pytest.raises(type(failure), match=str(failure)):
+        await service.generate_for_owner(owner_id, conversation_id, MODEL_ID)
+
+    assert dependencies["admission"]._active_users == set()
+    assert dependencies["admission"]._active_count == 0
+    dependencies["router"].generate.side_effect = None
+    dependencies["router"].generate.return_value = TextGenerationResult(
+        content="answer"
+    )
+
+    result = await service.generate_for_owner(owner_id, conversation_id, MODEL_ID)
+    assert result.role is MessageRole.ASSISTANT
+
+
+@pytest.mark.asyncio
+async def test_cancellation_after_user_commit_releases_and_preserves_retry(
+    monkeypatch,
+):
+    owner_id = uuid4()
+    conversation_id = uuid4()
+    appended_user = _message(
+        conversation_id,
+        MessageRole.USER,
+        "committed user",
+        2,
+    )
+    appended_assistant = _message(
+        conversation_id,
+        MessageRole.ASSISTANT,
+        "answer",
+        3,
+    )
+    dependencies = _dependencies(
+        monkeypatch,
+        conversation=_conversation(owner_id, conversation_id, 2),
+        context=(
+            _message(conversation_id, MessageRole.USER, "initial", 1),
+            appended_user,
+        ),
+        appended=None,
+    )
+
+    async def append(_owner, _conversation_id, role, _content, **_kwargs):
+        if role is MessageRole.USER:
+            return appended_user
+        return appended_assistant
+
+    dependencies["append"].side_effect = append
+    runtime_entered = asyncio.Event()
+    blocked_runtime = asyncio.Event()
+
+    async def generate(*_args, **_kwargs):
+        runtime_entered.set()
+        await blocked_runtime.wait()
+        return TextGenerationResult(content="answer")
+
+    dependencies["router"].generate.side_effect = generate
+    service = ConversationGenerationService(
+        AsyncMock(spec=AsyncSession),
+        dependencies["catalog"],
+        dependencies["router"],
+        dependencies["admission"],
+    )
+    task = asyncio.create_task(
+        service.generate_for_owner(
+            owner_id,
+            conversation_id,
+            MODEL_ID,
+            user_message="committed user",
+        )
+    )
+    await runtime_entered.wait()
+
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    assert dependencies["append"].await_args_list == [
+        call(
+            owner_id,
+            conversation_id,
+            MessageRole.USER,
+            "committed user",
+        )
+    ]
+    assert dependencies["admission"]._active_users == set()
+    assert dependencies["admission"]._active_count == 0
+
+    dependencies["get"].return_value = _conversation(
+        owner_id,
+        conversation_id,
+        3,
+    )
+    dependencies["router"].generate.side_effect = None
+    dependencies["router"].generate.return_value = TextGenerationResult(
+        content="answer"
+    )
+    result = await service.generate_for_owner(owner_id, conversation_id, MODEL_ID)
+
+    assert result is appended_assistant
+    assert dependencies["append"].await_args_list[-1] == call(
+        owner_id,
+        conversation_id,
+        MessageRole.ASSISTANT,
+        "answer",
+        expected_sequence_number=3,
+    )
+
+
+@pytest.mark.asyncio
+async def test_stale_rejection_releases_admission_and_allows_retry(monkeypatch):
+    owner_id = uuid4()
+    conversation_id = uuid4()
+    dependencies = _dependencies(
+        monkeypatch,
+        conversation=_conversation(owner_id, conversation_id, 2),
+        context=(
+            _message(conversation_id, MessageRole.USER, "question", 1),
+        ),
+        appended=None,
+    )
+    service = ConversationGenerationService(
+        AsyncMock(spec=AsyncSession),
+        dependencies["catalog"],
+        dependencies["router"],
+        dependencies["admission"],
+    )
+
+    with pytest.raises(ConversationChangedDuringGenerationError):
+        await service.generate_for_owner(owner_id, conversation_id, MODEL_ID)
+
+    assert dependencies["admission"]._active_users == set()
+    assert dependencies["admission"]._active_count == 0
+    appended = _message(
+        conversation_id,
+        MessageRole.ASSISTANT,
+        "answer",
+        2,
+    )
+    dependencies["append"].return_value = appended
+
+    result = await service.generate_for_owner(owner_id, conversation_id, MODEL_ID)
+
+    assert result is appended
+    assert dependencies["admission"]._active_users == set()
+    assert dependencies["admission"]._active_count == 0
