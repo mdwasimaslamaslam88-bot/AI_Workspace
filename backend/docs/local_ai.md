@@ -48,18 +48,29 @@ hardware identifiers, and credentials are never included in the response.
 Unknown metadata remains `null` instead of being inferred from a model name.
 
 Ollama discovery uses `GET /api/tags` only for installed-model inventory. The
-exact local-model allowlist is applied to that inventory before any detail
-request. Duplicate allowlisted inventory references fail the complete discovery
-before any detail request; duplicate nonallowlisted references remain ignored.
-For each unique installed and allowlisted reference, the adapter calls
-`POST /api/show` with only that internal reference and reads only the documented
-`capabilities` list. Ollama `completion`, `vision`, `embedding`, and `tools`
-values map respectively to the public `text_generation`, `vision_input`,
-`embeddings`, and `tool_calling` capabilities. Unknown values are ignored.
-Templates, parameters, model information, licenses, paths, filenames, tags, and
-other detail fields are never used to infer capabilities or promoted to the
-public response. Missing, malformed, or unavailable capability details fail
-closed as a generic unavailable local model runtime.
+complete bounded inventory is parsed before detail fan-out. The exact local-model
+allowlist is applied during that parse, and duplicate allowlisted inventory
+references fail the complete discovery before any detail request; duplicate
+nonallowlisted references remain ignored.
+
+Full catalog discovery, including `GET /api/v1/ai/models`, calls one
+`POST /api/show` for every unique installed and allowlisted reference. During
+generation-time resolution, the selected public ID remains opaque: the catalog
+forward-derives the existing public ID for already validated internal references
+and selects only an exact match. The runtime still validates the complete
+`/api/tags` inventory before selection, then calls `/api/show` only for that
+selected model. A valid same-runtime miss performs no detail request and retains
+the existing model-not-found behavior. No public-to-private lookup table, cache,
+snapshot, TTL, or single-flight state is introduced.
+
+Each detail request sends only its internal reference and reads only the
+documented `capabilities` list. Ollama `completion`, `vision`, `embedding`,
+and `tools` values map respectively to the public `text_generation`,
+`vision_input`, `embeddings`, and `tool_calling` capabilities. Unknown values
+are ignored. Templates, parameters, model information, licenses, paths,
+filenames, tags, and other detail fields are never used to infer capabilities or
+promoted to the public response. Missing, malformed, or unavailable
+capability details fail closed as a generic unavailable local model runtime.
 
 Every Ollama discovery response is transport-bounded before JSON parsing by
 `OLLAMA_CATALOG_MAX_RESPONSE_BYTES`, a strict integer from 1 through 1,048,576

@@ -1,4 +1,4 @@
-from collections.abc import AsyncIterator, Mapping
+from collections.abc import AsyncIterator, Callable, Mapping
 from dataclasses import replace
 import json
 import math
@@ -178,6 +178,7 @@ async def _request_catalog_json(
 
 class OllamaModelDiscoveryRuntime:
     runtime_id = "ollama-local"
+    supports_reference_selector = True
 
     def __init__(
         self,
@@ -202,7 +203,11 @@ class OllamaModelDiscoveryRuntime:
             local_model_allowlist
         )
 
-    async def discover_models(self) -> tuple[RuntimeModel, ...]:
+    async def discover_models(
+        self,
+        *,
+        reference_selector: Callable[[str], bool] | None = None,
+    ) -> tuple[RuntimeModel, ...]:
         try:
             models = _parse_inventory(
                 await _request_catalog_json(
@@ -213,6 +218,12 @@ class OllamaModelDiscoveryRuntime:
                 ),
                 self.local_model_allowlist,
             )
+            if reference_selector is not None:
+                models = tuple(
+                    model
+                    for model in models
+                    if reference_selector(model.reference)
+                )
             discovered: list[RuntimeModel] = []
             for model in models:
                 discovered.append(

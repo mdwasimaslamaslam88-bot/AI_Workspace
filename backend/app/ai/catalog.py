@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
 import hashlib
@@ -182,8 +183,13 @@ class ResolvedModel:
 @runtime_checkable
 class ModelDiscoveryRuntime(Protocol):
     runtime_id: str
+    supports_reference_selector: bool
 
-    async def discover_models(self) -> tuple[RuntimeModel, ...]: ...
+    async def discover_models(
+        self,
+        *,
+        reference_selector: Callable[[str], bool] | None = None,
+    ) -> tuple[RuntimeModel, ...]: ...
 
 
 class ModelCatalog:
@@ -237,7 +243,12 @@ class ModelCatalog:
             return None
 
         resolved: ResolvedModel | None = None
-        for model in await self._discover_runtime(runtime):
+        for model in await self._discover_runtime(
+            runtime,
+            reference_selector=lambda reference: (
+                _public_model_id(runtime.runtime_id, reference) == model_id
+            ),
+        ):
             if model.descriptor.model_id != model_id:
                 continue
             if resolved is not None:
@@ -248,10 +259,26 @@ class ModelCatalog:
     @staticmethod
     async def _discover_runtime(
         runtime: ModelDiscoveryRuntime,
+        *,
+        reference_selector: Callable[[str], bool] | None = None,
     ) -> tuple[ResolvedModel, ...]:
         resolved: list[ResolvedModel] = []
         public_ids: set[str] = set()
-        for model in await runtime.discover_models():
+        discovered = (
+            await runtime.discover_models()
+            if (
+                reference_selector is None
+                or getattr(
+                    runtime,
+                    "supports_reference_selector",
+                    False,
+                ) is not True
+            )
+            else await runtime.discover_models(
+                reference_selector=reference_selector
+            )
+        )
+        for model in discovered:
             if not isinstance(model, RuntimeModel):
                 raise TypeError("runtime discovery must return RuntimeModel values")
             model_id = _public_model_id(runtime.runtime_id, model.reference)

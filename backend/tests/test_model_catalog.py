@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock, Mock, call
 
 import pytest
 
@@ -13,8 +13,18 @@ from app.ai.catalog import (
 
 
 def _runtime(runtime_id: str, models: tuple[RuntimeModel, ...]) -> Mock:
+    async def discover_models(*, reference_selector=None):
+        if reference_selector is None:
+            return models
+        return tuple(
+            model
+            for model in models
+            if reference_selector(model.reference)
+        )
+
     runtime = Mock(runtime_id=runtime_id)
-    runtime.discover_models = AsyncMock(return_value=models)
+    runtime.supports_reference_selector = True
+    runtime.discover_models = AsyncMock(side_effect=discover_models)
     return runtime
 
 
@@ -81,6 +91,7 @@ async def test_catalog_returns_stable_opaque_runtime_namespaced_ids_and_order():
     assert all(model.model_id.startswith("local-runtime:") for model in first)
     assert all(len(model.model_id.split(":", 1)[1]) == 24 for model in first)
     assert raw_reference not in repr(first)
+    assert runtime.discover_models.await_args_list == [call(), call()]
 
 
 @pytest.mark.asyncio
@@ -145,7 +156,13 @@ async def test_catalog_resolves_public_id_to_internal_runtime_binding():
             RuntimeModel(
                 reference=raw_reference,
                 display_name="Local 32B",
+                family="LocalFamily",
                 parameter_class="32B",
+                quantization="Q4_K_M",
+                capabilities=(
+                    ModelCapability.TEXT_GENERATION,
+                    ModelCapability.TOOL_CALLING,
+                ),
             ),
         ),
     )
@@ -158,6 +175,59 @@ async def test_catalog_resolves_public_id_to_internal_runtime_binding():
     assert resolved.descriptor == descriptor
     assert resolved.runtime_reference == raw_reference
     assert raw_reference not in repr(descriptor)
+    assert descriptor.model_id == "local-runtime:9d8957bf07732840f5b2c7ef"
+    assert resolved.descriptor.capabilities == (
+        ModelCapability.TEXT_GENERATION,
+        ModelCapability.TOOL_CALLING,
+    )
+    selector = runtime.discover_models.await_args_list[1].kwargs[
+        "reference_selector"
+    ]
+    assert selector(raw_reference) is True
+    assert selector(f"{raw_reference}-different") is False
+    assert runtime.discover_models.await_args_list == [
+        call(),
+        call(reference_selector=selector),
+    ]
+
+
+@pytest.mark.asyncio
+async def test_catalog_same_namespace_missing_model_uses_targeted_discovery():
+    reference = "/private/runtime/installed:7b"
+    runtime = _runtime(
+        "local-runtime",
+        (RuntimeModel(reference=reference, display_name="Installed 7B"),),
+    )
+
+    resolved = await ModelCatalog((runtime,)).resolve_model(
+        f"local-runtime:{'f' * 24}"
+    )
+
+    assert resolved is None
+    runtime.discover_models.assert_awaited_once()
+    selector = runtime.discover_models.await_args.kwargs["reference_selector"]
+    assert selector(reference) is False
+
+
+@pytest.mark.asyncio
+async def test_catalog_targeted_resolution_retains_duplicate_public_id_defense():
+    duplicate = RuntimeModel(reference="same-tag", display_name="Same")
+    source_runtime = _runtime("local-runtime", (duplicate,))
+    (descriptor,) = await ModelCatalog((source_runtime,)).list_models()
+    duplicate_runtime = _runtime(
+        "local-runtime",
+        (duplicate, duplicate),
+    )
+
+    with pytest.raises(ValueError, match="duplicate public model_id"):
+        await ModelCatalog((duplicate_runtime,)).resolve_model(
+            descriptor.model_id
+        )
+
+    duplicate_runtime.discover_models.assert_awaited_once()
+    assert "reference_selector" in (
+        duplicate_runtime.discover_models.await_args.kwargs
+    )
 
 
 @pytest.mark.asyncio
