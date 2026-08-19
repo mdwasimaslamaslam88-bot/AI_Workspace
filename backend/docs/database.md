@@ -29,6 +29,13 @@ session and never commit. Service, unit-of-work, or other application
 transaction logic owns successful transactions and must explicitly call
 `await session.commit()`.
 
+Process-lifetime dependencies are acquired through one FastAPI lifespan cleanup
+stack. Each existing closer is registered immediately after its resource is
+constructed, so a later startup failure disposes every resource already
+acquired. Normal shutdown attempts Ollama, Redis, and PostgreSQL cleanup in
+reverse acquisition order, and a failure from one closer does not prevent the
+remaining closers from running.
+
 Alembic is configured in `alembic.ini` and `migrations/`. Normal Alembic
 commands load `DATABASE_URL` only when explicitly run. When
 `RUN_DATABASE_INTEGRATION_TESTS=true`, Alembic instead requires and uses

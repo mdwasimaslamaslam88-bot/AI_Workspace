@@ -1,5 +1,5 @@
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from contextlib import AsyncExitStack, asynccontextmanager
 
 from fastapi import FastAPI
 
@@ -19,61 +19,64 @@ from app.services.generation_admission import GenerationAdmissionController
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    postgres_engine = create_postgres_engine(settings)
-    redis_client = create_redis_client(settings)
-    ollama_client = create_ollama_client(settings)
-    app.state.postgres_engine = postgres_engine
-    app.state.db_session_factory = create_session_factory(postgres_engine)
-    app.state.redis_client = redis_client
-    app.state.ollama_client = ollama_client
-    app.state.generation_admission_controller = GenerationAdmissionController(
-        settings.GENERATION_MAX_ACTIVE_PER_PROCESS
-    )
-    app.state.generation_max_duration_seconds = (
-        settings.GENERATION_MAX_DURATION_SECONDS
-    )
-    app.state.model_list_max_response_bytes = (
-        settings.MODEL_LIST_MAX_RESPONSE_BYTES
-    )
-    app.state.model_catalog = ModelCatalog(
-        (
-            OllamaModelDiscoveryRuntime(
-                ollama_client,
-                settings.OLLAMA_LOCAL_MODEL_ALLOWLIST,
-                max_response_bytes=(
-                    settings.OLLAMA_CATALOG_MAX_RESPONSE_BYTES
+    async with AsyncExitStack() as resource_stack:
+        postgres_engine = create_postgres_engine(settings)
+        resource_stack.push_async_callback(
+            dispose_postgres,
+            postgres_engine,
+        )
+        redis_client = create_redis_client(settings)
+        resource_stack.push_async_callback(close_redis, redis_client)
+        ollama_client = create_ollama_client(settings)
+        resource_stack.push_async_callback(close_ollama, ollama_client)
+
+        app.state.postgres_engine = postgres_engine
+        app.state.db_session_factory = create_session_factory(postgres_engine)
+        app.state.redis_client = redis_client
+        app.state.ollama_client = ollama_client
+        app.state.generation_admission_controller = GenerationAdmissionController(
+            settings.GENERATION_MAX_ACTIVE_PER_PROCESS
+        )
+        app.state.generation_max_duration_seconds = (
+            settings.GENERATION_MAX_DURATION_SECONDS
+        )
+        app.state.model_list_max_response_bytes = (
+            settings.MODEL_LIST_MAX_RESPONSE_BYTES
+        )
+        app.state.model_catalog = ModelCatalog(
+            (
+                OllamaModelDiscoveryRuntime(
+                    ollama_client,
+                    settings.OLLAMA_LOCAL_MODEL_ALLOWLIST,
+                    max_response_bytes=(
+                        settings.OLLAMA_CATALOG_MAX_RESPONSE_BYTES
+                    ),
+                    max_list_models=(
+                        settings.OLLAMA_CATALOG_MAX_LIST_MODELS
+                    ),
                 ),
-                max_list_models=(
-                    settings.OLLAMA_CATALOG_MAX_LIST_MODELS
-                ),
+            )
+            if ollama_client is not None
+            else (),
+            max_list_discovery_seconds=(
+                settings.MODEL_LIST_MAX_DISCOVERY_SECONDS
             ),
         )
-        if ollama_client is not None
-        else (),
-        max_list_discovery_seconds=(
-            settings.MODEL_LIST_MAX_DISCOVERY_SECONDS
-        ),
-    )
-    app.state.text_generation_router = TextGenerationRouter(
-        (
-            OllamaTextGenerationRuntime(
-                ollama_client,
-                settings.OLLAMA_GENERATION_TIMEOUT_SECONDS,
-                settings.OLLAMA_LOCAL_MODEL_ALLOWLIST,
-                max_request_bytes=(
-                    settings.OLLAMA_GENERATION_MAX_REQUEST_BYTES
+        app.state.text_generation_router = TextGenerationRouter(
+            (
+                OllamaTextGenerationRuntime(
+                    ollama_client,
+                    settings.OLLAMA_GENERATION_TIMEOUT_SECONDS,
+                    settings.OLLAMA_LOCAL_MODEL_ALLOWLIST,
+                    max_request_bytes=(
+                        settings.OLLAMA_GENERATION_MAX_REQUEST_BYTES
+                    ),
+                    max_response_bytes=(
+                        settings.OLLAMA_GENERATION_MAX_RESPONSE_BYTES
+                    ),
                 ),
-                max_response_bytes=(
-                    settings.OLLAMA_GENERATION_MAX_RESPONSE_BYTES
-                ),
-            ),
+            )
+            if ollama_client is not None
+            else ()
         )
-        if ollama_client is not None
-        else ()
-    )
-    try:
         yield
-    finally:
-        await close_ollama(ollama_client)
-        await close_redis(redis_client)
-        await dispose_postgres(postgres_engine)

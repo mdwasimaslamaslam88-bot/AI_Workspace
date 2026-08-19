@@ -162,6 +162,13 @@ only the status, and closes without reading or materializing the unused body.
 It preserves the shared client timeout, loopback restriction, disabled proxy
 inheritance, and disabled redirects.
 
+The Ollama client is owned by the FastAPI application lifespan. Its existing
+closer is registered immediately after client construction, so any later
+startup failure still closes that client. During shutdown, resource cleanup
+continues in reverse acquisition order even when an earlier closer fails.
+Readiness remains a request-time status probe; lifespan ownership does not add
+an Ollama startup probe or change the existing availability policy.
+
 Parameter classes such as 7B, 14B, 32B, and 70B+ are descriptive metadata, not
 application routing branches. Future generation requests can select the public
 `model_id`; the catalog can then resolve the appropriate local adapter without

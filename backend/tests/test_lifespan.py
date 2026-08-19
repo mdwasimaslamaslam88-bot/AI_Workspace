@@ -1,3 +1,5 @@
+import asyncio
+
 from unittest.mock import AsyncMock, Mock
 
 import pytest
@@ -186,3 +188,447 @@ async def test_lifespan_registers_configured_local_runtime_catalog(monkeypatch):
         )
 
     close_ollama.assert_awaited_once_with(ollama_client)
+
+def _install_resource_lifecycle_mocks(monkeypatch):
+    events: list[str] = []
+    postgres_engine = object()
+    redis_client = object()
+    ollama_client = object()
+    session_factory = object()
+
+    def create_postgres(_settings):
+        events.append("create_postgres")
+        return postgres_engine
+
+    def create_redis(_settings):
+        events.append("create_redis")
+        return redis_client
+
+    def create_ollama(_settings):
+        events.append("create_ollama")
+        return ollama_client
+
+    async def dispose_postgres(resource):
+        assert resource is postgres_engine
+        events.append("dispose_postgres")
+
+    async def close_redis(resource):
+        assert resource is redis_client
+        events.append("close_redis")
+
+    async def close_ollama(resource):
+        assert resource is ollama_client
+        events.append("close_ollama")
+
+    resources = {
+        "events": events,
+        "postgres_engine": postgres_engine,
+        "redis_client": redis_client,
+        "ollama_client": ollama_client,
+        "session_factory": session_factory,
+        "create_postgres": Mock(side_effect=create_postgres),
+        "create_redis": Mock(side_effect=create_redis),
+        "create_ollama": Mock(side_effect=create_ollama),
+        "create_session_factory": Mock(return_value=session_factory),
+        "dispose_postgres": AsyncMock(side_effect=dispose_postgres),
+        "close_redis": AsyncMock(side_effect=close_redis),
+        "close_ollama": AsyncMock(side_effect=close_ollama),
+    }
+    monkeypatch.setattr(
+        lifespan_module,
+        "create_postgres_engine",
+        resources["create_postgres"],
+    )
+    monkeypatch.setattr(
+        lifespan_module,
+        "create_redis_client",
+        resources["create_redis"],
+    )
+    monkeypatch.setattr(
+        lifespan_module,
+        "create_ollama_client",
+        resources["create_ollama"],
+    )
+    monkeypatch.setattr(
+        lifespan_module,
+        "create_session_factory",
+        resources["create_session_factory"],
+    )
+    monkeypatch.setattr(
+        lifespan_module,
+        "dispose_postgres",
+        resources["dispose_postgres"],
+    )
+    monkeypatch.setattr(
+        lifespan_module,
+        "close_redis",
+        resources["close_redis"],
+    )
+    monkeypatch.setattr(
+        lifespan_module,
+        "close_ollama",
+        resources["close_ollama"],
+    )
+    return resources
+
+
+@pytest.mark.asyncio
+async def test_lifespan_acquires_without_probes_and_closes_in_reverse_order(
+    monkeypatch,
+):
+    app = FastAPI()
+    resources = _install_resource_lifecycle_mocks(monkeypatch)
+    reached_yield = False
+
+    async with lifespan_module.lifespan(app):
+        reached_yield = True
+        assert resources["events"] == [
+            "create_postgres",
+            "create_redis",
+            "create_ollama",
+        ]
+        assert app.state.postgres_engine is resources["postgres_engine"]
+        assert app.state.db_session_factory is resources["session_factory"]
+        assert app.state.redis_client is resources["redis_client"]
+        assert app.state.ollama_client is resources["ollama_client"]
+        resources["dispose_postgres"].assert_not_awaited()
+        resources["close_redis"].assert_not_awaited()
+        resources["close_ollama"].assert_not_awaited()
+
+    assert reached_yield is True
+    assert resources["events"] == [
+        "create_postgres",
+        "create_redis",
+        "create_ollama",
+        "close_ollama",
+        "close_redis",
+        "dispose_postgres",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_postgres_constructor_failure_closes_nothing(monkeypatch):
+    app = FastAPI()
+    resources = _install_resource_lifecycle_mocks(monkeypatch)
+    failure = RuntimeError("postgres constructor failed")
+    resources["create_postgres"].side_effect = failure
+    reached_yield = False
+
+    with pytest.raises(RuntimeError) as captured:
+        async with lifespan_module.lifespan(app):
+            reached_yield = True
+
+    assert captured.value is failure
+    assert reached_yield is False
+    resources["create_redis"].assert_not_called()
+    resources["create_ollama"].assert_not_called()
+    resources["dispose_postgres"].assert_not_awaited()
+    resources["close_redis"].assert_not_awaited()
+    resources["close_ollama"].assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_redis_constructor_failure_disposes_postgres(monkeypatch):
+    app = FastAPI()
+    resources = _install_resource_lifecycle_mocks(monkeypatch)
+    failure = RuntimeError("redis constructor failed")
+    resources["create_redis"].side_effect = failure
+    reached_yield = False
+
+    with pytest.raises(RuntimeError) as captured:
+        async with lifespan_module.lifespan(app):
+            reached_yield = True
+
+    assert captured.value is failure
+    assert reached_yield is False
+    resources["create_ollama"].assert_not_called()
+    resources["dispose_postgres"].assert_awaited_once_with(
+        resources["postgres_engine"]
+    )
+    resources["close_redis"].assert_not_awaited()
+    resources["close_ollama"].assert_not_awaited()
+    assert resources["events"] == ["create_postgres", "dispose_postgres"]
+
+
+@pytest.mark.asyncio
+async def test_ollama_constructor_failure_closes_redis_then_postgres(
+    monkeypatch,
+):
+    app = FastAPI()
+    resources = _install_resource_lifecycle_mocks(monkeypatch)
+    failure = RuntimeError("ollama constructor failed")
+    resources["create_ollama"].side_effect = failure
+    reached_yield = False
+
+    with pytest.raises(RuntimeError) as captured:
+        async with lifespan_module.lifespan(app):
+            reached_yield = True
+
+    assert captured.value is failure
+    assert reached_yield is False
+    resources["close_ollama"].assert_not_awaited()
+    assert resources["events"] == [
+        "create_postgres",
+        "create_redis",
+        "close_redis",
+        "dispose_postgres",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_app_state_publication_failure_closes_all_resources(monkeypatch):
+    failure = RuntimeError("state publication failed")
+
+    class FailingState:
+        def __setattr__(self, name, value):
+            if name == "db_session_factory":
+                raise failure
+            object.__setattr__(self, name, value)
+
+    app = FastAPI()
+    app.state = FailingState()
+    resources = _install_resource_lifecycle_mocks(monkeypatch)
+    reached_yield = False
+
+    with pytest.raises(RuntimeError) as captured:
+        async with lifespan_module.lifespan(app):
+            reached_yield = True
+
+    assert captured.value is failure
+    assert reached_yield is False
+    assert resources["events"] == [
+        "create_postgres",
+        "create_redis",
+        "create_ollama",
+        "close_ollama",
+        "close_redis",
+        "dispose_postgres",
+    ]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "setup_symbol",
+    [
+        "GenerationAdmissionController",
+        "ModelCatalog",
+        "OllamaTextGenerationRuntime",
+        "TextGenerationRouter",
+    ],
+)
+async def test_later_setup_failure_closes_all_resources(
+    monkeypatch,
+    setup_symbol,
+):
+    app = FastAPI()
+    resources = _install_resource_lifecycle_mocks(monkeypatch)
+    failure = RuntimeError(f"{setup_symbol} construction failed")
+    monkeypatch.setattr(
+        lifespan_module,
+        setup_symbol,
+        Mock(side_effect=failure),
+    )
+    reached_yield = False
+
+    with pytest.raises(RuntimeError) as captured:
+        async with lifespan_module.lifespan(app):
+            reached_yield = True
+
+    assert captured.value is failure
+    assert reached_yield is False
+    assert resources["events"] == [
+        "create_postgres",
+        "create_redis",
+        "create_ollama",
+        "close_ollama",
+        "close_redis",
+        "dispose_postgres",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_body_exception_closes_all_resources_and_propagates(monkeypatch):
+    app = FastAPI()
+    resources = _install_resource_lifecycle_mocks(monkeypatch)
+    failure = RuntimeError("lifespan body failed")
+
+    with pytest.raises(RuntimeError) as captured:
+        async with lifespan_module.lifespan(app):
+            raise failure
+
+    assert captured.value is failure
+    assert resources["events"] == [
+        "create_postgres",
+        "create_redis",
+        "create_ollama",
+        "close_ollama",
+        "close_redis",
+        "dispose_postgres",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_ollama_close_failure_does_not_skip_later_closers(monkeypatch):
+    app = FastAPI()
+    resources = _install_resource_lifecycle_mocks(monkeypatch)
+    failure = RuntimeError("ollama close failed")
+
+    async def fail_ollama_close(resource):
+        assert resource is resources["ollama_client"]
+        resources["events"].append("close_ollama")
+        raise failure
+
+    resources["close_ollama"].side_effect = fail_ollama_close
+
+    with pytest.raises(RuntimeError) as captured:
+        async with lifespan_module.lifespan(app):
+            pass
+
+    assert captured.value is failure
+    assert resources["events"] == [
+        "create_postgres",
+        "create_redis",
+        "create_ollama",
+        "close_ollama",
+        "close_redis",
+        "dispose_postgres",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_redis_close_failure_does_not_skip_postgres_disposal(monkeypatch):
+    app = FastAPI()
+    resources = _install_resource_lifecycle_mocks(monkeypatch)
+    failure = RuntimeError("redis close failed")
+
+    async def fail_redis_close(resource):
+        assert resource is resources["redis_client"]
+        resources["events"].append("close_redis")
+        raise failure
+
+    resources["close_redis"].side_effect = fail_redis_close
+
+    with pytest.raises(RuntimeError) as captured:
+        async with lifespan_module.lifespan(app):
+            pass
+
+    assert captured.value is failure
+    assert resources["events"] == [
+        "create_postgres",
+        "create_redis",
+        "create_ollama",
+        "close_ollama",
+        "close_redis",
+        "dispose_postgres",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_multiple_closer_failures_attempt_all_and_propagate_last(
+    monkeypatch,
+):
+    app = FastAPI()
+    resources = _install_resource_lifecycle_mocks(monkeypatch)
+    ollama_failure = RuntimeError("ollama close failed")
+    redis_failure = RuntimeError("redis close failed")
+    postgres_failure = RuntimeError("postgres dispose failed")
+
+    async def fail_ollama_close(_resource):
+        resources["events"].append("close_ollama")
+        raise ollama_failure
+
+    async def fail_redis_close(_resource):
+        resources["events"].append("close_redis")
+        raise redis_failure
+
+    async def fail_postgres_dispose(_resource):
+        resources["events"].append("dispose_postgres")
+        raise postgres_failure
+
+    resources["close_ollama"].side_effect = fail_ollama_close
+    resources["close_redis"].side_effect = fail_redis_close
+    resources["dispose_postgres"].side_effect = fail_postgres_dispose
+
+    with pytest.raises(RuntimeError) as captured:
+        async with lifespan_module.lifespan(app):
+            pass
+
+    assert captured.value is postgres_failure
+    assert resources["events"] == [
+        "create_postgres",
+        "create_redis",
+        "create_ollama",
+        "close_ollama",
+        "close_redis",
+        "dispose_postgres",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_startup_cancellation_cleans_acquired_resources(monkeypatch):
+    app = FastAPI()
+    resources = _install_resource_lifecycle_mocks(monkeypatch)
+    resources["create_ollama"].side_effect = asyncio.CancelledError()
+    reached_yield = False
+
+    with pytest.raises(asyncio.CancelledError):
+        async with lifespan_module.lifespan(app):
+            reached_yield = True
+
+    assert reached_yield is False
+    resources["close_ollama"].assert_not_awaited()
+    assert resources["events"] == [
+        "create_postgres",
+        "create_redis",
+        "close_redis",
+        "dispose_postgres",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_body_cancellation_closes_all_resources_and_propagates(
+    monkeypatch,
+):
+    app = FastAPI()
+    resources = _install_resource_lifecycle_mocks(monkeypatch)
+
+    with pytest.raises(asyncio.CancelledError):
+        async with lifespan_module.lifespan(app):
+            raise asyncio.CancelledError
+
+    assert resources["events"] == [
+        "create_postgres",
+        "create_redis",
+        "create_ollama",
+        "close_ollama",
+        "close_redis",
+        "dispose_postgres",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_shutdown_closer_cancellation_attempts_remaining_cleanup(
+    monkeypatch,
+):
+    app = FastAPI()
+    resources = _install_resource_lifecycle_mocks(monkeypatch)
+
+    async def cancel_ollama_close(resource):
+        assert resource is resources["ollama_client"]
+        resources["events"].append("close_ollama")
+        raise asyncio.CancelledError
+
+    resources["close_ollama"].side_effect = cancel_ollama_close
+
+    with pytest.raises(asyncio.CancelledError):
+        async with lifespan_module.lifespan(app):
+            pass
+
+    assert resources["events"] == [
+        "create_postgres",
+        "create_redis",
+        "create_ollama",
+        "close_ollama",
+        "close_redis",
+        "dispose_postgres",
+    ]
