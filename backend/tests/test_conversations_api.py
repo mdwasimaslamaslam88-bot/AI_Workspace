@@ -2484,11 +2484,7 @@ async def test_generation_asgi_domain_paths_always_clean_watcher(
     )
     api["generate"].side_effect = failure
 
-    if expected_status == 500:
-        with pytest.raises(RuntimeError, match="hidden unexpected failure"):
-            await app(harness.scope, harness.receive, harness.send)
-    else:
-        await app(harness.scope, harness.receive, harness.send)
+    await app(harness.scope, harness.receive, harness.send)
 
     assert harness.response_statuses == [expected_status]
     assert _pending_disconnect_watchers() == []

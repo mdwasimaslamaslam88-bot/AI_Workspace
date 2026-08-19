@@ -347,3 +347,21 @@ generation-only retry. Uncommitted USER or assistant work follows the existing
 rollback behavior. An assistant commit that already completed before
 cancellation remains authoritative; disconnect handling never performs a
 compensating delete.
+
+Unexpected application exceptions retain the existing HTTP 500 response with
+`INTERNAL_SERVER_ERROR` and `An unexpected error occurred.` An innermost
+application boundary contains these exceptions before Starlette's outer error
+layer can re-raise them for duplicate server logging. Existing request-ID and
+CORS response behavior is preserved.
+
+Application error logs intentionally contain only a fixed event, HTTP method,
+and status code. Validation logs likewise contain only a fixed event, status
+422, and the number of validation errors; raw invalid input is never logged.
+Credentials, prompts, model references, user and Conversation identifiers, SQL
+and SQL parameters, headers, bodies, runtime status or response fragments,
+exception text and chains, and tracebacks are excluded from these logs.
+
+External task and disconnect cancellation continues to propagate unchanged and
+is not converted into HTTP 500 or recorded as an unexpected application error.
+Handled authentication, authorization, validation, domain, and runtime errors
+retain their existing public status, body, and header contracts.

@@ -15,9 +15,8 @@ async def http_exception_handler(
 ) -> JSONResponse:
     logger.warning(
         "http_exception",
-        path=request.url.path,
+        method=request.method,
         status_code=exc.status_code,
-        detail=exc.detail,
     )
 
     return JSONResponse(
@@ -38,10 +37,12 @@ async def validation_exception_handler(
     request: Request,
     exc: RequestValidationError,
 ) -> JSONResponse:
+    errors = exc.errors()
     logger.warning(
         "validation_error",
-        path=request.url.path,
-        errors=exc.errors(),
+        method=request.method,
+        status_code=422,
+        error_count=len(errors),
     )
 
     return JSONResponse(
@@ -51,7 +52,7 @@ async def validation_exception_handler(
             "error": {
                 "code": "VALIDATION_ERROR",
                 "message": "Validation failed.",
-                "details": exc.errors(),
+                "details": errors,
             },
             "path": request.url.path,
             "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -62,10 +63,10 @@ async def unhandled_exception_handler(
     request: Request,
     exc: Exception,
 ) -> JSONResponse:
-    logger.exception(
-        "unhandled_exception",
-        path=request.url.path,
-        exception=str(exc),
+    logger.error(
+        "unexpected_application_error",
+        method=request.method,
+        status_code=500,
     )
 
     return JSONResponse(
