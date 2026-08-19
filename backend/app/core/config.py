@@ -16,6 +16,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 DatabaseSslMode = Literal["disable", "require", "verify-ca", "verify-full"]
 MAX_GENERATION_ACTIVE_PER_PROCESS = 8
 MAX_GENERATION_DURATION_SECONDS = 600.0
+MAX_MODEL_LIST_RESPONSE_BYTES = 1_048_576
 MAX_OLLAMA_CATALOG_LIST_MODELS = 256
 MAX_OLLAMA_CATALOG_RESPONSE_BYTES = 1_048_576
 MAX_OLLAMA_GENERATION_REQUEST_BYTES = 1_048_576
@@ -48,6 +49,12 @@ class Settings(BaseSettings):
     REDIS_CONNECT_TIMEOUT_SECONDS: float = Field(default=3.0, gt=0)
     OLLAMA_TIMEOUT_SECONDS: float = Field(default=5.0, gt=0)
     OLLAMA_LOCAL_MODEL_ALLOWLIST: tuple[str, ...] = ()
+    MODEL_LIST_MAX_RESPONSE_BYTES: int = Field(
+        default=1_048_576,
+        strict=True,
+        ge=1,
+        le=MAX_MODEL_LIST_RESPONSE_BYTES,
+    )
     OLLAMA_CATALOG_MAX_RESPONSE_BYTES: int = Field(
         default=1_048_576,
         strict=True,

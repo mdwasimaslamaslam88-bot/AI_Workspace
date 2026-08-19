@@ -30,6 +30,7 @@ async def test_lifespan_exposes_unconfigured_database_factory(monkeypatch):
             app.state.generation_admission_controller.max_active == 1
         )
         assert app.state.generation_max_duration_seconds == 180.0
+        assert app.state.model_list_max_response_bytes == 1_048_576
         assert await app.state.model_catalog.list_models() == ()
         assert app.state.text_generation_router._runtimes == {}
 
@@ -63,6 +64,7 @@ async def test_lifespan_creates_factory_and_disposes_configured_engine(monkeypat
             app.state.generation_admission_controller.max_active == 1
         )
         assert app.state.generation_max_duration_seconds == 180.0
+        assert app.state.model_list_max_response_bytes == 1_048_576
         assert await app.state.model_catalog.list_models() == ()
         assert app.state.text_generation_router._runtimes == {}
         dispose_postgres.assert_not_awaited()
@@ -111,6 +113,11 @@ async def test_lifespan_registers_configured_local_runtime_catalog(monkeypatch):
     )
     monkeypatch.setattr(
         lifespan_module.settings,
+        "MODEL_LIST_MAX_RESPONSE_BYTES",
+        98_765,
+    )
+    monkeypatch.setattr(
+        lifespan_module.settings,
         "OLLAMA_CATALOG_MAX_RESPONSE_BYTES",
         45_678,
     )
@@ -140,12 +147,14 @@ async def test_lifespan_registers_configured_local_runtime_catalog(monkeypatch):
             app.state.generation_admission_controller.max_active == 1
         )
         assert app.state.generation_max_duration_seconds == 73.25
+        assert app.state.model_list_max_response_bytes == 98_765
         assert len(app.state.model_catalog.runtimes) == 1
         runtime = app.state.model_catalog.runtimes[0]
         assert runtime.runtime_id == "ollama-local"
         assert runtime.client is ollama_client
         assert runtime.max_response_bytes == 45_678
         assert runtime.max_list_models == 37
+        assert not hasattr(runtime, "model_list_max_response_bytes")
         assert runtime.local_model_allowlist == {"verified-local:latest"}
         generation_runtime = (
             app.state.text_generation_router._runtimes["ollama-local"]
@@ -158,5 +167,9 @@ async def test_lifespan_registers_configured_local_runtime_catalog(monkeypatch):
             "verified-local:latest"
         }
         assert not hasattr(generation_runtime, "max_list_models")
+        assert not hasattr(
+            generation_runtime,
+            "model_list_max_response_bytes",
+        )
 
     close_ollama.assert_awaited_once_with(ollama_client)

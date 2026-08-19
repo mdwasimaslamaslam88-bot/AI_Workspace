@@ -815,6 +815,7 @@ async def test_overlapping_model_list_api_requests_share_one_full_discovery():
     api = FastAPI()
     api.include_router(ai_router, prefix="/api/v1")
     api.state.model_catalog = catalog
+    api.state.model_list_max_response_bytes = 1_048_576
 
     async def override_current_user():
         return object()

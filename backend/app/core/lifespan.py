@@ -32,6 +32,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.generation_max_duration_seconds = (
         settings.GENERATION_MAX_DURATION_SECONDS
     )
+    app.state.model_list_max_response_bytes = (
+        settings.MODEL_LIST_MAX_RESPONSE_BYTES
+    )
     app.state.model_catalog = ModelCatalog(
         (
             OllamaModelDiscoveryRuntime(

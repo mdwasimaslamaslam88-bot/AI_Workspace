@@ -31,6 +31,21 @@ An unconfigured runtime returns HTTP 200 with an empty inventory:
 {"items": []}
 ```
 
+The complete JSON response for `GET /api/v1/ai/models` has a separate
+runtime-neutral aggregate byte budget. Configure
+`MODEL_LIST_MAX_RESPONSE_BYTES` as a strict integer from 1 through 1,048,576
+bytes; the default and absolute maximum are 1,048,576 bytes (1 MiB). The exact
+compact JSON size, including field names, punctuation, string escaping, enum
+values, nulls, lists, and integers, is checked before the framework performs
+final response-body serialization. A response exactly at the configured bound
+succeeds with the existing schema and `Content-Length`; an overflow fails with
+the generic HTTP 503 `Local model runtime unavailable` contract.
+
+The response is never truncated, paginated, compressed, or field-pruned. This
+public response budget is independent of the Ollama `/api/tags` and `/api/show`
+transport limits and the 256-model full-list fan-out bound. It does not affect
+targeted generation resolution or generation behavior.
+
 Each discovered model is represented by safe, normalized metadata:
 
 - `model_id`: stable runtime-namespaced public identifier;
