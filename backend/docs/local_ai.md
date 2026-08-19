@@ -61,7 +61,23 @@ and selects only an exact match. The runtime still validates the complete
 `/api/tags` inventory before selection, then calls `/api/show` only for that
 selected model. A valid same-runtime miss performs no detail request and retains
 the existing model-not-found behavior. No public-to-private lookup table, cache,
-snapshot, TTL, or single-flight state is introduced.
+snapshot, TTL, or retained completed discovery is introduced.
+
+Full model listing uses process-local, non-retaining single-flight coordination
+inside the shared `ModelCatalog`. Calls to `list_models()`, including overlapping
+`GET /api/v1/ai/models` requests, that reach the same active full discovery await
+its immutable ordered descriptors instead of repeating `/api/tags` and
+`/api/show`. The active flight is cleared immediately after success, failure, or
+cancellation; neither its result nor its exception is cached. Every later
+nonoverlapping listing therefore starts fresh request-time discovery and can
+observe changes to Ollama inventory or model details.
+
+Cancelling one listing waiter does not cancel discovery still needed by another
+waiter. Cancelling the last waiter cancels and awaits the active discovery so
+runtime stream cleanup completes without orphaned work. This coordination belongs
+only to one `ModelCatalog` in one application process; it uses no Redis or
+distributed cache. Targeted generation resolution remains independent and never
+joins or consumes the listing flight, preserving execution-time model freshness.
 
 Each detail request sends only its internal reference and reads only the
 documented `capabilities` list. Ollama `completion`, `vision`, `embedding`,

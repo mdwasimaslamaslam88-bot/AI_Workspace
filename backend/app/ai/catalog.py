@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
@@ -192,6 +193,12 @@ class ModelDiscoveryRuntime(Protocol):
     ) -> tuple[RuntimeModel, ...]: ...
 
 
+@dataclass(slots=True)
+class _ListModelsFlight:
+    task: asyncio.Task[tuple[ModelDescriptor, ...]]
+    waiter_count: int = 0
+
+
 class ModelCatalog:
     def __init__(
         self,
@@ -208,8 +215,17 @@ class ModelCatalog:
                 raise ValueError(f"duplicate runtime_id: {runtime_id}")
             runtime_ids.add(runtime_id)
         self.runtimes = runtimes
+        self._list_models_flight: _ListModelsFlight | None = None
+        self._list_models_flight_lock = asyncio.Lock()
 
     async def list_models(self) -> tuple[ModelDescriptor, ...]:
+        flight = await self._join_list_models_flight()
+        try:
+            return await asyncio.shield(flight.task)
+        finally:
+            await self._leave_list_models_flight(flight)
+
+    async def _list_models_uncached(self) -> tuple[ModelDescriptor, ...]:
         resolved: dict[str, ResolvedModel] = {}
         for runtime in self.runtimes:
             for model in await self._discover_runtime(runtime):
@@ -223,6 +239,85 @@ class ModelCatalog:
                 key=lambda item: (item.display_name.casefold(), item.model_id),
             )
         )
+
+    async def _join_list_models_flight(self) -> _ListModelsFlight:
+        while True:
+            task_to_wait: asyncio.Task[tuple[ModelDescriptor, ...]] | None = None
+            async with self._list_models_flight_lock:
+                flight = self._list_models_flight
+                if (
+                    flight is not None
+                    and flight.waiter_count == 0
+                    and not flight.task.done()
+                ):
+                    task_to_wait = flight.task
+                else:
+                    if flight is None or flight.task.done():
+                        task = asyncio.create_task(
+                            self._run_list_models_flight(),
+                            name="model-catalog-list-models-discovery",
+                        )
+                        flight = _ListModelsFlight(task=task)
+                        self._list_models_flight = flight
+                    flight.waiter_count += 1
+                    return flight
+
+            if task_to_wait is not None:
+                await self._wait_for_retiring_list_models_flight(task_to_wait)
+
+    @staticmethod
+    async def _wait_for_retiring_list_models_flight(
+        task: asyncio.Task[tuple[ModelDescriptor, ...]],
+    ) -> None:
+        try:
+            await asyncio.shield(task)
+        except asyncio.CancelledError:
+            current_task = asyncio.current_task()
+            if current_task is not None and current_task.cancelling():
+                raise
+        except BaseException:
+            pass
+
+    async def _run_list_models_flight(self) -> tuple[ModelDescriptor, ...]:
+        try:
+            return await self._list_models_uncached()
+        finally:
+            current_task = asyncio.current_task()
+            async with self._list_models_flight_lock:
+                flight = self._list_models_flight
+                if flight is not None and flight.task is current_task:
+                    self._list_models_flight = None
+
+    async def _leave_list_models_flight(
+        self,
+        flight: _ListModelsFlight,
+    ) -> None:
+        task_to_stop: asyncio.Task[tuple[ModelDescriptor, ...]] | None = None
+        async with self._list_models_flight_lock:
+            flight.waiter_count -= 1
+            if flight.waiter_count == 0 and not flight.task.done():
+                flight.task.cancel()
+                task_to_stop = flight.task
+
+        if task_to_stop is not None:
+            await self._await_task_termination(task_to_stop)
+            async with self._list_models_flight_lock:
+                if self._list_models_flight is flight:
+                    self._list_models_flight = None
+
+    @staticmethod
+    async def _await_task_termination(
+        task: asyncio.Task[tuple[ModelDescriptor, ...]],
+    ) -> None:
+        while not task.done():
+            try:
+                await asyncio.shield(task)
+            except asyncio.CancelledError:
+                continue
+            except BaseException:
+                break
+        if not task.cancelled():
+            task.exception()
 
     async def resolve_model(self, model_id: str) -> ResolvedModel | None:
         if not isinstance(model_id, str) or not _PUBLIC_MODEL_ID_PATTERN.fullmatch(
