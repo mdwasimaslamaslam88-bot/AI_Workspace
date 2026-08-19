@@ -110,6 +110,24 @@ only to one `ModelCatalog` in one application process; it uses no Redis or
 distributed cache. Targeted generation resolution remains independent and never
 joins or consumes the listing flight, preserving execution-time model freshness.
 
+Configure `MODEL_LIST_MAX_DISCOVERY_SECONDS` as a strict positive finite number
+through 300 seconds; the default is 60 seconds. One monotonic deadline belongs
+to one shared full-list discovery flight and begins before runtime discovery.
+It covers `/api/tags`, every sequential `/api/show`, bounded parsing, descriptor
+construction, public-ID collision checks, and sorting. Overlapping list callers
+share the same remaining time; a later caller never starts or resets the clock.
+
+Deadline expiry cancels the shared discovery, closes any active runtime stream
+through normal cancellation cleanup, returns no partial catalog, and uses the
+generic HTTP 503 `Local model runtime unavailable` contract. The failed flight
+and exception are not retained, so a later request begins fresh discovery with
+a new deadline. Ollama's five-second per-operation HTTPX timeout remains an
+independent, narrower defense. This list deadline does not apply to targeted
+generation resolution, which remains governed by the existing admitted
+generation deadline. Per-caller public JSON size accounting and serialization
+remain outside the shared discovery deadline and retain their separate 1 MiB
+response budget.
+
 Each detail request sends only its internal reference and reads only the
 documented `capabilities` list. Ollama `completion`, `vision`, `embedding`,
 and `tools` values map respectively to the public `text_generation`,

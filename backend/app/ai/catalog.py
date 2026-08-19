@@ -5,8 +5,11 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
 import hashlib
+import math
 import re
 from typing import Protocol, runtime_checkable
+
+from app.core.config import MAX_MODEL_LIST_DISCOVERY_SECONDS
 
 
 _RUNTIME_ID_PATTERN = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
@@ -203,7 +206,27 @@ class ModelCatalog:
     def __init__(
         self,
         runtimes: tuple[ModelDiscoveryRuntime, ...] = (),
+        *,
+        max_list_discovery_seconds: float = 60.0,
     ) -> None:
+        if isinstance(max_list_discovery_seconds, bool) or not isinstance(
+            max_list_discovery_seconds,
+            (int, float),
+        ):
+            raise TypeError("model list discovery deadline must be numeric")
+        try:
+            is_finite = math.isfinite(max_list_discovery_seconds)
+        except OverflowError:
+            is_finite = False
+        if (
+            not is_finite
+            or not 0 < max_list_discovery_seconds
+            <= MAX_MODEL_LIST_DISCOVERY_SECONDS
+        ):
+            raise ValueError(
+                "model list discovery deadline must be positive and no greater "
+                f"than {MAX_MODEL_LIST_DISCOVERY_SECONDS} seconds"
+            )
         runtime_ids: set[str] = set()
         for runtime in runtimes:
             runtime_id = runtime.runtime_id
@@ -215,6 +238,9 @@ class ModelCatalog:
                 raise ValueError(f"duplicate runtime_id: {runtime_id}")
             runtime_ids.add(runtime_id)
         self.runtimes = runtimes
+        self.max_list_discovery_seconds = float(
+            max_list_discovery_seconds
+        )
         self._list_models_flight: _ListModelsFlight | None = None
         self._list_models_flight_lock = asyncio.Lock()
 
@@ -279,8 +305,24 @@ class ModelCatalog:
             pass
 
     async def _run_list_models_flight(self) -> tuple[ModelDescriptor, ...]:
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + self.max_list_discovery_seconds
+        deadline_scope = asyncio.timeout_at(deadline)
         try:
-            return await self._list_models_uncached()
+            try:
+                async with deadline_scope:
+                    result = await self._list_models_uncached()
+                    if loop.time() >= deadline:
+                        raise ModelRuntimeUnavailableError(
+                            "local model discovery is unavailable"
+                        )
+                    return result
+            except TimeoutError as exc:
+                if not deadline_scope.expired():
+                    raise
+                raise ModelRuntimeUnavailableError(
+                    "local model discovery is unavailable"
+                ) from exc
         finally:
             current_task = asyncio.current_task()
             async with self._list_models_flight_lock:

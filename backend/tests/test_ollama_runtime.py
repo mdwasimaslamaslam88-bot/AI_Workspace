@@ -2154,6 +2154,107 @@ async def test_ollama_show_cancellation_closes_current_stream_and_propagates():
 
 
 @pytest.mark.asyncio
+async def test_full_list_deadline_during_tags_closes_stream():
+    blocked = asyncio.Event()
+    never_release = asyncio.Event()
+    tags_stream = _CatalogRecordingStream(
+        (b'{"models":', b"[]}"),
+        blocked=blocked,
+        release=never_release,
+    )
+    requests: list[httpx.Request] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return _catalog_response(tags_stream)
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        base_url="http://127.0.0.1:11434",
+        timeout=5,
+    ) as client:
+        catalog = ModelCatalog(
+            (OllamaModelDiscoveryRuntime(client, LOCAL_MODEL_ALLOWLIST),),
+            max_list_discovery_seconds=0.01,
+        )
+        caller = asyncio.create_task(catalog.list_models())
+        await blocked.wait()
+        with pytest.raises(ModelRuntimeUnavailableError):
+            await caller
+
+    assert [request.url.path for request in requests] == ["/api/tags"]
+    assert tags_stream.closed is True
+    assert catalog._list_models_flight is None
+
+
+@pytest.mark.parametrize("blocked_show_index", [0, 1], ids=["first", "later"])
+@pytest.mark.asyncio
+async def test_full_list_deadline_closes_current_show_and_stops_fanout(
+    blocked_show_index,
+):
+    references = (
+        "/private/runtime/one:7b",
+        "/private/runtime/two:14b",
+        "/private/runtime/three:32b",
+    )
+    blocked = asyncio.Event()
+    never_release = asyncio.Event()
+    blocked_stream = _CatalogRecordingStream(
+        (b'{"capabilities":', b"[]}"),
+        blocked=blocked,
+        release=never_release,
+    )
+    successful_streams: list[_CatalogRecordingStream] = []
+    requests: list[httpx.Request] = []
+    show_index = 0
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal show_index
+        requests.append(request)
+        if request.url.path == "/api/tags":
+            return httpx.Response(
+                200,
+                json={
+                    "models": [
+                        {"model": reference, "details": {}}
+                        for reference in references
+                    ]
+                },
+            )
+        current_index = show_index
+        show_index += 1
+        if current_index == blocked_show_index:
+            return _catalog_response(blocked_stream)
+        stream = _CatalogRecordingStream(
+            (_catalog_json_body({"capabilities": ["completion"]}),)
+        )
+        successful_streams.append(stream)
+        return _catalog_response(stream)
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        base_url="http://127.0.0.1:11434",
+        timeout=5,
+    ) as client:
+        catalog = ModelCatalog(
+            (OllamaModelDiscoveryRuntime(client, references),),
+            max_list_discovery_seconds=0.01,
+        )
+        caller = asyncio.create_task(catalog.list_models())
+        await blocked.wait()
+        with pytest.raises(ModelRuntimeUnavailableError):
+            await caller
+
+    assert [request.url.path for request in requests] == [
+        "/api/tags",
+        *["/api/show"] * (blocked_show_index + 1),
+    ]
+    assert blocked_stream.closed is True
+    assert all(stream.closed for stream in successful_streams)
+    assert catalog._list_models_flight is None
+
+
+@pytest.mark.asyncio
 async def test_ollama_show_timeout_closes_current_stream_and_is_generic():
     show_stream = _CatalogRecordingStream(
         (b"{",),

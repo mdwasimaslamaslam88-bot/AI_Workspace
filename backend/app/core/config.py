@@ -16,6 +16,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 DatabaseSslMode = Literal["disable", "require", "verify-ca", "verify-full"]
 MAX_GENERATION_ACTIVE_PER_PROCESS = 8
 MAX_GENERATION_DURATION_SECONDS = 600.0
+MAX_MODEL_LIST_DISCOVERY_SECONDS = 300.0
 MAX_MODEL_LIST_RESPONSE_BYTES = 1_048_576
 MAX_OLLAMA_CATALOG_LIST_MODELS = 256
 MAX_OLLAMA_CATALOG_RESPONSE_BYTES = 1_048_576
@@ -49,6 +50,12 @@ class Settings(BaseSettings):
     REDIS_CONNECT_TIMEOUT_SECONDS: float = Field(default=3.0, gt=0)
     OLLAMA_TIMEOUT_SECONDS: float = Field(default=5.0, gt=0)
     OLLAMA_LOCAL_MODEL_ALLOWLIST: tuple[str, ...] = ()
+    MODEL_LIST_MAX_DISCOVERY_SECONDS: StrictFloat | StrictInt = Field(
+        default=60.0,
+        gt=0,
+        le=MAX_MODEL_LIST_DISCOVERY_SECONDS,
+        allow_inf_nan=False,
+    )
     MODEL_LIST_MAX_RESPONSE_BYTES: int = Field(
         default=1_048_576,
         strict=True,
@@ -157,6 +164,13 @@ class Settings(BaseSettings):
     def reject_boolean_generation_timeout(cls, value):
         if isinstance(value, bool):
             raise ValueError("OLLAMA_GENERATION_TIMEOUT_SECONDS must be numeric")
+        return value
+
+    @field_validator("MODEL_LIST_MAX_DISCOVERY_SECONDS", mode="before")
+    @classmethod
+    def validate_model_list_max_discovery_seconds(cls, value):
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise ValueError("MODEL_LIST_MAX_DISCOVERY_SECONDS must be numeric")
         return value
 
     @field_validator("GENERATION_MAX_DURATION_SECONDS", mode="before")

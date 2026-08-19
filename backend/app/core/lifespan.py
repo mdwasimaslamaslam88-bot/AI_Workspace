@@ -49,7 +49,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             ),
         )
         if ollama_client is not None
-        else ()
+        else (),
+        max_list_discovery_seconds=(
+            settings.MODEL_LIST_MAX_DISCOVERY_SECONDS
+        ),
     )
     app.state.text_generation_router = TextGenerationRouter(
         (
