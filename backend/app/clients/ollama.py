@@ -15,8 +15,13 @@ def create_ollama_client(settings: Settings) -> httpx.AsyncClient | None:
 
 
 async def check_ollama(client: httpx.AsyncClient) -> None:
-    response = await client.get("/api/tags")
-    response.raise_for_status()
+    async with client.stream(
+        "GET",
+        "/api/tags",
+        headers={"Accept-Encoding": "identity"},
+    ) as response:
+        response.raise_for_status()
+
 
 async def close_ollama(client: httpx.AsyncClient | None) -> None:
     if client is not None:

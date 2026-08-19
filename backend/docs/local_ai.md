@@ -59,6 +59,31 @@ other detail fields are never used to infer capabilities or promoted to the
 public response. Missing, malformed, or unavailable capability details fail
 closed as a generic unavailable local model runtime.
 
+Every Ollama discovery response is transport-bounded before JSON parsing by
+`OLLAMA_CATALOG_MAX_RESPONSE_BYTES`, a strict integer from 1 through 1,048,576
+bytes that defaults to 1,048,576 bytes (1 MiB). The bound applies independently
+to `GET /api/tags` and each `POST /api/show`. Discovery requests identity
+encoding, rejects unexpected content encoding, validates an unambiguous
+non-negative `Content-Length` before body consumption, and also counts actual
+response chunks cumulatively. Exactly the configured byte count is accepted;
+reading stops when the next chunk would exceed it, and partial JSON is never
+parsed. Non-success responses are rejected before their bodies are consumed.
+
+Declared or actual overflow, malformed or conflicting length headers, malformed
+JSON, parser failure, and invalid inventory or detail envelopes retain the
+generic HTTP 503 `Local model runtime unavailable` contract. No body fragment,
+header value, byte count, limit, status, internal exception, or model reference
+is exposed. A failed detail response fails the complete discovery immediately;
+no partial catalog is returned and no later detail request is made. Valid
+catalogs retain exact allowlist matching, inventory order, opaque public IDs,
+safe metadata, and capability behavior. Discovery remains request-time and is
+not cached.
+
+The Ollama readiness probe also opens `/api/tags` as a response stream, checks
+only the status, and closes without reading or materializing the unused body.
+It preserves the shared client timeout, loopback restriction, disabled proxy
+inheritance, and disabled redirects.
+
 Parameter classes such as 7B, 14B, 32B, and 70B+ are descriptive metadata, not
 application routing branches. Future generation requests can select the public
 `model_id`; the catalog can then resolve the appropriate local adapter without

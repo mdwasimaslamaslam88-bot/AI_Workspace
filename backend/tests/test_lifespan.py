@@ -111,6 +111,11 @@ async def test_lifespan_registers_configured_local_runtime_catalog(monkeypatch):
     )
     monkeypatch.setattr(
         lifespan_module.settings,
+        "OLLAMA_CATALOG_MAX_RESPONSE_BYTES",
+        45_678,
+    )
+    monkeypatch.setattr(
+        lifespan_module.settings,
         "OLLAMA_GENERATION_MAX_REQUEST_BYTES",
         54_321,
     )
@@ -134,6 +139,7 @@ async def test_lifespan_registers_configured_local_runtime_catalog(monkeypatch):
         runtime = app.state.model_catalog.runtimes[0]
         assert runtime.runtime_id == "ollama-local"
         assert runtime.client is ollama_client
+        assert runtime.max_response_bytes == 45_678
         assert runtime.local_model_allowlist == {"verified-local:latest"}
         generation_runtime = (
             app.state.text_generation_router._runtimes["ollama-local"]

@@ -7,15 +7,20 @@ import pytest
 
 import app.clients.ollama as ollama_client_module
 import app.runtimes.ollama as ollama_runtime_module
-from app.ai.catalog import ModelCapability, ModelRuntimeUnavailableError
+from app.ai.catalog import (
+    ModelCapability,
+    ModelCatalog,
+    ModelRuntimeUnavailableError,
+)
 from app.ai.generation import (
     TextGenerationMessage,
     TextGenerationRole,
     TextGenerationRuntimeUnavailableError,
     TextGenerationRuntimeUnsupportedError,
 )
-from app.clients.ollama import create_ollama_client
+from app.clients.ollama import check_ollama, create_ollama_client
 from app.core.config import (
+    MAX_OLLAMA_CATALOG_RESPONSE_BYTES,
     MAX_OLLAMA_GENERATION_REQUEST_BYTES,
     MAX_OLLAMA_GENERATION_RESPONSE_BYTES,
     Settings,
@@ -27,6 +32,77 @@ from app.runtimes.ollama import (
 
 LOCAL_MODEL_REFERENCE = "/private/runtime/model:14b"
 LOCAL_MODEL_ALLOWLIST = (LOCAL_MODEL_REFERENCE,)
+
+
+class _CatalogRecordingStream(httpx.AsyncByteStream):
+    def __init__(
+        self,
+        chunks=(),
+        *,
+        blocked: asyncio.Event | None = None,
+        release: asyncio.Event | None = None,
+        failure: Exception | None = None,
+        close_started: asyncio.Event | None = None,
+        close_release: asyncio.Event | None = None,
+    ):
+        self.chunks = tuple(chunks)
+        self.blocked = blocked
+        self.release = release
+        self.failure = failure
+        self.close_started = close_started
+        self.close_release = close_release
+        self.iteration_count = 0
+        self.closed = False
+
+    async def __aiter__(self):
+        for index, chunk in enumerate(self.chunks):
+            self.iteration_count += 1
+            yield chunk
+            if index == 0 and self.blocked is not None:
+                self.blocked.set()
+                if self.release is None:
+                    raise AssertionError("blocked stream requires a release event")
+                await self.release.wait()
+        if self.failure is not None:
+            raise self.failure
+
+    async def aclose(self):
+        self.closed = True
+        if self.close_started is not None:
+            self.close_started.set()
+            if self.close_release is None:
+                raise AssertionError("blocked close requires a release event")
+            await self.close_release.wait()
+
+
+def _catalog_json_body(payload) -> bytes:
+    return json.dumps(payload, separators=(",", ":")).encode()
+
+
+def _catalog_json_body_at_size(payload, size: int) -> bytes:
+    padded = dict(payload)
+    padded["ignored_padding"] = ""
+    empty = _catalog_json_body(padded)
+    padding_size = size - len(empty)
+    if padding_size < 0:
+        raise ValueError("test catalog response size is too small")
+    padded["ignored_padding"] = "x" * padding_size
+    body = _catalog_json_body(padded)
+    assert len(body) == size
+    return body
+
+
+def _catalog_response(
+    stream: _CatalogRecordingStream,
+    *,
+    status_code: int = 200,
+    headers=(),
+) -> httpx.Response:
+    return httpx.Response(
+        status_code,
+        headers=list(headers),
+        stream=stream,
+    )
 
 
 @pytest.mark.asyncio
@@ -284,6 +360,324 @@ async def test_ollama_discovery_rejects_unavailable_capability_details():
 
 
 @pytest.mark.parametrize(
+    "max_response_bytes",
+    [
+        None,
+        True,
+        False,
+        "1",
+        1.0,
+        0,
+        -1,
+        MAX_OLLAMA_CATALOG_RESPONSE_BYTES + 1,
+    ],
+)
+def test_ollama_discovery_runtime_rejects_invalid_response_caps(
+    max_response_bytes,
+):
+    with pytest.raises((TypeError, ValueError)):
+        OllamaModelDiscoveryRuntime(
+            object(),
+            max_response_bytes=max_response_bytes,
+        )
+
+
+@pytest.mark.parametrize(
+    "max_response_bytes",
+    [1, 262_144, MAX_OLLAMA_CATALOG_RESPONSE_BYTES],
+)
+def test_ollama_discovery_runtime_accepts_bounded_response_caps(
+    max_response_bytes,
+):
+    runtime = OllamaModelDiscoveryRuntime(
+        object(),
+        max_response_bytes=max_response_bytes,
+    )
+
+    assert runtime.max_response_bytes == max_response_bytes
+
+
+@pytest.mark.asyncio
+async def test_ollama_tags_accepts_valid_json_exactly_at_cap_and_closes():
+    cap = 256
+    tags_body = _catalog_json_body_at_size(
+        {
+            "models": [
+                {
+                    "model": LOCAL_MODEL_REFERENCE,
+                    "details": {"family": "VerifiedLocal"},
+                }
+            ]
+        },
+        cap,
+    )
+    show_body = _catalog_json_body({"capabilities": ["completion"]})
+    tags_stream = _CatalogRecordingStream(
+        (tags_body[:97], tags_body[97:]),
+    )
+    show_stream = _CatalogRecordingStream((show_body,))
+    requests: list[httpx.Request] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if request.url.path == "/api/tags":
+            return _catalog_response(
+                tags_stream,
+                headers=[(b"Content-Length", str(cap).encode())],
+            )
+        return _catalog_response(show_stream)
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        base_url="http://127.0.0.1:11434",
+    ) as client:
+        (model,) = await OllamaModelDiscoveryRuntime(
+            client,
+            LOCAL_MODEL_ALLOWLIST,
+            max_response_bytes=cap,
+        ).discover_models()
+
+    assert model.reference == LOCAL_MODEL_REFERENCE
+    assert model.capabilities == (ModelCapability.TEXT_GENERATION,)
+    assert tags_stream.iteration_count == 2
+    assert tags_stream.closed is True
+    assert show_stream.closed is True
+    assert all(
+        request.headers["Accept-Encoding"] == "identity"
+        for request in requests
+    )
+
+
+@pytest.mark.asyncio
+async def test_ollama_tags_declared_oversize_does_not_iterate_body():
+    cap = 64
+    stream = _CatalogRecordingStream((b"private oversized inventory",))
+
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        return _catalog_response(
+            stream,
+            headers=[(b"Content-Length", str(cap + 1).encode())],
+        )
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        base_url="http://127.0.0.1:11434",
+    ) as client:
+        with pytest.raises(ModelRuntimeUnavailableError) as captured:
+            await OllamaModelDiscoveryRuntime(
+                client,
+                max_response_bytes=cap,
+            ).discover_models()
+
+    assert stream.iteration_count == 0
+    assert stream.closed is True
+    assert "private oversized inventory" not in str(captured.value)
+    assert str(cap + 1) not in str(captured.value)
+
+
+@pytest.mark.parametrize(
+    ("headers", "test_id"),
+    [
+        ((), "missing"),
+        (((b"Content-Length", b"7"),), "understated"),
+    ],
+    ids=lambda value: value if isinstance(value, str) else None,
+)
+@pytest.mark.asyncio
+async def test_ollama_tags_actual_overflow_is_cumulative_and_closes(
+    headers,
+    test_id,
+):
+    del test_id
+    cap = 32
+    stream = _CatalogRecordingStream((b"x" * cap, b"y"))
+
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        return _catalog_response(stream, headers=headers)
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        base_url="http://127.0.0.1:11434",
+    ) as client:
+        with pytest.raises(ModelRuntimeUnavailableError):
+            await OllamaModelDiscoveryRuntime(
+                client,
+                max_response_bytes=cap,
+            ).discover_models()
+
+    assert stream.iteration_count == 2
+    assert stream.closed is True
+
+
+@pytest.mark.parametrize(
+    "headers",
+    [
+        [
+            (b"Content-Length", b"1"),
+            (b"Content-Length", b"2"),
+        ],
+        [(b"Content-Length", b"1, 1")],
+        [(b"Content-Length", b"-1")],
+        [(b"Content-Length", b"not-a-length")],
+    ],
+    ids=["conflicting", "comma-ambiguous", "negative", "malformed"],
+)
+@pytest.mark.asyncio
+async def test_ollama_tags_rejects_unsafe_length_without_reading(headers):
+    stream = _CatalogRecordingStream((b"private inventory",))
+
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        return _catalog_response(stream, headers=headers)
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        base_url="http://127.0.0.1:11434",
+    ) as client:
+        with pytest.raises(ModelRuntimeUnavailableError) as captured:
+            await OllamaModelDiscoveryRuntime(client).discover_models()
+
+    assert stream.iteration_count == 0
+    assert stream.closed is True
+    assert "private inventory" not in str(captured.value)
+    assert "Content-Length" not in str(captured.value)
+
+
+@pytest.mark.asyncio
+async def test_ollama_tags_rejects_non_identity_encoding_without_reading():
+    stream = _CatalogRecordingStream((b"compressed private inventory",))
+
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        return _catalog_response(
+            stream,
+            headers=[(b"Content-Encoding", b"gzip")],
+        )
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        base_url="http://127.0.0.1:11434",
+    ) as client:
+        with pytest.raises(ModelRuntimeUnavailableError) as captured:
+            await OllamaModelDiscoveryRuntime(client).discover_models()
+
+    assert stream.iteration_count == 0
+    assert stream.closed is True
+    assert "compressed private inventory" not in str(captured.value)
+    assert "gzip" not in str(captured.value)
+
+
+@pytest.mark.asyncio
+async def test_ollama_tags_non_success_does_not_consume_large_body():
+    stream = _CatalogRecordingStream((b"secret runtime status body" * 100,))
+
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        return _catalog_response(stream, status_code=599)
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        base_url="http://127.0.0.1:11434",
+    ) as client:
+        with pytest.raises(ModelRuntimeUnavailableError) as captured:
+            await OllamaModelDiscoveryRuntime(client).discover_models()
+
+    assert stream.iteration_count == 0
+    assert stream.closed is True
+    assert "599" not in str(captured.value)
+    assert "secret runtime status body" not in str(captured.value)
+
+
+@pytest.mark.asyncio
+async def test_ollama_tags_cancellation_closes_stream_and_propagates():
+    blocked = asyncio.Event()
+    release = asyncio.Event()
+    stream = _CatalogRecordingStream(
+        (b'{"models":', b"[]}"),
+        blocked=blocked,
+        release=release,
+    )
+
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        return _catalog_response(stream)
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        base_url="http://127.0.0.1:11434",
+    ) as client:
+        task = asyncio.create_task(
+            OllamaModelDiscoveryRuntime(client).discover_models()
+        )
+        await blocked.wait()
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+    assert stream.iteration_count == 1
+    assert stream.closed is True
+
+
+@pytest.mark.asyncio
+async def test_ollama_tags_timeout_closes_stream_and_is_generic():
+    stream = _CatalogRecordingStream(
+        (b"{",),
+        failure=httpx.ReadTimeout("secret runtime timeout"),
+    )
+
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        return _catalog_response(stream)
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        base_url="http://127.0.0.1:11434",
+        timeout=5,
+    ) as client:
+        with pytest.raises(ModelRuntimeUnavailableError) as captured:
+            await OllamaModelDiscoveryRuntime(client).discover_models()
+
+    assert stream.closed is True
+    assert "secret runtime timeout" not in str(captured.value)
+
+
+@pytest.mark.asyncio
+async def test_ollama_tags_malformed_json_is_generic_and_closes():
+    stream = _CatalogRecordingStream((b'{"models":', b"not-json"))
+
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        return _catalog_response(stream)
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        base_url="http://127.0.0.1:11434",
+    ) as client:
+        with pytest.raises(ModelRuntimeUnavailableError) as captured:
+            await OllamaModelDiscoveryRuntime(client).discover_models()
+
+    assert stream.closed is True
+    assert "not-json" not in str(captured.value)
+
+
+@pytest.mark.asyncio
+async def test_ollama_catalog_parser_failure_is_generic(monkeypatch):
+    stream = _CatalogRecordingStream((b'{"models":[]}',))
+
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        return _catalog_response(stream)
+
+    monkeypatch.setattr(
+        ollama_runtime_module.json,
+        "loads",
+        Mock(side_effect=RecursionError("secret nested payload")),
+    )
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        base_url="http://127.0.0.1:11434",
+    ) as client:
+        with pytest.raises(ModelRuntimeUnavailableError) as captured:
+            await OllamaModelDiscoveryRuntime(client).discover_models()
+
+    assert stream.closed is True
+    assert "secret nested payload" not in str(captured.value)
+
+
+@pytest.mark.parametrize(
     "repeat_last_n",
     [
         True,
@@ -499,6 +893,323 @@ async def test_ollama_generation_rejects_invalid_stop_sequences_before_http(
     client.post.assert_not_awaited()
 
 
+@pytest.mark.asyncio
+async def test_ollama_show_accepts_valid_json_exactly_at_cap():
+    cap = 256
+    tags_body = _catalog_json_body(
+        {
+            "models": [
+                {
+                    "model": LOCAL_MODEL_REFERENCE,
+                    "details": {
+                        "family": "VerifiedLocal",
+                        "parameter_size": "14B",
+                        "quantization_level": "Q4_K_M",
+                    },
+                }
+            ]
+        }
+    )
+    show_body = _catalog_json_body_at_size(
+        {"capabilities": ["completion", "tools", "completion"]},
+        cap,
+    )
+    tags_stream = _CatalogRecordingStream((tags_body,))
+    show_stream = _CatalogRecordingStream((show_body[:101], show_body[101:]))
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/tags":
+            return _catalog_response(tags_stream)
+        return _catalog_response(
+            show_stream,
+            headers=[(b"Content-Length", str(cap).encode())],
+        )
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        base_url="http://127.0.0.1:11434",
+    ) as client:
+        (model,) = await OllamaModelDiscoveryRuntime(
+            client,
+            LOCAL_MODEL_ALLOWLIST,
+            max_response_bytes=cap,
+        ).discover_models()
+
+    assert model.family == "VerifiedLocal"
+    assert model.parameter_class == "14B"
+    assert model.quantization == "Q4_K_M"
+    assert model.capabilities == (
+        ModelCapability.TEXT_GENERATION,
+        ModelCapability.TOOL_CALLING,
+    )
+    assert tags_stream.closed is True
+    assert show_stream.iteration_count == 2
+    assert show_stream.closed is True
+
+
+@pytest.mark.asyncio
+async def test_ollama_show_discards_large_ignored_fields_below_cap():
+    cap = 4_096
+    private_value = "/private/runtime/secret/" + "x" * 700
+    show_body = _catalog_json_body(
+        {
+            "capabilities": [
+                "tools",
+                "completion",
+                "vision",
+                "embedding",
+                "completion",
+                "unknown-capability",
+            ],
+            "template": private_value,
+            "parameters": private_value,
+            "license": private_value,
+            "model_info": {"private.path": private_value},
+        }
+    )
+    assert len(show_body) < cap
+    show_stream = _CatalogRecordingStream((show_body,))
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/tags":
+            return httpx.Response(
+                200,
+                json={
+                    "models": [
+                        {
+                            "model": LOCAL_MODEL_REFERENCE,
+                            "details": {"family": "VerifiedLocal"},
+                        }
+                    ]
+                },
+            )
+        return _catalog_response(show_stream)
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        base_url="http://127.0.0.1:11434",
+    ) as client:
+        (model,) = await OllamaModelDiscoveryRuntime(
+            client,
+            LOCAL_MODEL_ALLOWLIST,
+            max_response_bytes=cap,
+        ).discover_models()
+
+    assert model.capabilities == (
+        ModelCapability.EMBEDDINGS,
+        ModelCapability.TEXT_GENERATION,
+        ModelCapability.TOOL_CALLING,
+        ModelCapability.VISION_INPUT,
+    )
+    assert private_value not in repr(model)
+    assert show_stream.closed is True
+
+
+@pytest.mark.parametrize("oversized_index", [0, 1], ids=["first", "later"])
+@pytest.mark.asyncio
+async def test_ollama_oversized_show_fails_whole_discovery_and_stops(
+    oversized_index,
+):
+    cap = 128
+    references = ("allowed-one", "allowed-two", "allowed-three")
+    tags_body = _catalog_json_body(
+        {
+            "models": [
+                {"model": reference, "details": {}}
+                for reference in references
+            ]
+        }
+    )
+    tags_stream = _CatalogRecordingStream((tags_body,))
+    successful_streams: list[_CatalogRecordingStream] = []
+    oversized_stream = _CatalogRecordingStream((b"private oversized details",))
+    requests: list[httpx.Request] = []
+    show_index = 0
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal show_index
+        requests.append(request)
+        if request.url.path == "/api/tags":
+            return _catalog_response(tags_stream)
+        current_index = show_index
+        show_index += 1
+        if current_index == oversized_index:
+            return _catalog_response(
+                oversized_stream,
+                headers=[(b"Content-Length", str(cap + 1).encode())],
+            )
+        stream = _CatalogRecordingStream(
+            (_catalog_json_body({"capabilities": ["completion"]}),)
+        )
+        successful_streams.append(stream)
+        return _catalog_response(stream)
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        base_url="http://127.0.0.1:11434",
+    ) as client:
+        with pytest.raises(ModelRuntimeUnavailableError) as captured:
+            await OllamaModelDiscoveryRuntime(
+                client,
+                references,
+                max_response_bytes=cap,
+            ).discover_models()
+
+    assert [request.url.path for request in requests] == [
+        "/api/tags",
+        *["/api/show"] * (oversized_index + 1),
+    ]
+    assert oversized_stream.iteration_count == 0
+    assert oversized_stream.closed is True
+    assert all(stream.closed for stream in successful_streams)
+    assert "private oversized details" not in str(captured.value)
+    assert all(reference not in str(captured.value) for reference in references)
+
+
+@pytest.mark.asyncio
+async def test_ollama_show_cancellation_closes_current_stream_and_propagates():
+    blocked = asyncio.Event()
+    release = asyncio.Event()
+    show_stream = _CatalogRecordingStream(
+        (b'{"capabilities":', b"[]}"),
+        blocked=blocked,
+        release=release,
+    )
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/tags":
+            return httpx.Response(
+                200,
+                json={
+                    "models": [
+                        {"model": LOCAL_MODEL_REFERENCE, "details": {}}
+                    ]
+                },
+            )
+        return _catalog_response(show_stream)
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        base_url="http://127.0.0.1:11434",
+    ) as client:
+        task = asyncio.create_task(
+            OllamaModelDiscoveryRuntime(
+                client,
+                LOCAL_MODEL_ALLOWLIST,
+            ).discover_models()
+        )
+        await blocked.wait()
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+    assert show_stream.iteration_count == 1
+    assert show_stream.closed is True
+
+
+@pytest.mark.asyncio
+async def test_ollama_show_timeout_closes_current_stream_and_is_generic():
+    show_stream = _CatalogRecordingStream(
+        (b"{",),
+        failure=httpx.ReadTimeout("secret detail timeout"),
+    )
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/tags":
+            return httpx.Response(
+                200,
+                json={
+                    "models": [
+                        {"model": LOCAL_MODEL_REFERENCE, "details": {}}
+                    ]
+                },
+            )
+        return _catalog_response(show_stream)
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        base_url="http://127.0.0.1:11434",
+        timeout=5,
+    ) as client:
+        with pytest.raises(ModelRuntimeUnavailableError) as captured:
+            await OllamaModelDiscoveryRuntime(
+                client,
+                LOCAL_MODEL_ALLOWLIST,
+            ).discover_models()
+
+    assert show_stream.closed is True
+    assert "secret detail timeout" not in str(captured.value)
+
+
+@pytest.mark.asyncio
+async def test_ollama_show_malformed_json_is_generic_and_closes():
+    show_stream = _CatalogRecordingStream(
+        (b'{"capabilities":', b"private-invalid-json"),
+    )
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/tags":
+            return httpx.Response(
+                200,
+                json={
+                    "models": [
+                        {"model": LOCAL_MODEL_REFERENCE, "details": {}}
+                    ]
+                },
+            )
+        return _catalog_response(show_stream)
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        base_url="http://127.0.0.1:11434",
+    ) as client:
+        with pytest.raises(ModelRuntimeUnavailableError) as captured:
+            await OllamaModelDiscoveryRuntime(
+                client,
+                LOCAL_MODEL_ALLOWLIST,
+            ).discover_models()
+
+    assert show_stream.closed is True
+    assert "private-invalid-json" not in str(captured.value)
+
+
+@pytest.mark.asyncio
+async def test_ollama_catalog_opaque_public_id_is_stable_for_same_reference():
+    async def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/tags":
+            return httpx.Response(
+                200,
+                json={
+                    "models": [
+                        {"model": LOCAL_MODEL_REFERENCE, "details": {}}
+                    ]
+                },
+            )
+        return httpx.Response(
+            200,
+            json={"capabilities": ["completion"]},
+        )
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        base_url="http://127.0.0.1:11434",
+    ) as client:
+        catalog = ModelCatalog(
+            (
+                OllamaModelDiscoveryRuntime(
+                    client,
+                    LOCAL_MODEL_ALLOWLIST,
+                ),
+            )
+        )
+        first = await catalog.list_models()
+        second = await catalog.list_models()
+
+    assert first[0].model_id == second[0].model_id
+    assert first[0].model_id.startswith("ollama-local:")
+    assert LOCAL_MODEL_REFERENCE not in repr(first)
+
+
 @pytest.mark.parametrize(
     "payload",
     [None, {}, {"models": None}, {"models": [None]}, {"models": [{}]}],
@@ -551,6 +1262,108 @@ def test_ollama_client_disables_proxies_and_redirects(monkeypatch):
         follow_redirects=False,
         trust_env=False,
     )
+
+
+@pytest.mark.asyncio
+async def test_ollama_readiness_is_status_only_and_closes_success_stream():
+    stream = _CatalogRecordingStream((b"unused private inventory" * 100,))
+    requests: list[httpx.Request] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return _catalog_response(stream)
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        base_url="http://127.0.0.1:11434",
+        timeout=7,
+    ) as client:
+        await check_ollama(client)
+
+    assert stream.iteration_count == 0
+    assert stream.closed is True
+    assert len(requests) == 1
+    request = requests[0]
+    assert request.method == "GET"
+    assert request.url.path == "/api/tags"
+    assert request.headers["Accept-Encoding"] == "identity"
+    assert request.extensions["timeout"] == {
+        "connect": 7,
+        "read": 7,
+        "write": 7,
+        "pool": 7,
+    }
+
+
+@pytest.mark.asyncio
+async def test_ollama_readiness_non_success_does_not_read_and_closes():
+    stream = _CatalogRecordingStream((b"private readiness error" * 100,))
+
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        return _catalog_response(stream, status_code=503)
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        base_url="http://127.0.0.1:11434",
+    ) as client:
+        with pytest.raises(httpx.HTTPStatusError) as captured:
+            await check_ollama(client)
+
+    assert stream.iteration_count == 0
+    assert stream.closed is True
+    assert "private readiness error" not in str(captured.value)
+
+
+@pytest.mark.asyncio
+async def test_ollama_readiness_cancellation_closes_stream_and_propagates():
+    close_started = asyncio.Event()
+    close_release = asyncio.Event()
+    stream = _CatalogRecordingStream(
+        (b"unused inventory",),
+        close_started=close_started,
+        close_release=close_release,
+    )
+
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        return _catalog_response(stream)
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        base_url="http://127.0.0.1:11434",
+    ) as client:
+        task = asyncio.create_task(check_ollama(client))
+        await close_started.wait()
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+    assert stream.iteration_count == 0
+    assert stream.closed is True
+
+
+@pytest.mark.asyncio
+async def test_ollama_readiness_preserves_client_timeout_behavior():
+    requests: list[httpx.Request] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        raise httpx.ReadTimeout("secret readiness timeout", request=request)
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        base_url="http://127.0.0.1:11434",
+        timeout=5,
+    ) as client:
+        with pytest.raises(httpx.ReadTimeout) as captured:
+            await check_ollama(client)
+
+    assert "secret readiness timeout" in str(captured.value)
+    assert requests[0].extensions["timeout"] == {
+        "connect": 5,
+        "read": 5,
+        "write": 5,
+        "pool": 5,
+    }
 
 
 @pytest.mark.asyncio

@@ -20,6 +20,7 @@ from app.ai.generation import (
     TextGenerationRuntimeUnsupportedError,
 )
 from app.core.config import (
+    MAX_OLLAMA_CATALOG_RESPONSE_BYTES,
     MAX_OLLAMA_GENERATION_REQUEST_BYTES,
     MAX_OLLAMA_GENERATION_RESPONSE_BYTES,
 )
@@ -86,6 +87,95 @@ def _validated_local_model_allowlist(
     return frozenset(validated)
 
 
+def _catalog_response_content_length(response: httpx.Response) -> int | None:
+    values = [
+        value
+        for name, value in response.headers.raw
+        if name.lower() == b"content-length"
+    ]
+    if not values:
+        return None
+
+    parsed: list[int] = []
+    for value in values:
+        if b"," in value:
+            raise ModelRuntimeUnavailableError(
+                "local model runtime inventory is unavailable"
+            )
+        normalized = value.strip(b" \t")
+        if not normalized or not normalized.isdigit():
+            raise ModelRuntimeUnavailableError(
+                "local model runtime inventory is unavailable"
+            )
+        parsed.append(int(normalized))
+
+    if len(set(parsed)) != 1:
+        raise ModelRuntimeUnavailableError(
+            "local model runtime inventory is unavailable"
+        )
+    return parsed[0]
+
+
+def _validate_catalog_identity_content_encoding(response: httpx.Response) -> None:
+    values = [
+        value.strip(b" \t").lower()
+        for name, value in response.headers.raw
+        if name.lower() == b"content-encoding"
+    ]
+    if values and values != [b"identity"]:
+        raise ModelRuntimeUnavailableError(
+            "local model runtime inventory is unavailable"
+        )
+
+
+async def _request_catalog_json(
+    client: httpx.AsyncClient,
+    method: str,
+    path: str,
+    *,
+    max_response_bytes: int,
+    request_json: Mapping[str, Any] | None = None,
+) -> Any:
+    request_kwargs: dict[str, Any] = {}
+    if request_json is not None:
+        request_kwargs["json"] = request_json
+
+    response_body = bytearray()
+    async with client.stream(
+        method,
+        path,
+        headers={"Accept-Encoding": "identity"},
+        **request_kwargs,
+    ) as response:
+        response.raise_for_status()
+        _validate_catalog_identity_content_encoding(response)
+        declared_length = _catalog_response_content_length(response)
+        if (
+            declared_length is not None
+            and declared_length > max_response_bytes
+        ):
+            raise ModelRuntimeUnavailableError(
+                "local model runtime inventory is unavailable"
+            )
+
+        async for chunk in response.aiter_bytes():
+            if len(chunk) > max_response_bytes - len(response_body):
+                raise ModelRuntimeUnavailableError(
+                    "local model runtime inventory is unavailable"
+                )
+            response_body.extend(chunk)
+
+    try:
+        try:
+            return json.loads(response_body)
+        except Exception as exc:
+            raise ModelRuntimeUnavailableError(
+                "local model runtime inventory is unavailable"
+            ) from exc
+    finally:
+        response_body.clear()
+
+
 class OllamaModelDiscoveryRuntime:
     runtime_id = "ollama-local"
 
@@ -93,30 +183,49 @@ class OllamaModelDiscoveryRuntime:
         self,
         client: httpx.AsyncClient,
         local_model_allowlist: tuple[str, ...] = (),
+        *,
+        max_response_bytes: int = 1_048_576,
     ) -> None:
+        if isinstance(max_response_bytes, bool) or not isinstance(
+            max_response_bytes,
+            int,
+        ):
+            raise TypeError("catalog response cap must be an integer")
+        if not 1 <= max_response_bytes <= MAX_OLLAMA_CATALOG_RESPONSE_BYTES:
+            raise ValueError(
+                "catalog response cap must be between 1 and "
+                f"{MAX_OLLAMA_CATALOG_RESPONSE_BYTES}"
+            )
         self.client = client
+        self.max_response_bytes = max_response_bytes
         self.local_model_allowlist = _validated_local_model_allowlist(
             local_model_allowlist
         )
 
     async def discover_models(self) -> tuple[RuntimeModel, ...]:
         try:
-            response = await self.client.get("/api/tags")
-            response.raise_for_status()
-            payload = response.json()
-            models = _parse_inventory(payload, self.local_model_allowlist)
+            models = _parse_inventory(
+                await _request_catalog_json(
+                    self.client,
+                    "GET",
+                    "/api/tags",
+                    max_response_bytes=self.max_response_bytes,
+                ),
+                self.local_model_allowlist,
+            )
             discovered: list[RuntimeModel] = []
             for model in models:
-                detail_response = await self.client.post(
-                    "/api/show",
-                    json={"model": model.reference},
-                )
-                detail_response.raise_for_status()
                 discovered.append(
                     replace(
                         model,
                         capabilities=_parse_capabilities(
-                            detail_response.json()
+                            await _request_catalog_json(
+                                self.client,
+                                "POST",
+                                "/api/show",
+                                max_response_bytes=self.max_response_bytes,
+                                request_json={"model": model.reference},
+                            )
                         ),
                     )
                 )

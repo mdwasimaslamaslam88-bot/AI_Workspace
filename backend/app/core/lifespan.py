@@ -37,6 +37,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             OllamaModelDiscoveryRuntime(
                 ollama_client,
                 settings.OLLAMA_LOCAL_MODEL_ALLOWLIST,
+                max_response_bytes=(
+                    settings.OLLAMA_CATALOG_MAX_RESPONSE_BYTES
+                ),
             ),
         )
         if ollama_client is not None
