@@ -333,6 +333,24 @@ generation-only retry; an uncommitted USER and a not-yet-committed assistant are
 rolled back through the existing cleanup paths. External task cancellation is
 not converted to HTTP 503 and continues to propagate while releasing admission.
 
+The combined generation endpoint also observes client disappearance directly.
+After FastAPI has consumed and validated the request body and resolved its
+authentication and database dependencies, the endpoint starts one scoped ASGI
+watcher that waits for `http.disconnect`. The watcher ignores any residual
+ordinary request event and cancels the existing endpoint/generation task when
+the disconnect arrives; it does not poll, create a background generation, or
+fabricate an HTTP response for the departed client. Every endpoint exit
+cancels and awaits the watcher, so it cannot outlive the request. The normal
+cancellation unwind closes the existing HTTPX streams and releases admission
+only after the generation task has stopped, while the hard deadline remains
+the fallback when no disconnect event is delivered.
+
+Cancellation retains the existing transaction boundary. A USER whose commit
+completed before disconnect remains available for generation-only retry; an
+uncommitted USER or assistant follows the existing rollback path. If the final
+assistant commit already completed before cancellation took effect, that commit
+remains authoritative and is not compensated or deleted.
+
 The service copies the owner-scoped Conversation history and rolls back its
 read transaction before local inference. The generated assistant Message is
 then appended through the existing atomic Message sequence allocator. That

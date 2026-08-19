@@ -1,8 +1,10 @@
 import asyncio
 from datetime import datetime, timezone
+import json
 import re
 from uuid import UUID, uuid4
 
+from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 import pytest
 import sqlalchemy as sa
@@ -10,6 +12,7 @@ from sqlalchemy.dialects.postgresql import UUID as PostgreSQLUUID
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
+import app.api.v1.conversations as conversations_module
 import app.api.v1.users as users_module
 import app.services.conversation_generation as generation_module
 from app.ai.catalog import (
@@ -45,6 +48,66 @@ _PROVISIONING_DIGEST = digest_access_token(_PROVISIONING_TOKEN)
 _PROVISIONING_HEADERS = {
     "X-User-Provisioning-Token": _PROVISIONING_TOKEN,
 }
+
+
+class _GenerationDisconnectASGIHarness:
+    def __init__(
+        self,
+        asgi_app: FastAPI,
+        conversation_id: UUID,
+        authorization: str,
+        payload: dict,
+    ) -> None:
+        body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+        path = (
+            f"/api/v1/conversations/{conversation_id}/messages/generate"
+        )
+        self.scope = {
+            "type": "http",
+            "app": asgi_app,
+            "state": {},
+            "asgi": {"version": "3.0", "spec_version": "2.3"},
+            "http_version": "1.1",
+            "method": "POST",
+            "scheme": "http",
+            "path": path,
+            "raw_path": path.encode("ascii"),
+            "query_string": b"",
+            "headers": [
+                (b"host", b"testserver"),
+                (b"content-type", b"application/json"),
+                (b"content-length", str(len(body)).encode("ascii")),
+                (b"authorization", authorization.encode("ascii")),
+            ],
+            "client": ("127.0.0.1", 12345),
+            "server": ("testserver", 80),
+            "root_path": "",
+        }
+        self._events: asyncio.Queue[dict] = asyncio.Queue()
+        self._events.put_nowait(
+            {
+                "type": "http.request",
+                "body": body,
+                "more_body": False,
+            }
+        )
+        self.body_consumed = asyncio.Event()
+        self.sent: list[dict] = []
+
+    async def receive(self) -> dict:
+        message = await self._events.get()
+        if (
+            message["type"] == "http.request"
+            and not message.get("more_body", False)
+        ):
+            self.body_consumed.set()
+        return message
+
+    async def send(self, message: dict) -> None:
+        self.sent.append(message)
+
+    def disconnect(self) -> None:
+        self._events.put_nowait({"type": "http.disconnect"})
 
 
 @pytest.fixture(autouse=True)
@@ -3744,6 +3807,7 @@ async def test_generation_admission_is_user_scoped_globally_bounded_and_rotation
 @pytest.mark.asyncio
 async def test_generation_deadline_preserves_retry_and_releases_postgres_resources(
     test_database_engine: AsyncEngine,
+    monkeypatch,
 ):
     class DeadlineLocalTextRuntime:
         runtime_id = "deadline-local"
@@ -3825,6 +3889,16 @@ async def test_generation_deadline_preserves_retry_and_releases_postgres_resourc
     app.state.text_generation_router = generation_router
     app.state.generation_admission_controller = admission
     app.state.generation_max_duration_seconds = 0.25
+    disconnect_app = FastAPI()
+    disconnect_app.include_router(
+        conversations_module.router,
+        prefix="/api/v1",
+    )
+    disconnect_app.state.db_session_factory = session_factory
+    disconnect_app.state.model_catalog = catalog
+    disconnect_app.state.text_generation_router = generation_router
+    disconnect_app.state.generation_admission_controller = admission
+    disconnect_app.state.generation_max_duration_seconds = 1.0
 
     async def create_conversation(client, headers, content):
         response = await client.post(
@@ -3951,24 +4025,48 @@ async def test_generation_deadline_preserves_retry_and_releases_postgres_resourc
                 "cancellation initial",
             )
             runtime.prepare_blocked_call()
+            disconnect_harness = _GenerationDisconnectASGIHarness(
+                disconnect_app,
+                cancelled_conversation,
+                owner_headers["Authorization"],
+                {
+                    "model_id": model_id,
+                    "user_message": "committed before cancellation",
+                },
+            )
             cancelled_task = asyncio.create_task(
-                client.post(
-                    f"/api/v1/conversations/{cancelled_conversation}/messages/generate",
-                    headers=owner_headers,
-                    json={
-                        "model_id": model_id,
-                        "user_message": "committed before cancellation",
-                    },
+                disconnect_app(
+                    disconnect_harness.scope,
+                    disconnect_harness.receive,
+                    disconnect_harness.send,
                 )
             )
             await asyncio.wait_for(runtime.entered.wait(), timeout=1)
-            cancelled_task.cancel()
+            assert disconnect_harness.body_consumed.is_set()
+
+            disconnect_harness.disconnect()
             with pytest.raises(asyncio.CancelledError):
                 await cancelled_task
 
             assert runtime.active_calls == 0
             assert admission._active_users == set()
             assert admission._active_count == 0
+            assert disconnect_harness.sent == []
+            assert not any(
+                task.get_name() == "generation-client-disconnect-watcher"
+                and not task.done()
+                for task in asyncio.all_tasks()
+            )
+            async with AsyncSession(test_database_engine) as observer:
+                idle_in_transaction = await observer.scalar(
+                    sa.text(
+                        "SELECT count(*) FROM pg_stat_activity "
+                        "WHERE datname = current_database() "
+                        "AND pid <> pg_backend_pid() "
+                        "AND state = 'idle in transaction'"
+                    )
+                )
+            assert idle_in_transaction == 0
             cancelled_history = await client.get(
                 f"/api/v1/conversations/{cancelled_conversation}/messages",
                 headers=owner_headers,
@@ -3980,6 +4078,180 @@ async def test_generation_deadline_preserves_retry_and_releases_postgres_resourc
             ] == [
                 ("user", "cancellation initial"),
                 ("user", "committed before cancellation"),
+            ]
+
+            runtime.block = False
+            other_after_disconnect = await create_conversation(
+                client,
+                other_headers,
+                "other after disconnect",
+            )
+            other_after_disconnect_response = await client.post(
+                f"/api/v1/conversations/{other_after_disconnect}/messages/generate",
+                headers=other_headers,
+                json={"model_id": model_id},
+            )
+            assert other_after_disconnect_response.status_code == 201
+
+            cancellation_retry = await client.post(
+                f"/api/v1/conversations/{cancelled_conversation}/messages/generate",
+                headers=owner_headers,
+                json={"model_id": model_id},
+            )
+            assert cancellation_retry.status_code == 201
+            assert cancellation_retry.json()["message"]["content"] == (
+                "deadline-safe answer"
+            )
+            assert admission._active_users == set()
+            assert admission._active_count == 0
+
+            completed_history = await client.get(
+                f"/api/v1/conversations/{cancelled_conversation}/messages",
+                headers=owner_headers,
+            )
+            assert completed_history.status_code == 200
+            assert [
+                (item["role"], item["content"])
+                for item in completed_history.json()["items"]
+            ] == [
+                ("user", "cancellation initial"),
+                ("user", "committed before cancellation"),
+                ("assistant", "deadline-safe answer"),
+            ]
+
+            original_append = MessageService.append_for_owner
+            before_commit_conversation = await create_conversation(
+                client,
+                owner_headers,
+                "assistant cancellation before commit",
+            )
+            before_commit_entered = asyncio.Event()
+            before_commit_blocker = asyncio.Event()
+
+            async def block_before_assistant_commit(
+                service,
+                owner_id,
+                conversation_id,
+                role,
+                content,
+                **kwargs,
+            ):
+                if role is MessageRole.ASSISTANT:
+                    before_commit_entered.set()
+                    await before_commit_blocker.wait()
+                return await original_append(
+                    service,
+                    owner_id,
+                    conversation_id,
+                    role,
+                    content,
+                    **kwargs,
+                )
+
+            with monkeypatch.context() as patch:
+                patch.setattr(
+                    MessageService,
+                    "append_for_owner",
+                    block_before_assistant_commit,
+                )
+                before_commit_harness = _GenerationDisconnectASGIHarness(
+                    disconnect_app,
+                    before_commit_conversation,
+                    owner_headers["Authorization"],
+                    {"model_id": model_id},
+                )
+                before_commit_task = asyncio.create_task(
+                    disconnect_app(
+                        before_commit_harness.scope,
+                        before_commit_harness.receive,
+                        before_commit_harness.send,
+                    )
+                )
+                await asyncio.wait_for(before_commit_entered.wait(), timeout=1)
+                before_commit_harness.disconnect()
+                with pytest.raises(asyncio.CancelledError):
+                    await before_commit_task
+
+            assert before_commit_harness.sent == []
+            before_commit_history = await client.get(
+                f"/api/v1/conversations/{before_commit_conversation}/messages",
+                headers=owner_headers,
+            )
+            assert before_commit_history.status_code == 200
+            assert [
+                (item["role"], item["content"])
+                for item in before_commit_history.json()["items"]
+            ] == [
+                ("user", "assistant cancellation before commit"),
+            ]
+
+            completed_commit_conversation = await create_conversation(
+                client,
+                owner_headers,
+                "assistant commit completion first",
+            )
+            assistant_committed = asyncio.Event()
+            after_commit_blocker = asyncio.Event()
+
+            async def block_after_assistant_commit(
+                service,
+                owner_id,
+                conversation_id,
+                role,
+                content,
+                **kwargs,
+            ):
+                message = await original_append(
+                    service,
+                    owner_id,
+                    conversation_id,
+                    role,
+                    content,
+                    **kwargs,
+                )
+                if role is MessageRole.ASSISTANT:
+                    assistant_committed.set()
+                    await after_commit_blocker.wait()
+                return message
+
+            with monkeypatch.context() as patch:
+                patch.setattr(
+                    MessageService,
+                    "append_for_owner",
+                    block_after_assistant_commit,
+                )
+                completed_commit_harness = _GenerationDisconnectASGIHarness(
+                    disconnect_app,
+                    completed_commit_conversation,
+                    owner_headers["Authorization"],
+                    {"model_id": model_id},
+                )
+                completed_commit_task = asyncio.create_task(
+                    disconnect_app(
+                        completed_commit_harness.scope,
+                        completed_commit_harness.receive,
+                        completed_commit_harness.send,
+                    )
+                )
+                await asyncio.wait_for(assistant_committed.wait(), timeout=1)
+                completed_commit_harness.disconnect()
+                with pytest.raises(asyncio.CancelledError):
+                    await completed_commit_task
+
+            assert completed_commit_harness.sent == []
+            assert admission._active_users == set()
+            assert admission._active_count == 0
+            completed_commit_history = await client.get(
+                f"/api/v1/conversations/{completed_commit_conversation}/messages",
+                headers=owner_headers,
+            )
+            assert completed_commit_history.status_code == 200
+            assert [
+                (item["role"], item["content"])
+                for item in completed_commit_history.json()["items"]
+            ] == [
+                ("user", "assistant commit completion first"),
+                ("assistant", "deadline-safe answer"),
             ]
     finally:
         if previous_factory is missing:

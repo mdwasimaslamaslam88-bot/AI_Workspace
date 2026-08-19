@@ -1,3 +1,4 @@
+import asyncio
 from typing import Annotated
 from uuid import UUID
 
@@ -52,6 +53,19 @@ from app.services.conversation_generation import (
 
 
 router = APIRouter(prefix="/conversations", tags=["Conversations"])
+
+
+async def _cancel_generation_on_disconnect(
+    request: Request,
+    generation_task: asyncio.Task[object],
+) -> None:
+    while True:
+        message = await request.receive()
+        if message["type"] != "http.disconnect":
+            continue
+        if not generation_task.done() and generation_task.cancelling() == 0:
+            generation_task.cancel()
+        return
 
 
 @router.get("", response_model=ConversationPageResponse)
@@ -275,6 +289,13 @@ async def generate_assistant_message(
     ):
         raise RuntimeError("Local text generation is not configured")
 
+    generation_task = asyncio.current_task()
+    if generation_task is None:  # pragma: no cover
+        raise RuntimeError("Generation request task is not available")
+    disconnect_watcher = asyncio.create_task(
+        _cancel_generation_on_disconnect(request, generation_task),
+        name="generation-client-disconnect-watcher",
+    )
     try:
         message = await ConversationGenerationService(
             session,
@@ -354,6 +375,10 @@ async def generate_assistant_message(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Local model runtime unavailable",
         ) from None
+    finally:
+        if not disconnect_watcher.done():
+            disconnect_watcher.cancel()
+        await asyncio.gather(disconnect_watcher, return_exceptions=True)
 
     return ConversationTextGenerationResponse(
         model_id=generation_request.model_id,

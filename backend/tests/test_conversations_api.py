@@ -1,8 +1,11 @@
+import asyncio
 from datetime import datetime, timezone
+import json
 from unittest.mock import AsyncMock, Mock
 from uuid import UUID, uuid4
 
 import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -2103,6 +2106,392 @@ def test_only_delete_by_id_route_was_added(conversation_api):
 
 
 GENERATION_MODEL_ID = f"local-runtime:{'a' * 24}"
+
+
+class _GenerationASGIHarness:
+    def __init__(
+        self,
+        conversation_id: UUID,
+        payload: dict,
+        *,
+        asgi_app: FastAPI = app,
+    ) -> None:
+        body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+        path = (
+            f"/api/v1/conversations/{conversation_id}/messages/generate"
+        )
+        self.scope = {
+            "type": "http",
+            "app": asgi_app,
+            "state": {},
+            "asgi": {"version": "3.0", "spec_version": "2.3"},
+            "http_version": "1.1",
+            "method": "POST",
+            "scheme": "http",
+            "path": path,
+            "raw_path": path.encode("ascii"),
+            "query_string": b"",
+            "headers": [
+                (b"host", b"testserver"),
+                (b"content-type", b"application/json"),
+                (b"content-length", str(len(body)).encode("ascii")),
+            ],
+            "client": ("127.0.0.1", 12345),
+            "server": ("testserver", 80),
+            "root_path": "",
+        }
+        self._events: asyncio.Queue[dict] = asyncio.Queue()
+        self._events.put_nowait(
+            {
+                "type": "http.request",
+                "body": body,
+                "more_body": False,
+            }
+        )
+        self.body_consumed = asyncio.Event()
+        self.sent: list[dict] = []
+
+    async def receive(self) -> dict:
+        message = await self._events.get()
+        if (
+            message["type"] == "http.request"
+            and not message.get("more_body", False)
+        ):
+            self.body_consumed.set()
+        return message
+
+    async def send(self, message: dict) -> None:
+        self.sent.append(message)
+
+    def disconnect(self) -> None:
+        self._events.put_nowait({"type": "http.disconnect"})
+
+    @property
+    def response_statuses(self) -> list[int]:
+        return [
+            message["status"]
+            for message in self.sent
+            if message["type"] == "http.response.start"
+        ]
+
+
+@pytest.fixture
+def async_generation_api(monkeypatch):
+    session = AsyncMock(spec=AsyncSession)
+    current_user = User(
+        id=uuid4(),
+        created_at=datetime(2026, 8, 13, tzinfo=timezone.utc),
+        updated_at=datetime(2026, 8, 13, tzinfo=timezone.utc),
+    )
+    conversation_id = uuid4()
+    generated_message = Message(
+        id=uuid4(),
+        conversation_id=conversation_id,
+        role=MessageRole.ASSISTANT,
+        content="safe answer",
+        sequence_number=2,
+        created_at=datetime(2026, 8, 13, 1, tzinfo=timezone.utc),
+        updated_at=datetime(2026, 8, 13, 1, 1, tzinfo=timezone.utc),
+    )
+    generate = AsyncMock(return_value=generated_message)
+    service_factory = Mock(return_value=Mock(generate_for_owner=generate))
+    monkeypatch.setattr(
+        conversations_module,
+        "ConversationGenerationService",
+        service_factory,
+    )
+
+    async def override_db_session():
+        yield session
+
+    async def override_current_user():
+        return current_user
+
+    disconnect_app = FastAPI()
+    disconnect_app.include_router(
+        conversations_module.router,
+        prefix="/api/v1",
+    )
+    for target_app in (app, disconnect_app):
+        target_app.dependency_overrides[get_db_session] = override_db_session
+        target_app.dependency_overrides[get_current_user] = override_current_user
+    state_names = (
+        "model_catalog",
+        "text_generation_router",
+        "generation_admission_controller",
+        "generation_max_duration_seconds",
+    )
+    missing = object()
+    previous_state = {
+        name: getattr(app.state, name, missing) for name in state_names
+    }
+    app.state.model_catalog = object()
+    app.state.text_generation_router = object()
+    app.state.generation_admission_controller = object()
+    app.state.generation_max_duration_seconds = 73.25
+    disconnect_app.state.model_catalog = app.state.model_catalog
+    disconnect_app.state.text_generation_router = (
+        app.state.text_generation_router
+    )
+    disconnect_app.state.generation_admission_controller = (
+        app.state.generation_admission_controller
+    )
+    disconnect_app.state.generation_max_duration_seconds = 73.25
+    try:
+        yield {
+            "session": session,
+            "current_user": current_user,
+            "conversation_id": conversation_id,
+            "message": generated_message,
+            "generate": generate,
+            "service_factory": service_factory,
+            "asgi_app": disconnect_app,
+        }
+    finally:
+        for target_app in (app, disconnect_app):
+            target_app.dependency_overrides.pop(get_current_user, None)
+            target_app.dependency_overrides.pop(get_db_session, None)
+        for name, previous in previous_state.items():
+            if previous is missing:
+                if hasattr(app.state, name):
+                    delattr(app.state, name)
+            else:
+                setattr(app.state, name, previous)
+
+
+def _pending_disconnect_watchers() -> list[asyncio.Task]:
+    return [
+        task
+        for task in asyncio.all_tasks()
+        if task.get_name() == "generation-client-disconnect-watcher"
+        and not task.done()
+    ]
+
+
+@pytest.mark.asyncio
+async def test_generation_asgi_watcher_starts_after_body_and_cleans_on_success(
+    async_generation_api,
+):
+    api = async_generation_api
+    harness = _GenerationASGIHarness(
+        api["conversation_id"],
+        {"model_id": GENERATION_MODEL_ID},
+    )
+    generate_entered = asyncio.Event()
+
+    async def generate(*_args, **_kwargs):
+        assert harness.body_consumed.is_set()
+        assert len(_pending_disconnect_watchers()) == 1
+        generate_entered.set()
+        return api["message"]
+
+    api["generate"].side_effect = generate
+
+    await app(harness.scope, harness.receive, harness.send)
+
+    assert generate_entered.is_set()
+    assert harness.response_statuses == [201]
+    assert _pending_disconnect_watchers() == []
+
+
+@pytest.mark.asyncio
+async def test_generation_asgi_disconnect_cancels_without_http_response(
+    async_generation_api,
+    caplog,
+):
+    api = async_generation_api
+    harness = _GenerationASGIHarness(
+        api["conversation_id"],
+        {
+            "model_id": GENERATION_MODEL_ID,
+            "user_message": "private prompt must not be logged",
+        },
+        asgi_app=api["asgi_app"],
+    )
+    generation_entered = asyncio.Event()
+    generation_cancelled = asyncio.Event()
+    blocker = asyncio.Event()
+
+    async def generate(*_args, **_kwargs):
+        assert harness.body_consumed.is_set()
+        generation_entered.set()
+        try:
+            await blocker.wait()
+        except asyncio.CancelledError:
+            generation_cancelled.set()
+            raise
+
+    api["generate"].side_effect = generate
+    request_task = asyncio.create_task(
+        api["asgi_app"](harness.scope, harness.receive, harness.send)
+    )
+    await asyncio.wait_for(generation_entered.wait(), timeout=1)
+    assert len(_pending_disconnect_watchers()) == 1
+
+    harness.disconnect()
+    await asyncio.wait_for(generation_cancelled.wait(), timeout=1)
+    with pytest.raises(asyncio.CancelledError):
+        await request_task
+
+    assert harness.sent == []
+    assert _pending_disconnect_watchers() == []
+    logged = caplog.text
+    for unsafe in (
+        "private prompt must not be logged",
+        GENERATION_MODEL_ID,
+        str(api["current_user"].id),
+        str(api["conversation_id"]),
+        "73.25",
+        "CancelledError",
+    ):
+        assert unsafe not in logged
+
+
+@pytest.mark.asyncio
+async def test_disconnect_watcher_ignores_residual_request_event():
+    request = Mock(
+        receive=AsyncMock(
+            side_effect=[
+                {"type": "http.request", "body": b"", "more_body": False},
+                {"type": "http.disconnect"},
+            ]
+        )
+    )
+    blocker = asyncio.Event()
+
+    async def generation() -> None:
+        generation_task = asyncio.current_task()
+        assert generation_task is not None
+        watcher = asyncio.create_task(
+            conversations_module._cancel_generation_on_disconnect(
+                request,
+                generation_task,
+            ),
+            name="generation-client-disconnect-watcher",
+        )
+        try:
+            await blocker.wait()
+        finally:
+            if not watcher.done():
+                watcher.cancel()
+            await asyncio.gather(watcher, return_exceptions=True)
+
+    with pytest.raises(asyncio.CancelledError):
+        await asyncio.create_task(generation())
+
+    assert request.receive.await_count == 2
+    assert _pending_disconnect_watchers() == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("done", "cancelling"),
+    [(True, 0), (False, 1)],
+)
+async def test_disconnect_watcher_never_duplicates_task_cancellation(
+    done,
+    cancelling,
+):
+    request = Mock(
+        receive=AsyncMock(return_value={"type": "http.disconnect"})
+    )
+    generation_task = Mock()
+    generation_task.done.return_value = done
+    generation_task.cancelling.return_value = cancelling
+
+    await conversations_module._cancel_generation_on_disconnect(
+        request,
+        generation_task,
+    )
+
+    generation_task.cancel.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_external_generation_request_cancellation_cleans_watcher_once(
+    async_generation_api,
+):
+    api = async_generation_api
+    harness = _GenerationASGIHarness(
+        api["conversation_id"],
+        {"model_id": GENERATION_MODEL_ID},
+        asgi_app=api["asgi_app"],
+    )
+    generation_entered = asyncio.Event()
+    generation_cancelled = asyncio.Event()
+    blocker = asyncio.Event()
+    cancellation_count = 0
+
+    async def generate(*_args, **_kwargs):
+        nonlocal cancellation_count
+        generation_entered.set()
+        try:
+            await blocker.wait()
+        except asyncio.CancelledError:
+            cancellation_count += 1
+            generation_cancelled.set()
+            raise
+
+    api["generate"].side_effect = generate
+    request_task = asyncio.create_task(
+        api["asgi_app"](harness.scope, harness.receive, harness.send)
+    )
+    await asyncio.wait_for(generation_entered.wait(), timeout=1)
+
+    request_task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await request_task
+
+    assert generation_cancelled.is_set()
+    assert cancellation_count == 1
+    assert _pending_disconnect_watchers() == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("failure", "expected_status"),
+    [
+        (conversations_module.ConversationGenerationNotFoundError("hidden"), 404),
+        (GenerationAdmissionRejectedError("hidden"), 429),
+        (
+            conversations_module.ConversationGenerationContextTooLargeError(
+                "hidden"
+            ),
+            413,
+        ),
+        (
+            conversations_module.ConversationChangedDuringGenerationError(
+                "hidden"
+            ),
+            409,
+        ),
+        (
+            conversations_module.TextGenerationRuntimeUnavailableError("hidden"),
+            503,
+        ),
+        (RuntimeError("hidden unexpected failure"), 500),
+    ],
+)
+async def test_generation_asgi_domain_paths_always_clean_watcher(
+    async_generation_api,
+    failure,
+    expected_status,
+):
+    api = async_generation_api
+    harness = _GenerationASGIHarness(
+        api["conversation_id"],
+        {"model_id": GENERATION_MODEL_ID},
+    )
+    api["generate"].side_effect = failure
+
+    if expected_status == 500:
+        with pytest.raises(RuntimeError, match="hidden unexpected failure"):
+            await app(harness.scope, harness.receive, harness.send)
+    else:
+        await app(harness.scope, harness.receive, harness.send)
+
+    assert harness.response_statuses == [expected_status]
+    assert _pending_disconnect_watchers() == []
 
 
 @pytest.fixture

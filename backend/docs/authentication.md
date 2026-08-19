@@ -331,3 +331,19 @@ deadline cancellation has stopped it and the existing admission `finally`
 releases the permit. A USER already committed before expiry remains available
 for a generation-only retry. External cancellation still propagates as
 cancellation and uses the existing database and admission cleanup behavior.
+
+For the combined generation route, endpoint execution starts one scoped ASGI
+disconnect watcher only after FastAPI has consumed and validated the body and
+resolved authentication and database dependencies. The watcher waits on the
+existing request receive channel for `http.disconnect`, ignores residual
+ordinary request events, and cancels the same endpoint/generation task. It does
+not poll, detach generation, or return a fabricated 499 or 503 response. The
+endpoint always cancels and awaits the watcher on exit, while the normal
+cancellation unwind retains the admission permit until generation has actually
+stopped.
+
+A USER committed before a disconnect remains owner-scoped and available for a
+generation-only retry. Uncommitted USER or assistant work follows the existing
+rollback behavior. An assistant commit that already completed before
+cancellation remains authoritative; disconnect handling never performs a
+compensating delete.
