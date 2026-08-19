@@ -32,6 +32,7 @@ from app.runtimes.ollama import (
 
 LOCAL_MODEL_REFERENCE = "/private/runtime/model:14b"
 LOCAL_MODEL_ALLOWLIST = (LOCAL_MODEL_REFERENCE,)
+DUPLICATE_MODEL_REFERENCE = "/private/runtime/duplicate:14b"
 
 
 class _CatalogRecordingStream(httpx.AsyncByteStream):
@@ -103,6 +104,41 @@ def _catalog_response(
         headers=list(headers),
         stream=stream,
     )
+
+
+async def _assert_duplicate_inventory_rejected_before_show(
+    inventory: list[dict[str, object]],
+    allowlist: tuple[str, ...],
+    *,
+    private_values: tuple[str, ...] = (),
+) -> None:
+    requests: list[httpx.Request] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if request.url.path == "/api/show":
+            raise AssertionError("duplicate inventory must prevent detail requests")
+        return httpx.Response(200, json={"models": inventory})
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        base_url="http://127.0.0.1:11434",
+    ) as client:
+        with pytest.raises(ModelRuntimeUnavailableError) as captured:
+            await OllamaModelDiscoveryRuntime(
+                client,
+                allowlist,
+            ).discover_models()
+
+    assert [(request.method, request.url.path) for request in requests] == [
+        ("GET", "/api/tags")
+    ]
+    assert str(captured.value) == (
+        "local model runtime returned an invalid inventory"
+    )
+    assert captured.value.__cause__ is None
+    for private_value in private_values:
+        assert private_value not in str(captured.value)
 
 
 @pytest.mark.asyncio
@@ -180,6 +216,220 @@ async def test_ollama_discovery_uses_documented_capabilities_and_hides_reference
         ModelCapability.TEXT_GENERATION,
         ModelCapability.TOOL_CALLING,
         ModelCapability.VISION_INPUT,
+    )
+
+
+@pytest.mark.asyncio
+async def test_ollama_duplicate_first_fails_before_any_show_request():
+    later_reference = "/private/runtime/later:7b"
+    await _assert_duplicate_inventory_rejected_before_show(
+        [
+            {
+                "model": DUPLICATE_MODEL_REFERENCE,
+                "details": {"family": "private-first-family"},
+            },
+            {
+                "model": DUPLICATE_MODEL_REFERENCE,
+                "details": {"family": "private-second-family"},
+            },
+            {"model": later_reference, "details": {}},
+        ],
+        (DUPLICATE_MODEL_REFERENCE, later_reference),
+        private_values=(
+            DUPLICATE_MODEL_REFERENCE,
+            "private-first-family",
+            "private-second-family",
+        ),
+    )
+
+
+@pytest.mark.asyncio
+async def test_ollama_duplicate_after_unique_entries_prevents_all_show_requests():
+    references = (
+        "/private/runtime/unique-one:7b",
+        "/private/runtime/unique-two:14b",
+        "/private/runtime/unique-three:32b",
+    )
+    await _assert_duplicate_inventory_rejected_before_show(
+        [
+            {"model": references[0], "details": {"family": "FamilyOne"}},
+            {"model": references[1], "details": {"family": "FamilyTwo"}},
+            {"model": references[2], "details": {"family": "FamilyThree"}},
+            {
+                "model": references[0],
+                "details": {"family": "private-late-duplicate"},
+            },
+        ],
+        references,
+        private_values=(references[0], "private-late-duplicate"),
+    )
+
+
+@pytest.mark.asyncio
+async def test_ollama_duplicate_with_conflicting_metadata_fails_closed():
+    await _assert_duplicate_inventory_rejected_before_show(
+        [
+            {
+                "model": DUPLICATE_MODEL_REFERENCE,
+                "details": {
+                    "family": "private-first-family",
+                    "parameter_size": "7B",
+                    "quantization_level": "Q4_K_M",
+                },
+            },
+            {
+                "model": DUPLICATE_MODEL_REFERENCE,
+                "details": {
+                    "family": "private-last-family",
+                    "parameter_size": "70B",
+                    "quantization_level": "Q8_0",
+                },
+            },
+        ],
+        (DUPLICATE_MODEL_REFERENCE,),
+        private_values=(
+            DUPLICATE_MODEL_REFERENCE,
+            "private-first-family",
+            "private-last-family",
+            "Q4_K_M",
+            "Q8_0",
+        ),
+    )
+
+
+@pytest.mark.asyncio
+async def test_ollama_many_duplicate_entries_fail_before_any_show_request():
+    await _assert_duplicate_inventory_rejected_before_show(
+        [
+            {
+                "model": DUPLICATE_MODEL_REFERENCE,
+                "details": {"family": f"private-family-{index}"},
+            }
+            for index in range(128)
+        ],
+        (DUPLICATE_MODEL_REFERENCE,),
+        private_values=(DUPLICATE_MODEL_REFERENCE, "private-family-127"),
+    )
+
+
+@pytest.mark.asyncio
+async def test_ollama_duplicate_nonallowlisted_entries_remain_ignored():
+    ignored_reference = "/private/runtime/not-approved:70b"
+    requests: list[httpx.Request] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if request.url.path == "/api/show":
+            return httpx.Response(200, json={"capabilities": ["completion"]})
+        return httpx.Response(
+            200,
+            json={
+                "models": [
+                    {
+                        "model": ignored_reference,
+                        "details": {"family": "IgnoredOne"},
+                    },
+                    {
+                        "model": ignored_reference,
+                        "details": "ignored malformed metadata",
+                    },
+                    {
+                        "model": LOCAL_MODEL_REFERENCE,
+                        "details": {"family": "VerifiedLocal"},
+                    },
+                ]
+            },
+        )
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        base_url="http://127.0.0.1:11434",
+    ) as client:
+        (model,) = await OllamaModelDiscoveryRuntime(
+            client,
+            LOCAL_MODEL_ALLOWLIST,
+        ).discover_models()
+
+    assert [(request.method, request.url.path) for request in requests] == [
+        ("GET", "/api/tags"),
+        ("POST", "/api/show"),
+    ]
+    assert json.loads(requests[1].content) == {"model": LOCAL_MODEL_REFERENCE}
+    assert model.reference == LOCAL_MODEL_REFERENCE
+    assert model.family == "VerifiedLocal"
+    assert model.capabilities == (ModelCapability.TEXT_GENERATION,)
+
+
+@pytest.mark.asyncio
+async def test_ollama_unique_allowlisted_entries_preserve_order_and_detail_calls():
+    inventory_order = (
+        "/private/runtime/third:32b",
+        "/private/runtime/first:7b",
+        "/private/runtime/second:14b",
+    )
+    allowlist = (
+        "/private/runtime/first:7b",
+        "/private/runtime/second:14b",
+        "/private/runtime/third:32b",
+    )
+    show_references: list[str] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/show":
+            show_references.append(json.loads(request.content)["model"])
+            return httpx.Response(
+                200,
+                json={
+                    "capabilities": [
+                        "tools",
+                        "completion",
+                        "completion",
+                        "unknown-capability",
+                    ]
+                },
+            )
+        return httpx.Response(
+            200,
+            json={
+                "models": [
+                    {
+                        "model": reference,
+                        "details": {
+                            "family": f"Family{index}",
+                            "parameter_size": f"{index}B",
+                            "quantization_level": f"Q{index}",
+                        },
+                    }
+                    for index, reference in enumerate(inventory_order, start=1)
+                ]
+            },
+        )
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        base_url="http://127.0.0.1:11434",
+    ) as client:
+        models = await OllamaModelDiscoveryRuntime(
+            client,
+            allowlist,
+        ).discover_models()
+
+    assert tuple(model.reference for model in models) == inventory_order
+    assert show_references == list(inventory_order)
+    assert tuple(model.family for model in models) == (
+        "Family1",
+        "Family2",
+        "Family3",
+    )
+    assert tuple(model.parameter_class for model in models) == ("1B", "2B", "3B")
+    assert tuple(model.quantization for model in models) == ("Q1", "Q2", "Q3")
+    assert all(
+        model.capabilities
+        == (
+            ModelCapability.TEXT_GENERATION,
+            ModelCapability.TOOL_CALLING,
+        )
+        for model in models
     )
 
 
@@ -1206,6 +1456,7 @@ async def test_ollama_catalog_opaque_public_id_is_stable_for_same_reference():
         second = await catalog.list_models()
 
     assert first[0].model_id == second[0].model_id
+    assert first[0].model_id == "ollama-local:a92a93894cc39a91a63c2b3b"
     assert first[0].model_id.startswith("ollama-local:")
     assert LOCAL_MODEL_REFERENCE not in repr(first)
 

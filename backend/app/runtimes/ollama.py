@@ -619,6 +619,7 @@ def _parse_inventory(
         )
 
     parsed: list[RuntimeModel] = []
+    seen_allowlisted_references: set[str] = set()
     for item in models:
         if not isinstance(item, Mapping):
             raise ModelRuntimeUnavailableError(
@@ -631,6 +632,11 @@ def _parse_inventory(
             )
         if reference not in local_model_allowlist:
             continue
+        if reference in seen_allowlisted_references:
+            raise ModelRuntimeUnavailableError(
+                "local model runtime returned an invalid inventory"
+            )
+        seen_allowlisted_references.add(reference)
         details = item.get("details", {})
         if not isinstance(details, Mapping):
             raise ModelRuntimeUnavailableError(

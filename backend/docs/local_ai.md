@@ -49,7 +49,9 @@ Unknown metadata remains `null` instead of being inferred from a model name.
 
 Ollama discovery uses `GET /api/tags` only for installed-model inventory. The
 exact local-model allowlist is applied to that inventory before any detail
-request. For each installed and allowlisted reference, the adapter calls
+request. Duplicate allowlisted inventory references fail the complete discovery
+before any detail request; duplicate nonallowlisted references remain ignored.
+For each unique installed and allowlisted reference, the adapter calls
 `POST /api/show` with only that internal reference and reads only the documented
 `capabilities` list. Ollama `completion`, `vision`, `embedding`, and `tools`
 values map respectively to the public `text_generation`, `vision_input`,
