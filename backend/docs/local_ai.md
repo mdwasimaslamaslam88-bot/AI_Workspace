@@ -383,7 +383,13 @@ parsed only after the bounded body is complete. Oversized, malformed-header,
 encoded, malformed-JSON, invalid-envelope, and non-success responses retain the
 generic HTTP 503 `Local model runtime unavailable` contract without exposing
 headers, body fragments, byte counts, limits, model references, or internal
-errors, and rejected assistant content is never persisted.
+errors, and rejected assistant content is never persisted. Parser-level
+failures, including excessive-nesting recursion failures, also fail closed
+through that generic runtime-unavailable contract. The temporary raw response
+buffer is released after parsing or failure. External task cancellation remains
+distinct, propagates through the existing cancellation path, and is not
+converted into a runtime-unavailable error. The existing response-byte cap is
+unchanged.
 
 After a successful runtime response is decoded, generated assistant content is
 validated against the same 100,000-character Message invariant before the

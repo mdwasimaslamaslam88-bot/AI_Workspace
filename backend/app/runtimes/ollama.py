@@ -520,6 +520,7 @@ class OllamaTextGenerationRuntime:
             "options": options,
         }
         request_body: _BoundedJSONRequestStream | None = None
+        response_body: bytearray | None = None
         try:
             request_body, request_body_length = _encode_bounded_json_request(
                 payload,
@@ -554,7 +555,13 @@ class OllamaTextGenerationRuntime:
                             "local text runtime returned an invalid response"
                         )
                     response_body.extend(chunk)
-                return _parse_generation(json.loads(response_body))
+                try:
+                    payload = json.loads(response_body)
+                except (ValueError, TypeError, RecursionError) as exc:
+                    raise TextGenerationRuntimeUnavailableError(
+                        "local text generation is unavailable"
+                    ) from exc
+                return _parse_generation(payload)
         except TextGenerationRuntimeUnavailableError:
             raise
         except (httpx.HTTPError, ValueError, TypeError) as exc:
@@ -562,6 +569,8 @@ class OllamaTextGenerationRuntime:
                 "local text generation is unavailable"
             ) from exc
         finally:
+            if response_body is not None:
+                response_body.clear()
             if request_body is not None:
                 await request_body.aclose()
 

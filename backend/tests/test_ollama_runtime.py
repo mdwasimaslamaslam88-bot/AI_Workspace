@@ -3689,10 +3689,12 @@ class _RecordingAsyncByteStream(httpx.AsyncByteStream):
         *,
         blocked: asyncio.Event | None = None,
         release: asyncio.Event | None = None,
+        failure: Exception | None = None,
     ):
         self.chunks = tuple(chunks)
         self.blocked = blocked
         self.release = release
+        self.failure = failure
         self.iteration_count = 0
         self.closed = False
 
@@ -3705,9 +3707,34 @@ class _RecordingAsyncByteStream(httpx.AsyncByteStream):
                 if self.release is None:
                     raise AssertionError("blocked stream requires a release event")
                 await self.release.wait()
+        if self.failure is not None:
+            raise self.failure
 
     async def aclose(self):
         self.closed = True
+
+
+def _track_generation_response_buffers(monkeypatch):
+    buffers = []
+
+    class TrackingResponseBuffer(bytearray):
+        def __init__(self):
+            super().__init__()
+            self.clear_count = 0
+
+        def clear(self):
+            self.clear_count += 1
+            super().clear()
+
+    def make_response_buffer():
+        buffer = TrackingResponseBuffer()
+        buffers.append(buffer)
+        return buffer
+
+    monkeypatch.setattr(
+        ollama_runtime_module, "bytearray", make_response_buffer, raising=False
+    )
+    return buffers
 
 
 def _generation_response_body(content: str) -> bytes:
@@ -3812,8 +3839,9 @@ def test_ollama_generation_runtime_accepts_bounded_response_caps(
 
 
 @pytest.mark.asyncio
-async def test_ollama_generation_accepts_valid_response_exactly_at_cap():
+async def test_ollama_generation_accepts_valid_response_exactly_at_cap(monkeypatch):
     cap = 128
+    response_buffers = _track_generation_response_buffers(monkeypatch)
     body = _exact_generation_response_body(cap)
     stream = _RecordingAsyncByteStream((body[:47], body[47:]))
     transport, requests = _generation_transport(
@@ -3840,6 +3868,9 @@ async def test_ollama_generation_accepts_valid_response_exactly_at_cap():
     assert len(requests) == 1
     assert stream.iteration_count == 2
     assert stream.closed is True
+    assert len(response_buffers) == 1
+    assert response_buffers[0].clear_count == 1
+    assert len(response_buffers[0]) == 0
 
 
 @pytest.mark.asyncio
@@ -4048,7 +4079,10 @@ async def test_ollama_generation_rejects_compressed_response_before_reading():
 
 
 @pytest.mark.asyncio
-async def test_ollama_generation_malformed_json_remains_generic_unavailable():
+async def test_ollama_generation_malformed_json_remains_generic_unavailable(
+    monkeypatch,
+):
+    response_buffers = _track_generation_response_buffers(monkeypatch)
     stream = _RecordingAsyncByteStream((b'{"done":', b"not-json"))
     transport, _requests = _generation_transport(stream)
 
@@ -4068,12 +4102,204 @@ async def test_ollama_generation_malformed_json_remains_generic_unavailable():
 
     assert stream.closed is True
     assert "not-json" not in str(captured.value)
+    assert len(response_buffers) == 1
+    assert response_buffers[0].clear_count == 1
+    assert len(response_buffers[0]) == 0
 
 
 @pytest.mark.asyncio
-async def test_ollama_generation_cancellation_closes_stream_and_propagates():
+async def test_ollama_generation_parser_recursion_is_generic_and_clears_body(
+    monkeypatch,
+):
+    private_fragment = "private response fragment"
+    parser_detail = "secret nested parser detail"
+    body = _generation_response_body(private_fragment)
+    response_buffers = _track_generation_response_buffers(monkeypatch)
+    observed_payloads: list[bytes] = []
+
+    def fail_parsing(payload):
+        observed_payloads.append(bytes(payload))
+        raise RecursionError(parser_detail)
+
+    monkeypatch.setattr(ollama_runtime_module.json, "loads", fail_parsing)
+    stream = _RecordingAsyncByteStream((body,))
+    transport, _requests = _generation_transport(stream)
+
+    async with httpx.AsyncClient(
+        transport=transport,
+        base_url="http://127.0.0.1:11434",
+    ) as client:
+        with pytest.raises(TextGenerationRuntimeUnavailableError) as captured:
+            await _generate_with_runtime(
+                OllamaTextGenerationRuntime(
+                    client,
+                    10,
+                    LOCAL_MODEL_ALLOWLIST,
+                    max_response_bytes=len(body),
+                )
+            )
+
+    assert str(captured.value) == "local text generation is unavailable"
+    assert parser_detail not in str(captured.value)
+    assert private_fragment not in str(captured.value)
+    assert observed_payloads == [body]
+    assert stream.closed is True
+    assert len(response_buffers) == 1
+    assert response_buffers[0].clear_count == 1
+    assert len(response_buffers[0]) == 0
+
+
+@pytest.mark.asyncio
+async def test_ollama_generation_deep_bounded_json_fails_closed(monkeypatch):
+    private_fragment = "private deeply nested response fragment"
+    parser_detail = "secret deterministic recursion detail"
+    depth = 128
+    body = (
+        b"[" * depth
+        + json.dumps(private_fragment).encode()
+        + b"]" * depth
+    )
+    response_buffers = _track_generation_response_buffers(monkeypatch)
+    observed_payloads: list[bytes] = []
+
+    def fail_nested_parsing(payload):
+        observed_payloads.append(bytes(payload))
+        raise RecursionError(parser_detail)
+
+    monkeypatch.setattr(
+        ollama_runtime_module.json,
+        "loads",
+        fail_nested_parsing,
+    )
+    stream = _RecordingAsyncByteStream((body[:97], body[97:]))
+    transport, _requests = _generation_transport(stream)
+
+    async with httpx.AsyncClient(
+        transport=transport,
+        base_url="http://127.0.0.1:11434",
+    ) as client:
+        with pytest.raises(TextGenerationRuntimeUnavailableError) as captured:
+            await _generate_with_runtime(
+                OllamaTextGenerationRuntime(
+                    client,
+                    10,
+                    LOCAL_MODEL_ALLOWLIST,
+                    max_response_bytes=len(body),
+                )
+            )
+
+    assert len(body) < MAX_OLLAMA_GENERATION_RESPONSE_BYTES
+    assert str(captured.value) == "local text generation is unavailable"
+    assert parser_detail not in str(captured.value)
+    assert private_fragment not in str(captured.value)
+    assert observed_payloads == [body]
+    assert stream.closed is True
+    assert len(response_buffers) == 1
+    assert response_buffers[0].clear_count == 1
+    assert len(response_buffers[0]) == 0
+
+
+@pytest.mark.asyncio
+async def test_ollama_generation_invalid_envelope_closes_and_clears_body(
+    monkeypatch,
+):
+    response_buffers = _track_generation_response_buffers(monkeypatch)
+    body = b'{"done":true,"message":{"role":"assistant"}}'
+    stream = _RecordingAsyncByteStream((body,))
+    transport, _requests = _generation_transport(stream)
+
+    async with httpx.AsyncClient(
+        transport=transport,
+        base_url="http://127.0.0.1:11434",
+    ) as client:
+        with pytest.raises(TextGenerationRuntimeUnavailableError):
+            await _generate_with_runtime(
+                OllamaTextGenerationRuntime(
+                    client,
+                    10,
+                    LOCAL_MODEL_ALLOWLIST,
+                    max_response_bytes=len(body),
+                )
+            )
+
+    assert stream.closed is True
+    assert len(response_buffers) == 1
+    assert response_buffers[0].clear_count == 1
+    assert len(response_buffers[0]) == 0
+
+
+@pytest.mark.asyncio
+async def test_ollama_generation_parser_cancellation_propagates(monkeypatch):
+    body = _generation_response_body("answer")
+    response_buffers = _track_generation_response_buffers(monkeypatch)
+
+    def cancel_parsing(_payload):
+        raise asyncio.CancelledError
+
+    monkeypatch.setattr(ollama_runtime_module.json, "loads", cancel_parsing)
+    stream = _RecordingAsyncByteStream((body,))
+    transport, _requests = _generation_transport(stream)
+
+    async with httpx.AsyncClient(
+        transport=transport,
+        base_url="http://127.0.0.1:11434",
+    ) as client:
+        with pytest.raises(asyncio.CancelledError):
+            await _generate_with_runtime(
+                OllamaTextGenerationRuntime(
+                    client,
+                    10,
+                    LOCAL_MODEL_ALLOWLIST,
+                    max_response_bytes=len(body),
+                )
+            )
+
+    assert stream.closed is True
+    assert len(response_buffers) == 1
+    assert response_buffers[0].clear_count == 1
+    assert len(response_buffers[0]) == 0
+
+
+@pytest.mark.asyncio
+async def test_ollama_generation_response_timeout_closes_and_clears_body(
+    monkeypatch,
+):
+    timeout_detail = "secret response timeout detail"
+    response_buffers = _track_generation_response_buffers(monkeypatch)
+    stream = _RecordingAsyncByteStream(
+        (b'{"done":',),
+        failure=httpx.ReadTimeout(timeout_detail),
+    )
+    transport, _requests = _generation_transport(stream)
+
+    async with httpx.AsyncClient(
+        transport=transport,
+        base_url="http://127.0.0.1:11434",
+    ) as client:
+        with pytest.raises(TextGenerationRuntimeUnavailableError) as captured:
+            await _generate_with_runtime(
+                OllamaTextGenerationRuntime(
+                    client,
+                    10,
+                    LOCAL_MODEL_ALLOWLIST,
+                    max_response_bytes=64,
+                )
+            )
+
+    assert timeout_detail not in str(captured.value)
+    assert stream.closed is True
+    assert len(response_buffers) == 1
+    assert response_buffers[0].clear_count == 1
+    assert len(response_buffers[0]) == 0
+
+
+@pytest.mark.asyncio
+async def test_ollama_generation_cancellation_closes_stream_and_propagates(
+    monkeypatch,
+):
     blocked = asyncio.Event()
     release = asyncio.Event()
+    response_buffers = _track_generation_response_buffers(monkeypatch)
     body = _generation_response_body("answer")
     stream = _RecordingAsyncByteStream(
         (body[:8], body[8:]),
@@ -4100,6 +4326,9 @@ async def test_ollama_generation_cancellation_closes_stream_and_propagates():
 
     assert stream.iteration_count == 1
     assert stream.closed is True
+    assert len(response_buffers) == 1
+    assert response_buffers[0].clear_count == 1
+    assert len(response_buffers[0]) == 0
 
 
 @pytest.mark.parametrize(
