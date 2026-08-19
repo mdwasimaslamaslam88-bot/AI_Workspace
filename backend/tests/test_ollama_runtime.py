@@ -20,6 +20,7 @@ from app.ai.generation import (
 )
 from app.clients.ollama import check_ollama, create_ollama_client
 from app.core.config import (
+    MAX_OLLAMA_CATALOG_LIST_MODELS,
     MAX_OLLAMA_CATALOG_RESPONSE_BYTES,
     MAX_OLLAMA_GENERATION_REQUEST_BYTES,
     MAX_OLLAMA_GENERATION_RESPONSE_BYTES,
@@ -438,6 +439,415 @@ async def test_ollama_unique_allowlisted_entries_preserve_order_and_detail_calls
         )
         for model in models
     )
+
+
+@pytest.mark.parametrize(
+    "model_count",
+    [0, 1, 23, MAX_OLLAMA_CATALOG_LIST_MODELS],
+    ids=["empty", "one", "representative", "exact-limit"],
+)
+@pytest.mark.asyncio
+async def test_ollama_full_discovery_accepts_matching_count_at_or_below_limit(
+    model_count,
+):
+    references = tuple(
+        f"/private/runtime/list-model-{index}:latest"
+        for index in range(model_count)
+    )
+    show_references: list[str] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/show":
+            reference = json.loads(request.content)["model"]
+            show_references.append(reference)
+            return httpx.Response(
+                200,
+                json={"capabilities": ["completion"]},
+            )
+        return httpx.Response(
+            200,
+            json={
+                "models": [
+                    {
+                        "model": reference,
+                        "details": {
+                            "family": f"Family{index}",
+                            "parameter_size": f"{index + 1}B",
+                            "quantization_level": "Q4_K_M",
+                        },
+                    }
+                    for index, reference in enumerate(references)
+                ]
+            },
+        )
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        base_url="http://127.0.0.1:11434",
+    ) as client:
+        models = await OllamaModelDiscoveryRuntime(
+            client,
+            references,
+            max_list_models=MAX_OLLAMA_CATALOG_LIST_MODELS,
+        ).discover_models()
+
+    assert tuple(model.reference for model in models) == references
+    assert show_references == list(references)
+    assert tuple(model.family for model in models) == tuple(
+        f"Family{index}" for index in range(model_count)
+    )
+    assert all(
+        model.capabilities == (ModelCapability.TEXT_GENERATION,)
+        for model in models
+    )
+
+
+@pytest.mark.parametrize(
+    "model_count",
+    [MAX_OLLAMA_CATALOG_LIST_MODELS + 1, 1_024],
+    ids=["limit-plus-one-late", "large-overflow"],
+)
+@pytest.mark.asyncio
+async def test_ollama_full_discovery_rejects_over_limit_before_any_show(
+    model_count,
+):
+    references = tuple(
+        f"/private/runtime/private-overflow-{index}:latest"
+        for index in range(model_count)
+    )
+    requests: list[httpx.Request] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if request.url.path == "/api/show":
+            raise AssertionError("over-limit inventory must prevent detail requests")
+        return httpx.Response(
+            200,
+            json={
+                "models": [
+                    {"model": reference, "details": {}}
+                    for reference in references
+                ]
+            },
+        )
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        base_url="http://127.0.0.1:11434",
+    ) as client:
+        with pytest.raises(ModelRuntimeUnavailableError) as captured:
+            await OllamaModelDiscoveryRuntime(
+                client,
+                references,
+            ).discover_models()
+
+    assert [(request.method, request.url.path) for request in requests] == [
+        ("GET", "/api/tags")
+    ]
+    assert str(captured.value) == "local model runtime inventory is unavailable"
+    assert captured.value.__cause__ is None
+    assert references[0] not in str(captured.value)
+    assert references[-1] not in str(captured.value)
+    assert str(model_count) not in str(captured.value)
+    assert str(MAX_OLLAMA_CATALOG_LIST_MODELS) not in str(captured.value)
+
+
+@pytest.mark.asyncio
+async def test_ollama_nonallowlisted_inventory_does_not_consume_list_limit():
+    approved_references = (
+        "/private/runtime/approved-a:latest",
+        "/private/runtime/approved-b:latest",
+    )
+    ignored_entries = [
+        {"model": f"ignored-{index}"}
+        for index in range(20_000)
+    ]
+    inventory = [
+        *ignored_entries[:10_000],
+        {"model": approved_references[0], "details": {"family": "ApprovedA"}},
+        *ignored_entries[10_000:],
+        {"model": approved_references[1], "details": {"family": "ApprovedB"}},
+    ]
+    show_references: list[str] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/show":
+            reference = json.loads(request.content)["model"]
+            show_references.append(reference)
+            return httpx.Response(
+                200,
+                json={"capabilities": ["completion"]},
+            )
+        return httpx.Response(200, json={"models": inventory})
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        base_url="http://127.0.0.1:11434",
+    ) as client:
+        models = await OllamaModelDiscoveryRuntime(
+            client,
+            approved_references,
+            max_list_models=2,
+        ).discover_models()
+
+    assert tuple(model.reference for model in models) == approved_references
+    assert tuple(model.family for model in models) == ("ApprovedA", "ApprovedB")
+    assert show_references == list(approved_references)
+
+
+@pytest.mark.asyncio
+async def test_ollama_duplicate_validation_precedes_full_list_count_rejection():
+    references = tuple(
+        f"/private/runtime/duplicate-precedence-{index}:latest"
+        for index in range(MAX_OLLAMA_CATALOG_LIST_MODELS + 1)
+    )
+    await _assert_duplicate_inventory_rejected_before_show(
+        [
+            *[
+                {"model": reference, "details": {}}
+                for reference in references
+            ],
+            {
+                "model": references[0],
+                "details": {"family": "private-conflicting-duplicate"},
+            },
+        ],
+        references,
+        private_values=(
+            references[0],
+            "private-conflicting-duplicate",
+        ),
+    )
+
+
+@pytest.mark.asyncio
+async def test_ollama_targeted_discovery_bypasses_only_full_list_count():
+    references = tuple(
+        f"/private/runtime/targetable-{index}:latest"
+        for index in range(300)
+    )
+    target_reference = references[278]
+    requests: list[httpx.Request] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if request.url.path == "/api/show":
+            return httpx.Response(
+                200,
+                json={
+                    "capabilities": ["tools", "completion", "completion"],
+                },
+            )
+        return httpx.Response(
+            200,
+            json={
+                "models": [
+                    {
+                        "model": reference,
+                        "details": {
+                            "family": f"Family{index}",
+                            "parameter_size": f"{index + 1}B",
+                            "quantization_level": "Q4_K_M",
+                        },
+                    }
+                    for index, reference in enumerate(references)
+                ]
+            },
+        )
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        base_url="http://127.0.0.1:11434",
+    ) as client:
+        (model,) = await OllamaModelDiscoveryRuntime(
+            client,
+            references,
+            max_list_models=1,
+        ).discover_models(
+            reference_selector=lambda reference: (
+                reference == target_reference
+            )
+        )
+
+    assert [(request.method, request.url.path) for request in requests] == [
+        ("GET", "/api/tags"),
+        ("POST", "/api/show"),
+    ]
+    assert json.loads(requests[1].content) == {"model": target_reference}
+    assert model.reference == target_reference
+    assert model.family == "Family278"
+    assert model.parameter_class == "279B"
+    assert model.quantization == "Q4_K_M"
+    assert model.capabilities == (
+        ModelCapability.TEXT_GENERATION,
+        ModelCapability.TOOL_CALLING,
+    )
+
+
+@pytest.mark.parametrize("target_kind", ["missing", "nonallowlisted"])
+@pytest.mark.asyncio
+async def test_ollama_over_limit_targeted_miss_skips_show(target_kind):
+    references = tuple(
+        f"/private/runtime/targeted-miss-{index}:latest"
+        for index in range(300)
+    )
+    target_reference = f"/private/runtime/{target_kind}-target:latest"
+    inventory_references = (
+        references
+        if target_kind == "missing"
+        else (*references, target_reference)
+    )
+    requests: list[httpx.Request] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if request.url.path == "/api/show":
+            raise AssertionError("missing selected model must not request details")
+        return httpx.Response(
+            200,
+            json={
+                "models": [
+                    {"model": reference, "details": {}}
+                    for reference in inventory_references
+                ]
+            },
+        )
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        base_url="http://127.0.0.1:11434",
+    ) as client:
+        models = await OllamaModelDiscoveryRuntime(
+            client,
+            references,
+            max_list_models=1,
+        ).discover_models(
+            reference_selector=lambda reference: (
+                reference == target_reference
+            )
+        )
+
+    assert models == ()
+    assert [(request.method, request.url.path) for request in requests] == [
+        ("GET", "/api/tags")
+    ]
+
+
+@pytest.mark.asyncio
+async def test_ollama_over_limit_targeted_duplicate_still_prevents_show():
+    references = tuple(
+        f"/private/runtime/targeted-duplicate-{index}:latest"
+        for index in range(300)
+    )
+    await _assert_duplicate_inventory_rejected_before_show(
+        [
+            *[
+                {"model": reference, "details": {}}
+                for reference in references
+            ],
+            {
+                "model": references[0],
+                "details": {"family": "private-targeted-duplicate"},
+            },
+        ],
+        references,
+        reference_selector=lambda reference: reference == references[-1],
+        private_values=(
+            references[0],
+            "private-targeted-duplicate",
+        ),
+    )
+
+
+@pytest.mark.asyncio
+async def test_ollama_over_limit_failure_is_shared_only_by_active_list_flight():
+    over_limit_references = tuple(
+        f"/private/runtime/single-flight-overflow-{index}:latest"
+        for index in range(MAX_OLLAMA_CATALOG_LIST_MODELS + 1)
+    )
+    retry_reference = "/private/runtime/single-flight-retry:latest"
+    tags_started = asyncio.Event()
+    release_tags = asyncio.Event()
+    two_waiters_joined = asyncio.Event()
+    tags_count = 0
+    show_references: list[str] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal tags_count
+        if request.url.path == "/api/tags":
+            tags_count += 1
+            if tags_count == 1:
+                tags_started.set()
+                await release_tags.wait()
+                references = over_limit_references
+            else:
+                references = (retry_reference,)
+            return httpx.Response(
+                200,
+                json={
+                    "models": [
+                        {"model": reference, "details": {}}
+                        for reference in references
+                    ]
+                },
+            )
+        reference = json.loads(request.content)["model"]
+        show_references.append(reference)
+        return httpx.Response(
+            200,
+            json={"capabilities": ["completion"]},
+        )
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        base_url="http://127.0.0.1:11434",
+    ) as client:
+        catalog = ModelCatalog(
+            (
+                OllamaModelDiscoveryRuntime(
+                    client,
+                    (*over_limit_references, retry_reference),
+                ),
+            )
+        )
+        original_join = catalog._join_list_models_flight
+        join_count = 0
+
+        async def tracked_join():
+            nonlocal join_count
+            flight = await original_join()
+            join_count += 1
+            if join_count == 2:
+                two_waiters_joined.set()
+            return flight
+
+        catalog._join_list_models_flight = tracked_join
+        caller_a = asyncio.create_task(catalog.list_models())
+        await tags_started.wait()
+        caller_b = asyncio.create_task(catalog.list_models())
+        await two_waiters_joined.wait()
+        release_tags.set()
+        failures = await asyncio.gather(
+            caller_a,
+            caller_b,
+            return_exceptions=True,
+        )
+
+        assert isinstance(failures[0], ModelRuntimeUnavailableError)
+        assert failures[0] is failures[1]
+        assert str(failures[0]) == (
+            "local model runtime inventory is unavailable"
+        )
+        assert catalog._list_models_flight is None
+        assert show_references == []
+
+        (retried,) = await catalog.list_models()
+
+    assert tags_count == 2
+    assert show_references == [retry_reference]
+    assert retried.display_name == "Local text model"
+    assert retried.capabilities == (ModelCapability.TEXT_GENERATION,)
+    assert catalog._list_models_flight is None
 
 
 @pytest.mark.parametrize(
@@ -991,6 +1401,44 @@ def test_ollama_discovery_runtime_accepts_bounded_response_caps(
     )
 
     assert runtime.max_response_bytes == max_response_bytes
+
+
+@pytest.mark.parametrize(
+    "max_list_models",
+    [
+        None,
+        True,
+        False,
+        "1",
+        1.0,
+        0,
+        -1,
+        MAX_OLLAMA_CATALOG_LIST_MODELS + 1,
+    ],
+)
+def test_ollama_discovery_runtime_rejects_invalid_list_model_caps(
+    max_list_models,
+):
+    with pytest.raises((TypeError, ValueError)):
+        OllamaModelDiscoveryRuntime(
+            object(),
+            max_list_models=max_list_models,
+        )
+
+
+@pytest.mark.parametrize(
+    "max_list_models",
+    [1, 64, MAX_OLLAMA_CATALOG_LIST_MODELS],
+)
+def test_ollama_discovery_runtime_accepts_bounded_list_model_caps(
+    max_list_models,
+):
+    runtime = OllamaModelDiscoveryRuntime(
+        object(),
+        max_list_models=max_list_models,
+    )
+
+    assert runtime.max_list_models == max_list_models
 
 
 @pytest.mark.asyncio

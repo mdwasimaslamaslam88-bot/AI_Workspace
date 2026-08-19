@@ -20,6 +20,7 @@ from app.ai.generation import (
     TextGenerationRuntimeUnsupportedError,
 )
 from app.core.config import (
+    MAX_OLLAMA_CATALOG_LIST_MODELS,
     MAX_OLLAMA_CATALOG_RESPONSE_BYTES,
     MAX_OLLAMA_GENERATION_REQUEST_BYTES,
     MAX_OLLAMA_GENERATION_RESPONSE_BYTES,
@@ -186,6 +187,7 @@ class OllamaModelDiscoveryRuntime:
         local_model_allowlist: tuple[str, ...] = (),
         *,
         max_response_bytes: int = 1_048_576,
+        max_list_models: int = 256,
     ) -> None:
         if isinstance(max_response_bytes, bool) or not isinstance(
             max_response_bytes,
@@ -197,8 +199,19 @@ class OllamaModelDiscoveryRuntime:
                 "catalog response cap must be between 1 and "
                 f"{MAX_OLLAMA_CATALOG_RESPONSE_BYTES}"
             )
+        if isinstance(max_list_models, bool) or not isinstance(
+            max_list_models,
+            int,
+        ):
+            raise TypeError("catalog full-list model cap must be an integer")
+        if not 1 <= max_list_models <= MAX_OLLAMA_CATALOG_LIST_MODELS:
+            raise ValueError(
+                "catalog full-list model cap must be between 1 and "
+                f"{MAX_OLLAMA_CATALOG_LIST_MODELS}"
+            )
         self.client = client
         self.max_response_bytes = max_response_bytes
+        self.max_list_models = max_list_models
         self.local_model_allowlist = _validated_local_model_allowlist(
             local_model_allowlist
         )
@@ -217,6 +230,11 @@ class OllamaModelDiscoveryRuntime:
                     max_response_bytes=self.max_response_bytes,
                 ),
                 self.local_model_allowlist,
+                max_models=(
+                    self.max_list_models
+                    if reference_selector is None
+                    else None
+                ),
             )
             if reference_selector is not None:
                 models = tuple(
@@ -618,6 +636,8 @@ def _parse_generation(payload: Any) -> TextGenerationResult:
 def _parse_inventory(
     payload: Any,
     local_model_allowlist: frozenset[str],
+    *,
+    max_models: int | None = None,
 ) -> tuple[RuntimeModel, ...]:
     if not isinstance(payload, Mapping):
         raise ModelRuntimeUnavailableError(
@@ -631,6 +651,7 @@ def _parse_inventory(
 
     parsed: list[RuntimeModel] = []
     seen_allowlisted_references: set[str] = set()
+    list_limit_exceeded = False
     for item in models:
         if not isinstance(item, Mapping):
             raise ModelRuntimeUnavailableError(
@@ -659,6 +680,12 @@ def _parse_inventory(
         quantization = _safe_optional_text(details.get("quantization_level"))
         display_parts = [part for part in (family, parameter_class) if part]
         display_name = " ".join(display_parts) or "Local text model"
+        if (
+            max_models is not None
+            and len(seen_allowlisted_references) > max_models
+        ):
+            list_limit_exceeded = True
+            continue
         parsed.append(
             RuntimeModel(
                 reference=reference,
@@ -667,6 +694,10 @@ def _parse_inventory(
                 parameter_class=parameter_class,
                 quantization=quantization,
             )
+        )
+    if list_limit_exceeded:
+        raise ModelRuntimeUnavailableError(
+            "local model runtime inventory is unavailable"
         )
     return tuple(parsed)
 

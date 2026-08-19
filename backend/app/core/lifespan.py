@@ -40,6 +40,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 max_response_bytes=(
                     settings.OLLAMA_CATALOG_MAX_RESPONSE_BYTES
                 ),
+                max_list_models=(
+                    settings.OLLAMA_CATALOG_MAX_LIST_MODELS
+                ),
             ),
         )
         if ollama_client is not None

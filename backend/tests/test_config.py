@@ -3,6 +3,7 @@ from pydantic import ValidationError
 from app.core.config import (
     MAX_GENERATION_ACTIVE_PER_PROCESS,
     MAX_GENERATION_DURATION_SECONDS,
+    MAX_OLLAMA_CATALOG_LIST_MODELS,
     MAX_OLLAMA_CATALOG_RESPONSE_BYTES,
     MAX_OLLAMA_GENERATION_REQUEST_BYTES,
     MAX_OLLAMA_GENERATION_RESPONSE_BYTES,
@@ -19,6 +20,7 @@ def test_settings_preserve_application_defaults():
     assert settings.REDIS_URL is None
     assert settings.OLLAMA_BASE_URL is None
     assert settings.OLLAMA_CATALOG_MAX_RESPONSE_BYTES == 1_048_576
+    assert settings.OLLAMA_CATALOG_MAX_LIST_MODELS == 256
     assert settings.OLLAMA_GENERATION_MAX_REQUEST_BYTES == 1_048_576
     assert settings.OLLAMA_GENERATION_MAX_RESPONSE_BYTES == 262_144
     assert settings.OLLAMA_LOCAL_MODEL_ALLOWLIST == ()
@@ -295,6 +297,31 @@ def test_ollama_catalog_response_cap_accepts_documented_bounds(value):
     )
 
     assert configured.OLLAMA_CATALOG_MAX_RESPONSE_BYTES == value
+
+
+@pytest.mark.parametrize(
+    "value",
+    [True, False, "1", 1.0, 0, -1, MAX_OLLAMA_CATALOG_LIST_MODELS + 1],
+)
+def test_ollama_catalog_list_model_cap_rejects_unsafe_values(value):
+    with pytest.raises(ValidationError):
+        Settings(
+            _env_file=None,
+            OLLAMA_CATALOG_MAX_LIST_MODELS=value,
+        )
+
+
+@pytest.mark.parametrize(
+    "value",
+    [1, 64, MAX_OLLAMA_CATALOG_LIST_MODELS],
+)
+def test_ollama_catalog_list_model_cap_accepts_documented_bounds(value):
+    configured = Settings(
+        _env_file=None,
+        OLLAMA_CATALOG_MAX_LIST_MODELS=value,
+    )
+
+    assert configured.OLLAMA_CATALOG_MAX_LIST_MODELS == value
 
 
 @pytest.mark.parametrize(

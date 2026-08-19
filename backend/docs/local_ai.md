@@ -63,6 +63,22 @@ selected model. A valid same-runtime miss performs no detail request and retains
 the existing model-not-found behavior. No public-to-private lookup table, cache,
 snapshot, TTL, or retained completed discovery is introduced.
 
+Configure `OLLAMA_CATALOG_MAX_LIST_MODELS` as a strict integer from 1 through
+256; the default and absolute maximum are 256. After the complete bounded
+inventory has passed shape, allowlist, metadata, and duplicate-reference
+validation, unfiltered full discovery counts its unique installed allowlisted
+references. A count above the configured bound fails the complete listing with
+the generic HTTP 503 `Local model runtime unavailable` contract before any
+`/api/show` request. The catalog is never truncated, paginated, or partially
+returned. Nonallowlisted entries do not consume the bound.
+
+This full-list fan-out bound does not apply to targeted generation resolution.
+Even when an otherwise valid inventory contains more than 256 unique installed
+allowlisted references, targeted discovery still validates the entire inventory,
+applies the exact opaque-ID selector, and requests `/api/show` only for the
+selected model. Duplicate allowlisted references retain their existing failure
+behavior before detail fan-out on both paths.
+
 Full model listing uses process-local, non-retaining single-flight coordination
 inside the shared `ModelCatalog`. Calls to `list_models()`, including overlapping
 `GET /api/v1/ai/models` requests, that reach the same active full discovery await
