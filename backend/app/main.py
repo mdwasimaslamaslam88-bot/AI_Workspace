@@ -22,14 +22,12 @@ app = FastAPI(
 register_exception_handlers(app)
 # Starlette wraps later-added user middleware around earlier entries. Add the
 # application error boundary first so it remains innermost, around routing and
-# dependencies, while request limits, request IDs, and CORS retain their order.
+# dependencies, while request limits, CORS, and request IDs retain their order.
 app.add_middleware(ApplicationErrorBoundaryMiddleware)
 app.add_middleware(
     RequestBodyLimitMiddleware,
     max_body_bytes=settings.REQUEST_MAX_BODY_BYTES,
 )
-app.add_middleware(RequestIDMiddleware)
-
 origins = settings.BACKEND_CORS_ORIGINS
 
 app.add_middleware(
@@ -39,6 +37,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(RequestIDMiddleware)
 
 
 @app.get("/")

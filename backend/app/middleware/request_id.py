@@ -11,7 +11,7 @@ from starlette.responses import Response
 
 
 class RequestIDMiddleware(BaseHTTPMiddleware):
-    """Attach a unique request ID to every request and response."""
+    """Attach a supplied or generated request identifier to each exchange."""
 
     async def dispatch(
         self,

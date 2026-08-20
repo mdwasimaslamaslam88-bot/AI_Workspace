@@ -52,7 +52,6 @@ def _build_test_app() -> FastAPI:
     api = FastAPI()
     register_exception_handlers(api)
     api.add_middleware(ApplicationErrorBoundaryMiddleware)
-    api.add_middleware(RequestIDMiddleware)
     api.add_middleware(
         CORSMiddleware,
         allow_origins=[_ALLOWED_ORIGIN],
@@ -60,6 +59,7 @@ def _build_test_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    api.add_middleware(RequestIDMiddleware)
     return api
 
 
@@ -87,6 +87,12 @@ def _assert_sanitized_validation_response(response, *, path: str):
     assert payload["path"] == path
     assert datetime.fromisoformat(payload["timestamp"])
     return payload
+
+
+def _assert_single_request_id(response) -> str:
+    request_ids = response.headers.get_list("x-request-id")
+    assert len(request_ids) == 1
+    return request_ids[0]
 
 
 def _http_scope(path: str = "/cancelled") -> Scope:
@@ -171,7 +177,7 @@ def test_unexpected_exception_is_contained_logged_once_and_fully_redacted(
         message="An unexpected error occurred.",
     )
     assert response.json()["path"] == path
-    assert response.headers["X-Request-ID"] == request_id
+    assert _assert_single_request_id(response) == request_id
     assert response.headers["access-control-allow-origin"] == _ALLOWED_ORIGIN
 
     safe_records = [
@@ -455,8 +461,162 @@ def test_validation_preserves_request_id_and_cors_headers():
         path="/validate-headers",
     )
     assert "PRIVATE-CORS-VALIDATION-VALUE" not in response.text
-    assert response.headers["X-Request-ID"] == request_id
+    assert _assert_single_request_id(response) == request_id
     assert response.headers["access-control-allow-origin"] == _ALLOWED_ORIGIN
+
+
+@pytest.mark.parametrize(
+    ("origin", "expected_status", "expected_body", "origin_is_allowed"),
+    [
+        (_ALLOWED_ORIGIN, 200, "OK", True),
+        (
+            "https://rejected.example",
+            400,
+            "Disallowed CORS origin",
+            False,
+        ),
+    ],
+)
+@pytest.mark.parametrize("supplied_request_id", [None, "client-preflight-id"])
+def test_cors_preflight_has_request_id_without_entering_application(
+    origin,
+    expected_status,
+    expected_body,
+    origin_is_allowed,
+    supplied_request_id,
+):
+    api = _build_test_app()
+    application_calls: list[str] = []
+
+    async def forbidden_dependency():
+        application_calls.append("dependency")
+        raise AssertionError("preflight must not enter dependencies")
+
+    @api.get(
+        "/preflight",
+        dependencies=[Depends(forbidden_dependency)],
+    )
+    async def preflight_target():
+        application_calls.append("endpoint")
+        raise AssertionError("preflight must not enter the endpoint")
+
+    headers = {
+        "Origin": origin,
+        "Access-Control-Request-Method": "GET",
+        "Access-Control-Request-Headers": "X-Custom-Header",
+    }
+    if supplied_request_id is not None:
+        headers["X-Request-ID"] = supplied_request_id
+
+    with TestClient(api) as client:
+        response = client.options("/preflight", headers=headers)
+
+    assert response.status_code == expected_status
+    assert response.text == expected_body
+    response_request_id = _assert_single_request_id(response)
+    if supplied_request_id is None:
+        assert str(UUID(response_request_id)) == response_request_id
+    else:
+        assert response_request_id == supplied_request_id
+    assert response.headers["access-control-allow-credentials"] == "true"
+    assert "GET" in response.headers["access-control-allow-methods"]
+    assert response.headers["access-control-allow-headers"] == "X-Custom-Header"
+    if origin_is_allowed:
+        assert response.headers["access-control-allow-origin"] == origin
+    else:
+        assert "access-control-allow-origin" not in response.headers
+    assert application_calls == []
+
+
+@pytest.mark.parametrize(
+    ("supplied_request_id", "expected_request_id"),
+    [
+        (None, None),
+        ("client-normal-id", "client-normal-id"),
+        ("", None),
+    ],
+)
+def test_normal_non_cors_request_id_semantics_are_unchanged(
+    supplied_request_id,
+    expected_request_id,
+):
+    api = _build_test_app()
+
+    @api.get("/request-id")
+    async def request_id_target():
+        return {"ok": True}
+
+    headers = {}
+    if supplied_request_id is not None:
+        headers["X-Request-ID"] = supplied_request_id
+
+    with TestClient(api) as client:
+        response = client.get("/request-id", headers=headers)
+
+    assert response.status_code == 200
+    assert response.json() == {"ok": True}
+    response_request_id = _assert_single_request_id(response)
+    if expected_request_id is None:
+        assert str(UUID(response_request_id)) == response_request_id
+    else:
+        assert response_request_id == expected_request_id
+    assert "access-control-allow-origin" not in response.headers
+
+
+@pytest.mark.parametrize(
+    ("origin", "expected_allow_origin"),
+    [
+        (_ALLOWED_ORIGIN, _ALLOWED_ORIGIN),
+        ("https://rejected.example", None),
+    ],
+)
+def test_normal_cors_response_and_request_id_semantics_are_unchanged(
+    origin,
+    expected_allow_origin,
+):
+    api = _build_test_app()
+    request_id = "normal-cors-request-id"
+
+    @api.get("/normal-cors")
+    async def normal_cors():
+        return {"ok": True}
+
+    with TestClient(api) as client:
+        response = client.get(
+            "/normal-cors",
+            headers={"Origin": origin, "X-Request-ID": request_id},
+        )
+
+    assert response.status_code == 200
+    assert response.json() == {"ok": True}
+    assert _assert_single_request_id(response) == request_id
+    if expected_allow_origin is None:
+        assert "access-control-allow-origin" not in response.headers
+    else:
+        assert response.headers["access-control-allow-origin"] == (
+            expected_allow_origin
+        )
+
+
+def test_duplicate_incoming_request_id_preserves_first_value_behavior():
+    api = _build_test_app()
+
+    @api.get("/duplicate-request-id")
+    async def duplicate_request_id(request: Request):
+        return {"request_id": request.state.request_id}
+
+    with TestClient(api) as client:
+        response = client.get(
+            "/duplicate-request-id",
+            headers=[
+                ("X-Request-ID", "first-request-id"),
+                ("X-Request-ID", "second-request-id"),
+            ],
+        )
+
+    assert response.status_code == 200
+    assert response.json() == {"request_id": "first-request-id"}
+    assert _assert_single_request_id(response) == "first-request-id"
 
 
 @pytest.mark.parametrize(
@@ -477,6 +637,7 @@ def test_handled_http_exceptions_preserve_contract_without_unexpected_log(
 ):
     caplog.set_level(logging.ERROR)
     api = _build_test_app()
+    request_id = f"handled-{status_code}-request-id"
 
     @api.get("/handled")
     async def handled():
@@ -487,7 +648,13 @@ def test_handled_http_exceptions_preserve_contract_without_unexpected_log(
         )
 
     with TestClient(api) as client:
-        response = client.get("/handled")
+        response = client.get(
+            "/handled",
+            headers={
+                "Origin": _ALLOWED_ORIGIN,
+                "X-Request-ID": request_id,
+            },
+        )
 
     assert response.status_code == status_code
     _assert_generic_error_response(
@@ -498,6 +665,8 @@ def test_handled_http_exceptions_preserve_contract_without_unexpected_log(
     assert response.json()["path"] == "/handled"
     if headers is not None:
         assert response.headers["WWW-Authenticate"] == "Bearer"
+    assert _assert_single_request_id(response) == request_id
+    assert response.headers["access-control-allow-origin"] == _ALLOWED_ORIGIN
     assert _UNEXPECTED_EVENT not in caplog.text
 
 
@@ -516,10 +685,15 @@ def test_invalid_bearer_preserves_uniform_401_without_unexpected_log(caplog):
         return {"ok": True}
 
     api.dependency_overrides[get_db_session] = override_db_session
+    request_id = "invalid-bearer-request-id"
     with TestClient(api) as client:
         response = client.get(
             "/protected",
-            headers={"Authorization": "Bearer short"},
+            headers={
+                "Authorization": "Bearer short",
+                "Origin": _ALLOWED_ORIGIN,
+                "X-Request-ID": request_id,
+            },
         )
 
     assert response.status_code == 401
@@ -528,20 +702,157 @@ def test_invalid_bearer_preserves_uniform_401_without_unexpected_log(caplog):
         "code": "HTTP_ERROR",
         "message": "Invalid authentication credentials",
     }
+    assert _assert_single_request_id(response) == request_id
+    assert response.headers["access-control-allow-origin"] == _ALLOWED_ORIGIN
     assert _UNEXPECTED_EVENT not in caplog.text
     session.execute.assert_not_awaited()
     session.commit.assert_not_awaited()
 
 
-def test_production_middleware_order_keeps_error_boundary_innermost():
+def test_production_middleware_order_is_request_id_then_cors_then_boundaries():
     middleware_types = [entry.cls for entry in production_app.user_middleware]
 
     assert middleware_types == [
-        CORSMiddleware,
         RequestIDMiddleware,
+        CORSMiddleware,
         RequestBodyLimitMiddleware,
         ApplicationErrorBoundaryMiddleware,
     ]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("content_length", "expected_status", "expected_message"),
+    [
+        (b"invalid", 400, "Invalid request headers"),
+        (b"5", 413, "Request body is too large"),
+    ],
+)
+async def test_body_limit_errors_keep_cors_and_one_request_id(
+    content_length,
+    expected_status,
+    expected_message,
+):
+    application_called = False
+    sent: list[Message] = []
+    incoming = [
+        {
+            "type": "http.request",
+            "body": b"",
+            "more_body": False,
+        }
+    ]
+
+    async def forbidden_application(
+        _scope: Scope,
+        _receive: Receive,
+        _send: Send,
+    ) -> None:
+        nonlocal application_called
+        application_called = True
+        raise AssertionError("rejected request must not enter the application")
+
+    async def receive() -> Message:
+        if incoming:
+            return incoming.pop(0)
+        return {"type": "http.disconnect"}
+
+    async def send(message: Message) -> None:
+        sent.append(message)
+
+    inner = ApplicationErrorBoundaryMiddleware(forbidden_application)
+    limited = RequestBodyLimitMiddleware(inner, max_body_bytes=4)
+    cors = CORSMiddleware(
+        limited,
+        allow_origins=[_ALLOWED_ORIGIN],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+    middleware = RequestIDMiddleware(cors)
+    scope = _http_scope("/limited")
+    scope["method"] = "POST"
+    scope["headers"] = [
+        (b"origin", _ALLOWED_ORIGIN.encode()),
+        (b"x-request-id", b"body-limit-request-id"),
+        (b"content-length", content_length),
+    ]
+
+    await middleware(scope, receive, send)
+
+    start = next(
+        message for message in sent if message["type"] == "http.response.start"
+    )
+    body = b"".join(
+        message.get("body", b"")
+        for message in sent
+        if message["type"] == "http.response.body"
+    )
+    payload = json.loads(body)
+    response_headers = start["headers"]
+    request_ids = [
+        value.decode()
+        for name, value in response_headers
+        if name.lower() == b"x-request-id"
+    ]
+    allow_origins = [
+        value.decode()
+        for name, value in response_headers
+        if name.lower() == b"access-control-allow-origin"
+    ]
+
+    assert start["status"] == expected_status
+    assert payload["error"] == {
+        "code": "HTTP_ERROR",
+        "message": expected_message,
+    }
+    assert payload["path"] == "/limited"
+    assert request_ids == ["body-limit-request-id"]
+    assert allow_origins == [_ALLOWED_ORIGIN]
+    assert application_called is False
+
+
+@pytest.mark.asyncio
+async def test_full_middleware_stack_propagates_cancellation_without_response():
+    entered = asyncio.Event()
+    never = asyncio.Event()
+    sent: list[Message] = []
+
+    async def inner(_scope: Scope, _receive: Receive, _send: Send) -> None:
+        entered.set()
+        await never.wait()
+
+    async def receive() -> Message:
+        await never.wait()
+        raise AssertionError("unreachable")
+
+    async def send(message: Message) -> None:
+        sent.append(message)
+
+    boundary = ApplicationErrorBoundaryMiddleware(inner)
+    limited = RequestBodyLimitMiddleware(boundary, max_body_bytes=4)
+    cors = CORSMiddleware(
+        limited,
+        allow_origins=[_ALLOWED_ORIGIN],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+    middleware = RequestIDMiddleware(cors)
+    task = asyncio.create_task(
+        middleware(
+            _http_scope("/cancelled-full-stack"),
+            receive,
+            send,
+        )
+    )
+    await entered.wait()
+    task.cancel()
+
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    assert sent == []
 
 
 @pytest.mark.asyncio
