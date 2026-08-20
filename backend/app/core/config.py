@@ -38,6 +38,8 @@ _SOURCE_DECODED_STRICT_INTEGER_FIELDS = frozenset(
         "OLLAMA_GENERATION_MAX_RESPONSE_BYTES",
         "GENERATION_MAX_ACTIVE_PER_PROCESS",
         "REQUEST_MAX_BODY_BYTES",
+        "DATABASE_POOL_SIZE",
+        "DATABASE_MAX_OVERFLOW",
     }
 )
 _DECIMAL_INTEGER_PATTERN = re.compile(r"-?(?:0|[1-9][0-9]*)\Z")
@@ -119,8 +121,8 @@ class Settings(BaseSettings):
         gt=0,
         allow_inf_nan=False,
     )
-    DATABASE_POOL_SIZE: int = Field(default=5, ge=1)
-    DATABASE_MAX_OVERFLOW: int = Field(default=10, ge=0)
+    DATABASE_POOL_SIZE: int = Field(default=5, strict=True, ge=1)
+    DATABASE_MAX_OVERFLOW: int = Field(default=10, strict=True, ge=0)
     DATABASE_SSL_MODE: DatabaseSslMode = "verify-full"
     DATABASE_SSL_ROOT_CERT: str | None = None
     TEST_DATABASE_URL: PostgresDsn | None = None

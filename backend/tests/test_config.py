@@ -34,6 +34,30 @@ _NONFINITE_TIMEOUT_SOURCE_FORMS = (
     "1e9999",
     "9" * 1_000,
 )
+_STRICT_POOL_INTEGER_FIELDS = (
+    ("DATABASE_POOL_SIZE", 1, 5),
+    ("DATABASE_MAX_OVERFLOW", 0, 10),
+)
+_LARGE_STRICT_POOL_INTEGER = 10**100
+_STRICT_POOL_INTEGER_SOURCE_VALUES = (
+    ("1", 1),
+    ("5", 5),
+    ("10", 10),
+    (str(_LARGE_STRICT_POOL_INTEGER), _LARGE_STRICT_POOL_INTEGER),
+    (" \t5 ", 5),
+)
+_INVALID_STRICT_POOL_INTEGER_SOURCE_FORMS = (
+    "5.0",
+    "1e3",
+    "true",
+    "false",
+    '"5"',
+    "null",
+    "",
+    " \t ",
+    "[5]",
+    '{"value":5}',
+)
 
 def test_settings_preserve_application_defaults():
     settings = Settings(_env_file=None)
@@ -41,6 +65,10 @@ def test_settings_preserve_application_defaults():
     assert settings.APP_VERSION == "0.1.0"
     assert settings.BACKEND_CORS_ORIGINS == ["http://localhost:3000"]
     assert settings.DATABASE_URL is None
+    assert settings.DATABASE_POOL_SIZE == 5
+    assert type(settings.DATABASE_POOL_SIZE) is int
+    assert settings.DATABASE_MAX_OVERFLOW == 10
+    assert type(settings.DATABASE_MAX_OVERFLOW) is int
     assert settings.REDIS_URL is None
     assert settings.OLLAMA_BASE_URL is None
     assert settings.MODEL_LIST_MAX_DISCOVERY_SECONDS == 60.0
@@ -284,18 +312,299 @@ def test_env_example_preserves_legacy_dependency_timeout_and_pool_values(
         assert type(parsed) is float
         assert math.isfinite(parsed)
     assert configured.DATABASE_POOL_SIZE == 5
+    assert type(configured.DATABASE_POOL_SIZE) is int
     assert configured.DATABASE_MAX_OVERFLOW == 10
+    assert type(configured.DATABASE_MAX_OVERFLOW) is int
 
 
-def test_legacy_dependency_timeout_hardening_preserves_pool_coercion():
-    configured = Settings(
-        _env_file=None,
-        DATABASE_POOL_SIZE="5.0",
-        DATABASE_MAX_OVERFLOW=False,
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        (field, value)
+        for field, minimum, documented_default in _STRICT_POOL_INTEGER_FIELDS
+        for value in (minimum, documented_default, _LARGE_STRICT_POOL_INTEGER)
+    ],
+)
+def test_pool_settings_accept_strict_integer_initializers(field, value):
+    configured = Settings(_env_file=None, **{field: value})
+
+    parsed = getattr(configured, field)
+    assert parsed == value
+    assert type(parsed) is int
+
+
+@pytest.mark.parametrize("value", [True, False, 5.0, 5.5, "5"])
+@pytest.mark.parametrize(
+    ("field", "_minimum", "_documented_default"),
+    _STRICT_POOL_INTEGER_FIELDS,
+)
+def test_pool_settings_reject_nonstrict_initializers(
+    field,
+    _minimum,
+    _documented_default,
+    value,
+):
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None, **{field: value})
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("DATABASE_POOL_SIZE", 0),
+        ("DATABASE_POOL_SIZE", -1),
+        ("DATABASE_MAX_OVERFLOW", -1),
+    ],
+)
+def test_pool_settings_preserve_existing_lower_bounds(field, value):
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None, **{field: value})
+
+
+@pytest.mark.parametrize(
+    ("source_value", "expected"),
+    _STRICT_POOL_INTEGER_SOURCE_VALUES,
+)
+@pytest.mark.parametrize(
+    ("field", "_minimum", "_documented_default"),
+    _STRICT_POOL_INTEGER_FIELDS,
+)
+def test_pool_environment_accepts_canonical_integer_text(
+    monkeypatch,
+    field,
+    _minimum,
+    _documented_default,
+    source_value,
+    expected,
+):
+    monkeypatch.setenv(field, source_value)
+
+    parsed = getattr(Settings(_env_file=None), field)
+
+    assert parsed == expected
+    assert type(parsed) is int
+
+
+def test_max_overflow_environment_accepts_zero(monkeypatch):
+    monkeypatch.setenv("DATABASE_MAX_OVERFLOW", "0")
+
+    parsed = Settings(_env_file=None).DATABASE_MAX_OVERFLOW
+
+    assert parsed == 0
+    assert type(parsed) is int
+
+
+@pytest.mark.parametrize(
+    "source_value",
+    _INVALID_STRICT_POOL_INTEGER_SOURCE_FORMS,
+)
+@pytest.mark.parametrize(
+    ("field", "_minimum", "_documented_default"),
+    _STRICT_POOL_INTEGER_FIELDS,
+)
+def test_pool_environment_rejects_noninteger_source_forms(
+    monkeypatch,
+    field,
+    _minimum,
+    _documented_default,
+    source_value,
+):
+    monkeypatch.setenv(field, source_value)
+
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None)
+
+
+@pytest.mark.parametrize(
+    ("field", "source_value"),
+    [
+        ("DATABASE_POOL_SIZE", "0"),
+        ("DATABASE_POOL_SIZE", "-1"),
+        ("DATABASE_MAX_OVERFLOW", "-1"),
+    ],
+)
+def test_pool_environment_preserves_existing_lower_bounds(
+    monkeypatch,
+    field,
+    source_value,
+):
+    monkeypatch.setenv(field, source_value)
+
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None)
+
+
+@pytest.mark.parametrize(
+    ("source_value", "expected"),
+    _STRICT_POOL_INTEGER_SOURCE_VALUES,
+)
+@pytest.mark.parametrize(
+    ("field", "_minimum", "_documented_default"),
+    _STRICT_POOL_INTEGER_FIELDS,
+)
+def test_pool_dotenv_accepts_canonical_integer_text(
+    monkeypatch,
+    tmp_path,
+    field,
+    _minimum,
+    _documented_default,
+    source_value,
+    expected,
+):
+    monkeypatch.delenv(field, raising=False)
+    dotenv_path = tmp_path / "valid-pool.env"
+    dotenv_path.write_text(
+        f"{field}={source_value}\n",
+        encoding="utf-8",
     )
 
-    assert configured.DATABASE_POOL_SIZE == 5
-    assert configured.DATABASE_MAX_OVERFLOW == 0
+    parsed = getattr(Settings(_env_file=dotenv_path), field)
+
+    assert parsed == expected
+    assert type(parsed) is int
+
+
+def test_max_overflow_dotenv_accepts_zero(monkeypatch, tmp_path):
+    monkeypatch.delenv("DATABASE_MAX_OVERFLOW", raising=False)
+    dotenv_path = tmp_path / "zero-overflow.env"
+    dotenv_path.write_text(
+        "DATABASE_MAX_OVERFLOW=0\n",
+        encoding="utf-8",
+    )
+
+    parsed = Settings(_env_file=dotenv_path).DATABASE_MAX_OVERFLOW
+
+    assert parsed == 0
+    assert type(parsed) is int
+
+
+@pytest.mark.parametrize(
+    "source_value",
+    _INVALID_STRICT_POOL_INTEGER_SOURCE_FORMS,
+)
+@pytest.mark.parametrize(
+    ("field", "_minimum", "_documented_default"),
+    _STRICT_POOL_INTEGER_FIELDS,
+)
+def test_pool_dotenv_rejects_noninteger_source_forms(
+    monkeypatch,
+    tmp_path,
+    field,
+    _minimum,
+    _documented_default,
+    source_value,
+):
+    monkeypatch.delenv(field, raising=False)
+    dotenv_path = tmp_path / "invalid-pool.env"
+    rendered_value = (
+        f"'{source_value}'" if source_value == '"5"' else source_value
+    )
+    dotenv_path.write_text(
+        f"{field}={rendered_value}\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValidationError):
+        Settings(_env_file=dotenv_path)
+
+
+@pytest.mark.parametrize(
+    ("field", "source_value"),
+    [
+        ("DATABASE_POOL_SIZE", "0"),
+        ("DATABASE_POOL_SIZE", "-1"),
+        ("DATABASE_MAX_OVERFLOW", "-1"),
+    ],
+)
+def test_pool_dotenv_preserves_existing_lower_bounds(
+    monkeypatch,
+    tmp_path,
+    field,
+    source_value,
+):
+    monkeypatch.delenv(field, raising=False)
+    dotenv_path = tmp_path / "invalid-pool-bound.env"
+    dotenv_path.write_text(
+        f"{field}={source_value}\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValidationError):
+        Settings(_env_file=dotenv_path)
+
+
+@pytest.mark.parametrize(
+    ("field", "initializer", "environment", "dotenv"),
+    [
+        ("DATABASE_POOL_SIZE", 5, "4", "3"),
+        ("DATABASE_MAX_OVERFLOW", 10, "9", "8"),
+    ],
+)
+def test_pool_initializer_overrides_environment_and_dotenv(
+    monkeypatch,
+    tmp_path,
+    field,
+    initializer,
+    environment,
+    dotenv,
+):
+    dotenv_path = tmp_path / "pool-precedence.env"
+    dotenv_path.write_text(f"{field}={dotenv}\n", encoding="utf-8")
+    monkeypatch.setenv(field, environment)
+
+    configured = Settings(_env_file=dotenv_path, **{field: initializer})
+
+    parsed = getattr(configured, field)
+    assert parsed == initializer
+    assert type(parsed) is int
+
+
+@pytest.mark.parametrize(
+    ("field", "environment", "dotenv"),
+    [
+        ("DATABASE_POOL_SIZE", "5", "4"),
+        ("DATABASE_MAX_OVERFLOW", "10", "9"),
+    ],
+)
+def test_pool_environment_overrides_dotenv(
+    monkeypatch,
+    tmp_path,
+    field,
+    environment,
+    dotenv,
+):
+    dotenv_path = tmp_path / "pool-precedence.env"
+    dotenv_path.write_text(f"{field}={dotenv}\n", encoding="utf-8")
+    monkeypatch.setenv(field, environment)
+
+    parsed = getattr(Settings(_env_file=dotenv_path), field)
+
+    assert parsed == int(environment)
+    assert type(parsed) is int
+
+
+@pytest.mark.parametrize(
+    ("field", "dotenv", "expected"),
+    [
+        ("DATABASE_POOL_SIZE", "1", 1),
+        ("DATABASE_MAX_OVERFLOW", "0", 0),
+    ],
+)
+def test_pool_dotenv_overrides_default(
+    monkeypatch,
+    tmp_path,
+    field,
+    dotenv,
+    expected,
+):
+    monkeypatch.delenv(field, raising=False)
+    dotenv_path = tmp_path / "pool-precedence.env"
+    dotenv_path.write_text(f"{field}={dotenv}\n", encoding="utf-8")
+
+    parsed = getattr(Settings(_env_file=dotenv_path), field)
+
+    assert parsed == expected
+    assert type(parsed) is int
 
 def test_blank_runtime_urls_are_unconfigured():
     settings = Settings(_env_file=None, DATABASE_URL="", REDIS_URL="", OLLAMA_BASE_URL="")
