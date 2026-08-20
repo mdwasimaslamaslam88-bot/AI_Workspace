@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 from pydantic import ValidationError
 from app.core.config import (
@@ -460,3 +462,288 @@ def test_ollama_generation_response_cap_accepts_documented_bounds(value):
     )
 
     assert configured.OLLAMA_GENERATION_MAX_RESPONSE_BYTES == value
+
+_STRICT_INTEGER_SOURCE_FIELDS = (
+    (
+        "MODEL_LIST_MAX_RESPONSE_BYTES",
+        1_048_576,
+        MAX_MODEL_LIST_RESPONSE_BYTES,
+    ),
+    (
+        "OLLAMA_CATALOG_MAX_RESPONSE_BYTES",
+        1_048_576,
+        MAX_OLLAMA_CATALOG_RESPONSE_BYTES,
+    ),
+    (
+        "OLLAMA_CATALOG_MAX_LIST_MODELS",
+        256,
+        MAX_OLLAMA_CATALOG_LIST_MODELS,
+    ),
+    (
+        "OLLAMA_GENERATION_MAX_REQUEST_BYTES",
+        1_048_576,
+        MAX_OLLAMA_GENERATION_REQUEST_BYTES,
+    ),
+    (
+        "OLLAMA_GENERATION_MAX_RESPONSE_BYTES",
+        262_144,
+        MAX_OLLAMA_GENERATION_RESPONSE_BYTES,
+    ),
+    (
+        "GENERATION_MAX_ACTIVE_PER_PROCESS",
+        1,
+        MAX_GENERATION_ACTIVE_PER_PROCESS,
+    ),
+    (
+        "REQUEST_MAX_BODY_BYTES",
+        262_144,
+        MAX_REQUEST_BODY_BYTES,
+    ),
+)
+_INVALID_STRICT_INTEGER_SOURCE_FORMS = (
+    "1.0",
+    "1e3",
+    "true",
+    "false",
+    '"1"',
+    "null",
+    "",
+    " \t ",
+    "[1]",
+    '{"value":1}',
+)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        (field, value)
+        for field, documented_value, maximum in _STRICT_INTEGER_SOURCE_FIELDS
+        for value in (1, documented_value, maximum)
+    ],
+)
+def test_strict_integer_environment_accepts_documented_bounds(
+    monkeypatch,
+    field,
+    value,
+):
+    monkeypatch.setenv(field, str(value))
+
+    configured = Settings(_env_file=None)
+    parsed = getattr(configured, field)
+
+    assert parsed == value
+    assert type(parsed) is int
+
+
+@pytest.mark.parametrize(
+    ("field", "documented_value", "maximum"),
+    _STRICT_INTEGER_SOURCE_FIELDS,
+)
+def test_strict_integer_environment_accepts_surrounding_whitespace(
+    monkeypatch,
+    field,
+    documented_value,
+    maximum,
+):
+    monkeypatch.setenv(field, f" \t{documented_value}\n")
+
+    parsed = getattr(Settings(_env_file=None), field)
+
+    assert parsed == documented_value
+    assert type(parsed) is int
+
+
+@pytest.mark.parametrize(
+    "source_value",
+    _INVALID_STRICT_INTEGER_SOURCE_FORMS,
+)
+@pytest.mark.parametrize(
+    ("field", "_documented_value", "_maximum"),
+    _STRICT_INTEGER_SOURCE_FIELDS,
+)
+def test_strict_integer_environment_rejects_noninteger_source_forms(
+    monkeypatch,
+    field,
+    _documented_value,
+    _maximum,
+    source_value,
+):
+    monkeypatch.setenv(field, source_value)
+
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None)
+
+
+@pytest.mark.parametrize(
+    ("field", "_documented_value", "maximum"),
+    _STRICT_INTEGER_SOURCE_FIELDS,
+)
+def test_strict_integer_environment_rejects_out_of_range_values(
+    monkeypatch,
+    field,
+    _documented_value,
+    maximum,
+):
+    for source_value in ("0", "-1", str(maximum + 1), "9" * 1_000):
+        with monkeypatch.context() as isolated_environment:
+            isolated_environment.setenv(field, source_value)
+            with pytest.raises(ValidationError):
+                Settings(_env_file=None)
+
+
+def test_strict_integer_dotenv_accepts_documented_values(tmp_path):
+    dotenv_path = tmp_path / "valid.env"
+    dotenv_path.write_text(
+        "\n".join(
+            f"{field}={documented_value}"
+            for field, documented_value, _maximum in _STRICT_INTEGER_SOURCE_FIELDS
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    configured = Settings(_env_file=dotenv_path)
+
+    for field, documented_value, _maximum in _STRICT_INTEGER_SOURCE_FIELDS:
+        parsed = getattr(configured, field)
+        assert parsed == documented_value
+        assert type(parsed) is int
+
+
+def _write_dotenv_source_value(path: Path, field: str, source_value: str) -> None:
+    rendered_value = f"'{source_value}'" if source_value == '"1"' else source_value
+    path.write_text(
+        f"{field}={rendered_value}\n",
+        encoding="utf-8",
+    )
+
+
+@pytest.mark.parametrize(
+    "source_value",
+    _INVALID_STRICT_INTEGER_SOURCE_FORMS,
+)
+@pytest.mark.parametrize(
+    ("field", "_documented_value", "_maximum"),
+    _STRICT_INTEGER_SOURCE_FIELDS,
+)
+def test_strict_integer_dotenv_rejects_noninteger_source_forms(
+    tmp_path,
+    field,
+    _documented_value,
+    _maximum,
+    source_value,
+):
+    dotenv_path = tmp_path / "invalid.env"
+    _write_dotenv_source_value(dotenv_path, field, source_value)
+
+    with pytest.raises(ValidationError):
+        Settings(_env_file=dotenv_path)
+
+
+@pytest.mark.parametrize(
+    ("field", "_documented_value", "maximum"),
+    _STRICT_INTEGER_SOURCE_FIELDS,
+)
+def test_strict_integer_dotenv_rejects_out_of_range_values(
+    tmp_path,
+    field,
+    _documented_value,
+    maximum,
+):
+    for source_value in ("0", "-1", str(maximum + 1), "9" * 1_000):
+        dotenv_path = tmp_path / f"invalid-{len(source_value)}.env"
+        _write_dotenv_source_value(dotenv_path, field, source_value)
+        with pytest.raises(ValidationError):
+            Settings(_env_file=dotenv_path)
+
+
+def test_env_example_is_an_executable_settings_contract(monkeypatch):
+    for field, _documented_value, _maximum in _STRICT_INTEGER_SOURCE_FIELDS:
+        monkeypatch.delenv(field, raising=False)
+    env_example = Path(__file__).resolve().parents[1] / ".env.example"
+
+    configured = Settings(_env_file=env_example)
+
+    for field, documented_value, _maximum in _STRICT_INTEGER_SOURCE_FIELDS:
+        parsed = getattr(configured, field)
+        assert parsed == documented_value
+        assert type(parsed) is int
+
+
+def test_initializer_integer_overrides_environment(monkeypatch):
+    monkeypatch.setenv("REQUEST_MAX_BODY_BYTES", "1")
+
+    configured = Settings(
+        _env_file=None,
+        REQUEST_MAX_BODY_BYTES=262_144,
+    )
+
+    assert configured.REQUEST_MAX_BODY_BYTES == 262_144
+    assert type(configured.REQUEST_MAX_BODY_BYTES) is int
+
+
+def test_environment_integer_overrides_dotenv(monkeypatch, tmp_path):
+    dotenv_path = tmp_path / "precedence.env"
+    dotenv_path.write_text(
+        "REQUEST_MAX_BODY_BYTES=1\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("REQUEST_MAX_BODY_BYTES", "262144")
+
+    configured = Settings(_env_file=dotenv_path)
+
+    assert configured.REQUEST_MAX_BODY_BYTES == 262_144
+    assert type(configured.REQUEST_MAX_BODY_BYTES) is int
+
+
+def test_dotenv_integer_overrides_default(tmp_path):
+    dotenv_path = tmp_path / "precedence.env"
+    dotenv_path.write_text(
+        "REQUEST_MAX_BODY_BYTES=1\n",
+        encoding="utf-8",
+    )
+
+    configured = Settings(_env_file=dotenv_path)
+
+    assert configured.REQUEST_MAX_BODY_BYTES == 1
+    assert type(configured.REQUEST_MAX_BODY_BYTES) is int
+
+
+def test_unrelated_environment_settings_keep_existing_parsing(monkeypatch):
+    monkeypatch.setenv(
+        "BACKEND_CORS_ORIGINS",
+        '["https://workspace.example.test"]',
+    )
+    monkeypatch.setenv(
+        "OLLAMA_LOCAL_MODEL_ALLOWLIST",
+        '["verified-local:latest"]',
+    )
+    monkeypatch.setenv(
+        "DATABASE_URL",
+        "postgresql+asyncpg://user:password@localhost:5432/workspace",
+    )
+    monkeypatch.setenv("REDIS_URL", "redis://:password@localhost:6379/0")
+    monkeypatch.setenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434")
+    monkeypatch.setenv("TEST_DATABASE_URL", " \t ")
+    monkeypatch.setenv("MODEL_LIST_MAX_DISCOVERY_SECONDS", "42.5")
+    monkeypatch.setenv("GENERATION_MAX_DURATION_SECONDS", "73.25")
+    monkeypatch.setenv("OLLAMA_GENERATION_TIMEOUT_SECONDS", "12.5")
+
+    configured = Settings(_env_file=None)
+
+    assert configured.BACKEND_CORS_ORIGINS == [
+        "https://workspace.example.test"
+    ]
+    assert configured.OLLAMA_LOCAL_MODEL_ALLOWLIST == (
+        "verified-local:latest",
+    )
+    assert str(configured.DATABASE_URL).startswith(
+        "postgresql+asyncpg://"
+    )
+    assert str(configured.REDIS_URL).startswith("redis://")
+    assert str(configured.OLLAMA_BASE_URL) == "http://127.0.0.1:11434/"
+    assert configured.TEST_DATABASE_URL is None
+    assert configured.MODEL_LIST_MAX_DISCOVERY_SECONDS == 42.5
+    assert configured.GENERATION_MAX_DURATION_SECONDS == 73.25
+    assert configured.OLLAMA_GENERATION_TIMEOUT_SECONDS == 12.5

@@ -1,5 +1,6 @@
 import ipaddress
-from typing import Literal
+import re
+from typing import Any, Literal
 
 from pydantic import (
     AnyHttpUrl,
@@ -10,7 +11,12 @@ from pydantic import (
     StrictInt,
     field_validator,
 )
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic.fields import FieldInfo
+from pydantic_settings import (
+    BaseSettings,
+    PydanticBaseSettingsSource,
+    SettingsConfigDict,
+)
 
 
 DatabaseSslMode = Literal["disable", "require", "verify-ca", "verify-full"]
@@ -23,6 +29,65 @@ MAX_OLLAMA_CATALOG_RESPONSE_BYTES = 1_048_576
 MAX_OLLAMA_GENERATION_REQUEST_BYTES = 1_048_576
 MAX_OLLAMA_GENERATION_RESPONSE_BYTES = 1_048_576
 MAX_REQUEST_BODY_BYTES = 1_048_576
+_SOURCE_DECODED_STRICT_INTEGER_FIELDS = frozenset(
+    {
+        "MODEL_LIST_MAX_RESPONSE_BYTES",
+        "OLLAMA_CATALOG_MAX_RESPONSE_BYTES",
+        "OLLAMA_CATALOG_MAX_LIST_MODELS",
+        "OLLAMA_GENERATION_MAX_REQUEST_BYTES",
+        "OLLAMA_GENERATION_MAX_RESPONSE_BYTES",
+        "GENERATION_MAX_ACTIVE_PER_PROCESS",
+        "REQUEST_MAX_BODY_BYTES",
+    }
+)
+_DECIMAL_INTEGER_PATTERN = re.compile(r"-?(?:0|[1-9][0-9]*)\Z")
+
+
+def _decode_strict_integer_source_value(field_name: str, value: Any) -> Any:
+    if (
+        field_name not in _SOURCE_DECODED_STRICT_INTEGER_FIELDS
+        or not isinstance(value, str)
+    ):
+        return value
+
+    normalized = value.strip()
+    if not _DECIMAL_INTEGER_PATTERN.fullmatch(normalized):
+        return value
+    try:
+        return int(normalized)
+    except ValueError:
+        return value
+
+
+class _StrictIntegerTextSettingsSource(PydanticBaseSettingsSource):
+    def __init__(self, source: PydanticBaseSettingsSource) -> None:
+        super().__init__(source.settings_cls)
+        self._source = source
+
+    def get_field_value(
+        self,
+        field: FieldInfo,
+        field_name: str,
+    ) -> tuple[Any, str, bool]:
+        return self._source.get_field_value(field, field_name)
+
+    def __call__(self) -> dict[str, Any]:
+        values = self._source()
+        for field_name in _SOURCE_DECODED_STRICT_INTEGER_FIELDS:
+            if field_name in values:
+                values[field_name] = _decode_strict_integer_source_value(
+                    field_name,
+                    values[field_name],
+                )
+        return values
+
+
+class _StrictIntegerEnvironmentSettingsSource(_StrictIntegerTextSettingsSource):
+    pass
+
+
+class _StrictIntegerDotenvSettingsSource(_StrictIntegerTextSettingsSource):
+    pass
 
 
 class Settings(BaseSettings):
@@ -195,6 +260,22 @@ class Settings(BaseSettings):
                 )
             seen.add(reference)
         return value
+
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls: type[BaseSettings],
+        init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource,
+        dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
+        return (
+            init_settings,
+            _StrictIntegerEnvironmentSettingsSource(env_settings),
+            _StrictIntegerDotenvSettingsSource(dotenv_settings),
+            file_secret_settings,
+        )
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
