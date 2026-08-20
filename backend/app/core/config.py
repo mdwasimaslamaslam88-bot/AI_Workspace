@@ -104,16 +104,36 @@ class Settings(BaseSettings):
         max_length=64,
         pattern=r"^[a-f0-9]{64}$",
     )
-    DATABASE_CONNECT_TIMEOUT_SECONDS: float = Field(default=3.0, gt=0)
-    DATABASE_POOL_TIMEOUT_SECONDS: float = Field(default=5.0, gt=0)
-    DATABASE_COMMAND_TIMEOUT_SECONDS: float = Field(default=10.0, gt=0)
+    DATABASE_CONNECT_TIMEOUT_SECONDS: float = Field(
+        default=3.0,
+        gt=0,
+        allow_inf_nan=False,
+    )
+    DATABASE_POOL_TIMEOUT_SECONDS: float = Field(
+        default=5.0,
+        gt=0,
+        allow_inf_nan=False,
+    )
+    DATABASE_COMMAND_TIMEOUT_SECONDS: float = Field(
+        default=10.0,
+        gt=0,
+        allow_inf_nan=False,
+    )
     DATABASE_POOL_SIZE: int = Field(default=5, ge=1)
     DATABASE_MAX_OVERFLOW: int = Field(default=10, ge=0)
     DATABASE_SSL_MODE: DatabaseSslMode = "verify-full"
     DATABASE_SSL_ROOT_CERT: str | None = None
     TEST_DATABASE_URL: PostgresDsn | None = None
-    REDIS_CONNECT_TIMEOUT_SECONDS: float = Field(default=3.0, gt=0)
-    OLLAMA_TIMEOUT_SECONDS: float = Field(default=5.0, gt=0)
+    REDIS_CONNECT_TIMEOUT_SECONDS: float = Field(
+        default=3.0,
+        gt=0,
+        allow_inf_nan=False,
+    )
+    OLLAMA_TIMEOUT_SECONDS: float = Field(
+        default=5.0,
+        gt=0,
+        allow_inf_nan=False,
+    )
     OLLAMA_LOCAL_MODEL_ALLOWLIST: tuple[str, ...] = ()
     MODEL_LIST_MAX_DISCOVERY_SECONDS: StrictFloat | StrictInt = Field(
         default=60.0,

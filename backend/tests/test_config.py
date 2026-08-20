@@ -1,3 +1,4 @@
+import math
 from pathlib import Path
 
 import pytest
@@ -13,6 +14,25 @@ from app.core.config import (
     MAX_OLLAMA_GENERATION_RESPONSE_BYTES,
     MAX_REQUEST_BODY_BYTES,
     Settings,
+)
+
+
+_LEGACY_DEPENDENCY_TIMEOUT_FIELDS = (
+    ("DATABASE_CONNECT_TIMEOUT_SECONDS", 3.0),
+    ("DATABASE_POOL_TIMEOUT_SECONDS", 5.0),
+    ("DATABASE_COMMAND_TIMEOUT_SECONDS", 10.0),
+    ("REDIS_CONNECT_TIMEOUT_SECONDS", 3.0),
+    ("OLLAMA_TIMEOUT_SECONDS", 5.0),
+)
+_NONFINITE_TIMEOUT_SOURCE_FORMS = (
+    "nan",
+    "inf",
+    "+inf",
+    "-inf",
+    "Infinity",
+    "-Infinity",
+    "1e9999",
+    "9" * 1_000,
 )
 
 def test_settings_preserve_application_defaults():
@@ -35,6 +55,247 @@ def test_settings_preserve_application_defaults():
     assert settings.GENERATION_MAX_DURATION_SECONDS == 180.0
     assert settings.REQUEST_MAX_BODY_BYTES == 262_144
     assert settings.USER_PROVISIONING_TOKEN_DIGEST is None
+
+
+@pytest.mark.parametrize(
+    ("field", "documented_default"),
+    _LEGACY_DEPENDENCY_TIMEOUT_FIELDS,
+)
+def test_legacy_dependency_timeout_defaults_are_positive_and_finite(
+    monkeypatch,
+    field,
+    documented_default,
+):
+    monkeypatch.delenv(field, raising=False)
+
+    parsed = getattr(Settings(_env_file=None), field)
+
+    assert parsed == documented_default
+    assert type(parsed) is float
+    assert math.isfinite(parsed)
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (0.001, 0.001),
+        (3, 3.0),
+        (3.5, 3.5),
+        (1e300, 1e300),
+    ],
+)
+@pytest.mark.parametrize(
+    ("field", "_documented_default"),
+    _LEGACY_DEPENDENCY_TIMEOUT_FIELDS,
+)
+def test_legacy_dependency_timeouts_accept_positive_finite_initializers(
+    field,
+    _documented_default,
+    value,
+    expected,
+):
+    parsed = getattr(Settings(_env_file=None, **{field: value}), field)
+
+    assert parsed == expected
+    assert type(parsed) is float
+    assert math.isfinite(parsed)
+
+
+@pytest.mark.parametrize(
+    ("source_value", "expected"),
+    [
+        ("3", 3.0),
+        ("3.5", 3.5),
+        ("1e2", 100.0),
+        ("1e300", 1e300),
+    ],
+)
+@pytest.mark.parametrize(
+    ("field", "_documented_default"),
+    _LEGACY_DEPENDENCY_TIMEOUT_FIELDS,
+)
+def test_legacy_dependency_timeout_environment_accepts_finite_numeric_text(
+    monkeypatch,
+    field,
+    _documented_default,
+    source_value,
+    expected,
+):
+    monkeypatch.setenv(field, source_value)
+
+    parsed = getattr(Settings(_env_file=None), field)
+
+    assert parsed == expected
+    assert type(parsed) is float
+    assert math.isfinite(parsed)
+
+
+def test_legacy_dependency_timeout_dotenv_accepts_finite_numeric_text(
+    monkeypatch,
+    tmp_path,
+):
+    for field, _documented_default in _LEGACY_DEPENDENCY_TIMEOUT_FIELDS:
+        monkeypatch.delenv(field, raising=False)
+    dotenv_path = tmp_path / "finite-timeouts.env"
+    dotenv_path.write_text(
+        "\n".join(
+            f"{field}=1e2"
+            for field, _documented_default in _LEGACY_DEPENDENCY_TIMEOUT_FIELDS
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    configured = Settings(_env_file=dotenv_path)
+
+    for field, _documented_default in _LEGACY_DEPENDENCY_TIMEOUT_FIELDS:
+        parsed = getattr(configured, field)
+        assert parsed == 100.0
+        assert type(parsed) is float
+        assert math.isfinite(parsed)
+
+
+@pytest.mark.parametrize(
+    "value",
+    [float("nan"), float("inf"), float("-inf"), 0, -1],
+)
+@pytest.mark.parametrize(
+    ("field", "_documented_default"),
+    _LEGACY_DEPENDENCY_TIMEOUT_FIELDS,
+)
+def test_legacy_dependency_timeouts_reject_nonfinite_or_nonpositive_initializers(
+    field,
+    _documented_default,
+    value,
+):
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None, **{field: value})
+
+
+@pytest.mark.parametrize(
+    "source_value",
+    _NONFINITE_TIMEOUT_SOURCE_FORMS,
+)
+@pytest.mark.parametrize(
+    ("field", "_documented_default"),
+    _LEGACY_DEPENDENCY_TIMEOUT_FIELDS,
+)
+def test_legacy_dependency_timeout_environment_rejects_nonfinite_source_forms(
+    monkeypatch,
+    field,
+    _documented_default,
+    source_value,
+):
+    monkeypatch.setenv(field, source_value)
+
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None)
+
+
+@pytest.mark.parametrize(
+    "source_value",
+    _NONFINITE_TIMEOUT_SOURCE_FORMS,
+)
+@pytest.mark.parametrize(
+    ("field", "_documented_default"),
+    _LEGACY_DEPENDENCY_TIMEOUT_FIELDS,
+)
+def test_legacy_dependency_timeout_dotenv_rejects_nonfinite_source_forms(
+    monkeypatch,
+    tmp_path,
+    field,
+    _documented_default,
+    source_value,
+):
+    monkeypatch.delenv(field, raising=False)
+    dotenv_path = tmp_path / "nonfinite-timeout.env"
+    dotenv_path.write_text(
+        f"{field}={source_value}\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValidationError):
+        Settings(_env_file=dotenv_path)
+
+
+def test_legacy_dependency_timeout_initializer_overrides_environment_and_dotenv(
+    monkeypatch,
+    tmp_path,
+):
+    dotenv_path = tmp_path / "timeout-precedence.env"
+    dotenv_path.write_text(
+        "OLLAMA_TIMEOUT_SECONDS=1.0\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("OLLAMA_TIMEOUT_SECONDS", "2.0")
+
+    configured = Settings(
+        _env_file=dotenv_path,
+        OLLAMA_TIMEOUT_SECONDS=3.0,
+    )
+
+    assert configured.OLLAMA_TIMEOUT_SECONDS == 3.0
+
+
+def test_legacy_dependency_timeout_environment_overrides_dotenv(
+    monkeypatch,
+    tmp_path,
+):
+    dotenv_path = tmp_path / "timeout-precedence.env"
+    dotenv_path.write_text(
+        "OLLAMA_TIMEOUT_SECONDS=1.0\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("OLLAMA_TIMEOUT_SECONDS", "2.0")
+
+    configured = Settings(_env_file=dotenv_path)
+
+    assert configured.OLLAMA_TIMEOUT_SECONDS == 2.0
+
+
+def test_legacy_dependency_timeout_dotenv_overrides_default(monkeypatch, tmp_path):
+    monkeypatch.delenv("OLLAMA_TIMEOUT_SECONDS", raising=False)
+    dotenv_path = tmp_path / "timeout-precedence.env"
+    dotenv_path.write_text(
+        "OLLAMA_TIMEOUT_SECONDS=1.0\n",
+        encoding="utf-8",
+    )
+
+    configured = Settings(_env_file=dotenv_path)
+
+    assert configured.OLLAMA_TIMEOUT_SECONDS == 1.0
+
+
+def test_env_example_preserves_legacy_dependency_timeout_and_pool_values(
+    monkeypatch,
+):
+    fields = tuple(
+        field for field, _documented_default in _LEGACY_DEPENDENCY_TIMEOUT_FIELDS
+    ) + ("DATABASE_POOL_SIZE", "DATABASE_MAX_OVERFLOW")
+    for field in fields:
+        monkeypatch.delenv(field, raising=False)
+    env_example = Path(__file__).resolve().parents[1] / ".env.example"
+
+    configured = Settings(_env_file=env_example)
+
+    for field, documented_default in _LEGACY_DEPENDENCY_TIMEOUT_FIELDS:
+        parsed = getattr(configured, field)
+        assert parsed == documented_default
+        assert type(parsed) is float
+        assert math.isfinite(parsed)
+    assert configured.DATABASE_POOL_SIZE == 5
+    assert configured.DATABASE_MAX_OVERFLOW == 10
+
+
+def test_legacy_dependency_timeout_hardening_preserves_pool_coercion():
+    configured = Settings(
+        _env_file=None,
+        DATABASE_POOL_SIZE="5.0",
+        DATABASE_MAX_OVERFLOW=False,
+    )
+
+    assert configured.DATABASE_POOL_SIZE == 5
+    assert configured.DATABASE_MAX_OVERFLOW == 0
 
 def test_blank_runtime_urls_are_unconfigured():
     settings = Settings(_env_file=None, DATABASE_URL="", REDIS_URL="", OLLAMA_BASE_URL="")
