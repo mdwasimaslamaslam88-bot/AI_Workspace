@@ -1,6 +1,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from sqlalchemy.ext.asyncio import async_object_session
 
 from app.ai.catalog import ModelRuntimeUnavailableError
 from app.api.dependencies import get_current_user
@@ -202,6 +203,12 @@ async def list_local_models(
     request: Request,
     _current_user: Annotated[User, Depends(get_current_user)],
 ) -> LocalModelPageResponse:
+    if isinstance(_current_user, User):
+        authentication_session = async_object_session(_current_user)
+        if authentication_session is None:
+            raise RuntimeError("Authenticated user session is not available")
+        await authentication_session.rollback()
+
     catalog = getattr(request.app.state, "model_catalog", None)
     if catalog is None:
         raise RuntimeError("Local model catalog is not configured")

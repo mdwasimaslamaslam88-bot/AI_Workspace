@@ -29,6 +29,13 @@ session and never commit. Service, unit-of-work, or other application
 transaction logic owns successful transactions and must explicitly call
 `await session.commit()`.
 
+After an authenticated `GET /api/v1/ai/models` request completes its read-only
+User lookup, the endpoint rolls back that same request-scoped session before
+starting catalog discovery. Ending the authentication transaction returns its
+connection to the pool instead of retaining it while the caller waits on shared
+catalog work. This release adds no database query, write, commit, or second
+session; ordinary request-session cleanup still runs afterward.
+
 Process-lifetime dependencies are acquired through one FastAPI lifespan cleanup
 stack. Each existing closer is registered immediately after its resource is
 constructed, so a later startup failure disposes every resource already

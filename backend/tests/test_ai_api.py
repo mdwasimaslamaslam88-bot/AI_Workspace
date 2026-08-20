@@ -78,8 +78,14 @@ def _public_page(
 
 
 @pytest.fixture
-def authenticated_ai_client():
+def authenticated_ai_client(monkeypatch):
     user = _current_user()
+    session = AsyncMock(spec=AsyncSession)
+    monkeypatch.setattr(
+        ai_module,
+        "async_object_session",
+        Mock(return_value=session),
+    )
 
     async def override_current_user():
         return user
@@ -436,6 +442,10 @@ async def test_overlapping_model_list_requests_share_discovery_but_account_separ
 async def test_cancellation_after_discovery_propagates_before_serialization(
     monkeypatch,
 ):
+    user = _current_user()
+    session = AsyncMock(spec=AsyncSession)
+    object_session = Mock(return_value=session)
+    monkeypatch.setattr(ai_module, "async_object_session", object_session)
     model = _descriptor(
         capabilities=(ModelCapability.TEXT_GENERATION,),
     )
@@ -470,16 +480,20 @@ async def test_cancellation_after_discovery_propagates_before_serialization(
     )
 
     with pytest.raises(asyncio.CancelledError):
-        await ai_module.list_local_models(request, object())
+        await ai_module.list_local_models(request, user)
 
     assert catalog._list_models_flight is None
-    retry = await ai_module.list_local_models(request, object())
+    retry = await ai_module.list_local_models(request, user)
     assert retry.items[0].display_name == "Model One"
     assert runtime.discover_models.await_count == 2
     assert catalog._list_models_flight is None
+    assert object_session.call_args_list == [call(user), call(user)]
+    assert session.rollback.await_count == 2
+    session.commit.assert_not_awaited()
+    session.refresh.assert_not_awaited()
 
 
-def test_authentication_completes_before_discovery_without_database_writes(
+def test_authentication_releases_same_session_before_discovery_without_writes(
     monkeypatch,
 ):
     access_token = "A" * 43
@@ -488,7 +502,9 @@ def test_authentication_completes_before_discovery_without_database_writes(
     events = Mock()
     lookup = AsyncMock(return_value=user)
     catalog_list = AsyncMock(return_value=())
+    object_session = Mock(return_value=session)
     events.attach_mock(lookup, "authenticate")
+    events.attach_mock(session.rollback, "release")
     events.attach_mock(catalog_list, "discover")
     user_service_factory = Mock(
         return_value=Mock(get_by_access_token_digest=lookup)
@@ -498,6 +514,7 @@ def test_authentication_completes_before_discovery_without_database_writes(
         "UserService",
         user_service_factory,
     )
+    monkeypatch.setattr(ai_module, "async_object_session", object_session)
 
     async def override_db_session():
         yield session
@@ -517,13 +534,153 @@ def test_authentication_completes_before_discovery_without_database_writes(
 
     assert response.status_code == 200
     user_service_factory.assert_called_once_with(session)
+    object_session.assert_called_once_with(user)
     assert events.method_calls == [
         call.authenticate(digest_access_token(access_token)),
+        call.release(),
         call.discover(),
     ]
     session.commit.assert_not_awaited()
-    session.rollback.assert_not_awaited()
+    session.rollback.assert_awaited_once_with()
     session.refresh.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_concurrent_authenticated_model_lists_release_before_shared_flight(
+    monkeypatch,
+):
+    pool_resource = asyncio.Semaphore(1)
+    discovery_started = asyncio.Event()
+    release_discovery = asyncio.Event()
+    both_callers_joined = asyncio.Event()
+    labels = ("A", "B")
+    tokens = {label: label * 43 for label in labels}
+    users = {label: _current_user() for label in labels}
+    sessions = {
+        label: AsyncMock(spec=AsyncSession) for label in labels
+    }
+    session_labels = {
+        id(session): label for label, session in sessions.items()
+    }
+    user_labels = {id(user): label for label, user in users.items()}
+    checked_out: set[str] = set()
+    events: list[str] = []
+
+    def make_lookup(label):
+        async def lookup(token_digest):
+            assert token_digest == digest_access_token(tokens[label])
+            events.append(f"{label}:authenticate")
+            return users[label]
+
+        return AsyncMock(side_effect=lookup)
+
+    lookups = {label: make_lookup(label) for label in labels}
+
+    def user_service_factory(session):
+        label = session_labels[id(session)]
+        return Mock(get_by_access_token_digest=lookups[label])
+
+    monkeypatch.setattr(
+        authentication_module,
+        "UserService",
+        user_service_factory,
+    )
+
+    def object_session(user):
+        label = user_labels[id(user)]
+        return sessions[label]
+
+    monkeypatch.setattr(ai_module, "async_object_session", object_session)
+
+    def make_rollback(label):
+        async def rollback():
+            assert label in checked_out
+            events.append(f"{label}:release")
+            checked_out.remove(label)
+            pool_resource.release()
+
+        return rollback
+
+    for label in labels:
+        sessions[label].rollback.side_effect = make_rollback(label)
+
+    async def discover_models(*, reference_selector=None):
+        assert reference_selector is None
+        events.append("discover:start")
+        discovery_started.set()
+        await release_discovery.wait()
+        return (
+            RuntimeModel(
+                reference="shared:latest",
+                display_name="Shared Model",
+                capabilities=(ModelCapability.TEXT_GENERATION,),
+            ),
+        )
+
+    runtime = Mock(runtime_id="local-runtime")
+    runtime.discover_models = AsyncMock(side_effect=discover_models)
+    catalog = ModelCatalog((runtime,))
+    original_join = catalog._join_list_models_flight
+    joined_callers = 0
+
+    async def observed_join():
+        nonlocal joined_callers
+        flight = await original_join()
+        joined_callers += 1
+        if joined_callers == 2:
+            both_callers_joined.set()
+        return flight
+
+    monkeypatch.setattr(catalog, "_join_list_models_flight", observed_join)
+    request = Mock()
+    request.app.state.model_catalog = catalog
+    request.app.state.model_list_max_response_bytes = 1_048_576
+
+    async def authenticated_request(label):
+        session = sessions[label]
+        await pool_resource.acquire()
+        checked_out.add(label)
+        events.append(f"{label}:checkout")
+        try:
+            user = await authentication_module.get_current_user(
+                session,
+                f"Bearer {tokens[label]}",
+            )
+            return await ai_module.list_local_models(request, user)
+        finally:
+            if label in checked_out:
+                checked_out.remove(label)
+                pool_resource.release()
+            await session.close()
+            events.append(f"{label}:cleanup")
+
+    caller_a = asyncio.create_task(authenticated_request("A"))
+    await asyncio.wait_for(discovery_started.wait(), timeout=1)
+    assert not caller_a.done()
+    caller_b = asyncio.create_task(authenticated_request("B"))
+    await asyncio.wait_for(both_callers_joined.wait(), timeout=1)
+
+    assert events.index("A:authenticate") < events.index("A:release")
+    assert events.index("A:release") < events.index("discover:start")
+    assert events.index("A:release") < events.index("B:checkout")
+    assert "B:release" in events
+    assert runtime.discover_models.await_count == 1
+
+    release_discovery.set()
+    response_a, response_b = await asyncio.gather(caller_a, caller_b)
+
+    assert response_a == response_b
+    assert checked_out == set()
+    assert catalog._list_models_flight is None
+    for label in labels:
+        lookups[label].assert_awaited_once_with(
+            digest_access_token(tokens[label])
+        )
+        sessions[label].rollback.assert_awaited_once_with()
+        sessions[label].commit.assert_not_awaited()
+        sessions[label].refresh.assert_not_awaited()
+        sessions[label].close.assert_awaited_once_with()
+        assert f"{label}:cleanup" in events
 
 
 @pytest.mark.parametrize(
@@ -540,11 +697,13 @@ def test_model_listing_preserves_uniform_401_before_discovery(
         return_value=Mock(get_by_access_token_digest=lookup)
     )
     catalog_list = AsyncMock(return_value=())
+    object_session = Mock(return_value=session)
     monkeypatch.setattr(
         authentication_module,
         "UserService",
         user_service_factory,
     )
+    monkeypatch.setattr(ai_module, "async_object_session", object_session)
     response_accounting = Mock(
         wraps=ai_module._model_list_response_json_size
     )
@@ -576,7 +735,10 @@ def test_model_listing_preserves_uniform_401_before_discovery(
     }
     catalog_list.assert_not_awaited()
     response_accounting.assert_not_called()
+    object_session.assert_not_called()
     session.commit.assert_not_awaited()
+    session.rollback.assert_not_awaited()
+    session.refresh.assert_not_awaited()
     if authorization == f"Bearer {'U' * 43}":
         user_service_factory.assert_called_once_with(session)
         lookup.assert_awaited_once_with(digest_access_token("U" * 43))
@@ -589,11 +751,15 @@ def test_configured_unavailable_runtime_returns_safe_generic_503(
     authenticated_ai_client,
 ):
     client, _user = authenticated_ai_client
+    session = ai_module.async_object_session.return_value
+    events = Mock()
     catalog_list = AsyncMock(
         side_effect=ModelRuntimeUnavailableError(
             "secret URL http://127.0.0.1:11434/private/path"
         )
     )
+    events.attach_mock(session.rollback, "release")
+    events.attach_mock(catalog_list, "discover")
     app.state.model_catalog = Mock(list_models=catalog_list)
 
     response = client.get("/api/v1/ai/models")
@@ -605,6 +771,10 @@ def test_configured_unavailable_runtime_returns_safe_generic_503(
     }
     assert "127.0.0.1" not in response.text
     assert "private/path" not in response.text
+    assert events.method_calls == [call.release(), call.discover()]
+    session.rollback.assert_awaited_once_with()
+    session.commit.assert_not_awaited()
+    session.refresh.assert_not_awaited()
 
 
 def test_unexpected_catalog_failure_uses_safe_generic_500(

@@ -94,6 +94,13 @@ applies the exact opaque-ID selector, and requests `/api/show` only for the
 selected model. Duplicate allowlisted references retain their existing failure
 behavior before detail fan-out on both paths.
 
+For authenticated `GET /api/v1/ai/models` requests, authentication completes
+before model discovery. The endpoint then rolls back the read-only
+authentication transaction on the same request-scoped database session before
+entering catalog discovery, so the connection is not retained while the caller
+waits on shared catalog work. This introduces no additional database query,
+write, commit, or session.
+
 Full model listing uses process-local, non-retaining single-flight coordination
 inside the shared `ModelCatalog`. Calls to `list_models()`, including overlapping
 `GET /api/v1/ai/models` requests, that reach the same active full discovery await
@@ -101,7 +108,9 @@ its immutable ordered descriptors instead of repeating `/api/tags` and
 `/api/show`. The active flight is cleared immediately after success, failure, or
 cancellation; neither its result nor its exception is cached. Every later
 nonoverlapping listing therefore starts fresh request-time discovery and can
-observe changes to Ollama inventory or model details.
+observe changes to Ollama inventory or model details. Releasing the
+authentication transaction does not change this single-flight behavior, the
+shared catalog deadline, or the per-caller public response cap.
 
 Cancelling one listing waiter does not cancel discovery still needed by another
 waiter. Cancelling the last waiter cancels and awaits the active discovery so
