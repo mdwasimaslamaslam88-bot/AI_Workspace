@@ -37,12 +37,12 @@ async def validation_exception_handler(
     request: Request,
     exc: RequestValidationError,
 ) -> JSONResponse:
-    errors = exc.errors()
+    error_count = len(exc.errors())
     logger.warning(
         "validation_error",
         method=request.method,
         status_code=422,
-        error_count=len(errors),
+        error_count=error_count,
     )
 
     return JSONResponse(
@@ -52,7 +52,13 @@ async def validation_exception_handler(
             "error": {
                 "code": "VALIDATION_ERROR",
                 "message": "Validation failed.",
-                "details": errors,
+                "details": [
+                    {
+                        "type": "request_validation",
+                        "loc": ["request"],
+                        "msg": "Request validation failed.",
+                    }
+                ],
             },
             "path": request.url.path,
             "timestamp": datetime.now(timezone.utc).isoformat(),

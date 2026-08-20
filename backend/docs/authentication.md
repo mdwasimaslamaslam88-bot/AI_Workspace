@@ -361,6 +361,15 @@ Credentials, prompts, model references, user and Conversation identifiers, SQL
 and SQL parameters, headers, bodies, runtime status or response fragments,
 exception text and chains, and tracebacks are excluded from these logs.
 
+Request validation failures continue to return HTTP 422 with the existing outer
+error envelope, `VALIDATION_ERROR` code, `Validation failed.` message, path, and
+timestamp. The public `details` list contains one fixed sanitized request-level
+entry regardless of the original error count. Raw invalid input, submitted field
+names, validation locations and context, malformed JSON fragments, parser
+details, and internal validation objects are never reflected in that response.
+The original error count is used only by the fixed safe validation log described
+above, so public response size does not scale with validation-error fan-out.
+
 External task and disconnect cancellation continues to propagate unchanged and
 is not converted into HTTP 500 or recorded as an unexpected application error.
 Handled authentication, authorization, validation, domain, and runtime errors

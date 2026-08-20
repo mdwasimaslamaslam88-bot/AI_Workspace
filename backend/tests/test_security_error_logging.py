@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime
+import json
 import logging
 from typing import Annotated
 from unittest.mock import AsyncMock, Mock
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.testclient import TestClient
 from pydantic import BaseModel, ConfigDict, Field
@@ -31,6 +32,11 @@ from app.models.user import User
 _ALLOWED_ORIGIN = "https://allowed.example"
 _VALID_MODEL_ID = f"ollama-local:{'a' * 24}"
 _UNEXPECTED_EVENT = "unexpected_application_error"
+_SAFE_VALIDATION_DETAIL = {
+    "type": "request_validation",
+    "loc": ["request"],
+    "msg": "Request validation failed.",
+}
 
 
 class _ValidationPayload(BaseModel):
@@ -66,6 +72,21 @@ def _assert_generic_error_response(response, *, status_code: int, message: str):
         "message": message,
     }
     assert datetime.fromisoformat(payload["timestamp"])
+
+
+def _assert_sanitized_validation_response(response, *, path: str):
+    assert response.status_code == 422
+    payload = response.json()
+    assert set(payload) == {"success", "error", "path", "timestamp"}
+    assert payload["success"] is False
+    assert payload["error"] == {
+        "code": "VALIDATION_ERROR",
+        "message": "Validation failed.",
+        "details": [_SAFE_VALIDATION_DETAIL],
+    }
+    assert payload["path"] == path
+    assert datetime.fromisoformat(payload["timestamp"])
+    return payload
 
 
 def _http_scope(path: str = "/cancelled") -> Scope:
@@ -249,16 +270,17 @@ def test_validation_logs_only_fixed_metadata_without_raw_input(caplog, case):
                 headers={"Content-Type": "application/json"},
             )
 
-    assert response.status_code == 422
-    payload = response.json()
-    assert set(payload) == {"success", "error", "path", "timestamp"}
-    assert payload["success"] is False
-    assert payload["error"]["code"] == "VALIDATION_ERROR"
-    assert payload["error"]["message"] == "Validation failed."
-    assert isinstance(payload["error"]["details"], list)
-    assert payload["error"]["details"]
-    assert payload["path"] == "/validate"
-    assert datetime.fromisoformat(payload["timestamp"])
+    _assert_sanitized_validation_response(response, path="/validate")
+    response_text = response.text
+    for private_value in (
+        marker,
+        "prompt",
+        "model_id",
+        "private_extra",
+        "json_invalid",
+        "JSON decode error",
+    ):
+        assert private_value not in response_text
 
     validation_records = [
         record
@@ -273,8 +295,168 @@ def test_validation_logs_only_fixed_metadata_without_raw_input(caplog, case):
     assert "errors=" not in logged
     assert "input=" not in logged
     assert "status_code=" in logged and "422" in logged
-    assert "error_count=" in logged
+    assert "error_count=1" in logged
     assert _UNEXPECTED_EVENT not in logged
+
+
+def test_query_validation_uses_only_fixed_safe_detail():
+    api = _build_test_app()
+    query_name = "private_query_parameter"
+    query_value = "PRIVATE-QUERY-VALIDATION-VALUE"
+
+    @api.get("/validate-query")
+    async def validate_query(
+        value: Annotated[int, Query(alias=query_name)],
+    ):
+        return {"value": value}
+
+    with TestClient(api) as client:
+        response = client.get(
+            "/validate-query",
+            params={query_name: query_value},
+        )
+
+    _assert_sanitized_validation_response(response, path="/validate-query")
+    assert query_name not in response.text
+    assert query_value not in response.text
+
+
+def test_path_validation_uses_only_fixed_safe_detail():
+    api = _build_test_app()
+    path_value = "PRIVATE-CONVERSATION-ID"
+
+    @api.get("/validate-path/{conversation_id}")
+    async def validate_path(conversation_id: UUID):
+        return {"conversation_id": conversation_id}
+
+    path = f"/validate-path/{path_value}"
+    with TestClient(api) as client:
+        response = client.get(path)
+
+    payload = _assert_sanitized_validation_response(response, path=path)
+    serialized_details = json.dumps(payload["error"]["details"])
+    assert "conversation_id" not in serialized_details
+    assert path_value not in serialized_details
+
+
+def test_header_validation_uses_only_fixed_safe_detail():
+    api = _build_test_app()
+    header_name = "X-Private-Validation"
+    header_value = "PRIVATE-HEADER-VALIDATION-VALUE"
+
+    @api.get("/validate-header")
+    async def validate_header(
+        value: Annotated[int, Header(alias=header_name)],
+    ):
+        return {"value": value}
+
+    with TestClient(api) as client:
+        response = client.get(
+            "/validate-header",
+            headers={header_name: header_value},
+        )
+
+    _assert_sanitized_validation_response(response, path="/validate-header")
+    assert header_name not in response.text
+    assert header_name.lower() not in response.text
+    assert header_value not in response.text
+
+
+def test_many_validation_failures_have_constant_public_detail_and_accurate_count(
+    caplog,
+):
+    caplog.set_level(logging.WARNING)
+    api = _build_test_app()
+    failure_count = 2_000
+    many_invalid = {
+        f"private_extra_{index}": f"PRIVATE-MANY-{index}"
+        for index in range(failure_count)
+    }
+    encoded_many = json.dumps(
+        {
+            "prompt": "allowed",
+            "model_id": _VALID_MODEL_ID,
+            **many_invalid,
+        },
+        separators=(",", ":"),
+    ).encode()
+    assert len(encoded_many) < 262_144
+
+    @api.post("/validate-many")
+    async def validate_many(payload: _ValidationPayload):
+        return payload
+
+    with TestClient(api) as client:
+        one_error = client.post(
+            "/validate-many",
+            json={
+                "prompt": "PRIVATE-SINGLE-ERROR",
+                "model_id": _VALID_MODEL_ID,
+            },
+        )
+        many_errors = client.post(
+            "/validate-many",
+            content=encoded_many,
+            headers={"Content-Type": "application/json"},
+        )
+
+    one_payload = _assert_sanitized_validation_response(
+        one_error,
+        path="/validate-many",
+    )
+    many_payload = _assert_sanitized_validation_response(
+        many_errors,
+        path="/validate-many",
+    )
+    assert many_payload["error"] == one_payload["error"]
+    assert len(many_errors.content) == len(one_error.content)
+    assert "private_extra_" not in many_errors.text
+    assert "PRIVATE-MANY-" not in many_errors.text
+
+    validation_records = [
+        record
+        for record in caplog.records
+        if "validation_error" in record.getMessage()
+    ]
+    assert len(validation_records) == 2
+    assert all(record.exc_info is None for record in validation_records)
+    logged = caplog.text
+    assert "error_count=1" in logged
+    assert f"error_count={failure_count}" in logged
+    assert "private_extra_" not in logged
+    assert "PRIVATE-MANY-" not in logged
+    assert "errors=" not in logged
+    assert "input=" not in logged
+
+
+def test_validation_preserves_request_id_and_cors_headers():
+    api = _build_test_app()
+    request_id = "validation-request-id"
+
+    @api.post("/validate-headers")
+    async def validate_headers(payload: _ValidationPayload):
+        return payload
+
+    with TestClient(api) as client:
+        response = client.post(
+            "/validate-headers",
+            json={
+                "prompt": "PRIVATE-CORS-VALIDATION-VALUE",
+                "model_id": _VALID_MODEL_ID,
+            },
+            headers={
+                "Origin": _ALLOWED_ORIGIN,
+                "X-Request-ID": request_id,
+            },
+        )
+
+    _assert_sanitized_validation_response(
+        response,
+        path="/validate-headers",
+    )
+    assert "PRIVATE-CORS-VALIDATION-VALUE" not in response.text
+    assert response.headers["X-Request-ID"] == request_id
+    assert response.headers["access-control-allow-origin"] == _ALLOWED_ORIGIN
 
 
 @pytest.mark.parametrize(
