@@ -15,6 +15,7 @@ from app.ai.catalog import (
     ResolvedModel,
 )
 from app.ai.generation import (
+    TextGenerationRequestTooLargeError,
     TextGenerationResult,
     TextGenerationRuntimeUnavailableError,
     TextGenerationRuntimeUnsupportedError,
@@ -27,6 +28,7 @@ from app.models.message import (
 from app.repositories.message import (
     GenerationContextMessage,
     GenerationContextSnapshot,
+    MessageAttachmentMetadata,
 )
 from app.services.conversation_generation import (
     MAX_GENERATION_CONTEXT_CHARACTERS,
@@ -54,10 +56,16 @@ from app.services.conversation_generation import (
     ConversationGenerationNotFoundError,
     ConversationGenerationNotReadyError,
     ConversationGenerationService,
+    ConversationGenerationVisionCapabilityError,
 )
 from app.services.generation_admission import (
     GenerationAdmissionController,
     GenerationAdmissionRejectedError,
+)
+from app.services.vision_input import (
+    VisionInputContentUnavailableError,
+    VisionInputTooLargeError,
+    VisionInputUnsupportedError,
 )
 
 
@@ -3508,5 +3516,469 @@ async def test_non_deadline_timeout_is_not_reclassified(monkeypatch):
     with pytest.raises(TimeoutError, match="narrower operation timeout"):
         await service.generate_for_owner(owner_id, conversation_id, MODEL_ID)
 
+    assert dependencies["admission"]._active_users == set()
+    assert dependencies["admission"]._active_count == 0
+
+
+def _vision_metadata(media_type="image/png", *, position=1):
+    return MessageAttachmentMetadata(
+        asset_id=uuid4(),
+        position=position,
+        media_type=media_type,
+        byte_size=3,
+        content_sha256="a" * 64,
+        storage_key=f"objects/{uuid4().hex}",
+    )
+
+
+def _mock_vision_service(monkeypatch, *, metadata):
+    vision = Mock(
+        resolve_for_owner_message=AsyncMock(return_value=metadata),
+        placeholder_images=Mock(
+            return_value=tuple("AAAA" for _item in metadata)
+        ),
+        encode_images=AsyncMock(
+            return_value=tuple("cG5n" for _item in metadata)
+        ),
+    )
+    factory = Mock(return_value=vision)
+    monkeypatch.setattr(generation_module, "VisionInputService", factory)
+    return vision, factory
+
+
+@pytest.mark.asyncio
+async def test_new_owned_images_are_preflighted_read_and_sent_only_on_new_user(
+    monkeypatch,
+):
+    owner_id = uuid4()
+    conversation_id = uuid4()
+    session = AsyncMock(spec=AsyncSession)
+    prior = _message(conversation_id, MessageRole.USER, "prior", 1)
+    appended_user = _message(conversation_id, MessageRole.USER, "inspect", 2)
+    appended_assistant = _message(
+        conversation_id,
+        MessageRole.ASSISTANT,
+        "answer",
+        3,
+    )
+    first = _vision_metadata(position=1)
+    second = _vision_metadata("image/jpeg", position=2)
+    attachment_ids = (first.asset_id, second.asset_id)
+    dependencies = _dependencies(
+        monkeypatch,
+        conversation=_conversation(owner_id, conversation_id, 2),
+        context=(prior, appended_user),
+        appended=None,
+    )
+    dependencies["catalog"].resolve_model.return_value = _resolved(
+        capabilities=(
+            ModelCapability.TEXT_GENERATION,
+            ModelCapability.VISION_INPUT,
+        )
+    )
+    dependencies["router"].request_byte_limit = Mock(return_value=4096)
+    events: list[str] = []
+    dependencies["router"].preflight = Mock(
+        side_effect=lambda *_args, **_kwargs: events.append("preflight")
+    )
+
+    async def append(_owner, _conversation, role, _content, **_kwargs):
+        return appended_user if role is MessageRole.USER else appended_assistant
+
+    dependencies["append"].side_effect = append
+    vision, vision_factory = _mock_vision_service(
+        monkeypatch,
+        metadata=(first, second),
+    )
+    vision.encode_images.side_effect = lambda *_args: (
+        events.append("read") or ("cG5n", "cG5n")
+    )
+    dependencies["router"].generate.side_effect = lambda *_args, **_kwargs: (
+        events.append("runtime")
+        or TextGenerationResult(content="  exact answer  ")
+    )
+    storage = object()
+
+    result = await ConversationGenerationService(
+        session,
+        dependencies["catalog"],
+        dependencies["router"],
+        dependencies["admission"],
+        storage=storage,
+    ).generate_for_owner(
+        owner_id,
+        conversation_id,
+        MODEL_ID,
+        user_message="inspect",
+        attachment_ids=attachment_ids,
+    )
+
+    assert result is appended_assistant
+    vision_factory.assert_called_once_with(session, storage)
+    vision.resolve_for_owner_message.assert_awaited_once_with(
+        owner_id,
+        conversation_id,
+        appended_user.id,
+        attachment_ids,
+    )
+    dependencies["append"].assert_has_awaits(
+        [
+            call(
+                owner_id,
+                conversation_id,
+                MessageRole.USER,
+                "inspect",
+                attachment_ids=attachment_ids,
+            ),
+            call(
+                owner_id,
+                conversation_id,
+                MessageRole.ASSISTANT,
+                "  exact answer  ",
+                expected_sequence_number=3,
+            ),
+        ]
+    )
+    dependencies["catalog"].resolve_model.assert_awaited_once_with(MODEL_ID)
+    dependencies["router"].request_byte_limit.assert_called_once_with(
+        _resolved(
+            capabilities=(
+                ModelCapability.TEXT_GENERATION,
+                ModelCapability.VISION_INPUT,
+            )
+        )
+    )
+    placeholder_context = dependencies["router"].preflight.call_args.args[1]
+    assert [message.images for message in placeholder_context] == [(), ("AAAA", "AAAA")]
+    generated_context = dependencies["router"].generate.await_args.args[1]
+    assert [message.images for message in generated_context] == [(), ("cG5n", "cG5n")]
+    vision.placeholder_images.assert_called_once_with((first, second), 4096)
+    vision.encode_images.assert_awaited_once_with((first, second))
+    assert events == ["preflight", "read", "runtime"]
+    session.rollback.assert_awaited_once_with()
+
+
+@pytest.mark.asyncio
+async def test_model_without_vision_rejects_before_preflight_or_file_read(
+    monkeypatch,
+):
+    owner_id = uuid4()
+    conversation_id = uuid4()
+    appended_user = _message(conversation_id, MessageRole.USER, "inspect", 2)
+    item = _vision_metadata()
+    dependencies = _dependencies(
+        monkeypatch,
+        conversation=_conversation(owner_id, conversation_id, 2),
+        context=(
+            _message(conversation_id, MessageRole.USER, "prior", 1),
+            appended_user,
+        ),
+        appended=None,
+    )
+    dependencies["append"].return_value = appended_user
+    dependencies["router"].request_byte_limit = Mock()
+    dependencies["router"].preflight = Mock()
+    vision, _factory = _mock_vision_service(monkeypatch, metadata=(item,))
+
+    with pytest.raises(ConversationGenerationVisionCapabilityError):
+        await ConversationGenerationService(
+            AsyncMock(spec=AsyncSession),
+            dependencies["catalog"],
+            dependencies["router"],
+            dependencies["admission"],
+            storage=object(),
+        ).generate_for_owner(
+            owner_id,
+            conversation_id,
+            MODEL_ID,
+            user_message="inspect",
+            attachment_ids=(item.asset_id,),
+        )
+
+    dependencies["router"].request_byte_limit.assert_not_called()
+    dependencies["router"].preflight.assert_not_called()
+    vision.placeholder_images.assert_not_called()
+    vision.encode_images.assert_not_awaited()
+    dependencies["router"].generate.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_opaque_attachment_keeps_existing_text_only_generation(
+    monkeypatch,
+):
+    owner_id = uuid4()
+    conversation_id = uuid4()
+    appended_user = _message(conversation_id, MessageRole.USER, "read", 2)
+    appended_assistant = _message(
+        conversation_id, MessageRole.ASSISTANT, "answer", 3
+    )
+    opaque = _vision_metadata("application/pdf")
+    dependencies = _dependencies(
+        monkeypatch,
+        conversation=_conversation(owner_id, conversation_id, 2),
+        context=(
+            _message(conversation_id, MessageRole.USER, "prior", 1),
+            appended_user,
+        ),
+        appended=None,
+    )
+
+    async def append(_owner, _conversation, role, _content, **_kwargs):
+        return appended_user if role is MessageRole.USER else appended_assistant
+
+    dependencies["append"].side_effect = append
+    vision, _factory = _mock_vision_service(monkeypatch, metadata=())
+
+    result = await ConversationGenerationService(
+        AsyncMock(spec=AsyncSession),
+        dependencies["catalog"],
+        dependencies["router"],
+        dependencies["admission"],
+    ).generate_for_owner(
+        owner_id,
+        conversation_id,
+        MODEL_ID,
+        user_message="read",
+        attachment_ids=(opaque.asset_id,),
+    )
+
+    assert result is appended_assistant
+    vision.encode_images.assert_not_awaited()
+    generated_context = dependencies["router"].generate.await_args.args[1]
+    assert all(not message.images for message in generated_context)
+
+
+@pytest.mark.asyncio
+async def test_vision_preflight_overflow_stops_before_file_read_and_runtime(
+    monkeypatch,
+):
+    owner_id = uuid4()
+    conversation_id = uuid4()
+    appended_user = _message(conversation_id, MessageRole.USER, "inspect", 2)
+    item = _vision_metadata()
+    dependencies = _dependencies(
+        monkeypatch,
+        conversation=_conversation(owner_id, conversation_id, 2),
+        context=(
+            _message(conversation_id, MessageRole.USER, "prior", 1),
+            appended_user,
+        ),
+        appended=appended_user,
+    )
+    dependencies["catalog"].resolve_model.return_value = _resolved(
+        capabilities=(
+            ModelCapability.TEXT_GENERATION,
+            ModelCapability.VISION_INPUT,
+        )
+    )
+    dependencies["router"].request_byte_limit = Mock(return_value=512)
+    dependencies["router"].preflight = Mock(
+        side_effect=TextGenerationRequestTooLargeError("private size")
+    )
+    vision, _factory = _mock_vision_service(monkeypatch, metadata=(item,))
+
+    with pytest.raises(VisionInputTooLargeError) as captured:
+        await ConversationGenerationService(
+            AsyncMock(spec=AsyncSession),
+            dependencies["catalog"],
+            dependencies["router"],
+            dependencies["admission"],
+            storage=object(),
+        ).generate_for_owner(
+            owner_id,
+            conversation_id,
+            MODEL_ID,
+            user_message="inspect",
+            attachment_ids=(item.asset_id,),
+        )
+
+    assert str(captured.value) == "vision input is too large"
+    vision.encode_images.assert_not_awaited()
+    dependencies["router"].generate.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_vision_resolution_failure_rolls_back_read_transaction(
+    monkeypatch,
+):
+    owner_id = uuid4()
+    conversation_id = uuid4()
+    appended_user = _message(conversation_id, MessageRole.USER, "inspect", 2)
+    item = _vision_metadata("image/svg+xml")
+    dependencies = _dependencies(
+        monkeypatch,
+        conversation=_conversation(owner_id, conversation_id, 2),
+        context=(),
+        appended=appended_user,
+    )
+    vision, _factory = _mock_vision_service(monkeypatch, metadata=())
+    vision.resolve_for_owner_message.side_effect = VisionInputUnsupportedError(
+        "private metadata"
+    )
+    session = AsyncMock(spec=AsyncSession)
+
+    with pytest.raises(VisionInputUnsupportedError):
+        await ConversationGenerationService(
+            session,
+            dependencies["catalog"],
+            dependencies["router"],
+            dependencies["admission"],
+        ).generate_for_owner(
+            owner_id,
+            conversation_id,
+            MODEL_ID,
+            user_message="inspect",
+            attachment_ids=(item.asset_id,),
+        )
+
+    session.rollback.assert_awaited_once_with()
+    dependencies["context"].assert_not_awaited()
+    dependencies["catalog"].resolve_model.assert_not_awaited()
+    dependencies["router"].generate.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_vision_read_failure_persists_no_assistant_and_releases_admission(
+    monkeypatch,
+):
+    owner_id = uuid4()
+    conversation_id = uuid4()
+    appended_user = _message(conversation_id, MessageRole.USER, "inspect", 2)
+    item = _vision_metadata()
+    dependencies = _dependencies(
+        monkeypatch,
+        conversation=_conversation(owner_id, conversation_id, 2),
+        context=(
+            _message(conversation_id, MessageRole.USER, "prior", 1),
+            appended_user,
+        ),
+        appended=appended_user,
+    )
+    dependencies["catalog"].resolve_model.return_value = _resolved(
+        capabilities=(
+            ModelCapability.TEXT_GENERATION,
+            ModelCapability.VISION_INPUT,
+        )
+    )
+    dependencies["router"].request_byte_limit = Mock(return_value=512)
+    dependencies["router"].preflight = Mock()
+    vision, _factory = _mock_vision_service(monkeypatch, metadata=(item,))
+    vision.encode_images.side_effect = VisionInputContentUnavailableError(
+        "private read"
+    )
+
+    with pytest.raises(VisionInputContentUnavailableError):
+        await ConversationGenerationService(
+            AsyncMock(spec=AsyncSession),
+            dependencies["catalog"],
+            dependencies["router"],
+            dependencies["admission"],
+            storage=object(),
+        ).generate_for_owner(
+            owner_id,
+            conversation_id,
+            MODEL_ID,
+            user_message="inspect",
+            attachment_ids=(item.asset_id,),
+        )
+
+    dependencies["router"].generate.assert_not_awaited()
+    assert dependencies["append"].await_count == 1
+    assert dependencies["admission"]._active_users == set()
+    assert dependencies["admission"]._active_count == 0
+
+
+@pytest.mark.asyncio
+async def test_generation_only_retry_never_resolves_or_replays_images(monkeypatch):
+    owner_id = uuid4()
+    conversation_id = uuid4()
+    dependencies = _dependencies(
+        monkeypatch,
+        conversation=_conversation(owner_id, conversation_id, 3),
+        context=(
+            _message(conversation_id, MessageRole.USER, "prior", 1),
+            _message(conversation_id, MessageRole.USER, "image prompt", 2),
+        ),
+        appended=_message(
+            conversation_id,
+            MessageRole.ASSISTANT,
+            "answer",
+            3,
+        ),
+    )
+    vision_factory = Mock(
+        side_effect=AssertionError("historical images must not be resolved")
+    )
+    monkeypatch.setattr(generation_module, "VisionInputService", vision_factory)
+
+    await ConversationGenerationService(
+        AsyncMock(spec=AsyncSession),
+        dependencies["catalog"],
+        dependencies["router"],
+        dependencies["admission"],
+        storage=object(),
+    ).generate_for_owner(owner_id, conversation_id, MODEL_ID)
+
+    vision_factory.assert_not_called()
+    generated_context = dependencies["router"].generate.await_args.args[1]
+    assert all(not message.images for message in generated_context)
+
+
+@pytest.mark.asyncio
+async def test_cancellation_during_vision_read_releases_admission(monkeypatch):
+    owner_id = uuid4()
+    conversation_id = uuid4()
+    appended_user = _message(conversation_id, MessageRole.USER, "inspect", 2)
+    item = _vision_metadata()
+    dependencies = _dependencies(
+        monkeypatch,
+        conversation=_conversation(owner_id, conversation_id, 2),
+        context=(
+            _message(conversation_id, MessageRole.USER, "prior", 1),
+            appended_user,
+        ),
+        appended=appended_user,
+    )
+    dependencies["catalog"].resolve_model.return_value = _resolved(
+        capabilities=(
+            ModelCapability.TEXT_GENERATION,
+            ModelCapability.VISION_INPUT,
+        )
+    )
+    dependencies["router"].request_byte_limit = Mock(return_value=512)
+    dependencies["router"].preflight = Mock()
+    vision, _factory = _mock_vision_service(monkeypatch, metadata=(item,))
+    entered = asyncio.Event()
+    blocker = asyncio.Event()
+
+    async def blocked_read(_metadata):
+        entered.set()
+        await blocker.wait()
+
+    vision.encode_images.side_effect = blocked_read
+    service = ConversationGenerationService(
+        AsyncMock(spec=AsyncSession),
+        dependencies["catalog"],
+        dependencies["router"],
+        dependencies["admission"],
+        storage=object(),
+    )
+    task = asyncio.create_task(
+        service.generate_for_owner(
+            owner_id,
+            conversation_id,
+            MODEL_ID,
+            user_message="inspect",
+            attachment_ids=(item.asset_id,),
+        )
+    )
+    await entered.wait()
+
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    dependencies["router"].generate.assert_not_awaited()
+    assert dependencies["append"].await_count == 1
     assert dependencies["admission"]._active_users == set()
     assert dependencies["admission"]._active_count == 0

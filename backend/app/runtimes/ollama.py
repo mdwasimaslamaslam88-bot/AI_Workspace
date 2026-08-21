@@ -14,6 +14,7 @@ from app.ai.catalog import (
 )
 from app.ai.generation import (
     TextGenerationMessage,
+    TextGenerationRequestTooLargeError,
     TextGenerationResult,
     TextGenerationRole,
     TextGenerationRuntimeUnavailableError,
@@ -60,13 +61,33 @@ def _encode_bounded_json_request(
     for serialized_chunk in encoder.iterencode(payload):
         encoded_chunk = serialized_chunk.encode("utf-8")
         if len(encoded_chunk) > max_request_bytes - encoded_length:
-            raise TextGenerationRuntimeUnavailableError(
+            raise TextGenerationRequestTooLargeError(
                 "local text generation is unavailable"
             )
         if encoded_chunk:
             encoded_chunks.append(encoded_chunk)
             encoded_length += len(encoded_chunk)
     return _BoundedJSONRequestStream(tuple(encoded_chunks)), encoded_length
+
+
+def _measure_bounded_json_request(
+    payload: Mapping[str, Any],
+    max_request_bytes: int,
+) -> int:
+    encoder = json.JSONEncoder(
+        ensure_ascii=False,
+        separators=(",", ":"),
+        allow_nan=False,
+    )
+    encoded_length = 0
+    for serialized_chunk in encoder.iterencode(payload):
+        chunk_length = len(serialized_chunk.encode("utf-8"))
+        if chunk_length > max_request_bytes - encoded_length:
+            raise TextGenerationRequestTooLargeError(
+                "local text generation is unavailable"
+            )
+        encoded_length += chunk_length
+    return encoded_length
 
 
 def _validated_local_model_allowlist(
@@ -317,6 +338,105 @@ class OllamaTextGenerationRuntime:
             local_model_allowlist
         )
 
+    def _generation_payload(
+        self,
+        runtime_reference: str,
+        messages: tuple[TextGenerationMessage, ...],
+        *,
+        max_output_tokens: int,
+        temperature: float | None = None,
+        seed: int | None = None,
+        top_p: float | None = None,
+        top_k: int | None = None,
+        min_p: float | None = None,
+        repeat_penalty: float | None = None,
+        repeat_last_n: int | None = None,
+        typical_p: float | None = None,
+        presence_penalty: float | None = None,
+        frequency_penalty: float | None = None,
+        stop_sequences: list[str] | None = None,
+    ) -> dict[str, Any]:
+        if runtime_reference not in self.local_model_allowlist:
+            raise TextGenerationRuntimeUnsupportedError(
+                "model is not approved for local text generation"
+            )
+        options: dict[str, int | float | list[str]] = {
+            "num_predict": max_output_tokens,
+        }
+        if temperature is not None:
+            options["temperature"] = temperature
+        if seed is not None:
+            options["seed"] = seed
+        if top_p is not None:
+            options["top_p"] = top_p
+        if top_k is not None:
+            options["top_k"] = top_k
+        if min_p is not None:
+            options["min_p"] = min_p
+        if repeat_penalty is not None:
+            options["repeat_penalty"] = repeat_penalty
+        if repeat_last_n is not None:
+            options["repeat_last_n"] = repeat_last_n
+        if typical_p is not None:
+            options["typical_p"] = typical_p
+        if presence_penalty is not None:
+            options["presence_penalty"] = presence_penalty
+        if frequency_penalty is not None:
+            options["frequency_penalty"] = frequency_penalty
+        if stop_sequences is not None:
+            options["stop"] = stop_sequences
+        return {
+            "model": runtime_reference,
+            "messages": [
+                {
+                    "role": message.role.value,
+                    "content": message.content,
+                    **({"images": list(message.images)} if message.images else {}),
+                }
+                for message in messages
+            ],
+            "stream": False,
+            "options": options,
+        }
+
+    def preflight_text(
+        self,
+        runtime_reference: str,
+        messages: tuple[TextGenerationMessage, ...],
+        *,
+        max_output_tokens: int,
+        temperature: float | None = None,
+        seed: int | None = None,
+        top_p: float | None = None,
+        top_k: int | None = None,
+        min_p: float | None = None,
+        repeat_penalty: float | None = None,
+        repeat_last_n: int | None = None,
+        typical_p: float | None = None,
+        presence_penalty: float | None = None,
+        frequency_penalty: float | None = None,
+        stop_sequences: list[str] | None = None,
+    ) -> None:
+        if not messages:
+            raise ValueError("generation messages must not be empty")
+        payload = self._generation_payload(
+            runtime_reference,
+            messages,
+            max_output_tokens=max_output_tokens,
+            temperature=temperature,
+            seed=seed,
+            top_p=top_p,
+            top_k=top_k,
+            min_p=min_p,
+            repeat_penalty=repeat_penalty,
+            repeat_last_n=repeat_last_n,
+            typical_p=typical_p,
+            presence_penalty=presence_penalty,
+            frequency_penalty=frequency_penalty,
+            stop_sequences=stop_sequences,
+        )
+        _measure_bounded_json_request(payload, self.max_request_bytes)
+
     async def generate_text(
         self,
         runtime_reference: str,
@@ -478,47 +598,22 @@ class OllamaTextGenerationRuntime:
                         "128 characters"
                     )
 
-        if runtime_reference not in self.local_model_allowlist:
-            raise TextGenerationRuntimeUnsupportedError(
-                "model is not approved for local text generation"
-            )
-        options: dict[str, int | float | list[str]] = {
-            "num_predict": max_output_tokens,
-        }
-        if temperature is not None:
-            options["temperature"] = temperature
-        if seed is not None:
-            options["seed"] = seed
-        if top_p is not None:
-            options["top_p"] = top_p
-        if top_k is not None:
-            options["top_k"] = top_k
-        if min_p is not None:
-            options["min_p"] = min_p
-        if repeat_penalty is not None:
-            options["repeat_penalty"] = repeat_penalty
-        if repeat_last_n is not None:
-            options["repeat_last_n"] = repeat_last_n
-        if typical_p is not None:
-            options["typical_p"] = typical_p
-        if presence_penalty is not None:
-            options["presence_penalty"] = presence_penalty
-        if frequency_penalty is not None:
-            options["frequency_penalty"] = frequency_penalty
-        if stop_sequences is not None:
-            options["stop"] = stop_sequences
-        payload = {
-            "model": runtime_reference,
-            "messages": [
-                {
-                    "role": message.role.value,
-                    "content": message.content,
-                }
-                for message in messages
-            ],
-            "stream": False,
-            "options": options,
-        }
+        payload = self._generation_payload(
+            runtime_reference,
+            messages,
+            max_output_tokens=max_output_tokens,
+            temperature=temperature,
+            seed=seed,
+            top_p=top_p,
+            top_k=top_k,
+            min_p=min_p,
+            repeat_penalty=repeat_penalty,
+            repeat_last_n=repeat_last_n,
+            typical_p=typical_p,
+            presence_penalty=presence_penalty,
+            frequency_penalty=frequency_penalty,
+            stop_sequences=stop_sequences,
+        )
         request_body: _BoundedJSONRequestStream | None = None
         response_body: bytearray | None = None
         try:

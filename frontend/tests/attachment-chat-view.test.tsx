@@ -17,12 +17,29 @@ const asset: Asset = {
   deleted_at: null,
 };
 
+const imageAsset: Asset = {
+  ...asset,
+  id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+  original_filename: "sentinel-image.png",
+  media_type: "image/png",
+  byte_size: 12,
+  content_sha256: "b".repeat(64),
+};
+
+const unsupportedImageAsset: Asset = {
+  ...imageAsset,
+  id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+  original_filename: "animated.gif",
+  media_type: "image/gif",
+};
+
 
 function props(overrides = {}) {
   return {
     conversation,
     creatingNew: false,
     canGenerate: true,
+    canUseVision: false,
     messages: [message(1, "user", "hello")],
     nextCursor: null,
     loadingMessages: false,
@@ -109,5 +126,168 @@ describe("attachment queue", () => {
 
     await waitFor(() => expect(onDeleteAttachment).toHaveBeenCalledWith(asset.id, expect.any(AbortSignal)));
     expect(await screen.findByText("Deleted")).toBeVisible();
+  });
+
+  it("uses canonical uploaded metadata and blocks a non-vision model", async () => {
+    const onGenerate = vi.fn(async () => undefined);
+    render(
+      <ChatView
+        {...props({
+          onUploadAttachment: vi.fn(async () => imageAsset),
+          onGenerate,
+        })}
+      />,
+    );
+
+    await userEvent.upload(
+      screen.getByLabelText("Attach files"),
+      new File(["not-browser-trusted"], "misleading.txt", {
+        type: "text/plain",
+      }),
+    );
+    await userEvent.type(screen.getByLabelText("Message"), "inspect this");
+
+    expect(await screen.findByText("Vision image")).toBeVisible();
+    expect(
+      screen.getByText("Select a vision-capable local model to send these images."),
+    ).toBeVisible();
+    expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
+    expect(onGenerate).not.toHaveBeenCalled();
+  });
+
+  it("sends only ordered asset IDs with a vision model and renders no preview", async () => {
+    const onGenerate = vi.fn(async () => undefined);
+    const { container } = render(
+      <ChatView
+        {...props({
+          canUseVision: true,
+          onUploadAttachment: vi.fn(async () => imageAsset),
+          onGenerate,
+        })}
+      />,
+    );
+
+    await userEvent.upload(
+      screen.getByLabelText("Attach files"),
+      new File(["png"], "sentinel-image.png", { type: "image/png" }),
+    );
+    await userEvent.type(screen.getByLabelText("Message"), "inspect this");
+    await screen.findByText("Vision image");
+    await userEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    expect(onGenerate).toHaveBeenCalledWith("inspect this", [imageAsset.id]);
+    expect(container.querySelector("img")).not.toBeInTheDocument();
+    expect(container.querySelector("object")).not.toBeInTheDocument();
+    expect(container.querySelector("iframe")).not.toBeInTheDocument();
+    expect(container.innerHTML).not.toContain("data:image");
+    expect(container.textContent?.toLowerCase()).not.toContain("base64");
+  });
+
+  it("rejects mixed vision and opaque attachments before generation", async () => {
+    const onGenerate = vi.fn(async () => undefined);
+    const onUploadAttachment = vi
+      .fn()
+      .mockResolvedValueOnce(imageAsset)
+      .mockResolvedValueOnce(asset);
+    render(
+      <ChatView
+        {...props({ canUseVision: true, onUploadAttachment, onGenerate })}
+      />,
+    );
+
+    await userEvent.upload(screen.getByLabelText("Attach files"), [
+      new File(["png"], "image.png"),
+      new File(["notes"], "notes.txt"),
+    ]);
+    await userEvent.type(screen.getByLabelText("Message"), "inspect");
+
+    expect(
+      await screen.findByText(
+        "Vision images cannot be submitted together with non-image attachments.",
+      ),
+    ).toBeVisible();
+    expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
+    expect(onGenerate).not.toHaveBeenCalled();
+  });
+
+  it("rejects unsupported image metadata before generation", async () => {
+    render(
+      <ChatView
+        {...props({
+          canUseVision: true,
+          onUploadAttachment: vi.fn(async () => unsupportedImageAsset),
+        })}
+      />,
+    );
+
+    await userEvent.upload(
+      screen.getByLabelText("Attach files"),
+      new File(["gif"], "animated.gif", { type: "image/gif" }),
+    );
+    await userEvent.type(screen.getByLabelText("Message"), "inspect");
+
+    expect(
+      await screen.findByText(
+        "Only server-recognized PNG and JPEG images can use vision.",
+      ),
+    ).toBeVisible();
+    expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
+  });
+
+  it("defers initial-conversation image generation", async () => {
+    const onCreateConversation = vi.fn(async () => undefined);
+    render(
+      <ChatView
+        {...props({
+          conversation: null,
+          creatingNew: true,
+          canUseVision: true,
+          onCreateConversation,
+          onUploadAttachment: vi.fn(async () => imageAsset),
+        })}
+      />,
+    );
+
+    await userEvent.type(screen.getByLabelText("Your first message"), "inspect");
+    await userEvent.upload(
+      screen.getByLabelText("Attach files"),
+      new File(["png"], "image.png"),
+    );
+
+    expect(
+      await screen.findByText(/Image-assisted generation is available after you create/i),
+    ).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Create and generate" }),
+    ).toBeDisabled();
+    expect(onCreateConversation).not.toHaveBeenCalled();
+  });
+
+  it("disables historical image replay while leaving filenames as text", () => {
+    const last = {
+      ...message(2, "user", "inspect"),
+      attachments: [
+        {
+          id: imageAsset.id,
+          position: 1,
+          state: "active" as const,
+          original_filename: "<img src=x onerror=alert(1)>.png",
+          media_type: "image/png",
+          byte_size: 12,
+        },
+      ],
+    };
+    const { container } = render(
+      <ChatView {...props({ canUseVision: true, messages: [last] })} />,
+    );
+
+    expect(
+      screen.getByText(/historical image replay is not supported yet/i),
+    ).toBeVisible();
+    expect(
+      screen.queryByRole("button", { name: "Generate response to last message" }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText("<img src=x onerror=alert(1)>.png")).toBeVisible();
+    expect(container.querySelector("img")).not.toBeInTheDocument();
   });
 });

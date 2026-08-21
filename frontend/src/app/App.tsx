@@ -13,6 +13,7 @@ import type {
 import {
   mergeConversations,
   mergeMessages,
+  modelSupportsVision,
   selectableTextModels,
 } from "./collections";
 import {
@@ -493,6 +494,9 @@ export function App() {
     setChatNotice(null);
   }
 
+  const selectedModel =
+    models.find((candidate) => candidate.model_id === selectedModelId) ?? null;
+
   if (authenticationStatus === "checking") {
     return (
       <main className="splash" aria-busy="true">
@@ -548,6 +552,7 @@ export function App() {
           conversation={selectedConversation}
           creatingNew={creatingNew}
           canGenerate={selectedModelId !== null}
+          canUseVision={modelSupportsVision(selectedModel)}
           messages={messages}
           nextCursor={messageCursor}
           loadingMessages={messagesLoading}

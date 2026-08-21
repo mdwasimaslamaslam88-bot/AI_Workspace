@@ -14,6 +14,7 @@ from app.ai.catalog import (
 )
 from app.ai.generation import (
     TextGenerationMessage,
+    TextGenerationRequestTooLargeError,
     TextGenerationRole,
     TextGenerationRuntimeUnavailableError,
     TextGenerationRuntimeUnsupportedError,
@@ -4503,6 +4504,109 @@ async def test_ollama_generation_serializes_exactly_once_into_bounded_chunks(
     assert observed_request_streams[0]._chunks == ()
 
 
+@pytest.mark.asyncio
+async def test_ollama_generation_adds_raw_images_only_to_the_new_user_message():
+    raw_images = ("cG5n", "anBlZw==")
+    messages = (
+        TextGenerationMessage(
+            role=TextGenerationRole.USER,
+            content="historical prompt",
+        ),
+        TextGenerationMessage(
+            role=TextGenerationRole.ASSISTANT,
+            content="historical answer",
+        ),
+        TextGenerationMessage(
+            role=TextGenerationRole.USER,
+            content="inspect both",
+            images=raw_images,
+        ),
+    )
+    requests: list[httpx.Request] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(200, content=_generation_response_body("answer"))
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        base_url="http://127.0.0.1:11434",
+    ) as client:
+        result = await OllamaTextGenerationRuntime(
+            client,
+            10,
+            LOCAL_MODEL_ALLOWLIST,
+        ).generate_text(
+            LOCAL_MODEL_REFERENCE,
+            messages,
+            max_output_tokens=128,
+        )
+
+    assert result.content == "answer"
+    assert len(requests) == 1
+    assert json.loads(requests[0].content) == {
+        "model": LOCAL_MODEL_REFERENCE,
+        "messages": [
+            {"role": "user", "content": "historical prompt"},
+            {"role": "assistant", "content": "historical answer"},
+            {
+                "role": "user",
+                "content": "inspect both",
+                "images": ["cG5n", "anBlZw=="],
+            },
+        ],
+        "stream": False,
+        "options": {"num_predict": 128},
+    }
+    assert b"data:" not in requests[0].content
+
+
+def test_ollama_vision_preflight_matches_exact_serialized_request_boundary():
+    messages = (
+        TextGenerationMessage(
+            role=TextGenerationRole.USER,
+            content="inspect",
+            images=("cG5n",),
+        ),
+    )
+    payload = {
+        "model": LOCAL_MODEL_REFERENCE,
+        "messages": [
+            {"role": "user", "content": "inspect", "images": ["cG5n"]}
+        ],
+        "stream": False,
+        "options": {"num_predict": 128},
+    }
+    body = json.dumps(
+        payload,
+        ensure_ascii=False,
+        separators=(",", ":"),
+        allow_nan=False,
+    ).encode("utf-8")
+
+    OllamaTextGenerationRuntime(
+        object(),
+        10,
+        LOCAL_MODEL_ALLOWLIST,
+        max_request_bytes=len(body),
+    ).preflight_text(
+        LOCAL_MODEL_REFERENCE,
+        messages,
+        max_output_tokens=128,
+    )
+    with pytest.raises(TextGenerationRequestTooLargeError):
+        OllamaTextGenerationRuntime(
+            object(),
+            10,
+            LOCAL_MODEL_ALLOWLIST,
+            max_request_bytes=len(body) - 1,
+        ).preflight_text(
+            LOCAL_MODEL_REFERENCE,
+            messages,
+            max_output_tokens=128,
+        )
+
+
 @pytest.mark.parametrize("headroom", [0, 1])
 @pytest.mark.asyncio
 async def test_ollama_generation_accepts_request_at_or_below_cap(headroom):
@@ -4582,7 +4686,7 @@ async def test_ollama_generation_rejects_request_at_cap_plus_one_before_transpor
         transport=httpx.MockTransport(handler),
         base_url="http://127.0.0.1:11434",
     ) as client:
-        with pytest.raises(TextGenerationRuntimeUnavailableError) as captured:
+        with pytest.raises(TextGenerationRequestTooLargeError) as captured:
             await OllamaTextGenerationRuntime(
                 client,
                 10,

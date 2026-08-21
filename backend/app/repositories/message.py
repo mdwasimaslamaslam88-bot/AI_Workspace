@@ -66,6 +66,16 @@ class GenerationContextSnapshot:
     oversized: bool
 
 
+@dataclass(frozen=True, slots=True)
+class MessageAttachmentMetadata:
+    asset_id: UUID
+    position: int
+    media_type: str
+    byte_size: int
+    content_sha256: str
+    storage_key: str
+
+
 class MessageAttachmentClaimError(RuntimeError):
     """An attachment cannot be claimed by this owner's new message."""
 
@@ -150,6 +160,64 @@ class MessageRepository(BaseRepository):
         self.session.add(message)
         await self.session.flush()
         return message
+
+    async def list_attachment_metadata_for_owner_message(
+        self,
+        owner_id: UUID,
+        conversation_id: UUID,
+        message_id: UUID,
+        attachment_ids: tuple[UUID, ...],
+    ) -> tuple[MessageAttachmentMetadata, ...]:
+        if not attachment_ids:
+            return ()
+        if len(attachment_ids) != len(set(attachment_ids)):
+            raise ValueError("attachment_ids must be unique")
+
+        statement = (
+            select(
+                MessageAsset.asset_id,
+                MessageAsset.position,
+                Asset.media_type,
+                Asset.byte_size,
+                Asset.content_sha256,
+                Asset.storage_key,
+            )
+            .select_from(MessageAsset)
+            .join(Message, Message.id == MessageAsset.message_id)
+            .join(
+                Conversation,
+                Conversation.id == Message.conversation_id,
+            )
+            .join(Asset, Asset.id == MessageAsset.asset_id)
+            .where(
+                MessageAsset.message_id == message_id,
+                MessageAsset.asset_id.in_(attachment_ids),
+                Message.id == message_id,
+                Message.conversation_id == conversation_id,
+                Conversation.id == conversation_id,
+                Conversation.owner_id == owner_id,
+                Asset.owner_id == owner_id,
+                Asset.deleted_at.is_(None),
+            )
+            .order_by(MessageAsset.position.asc())
+        )
+        result = await self.session.execute(statement)
+        metadata = tuple(
+            MessageAttachmentMetadata(
+                asset_id=row.asset_id,
+                position=row.position,
+                media_type=row.media_type,
+                byte_size=row.byte_size,
+                content_sha256=row.content_sha256,
+                storage_key=row.storage_key,
+            )
+            for row in result.all()
+        )
+        if tuple(item.asset_id for item in metadata) != attachment_ids:
+            raise MessageAttachmentClaimError(
+                "one or more attachments are unavailable"
+            )
+        return metadata
 
     async def list_for_owner(
         self,

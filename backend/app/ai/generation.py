@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 import math
+import re
 from typing import Protocol, runtime_checkable
 
 from app.ai.catalog import ModelCapability, ResolvedModel
@@ -18,6 +19,10 @@ class TextGenerationRuntimeUnavailableError(RuntimeError):
     """A local text runtime could not produce a safe response."""
 
 
+class TextGenerationRequestTooLargeError(TextGenerationRuntimeUnavailableError):
+    """A bounded local-runtime request cannot contain the requested input."""
+
+
 class TextGenerationRuntimeUnsupportedError(RuntimeError):
     """No local text-generation adapter is registered for a resolved model."""
 
@@ -26,12 +31,25 @@ class TextGenerationRuntimeUnsupportedError(RuntimeError):
 class TextGenerationMessage:
     role: TextGenerationRole
     content: str
+    images: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if not isinstance(self.role, TextGenerationRole):
             raise TypeError("generation message role must be a TextGenerationRole")
         if not isinstance(self.content, str):
             raise TypeError("generation message content must be a string")
+        if not isinstance(self.images, tuple):
+            raise TypeError("generation message images must be a tuple")
+        for image in self.images:
+            if not isinstance(image, str):
+                raise TypeError("generation message images must be strings")
+            if (
+                not image
+                or len(image) % 4 != 0
+                or not image.isascii()
+                or re.fullmatch(r"[A-Za-z0-9+/]*={0,2}", image) is None
+            ):
+                raise ValueError("generation message image must be raw base64")
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,6 +66,26 @@ class TextGenerationResult:
 @runtime_checkable
 class TextGenerationRuntime(Protocol):
     runtime_id: str
+    max_request_bytes: int
+
+    def preflight_text(
+        self,
+        runtime_reference: str,
+        messages: tuple[TextGenerationMessage, ...],
+        *,
+        max_output_tokens: int,
+        temperature: float | None = None,
+        seed: int | None = None,
+        top_p: float | None = None,
+        top_k: int | None = None,
+        min_p: float | None = None,
+        repeat_penalty: float | None = None,
+        repeat_last_n: int | None = None,
+        typical_p: float | None = None,
+        presence_penalty: float | None = None,
+        frequency_penalty: float | None = None,
+        stop_sequences: list[str] | None = None,
+    ) -> None: ...
 
     async def generate_text(
         self,
@@ -81,6 +119,74 @@ class TextGenerationRouter:
                     f"duplicate text-generation runtime_id: {runtime.runtime_id}"
                 )
             self._runtimes[runtime.runtime_id] = runtime
+
+    def request_byte_limit(self, model: ResolvedModel) -> int:
+        runtime = self._runtime_for(model)
+        maximum = getattr(runtime, "max_request_bytes", None)
+        if (
+            isinstance(maximum, bool)
+            or not isinstance(maximum, int)
+            or maximum < 1
+        ):
+            raise TextGenerationRuntimeUnsupportedError(
+                "runtime does not expose a bounded generation request"
+            )
+        return maximum
+
+    def preflight(
+        self,
+        model: ResolvedModel,
+        messages: tuple[TextGenerationMessage, ...],
+        *,
+        max_output_tokens: int,
+        temperature: float | None = None,
+        seed: int | None = None,
+        top_p: float | None = None,
+        top_k: int | None = None,
+        min_p: float | None = None,
+        repeat_penalty: float | None = None,
+        repeat_last_n: int | None = None,
+        typical_p: float | None = None,
+        presence_penalty: float | None = None,
+        frequency_penalty: float | None = None,
+        stop_sequences: list[str] | None = None,
+    ) -> None:
+        runtime = self._runtime_for(model)
+        preflight = getattr(runtime, "preflight_text", None)
+        if not callable(preflight):
+            raise TextGenerationRuntimeUnsupportedError(
+                "runtime does not support bounded generation preflight"
+            )
+        preflight(
+            model.runtime_reference,
+            messages,
+            max_output_tokens=max_output_tokens,
+            temperature=temperature,
+            seed=seed,
+            top_p=top_p,
+            top_k=top_k,
+            min_p=min_p,
+            repeat_penalty=repeat_penalty,
+            repeat_last_n=repeat_last_n,
+            typical_p=typical_p,
+            presence_penalty=presence_penalty,
+            frequency_penalty=frequency_penalty,
+            stop_sequences=stop_sequences,
+        )
+
+    def _runtime_for(self, model: ResolvedModel) -> TextGenerationRuntime:
+        if not isinstance(model, ResolvedModel):
+            raise TypeError("model must be a ResolvedModel")
+        if ModelCapability.TEXT_GENERATION not in model.descriptor.capabilities:
+            raise TextGenerationRuntimeUnsupportedError(
+                "model does not support text generation"
+            )
+        runtime = self._runtimes.get(model.descriptor.runtime_id)
+        if runtime is None:
+            raise TextGenerationRuntimeUnsupportedError(
+                "no text-generation adapter is registered for this model"
+            )
+        return runtime
 
     async def generate(
         self,
@@ -260,11 +366,7 @@ class TextGenerationRouter:
                         "128 characters"
                     )
 
-        runtime = self._runtimes.get(model.descriptor.runtime_id)
-        if runtime is None:
-            raise TextGenerationRuntimeUnsupportedError(
-                "no text-generation adapter is registered for this model"
-            )
+        runtime = self._runtime_for(model)
         return await runtime.generate_text(
             model.runtime_reference,
             messages,

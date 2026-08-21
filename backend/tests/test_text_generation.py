@@ -141,6 +141,78 @@ def test_generation_message_validates_runtime_neutral_values(kwargs):
         TextGenerationMessage(**kwargs)
 
 
+def test_generation_message_keeps_valid_images_transient_and_ordered():
+    message = TextGenerationMessage(
+        role=TextGenerationRole.USER,
+        content="inspect",
+        images=("cG5n", "anBlZw=="),
+    )
+
+    assert message.images == ("cG5n", "anBlZw==")
+
+
+@pytest.mark.parametrize(
+    "images,exception",
+    [
+        (["cG5n"], TypeError),
+        ((b"cG5n",), TypeError),
+        (("",), ValueError),
+        (("data:image/png;base64,cG5n",), ValueError),
+        (("not raw base64",), ValueError),
+    ],
+)
+def test_generation_message_rejects_non_raw_image_values(images, exception):
+    with pytest.raises(exception):
+        TextGenerationMessage(
+            role=TextGenerationRole.USER,
+            content="inspect",
+            images=images,
+        )
+
+
+def test_router_exposes_and_forwards_bounded_runtime_preflight():
+    preflight_text = Mock()
+    runtime = Mock(
+        runtime_id="local-runtime",
+        max_request_bytes=4096,
+        preflight_text=preflight_text,
+    )
+    router = TextGenerationRouter((runtime,))
+    model = _resolved_model(
+        capabilities=(
+            ModelCapability.TEXT_GENERATION,
+            ModelCapability.VISION_INPUT,
+        )
+    )
+    messages = (
+        TextGenerationMessage(
+            role=TextGenerationRole.USER,
+            content="inspect",
+            images=("cG5n",),
+        ),
+    )
+
+    assert router.request_byte_limit(model) == 4096
+    router.preflight(model, messages, max_output_tokens=128)
+
+    preflight_text.assert_called_once_with(
+        "/private/runtime/model:tag",
+        messages,
+        max_output_tokens=128,
+        temperature=None,
+        seed=None,
+        top_p=None,
+        top_k=None,
+        min_p=None,
+        repeat_penalty=None,
+        repeat_last_n=None,
+        typical_p=None,
+        presence_penalty=None,
+        frequency_penalty=None,
+        stop_sequences=None,
+    )
+
+
 @pytest.mark.parametrize("content", ["", "   ", "\n\t"])
 def test_generation_result_rejects_blank_content(content):
     with pytest.raises(ValueError, match="must not be blank"):

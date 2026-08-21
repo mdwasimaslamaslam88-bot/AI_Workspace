@@ -1,3 +1,4 @@
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 from uuid import uuid4
 
@@ -111,3 +112,92 @@ async def test_duplicate_attachment_ids_are_rejected_before_database_work():
         )
 
     session.execute.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_vision_metadata_is_owner_message_scoped_and_position_ordered():
+    owner_id = uuid4()
+    conversation_id = uuid4()
+    message_id = uuid4()
+    first_id = uuid4()
+    second_id = uuid4()
+    result = Mock()
+    result.all.return_value = [
+        SimpleNamespace(
+            asset_id=first_id,
+            position=1,
+            media_type="image/png",
+            byte_size=11,
+            content_sha256="a" * 64,
+            storage_key="objects/first",
+        ),
+        SimpleNamespace(
+            asset_id=second_id,
+            position=2,
+            media_type="image/jpeg",
+            byte_size=13,
+            content_sha256="b" * 64,
+            storage_key="objects/second",
+        ),
+    ]
+    session = AsyncMock(spec=AsyncSession)
+    session.execute.return_value = result
+
+    metadata = await MessageRepository(
+        session
+    ).list_attachment_metadata_for_owner_message(
+        owner_id,
+        conversation_id,
+        message_id,
+        (first_id, second_id),
+    )
+
+    assert [item.asset_id for item in metadata] == [first_id, second_id]
+    assert [item.position for item in metadata] == [1, 2]
+    assert [item.media_type for item in metadata] == ["image/png", "image/jpeg"]
+    statement = session.execute.await_args.args[0]
+    compiled = statement.compile(dialect=postgresql.dialect())
+    sql = " ".join(str(compiled).lower().split())
+    assert "join messages on messages.id = message_assets.message_id" in sql
+    assert "join conversations on conversations.id = messages.conversation_id" in sql
+    assert "join assets on assets.id = message_assets.asset_id" in sql
+    assert "messages.conversation_id =" in sql
+    assert "conversations.owner_id =" in sql
+    assert "assets.owner_id =" in sql
+    assert "assets.deleted_at is null" in sql
+    assert "order by message_assets.position asc" in sql
+    assert owner_id in compiled.params.values()
+    assert conversation_id in compiled.params.values()
+    assert message_id in compiled.params.values()
+
+
+@pytest.mark.asyncio
+async def test_vision_metadata_requires_exact_requested_attachment_order():
+    first_id = uuid4()
+    second_id = uuid4()
+    result = Mock()
+    result.all.return_value = [
+        SimpleNamespace(
+            asset_id=first_id,
+            position=1,
+            media_type="image/png",
+            byte_size=1,
+            content_sha256="a" * 64,
+            storage_key="objects/first",
+        )
+    ]
+    session = AsyncMock(spec=AsyncSession)
+    session.execute.return_value = result
+
+    with pytest.raises(
+        MessageAttachmentClaimError,
+        match="one or more attachments are unavailable",
+    ):
+        await MessageRepository(
+            session
+        ).list_attachment_metadata_for_owner_message(
+            uuid4(),
+            uuid4(),
+            uuid4(),
+            (first_id, second_id),
+        )

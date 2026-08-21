@@ -13,6 +13,16 @@ export function selectableTextModels(models: LocalModel[]): LocalModel[] {
   );
 }
 
+export function modelSupportsVision(model: LocalModel | null): boolean {
+  return model?.capabilities.includes("vision_input") ?? false;
+}
+
+export function isVisionImageMediaType(
+  mediaType: string | null | undefined,
+): boolean {
+  return mediaType === "image/png" || mediaType === "image/jpeg";
+}
+
 export function mergeConversations(
   existing: ConversationSummary[],
   incoming: ConversationSummary[],

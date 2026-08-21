@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { selectableTextModels } from "../src/app/collections";
 import { ModelSelector } from "../src/features/models/ModelSelector";
-import { model } from "./fixtures";
+import { model, visionModel } from "./fixtures";
 
 const callbacks = {
   onSelect: vi.fn(),
@@ -77,5 +77,22 @@ describe("ModelSelector", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("unavailable");
     await userEvent.click(screen.getByRole("button", { name: "Retry" }));
     expect(onReload).toHaveBeenCalledOnce();
+  });
+
+  it("marks vision capability from public model metadata", () => {
+    render(
+      <ModelSelector
+        models={[model, visionModel]}
+        selectedModelId={visionModel.model_id}
+        loading={false}
+        error={null}
+        {...callbacks}
+      />,
+    );
+
+    expect(
+      screen.getByRole("option", { name: /Local Vision Model · 8B · Vision/ }),
+    ).toBeVisible();
+    expect(screen.getByText("vision input")).toBeVisible();
   });
 });

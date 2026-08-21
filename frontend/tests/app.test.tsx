@@ -13,10 +13,12 @@ import {
   rawSecret,
   token,
   user,
+  visionModel,
 } from "./fixtures";
 
 function installWorkspaceFetch(options: {
   generationStatus?: 201 | 409 | "pending";
+  models?: Array<typeof model>;
 } = {}) {
   let generated = false;
   let messageReads = 0;
@@ -27,7 +29,7 @@ function installWorkspaceFetch(options: {
 
     if (url.pathname === "/api/v1/users/me") return jsonResponse(user);
     if (url.pathname === "/api/v1/ai/models") {
-      return jsonResponse({ items: [model] });
+      return jsonResponse({ items: options.models ?? [model] });
     }
     if (url.pathname === "/api/v1/conversations" && (init?.method ?? "GET") === "GET") {
       return jsonResponse({ items: [conversation], next_cursor: null });
@@ -96,6 +98,20 @@ describe("App integration", () => {
     await userEvent.click(screen.getByRole("button", { name: "Logout" }));
     expect(readSessionToken()).toBeNull();
     expect(screen.getByRole("heading", { name: /Connect to your Personal AI/ })).toBeVisible();
+  });
+
+  it("propagates public vision capability from discovered model metadata", async () => {
+    writeSessionToken(token);
+    installWorkspaceFetch({ models: [visionModel, model] });
+    render(<App />);
+
+    expect(
+      await screen.findByRole("option", {
+        name: /Local Vision Model · 8B · Vision/,
+      }),
+    ).toBeVisible();
+    expect(screen.getByText("vision input")).toBeVisible();
+    expect(document.body.textContent).not.toContain(token);
   });
 
   it("clears an invalid stored token and returns to the connect screen", async () => {

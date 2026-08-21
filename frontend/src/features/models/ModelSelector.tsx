@@ -1,5 +1,8 @@
 import type { LocalModel } from "../../api/contracts";
-import { selectableTextModels } from "../../app/collections";
+import {
+  modelSupportsVision,
+  selectableTextModels,
+} from "../../app/collections";
 
 interface ModelSelectorProps {
   models: LocalModel[];
@@ -37,6 +40,7 @@ export function ModelSelector({
             <option key={model.model_id} value={model.model_id}>
               {model.display_name}
               {model.parameter_class ? ` · ${model.parameter_class}` : ""}
+              {modelSupportsVision(model) ? " · Vision" : ""}
             </option>
           ))}
         </select>

@@ -2654,6 +2654,76 @@ def test_authenticated_generation_returns_exact_safe_created_message(
         assert unsafe not in response_text
 
 
+def test_generation_injects_private_asset_storage_when_configured(
+    conversation_generation_api,
+):
+    api = conversation_generation_api
+    storage = object()
+    missing = object()
+    previous = getattr(app.state, "asset_storage", missing)
+    app.state.asset_storage = storage
+    try:
+        response = api["client"].post(
+            f"/api/v1/conversations/{api['conversation_id']}/messages/generate",
+            json={"model_id": GENERATION_MODEL_ID},
+        )
+    finally:
+        if previous is missing:
+            delattr(app.state, "asset_storage")
+        else:
+            app.state.asset_storage = previous
+
+    assert response.status_code == 201
+    api["service_factory"].assert_called_once_with(
+        api["session"],
+        api["catalog"],
+        api["router"],
+        api["admission"],
+        api["duration"],
+        storage=storage,
+    )
+
+
+def test_generation_forwards_only_attachment_ids_with_new_user_message(
+    conversation_generation_api,
+):
+    api = conversation_generation_api
+    first = uuid4()
+    second = uuid4()
+
+    response = api["client"].post(
+        f"/api/v1/conversations/{api['conversation_id']}/messages/generate",
+        json={
+            "model_id": GENERATION_MODEL_ID,
+            "user_message": "inspect",
+            "attachment_ids": [str(first), str(second)],
+        },
+    )
+
+    assert response.status_code == 201
+    assert "attachment_ids" not in response.text
+    assert "base64" not in response.text.lower()
+    api["generate"].assert_awaited_once_with(
+        api["current_user"].id,
+        api["conversation_id"],
+        GENERATION_MODEL_ID,
+        user_message="inspect",
+        attachment_ids=(first, second),
+        max_output_tokens=1024,
+        temperature=None,
+        seed=None,
+        top_p=None,
+        top_k=None,
+        min_p=None,
+        repeat_penalty=None,
+        repeat_last_n=None,
+        typical_p=None,
+        presence_penalty=None,
+        frequency_penalty=None,
+        stop_sequences=None,
+    )
+
+
 @pytest.mark.parametrize(
     ("body", "raw_content"),
     [
@@ -3700,6 +3770,31 @@ def test_malformed_generation_uuid_is_422_before_service_construction(
             ).ConversationGenerationContextTooLargeError,
             413,
             "Conversation context is too large",
+        ),
+        (
+            conversations_module.ConversationGenerationVisionCapabilityError,
+            409,
+            "Model does not support vision input",
+        ),
+        (
+            conversations_module.VisionInputAttachmentUnavailableError,
+            404,
+            "Attachment not found",
+        ),
+        (
+            conversations_module.VisionInputUnsupportedError,
+            422,
+            "Generation attachments are not supported",
+        ),
+        (
+            conversations_module.VisionInputTooLargeError,
+            413,
+            "Generation input is too large",
+        ),
+        (
+            conversations_module.VisionInputContentUnavailableError,
+            503,
+            "Local model runtime unavailable",
         ),
         (
             __import__(

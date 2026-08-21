@@ -16,6 +16,7 @@ import type {
   Message,
   MessageAttachment,
 } from "../../api/contracts";
+import { isVisionImageMediaType } from "../../app/collections";
 
 export interface SafeNotice {
   message: string;
@@ -59,6 +60,7 @@ interface ChatViewProps extends AttachmentActions {
   conversation: ConversationSummary | null;
   creatingNew: boolean;
   canGenerate: boolean;
+  canUseVision?: boolean;
   messages: Message[];
   nextCursor: number | null;
   loadingMessages: boolean;
@@ -256,9 +258,10 @@ function useAttachmentQueue(
     });
   }, [attachedStates]);
 
-  const readyAssetIds = items.flatMap((item) =>
-    item.state === "uploaded" && item.asset !== null ? [item.asset.id] : [],
+  const readyAssets = items.flatMap((item) =>
+    item.state === "uploaded" && item.asset !== null ? [item.asset] : [],
   );
+  const readyAssetIds = readyAssets.map((asset) => asset.id);
   const unresolved = items.some((item) =>
     ["selected", "uploading", "failed", "cancelling", "cancelled"].includes(
       item.state,
@@ -267,6 +270,7 @@ function useAttachmentQueue(
 
   return {
     items,
+    readyAssets,
     readyAssetIds,
     unresolved,
     selectFiles,
@@ -299,6 +303,10 @@ function AttachmentPicker({
           {queue.items.map((item) => (
             <li key={item.idempotencyKey}>
               <span className="attachment-name">{item.file.name}</span>
+              {item.asset !== null &&
+                isVisionImageMediaType(item.asset.media_type) && (
+                  <span className="attachment-kind">Vision image</span>
+                )}
               <span className="attachment-state" role="status">
                 {queueStateLabel(item)}
               </span>
@@ -368,10 +376,20 @@ function NewConversationView({
     { onUploadAttachment, onDeleteAttachment },
     EMPTY_ATTACHMENT_STATES,
   );
+  const hasInitialImage = queue.readyAssets.some((asset) =>
+    asset.media_type.startsWith("image/"),
+  );
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!initialMessage.trim() || !canGenerate || queue.unresolved) return;
+    if (
+      !initialMessage.trim() ||
+      !canGenerate ||
+      queue.unresolved ||
+      hasInitialImage
+    ) {
+      return;
+    }
     const request: ConversationCreateRequest = {
       initial_message: initialMessage,
     };
@@ -428,6 +446,12 @@ function NewConversationView({
           />
         </div>
         <AttachmentPicker queue={queue} disabled={creating} />
+        {hasInitialImage && (
+          <p className="vision-guidance" role="status">
+            Image-assisted generation is available after you create or open a
+            conversation. Remove the image to continue here.
+          </p>
+        )}
         {notice !== null && (
           <div className="notice notice-error" role="alert">
             <p>{notice.message}</p>
@@ -448,7 +472,8 @@ function NewConversationView({
             creating ||
             !canGenerate ||
             !initialMessage.trim() ||
-            queue.unresolved
+            queue.unresolved ||
+            hasInitialImage
           }
         >
           {creating ? "Creating…" : "Create and generate"}
@@ -462,6 +487,7 @@ export function ChatView({
   conversation,
   creatingNew,
   canGenerate,
+  canUseVision = false,
   messages,
   nextCursor,
   loadingMessages,
@@ -499,6 +525,29 @@ export function ChatView({
     { onUploadAttachment, onDeleteAttachment },
     attachedStates,
   );
+  const readyVisionImages = queue.readyAssets.filter((asset) =>
+    isVisionImageMediaType(asset.media_type),
+  );
+  const readyUnsupportedImages = queue.readyAssets.filter(
+    (asset) =>
+      asset.media_type.startsWith("image/") &&
+      !isVisionImageMediaType(asset.media_type),
+  );
+  const readyOpaqueAttachments = queue.readyAssets.filter(
+    (asset) => !asset.media_type.startsWith("image/"),
+  );
+  let visionBlockReason: string | null = null;
+  if (readyUnsupportedImages.length > 0) {
+    visionBlockReason = "Only server-recognized PNG and JPEG images can use vision.";
+  } else if (
+    readyVisionImages.length > 0 &&
+    readyOpaqueAttachments.length > 0
+  ) {
+    visionBlockReason =
+      "Vision images cannot be submitted together with non-image attachments.";
+  } else if (readyVisionImages.length > 0 && !canUseVision) {
+    visionBlockReason = "Select a vision-capable local model to send these images.";
+  }
 
   useEffect(() => {
     const urls = objectUrls.current;
@@ -587,11 +636,26 @@ export function ChatView({
   }
 
   const lastMessage = messages.at(-1);
-  const canRetryResponse = lastMessage?.role === "user";
+  const historicalVisionReplayRequired =
+    lastMessage?.attachments.some(
+      (attachment) =>
+        attachment.state === "deleted" ||
+        isVisionImageMediaType(attachment.media_type),
+    ) ?? false;
+  const canRetryResponse =
+    lastMessage?.role === "user" && !historicalVisionReplayRequired;
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!draft.trim() || generating || !canGenerate || queue.unresolved) return;
+    if (
+      !draft.trim() ||
+      generating ||
+      !canGenerate ||
+      queue.unresolved ||
+      visionBlockReason !== null
+    ) {
+      return;
+    }
     const message = draft;
     const attachmentIds = queue.readyAssetIds;
     setDraft("");
@@ -666,6 +730,9 @@ export function ChatView({
                           <span className="attachment-details">
                             {attachment.media_type} · {attachment.byte_size} bytes
                           </span>
+                          {isVisionImageMediaType(attachment.media_type) && (
+                            <span className="attachment-kind">Vision image</span>
+                          )}
                           <button
                             type="button"
                             className="button button-quiet"
@@ -702,6 +769,14 @@ export function ChatView({
           Generate response to last message
         </button>
       )}
+      {lastMessage?.role === "user" &&
+        historicalVisionReplayRequired &&
+        !generating && (
+          <p className="vision-guidance" role="status">
+            Response retry is unavailable because historical image replay is not
+            supported yet. Send a new message with the image instead.
+          </p>
+        )}
 
       <form className="composer" onSubmit={(event) => void submit(event)}>
         <label className="sr-only" htmlFor="chat-prompt">Message</label>
@@ -715,6 +790,11 @@ export function ChatView({
           disabled={generating}
         />
         <AttachmentPicker queue={queue} disabled={generating} />
+        {visionBlockReason !== null && (
+          <p className="vision-guidance" role="status">
+            {visionBlockReason}
+          </p>
+        )}
         <div className="composer-actions">
           {generating ? (
             <>
@@ -730,7 +810,12 @@ export function ChatView({
           ) : (
             <button
               className="button button-primary"
-              disabled={!canGenerate || !draft.trim() || queue.unresolved}
+              disabled={
+                !canGenerate ||
+                !draft.trim() ||
+                queue.unresolved ||
+                visionBlockReason !== null
+              }
             >
               Send
             </button>

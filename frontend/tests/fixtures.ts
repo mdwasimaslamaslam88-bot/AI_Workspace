@@ -28,6 +28,13 @@ export const model: LocalModel = {
   availability: "available",
 };
 
+export const visionModel: LocalModel = {
+  ...model,
+  model_id: "ollama-local:dddddddddddddddddddddddd",
+  display_name: "Local Vision Model",
+  capabilities: ["chat", "text_generation", "vision_input"],
+};
+
 export const conversation: ConversationSummary = {
   id: "22222222-2222-4222-8222-222222222222",
   title: "Local chat",

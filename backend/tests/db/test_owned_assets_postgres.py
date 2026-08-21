@@ -10,6 +10,7 @@ from sqlalchemy.orm import selectinload
 
 from app.models import Asset, Conversation, Message, MessageAsset, MessageRole, User
 from app.repositories.asset import AssetRepository
+from app.repositories.message import MessageAttachmentClaimError, MessageRepository
 from app.schemas.message import MessageResponse
 from app.services.asset import AssetService
 from app.services.conversation import ConversationService
@@ -266,6 +267,68 @@ async def test_mixed_owner_deleted_and_reused_claims_roll_back_atomically(
                 MessageRole.USER,
                 "reused",
                 attachment_ids=(owned_id,),
+            )
+
+
+@pytest.mark.asyncio
+async def test_vision_metadata_query_is_exactly_owner_conversation_and_message_scoped(
+    test_database_engine,
+):
+    owner = await _create_user(test_database_engine)
+    foreign_owner = await _create_user(test_database_engine)
+    conversation = await _create_conversation(test_database_engine, owner.id)
+    foreign_conversation = await _create_conversation(
+        test_database_engine,
+        foreign_owner.id,
+    )
+    async with AsyncSession(test_database_engine, expire_on_commit=False) as session:
+        first = await _insert_asset(session, owner.id)
+        second = await _insert_asset(session, owner.id)
+        first.media_type = "image/png"
+        second.media_type = "image/jpeg"
+        await session.commit()
+        attached = await MessageService(session).append_for_owner(
+            owner.id,
+            conversation.id,
+            MessageRole.USER,
+            "ordered images",
+            attachment_ids=(first.id, second.id),
+        )
+        assert attached is not None
+        repository = MessageRepository(session)
+
+        metadata = await repository.list_attachment_metadata_for_owner_message(
+            owner.id,
+            conversation.id,
+            attached.id,
+            (first.id, second.id),
+        )
+
+        assert [item.asset_id for item in metadata] == [first.id, second.id]
+        assert [item.position for item in metadata] == [1, 2]
+        assert [item.media_type for item in metadata] == ["image/png", "image/jpeg"]
+
+        for requested_owner, requested_conversation, requested_message in (
+            (foreign_owner.id, conversation.id, attached.id),
+            (owner.id, foreign_conversation.id, attached.id),
+            (owner.id, conversation.id, uuid4()),
+        ):
+            with pytest.raises(MessageAttachmentClaimError):
+                await repository.list_attachment_metadata_for_owner_message(
+                    requested_owner,
+                    requested_conversation,
+                    requested_message,
+                    (first.id, second.id),
+                )
+
+        first.deleted_at = datetime.now(timezone.utc)
+        await session.commit()
+        with pytest.raises(MessageAttachmentClaimError):
+            await repository.list_attachment_metadata_for_owner_message(
+                owner.id,
+                conversation.id,
+                attached.id,
+                (first.id, second.id),
             )
 
 

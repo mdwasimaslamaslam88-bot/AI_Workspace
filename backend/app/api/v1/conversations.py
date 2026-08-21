@@ -53,6 +53,13 @@ from app.services.conversation_generation import (
     ConversationGenerationNotFoundError,
     ConversationGenerationNotReadyError,
     ConversationGenerationService,
+    ConversationGenerationVisionCapabilityError,
+)
+from app.services.vision_input import (
+    VisionInputAttachmentUnavailableError,
+    VisionInputContentUnavailableError,
+    VisionInputTooLargeError,
+    VisionInputUnsupportedError,
 )
 
 
@@ -309,6 +316,7 @@ async def generate_assistant_message(
         "generation_max_duration_seconds",
         None,
     )
+    storage = getattr(request.app.state, "asset_storage", None)
     if (
         catalog is None
         or generation_router is None
@@ -331,6 +339,7 @@ async def generate_assistant_message(
             generation_router,
             admission_controller,
             generation_max_duration_seconds,
+            **({"storage": storage} if storage is not None else {}),
         ).generate_for_owner(
             current_user.id,
             conversation_id,
@@ -364,10 +373,18 @@ async def generate_assistant_message(
             status_code=status.HTTP_413_CONTENT_TOO_LARGE,
             detail="Message content is too large",
         ) from None
-    except MessageAttachmentUnavailableError:
+    except (
+        MessageAttachmentUnavailableError,
+        VisionInputAttachmentUnavailableError,
+    ):
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Attachment not found",
+        ) from None
+    except VisionInputUnsupportedError:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Generation attachments are not supported",
         ) from None
     except GenerationAdmissionRejectedError:
         raise HTTPException(
@@ -389,6 +406,11 @@ async def generate_assistant_message(
             status_code=status.HTTP_409_CONFLICT,
             detail="Conversation changed during generation",
         ) from None
+    except ConversationGenerationVisionCapabilityError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Model does not support vision input",
+        ) from None
     except TextGenerationRuntimeUnsupportedError:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -404,10 +426,16 @@ async def generate_assistant_message(
             status_code=status.HTTP_413_CONTENT_TOO_LARGE,
             detail="Conversation context is too large",
         ) from None
+    except VisionInputTooLargeError:
+        raise HTTPException(
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+            detail="Generation input is too large",
+        ) from None
     except (
         ConversationGenerationModelUnavailableError,
         ModelRuntimeUnavailableError,
         TextGenerationRuntimeUnavailableError,
+        VisionInputContentUnavailableError,
     ):
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

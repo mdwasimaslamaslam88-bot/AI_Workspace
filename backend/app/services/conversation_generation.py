@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.ai.catalog import ModelAvailability, ModelCapability, ModelCatalog
 from app.ai.generation import (
     TextGenerationMessage,
+    TextGenerationRequestTooLargeError,
     TextGenerationRole,
     TextGenerationRouter,
     TextGenerationRuntimeUnavailableError,
@@ -22,9 +23,15 @@ from app.models.message import (
     MessageRole,
     validate_message_content,
 )
+from app.repositories.message import GenerationContextMessage
 from app.services.conversation import ConversationService
 from app.services.generation_admission import GenerationAdmissionController
 from app.services.message import MessageService
+from app.services.vision_input import (
+    VisionInputService,
+    VisionInputTooLargeError,
+)
+from app.storage.base import AssetStorage
 
 
 MAX_GENERATION_CONTEXT_MESSAGES = 100
@@ -71,6 +78,10 @@ class ConversationChangedDuringGenerationError(RuntimeError):
     """The Conversation changed after its generation context was captured."""
 
 
+class ConversationGenerationVisionCapabilityError(RuntimeError):
+    """The freshly resolved model cannot inspect the new image attachments."""
+
+
 class ConversationGenerationService:
     def __init__(
         self,
@@ -79,12 +90,15 @@ class ConversationGenerationService:
         generation_router: TextGenerationRouter,
         admission_controller: GenerationAdmissionController,
         max_duration_seconds: float = 180.0,
+        *,
+        storage: AssetStorage | None = None,
     ) -> None:
         self.session = session
         self.catalog = catalog
         self.generation_router = generation_router
         self.admission_controller = admission_controller
         self.max_duration_seconds = max_duration_seconds
+        self.storage = storage
 
     async def generate_for_owner(
         self,
@@ -308,6 +322,8 @@ class ConversationGenerationService:
 
         async with self._admitted_generation(owner_id):
             appended_user_sequence: int | None = None
+            vision_input_service: VisionInputService | None = None
+            vision_metadata = ()
             if user_message is not None:
                 appended_user = await MessageService(self.session).append_for_owner(
                     owner_id,
@@ -323,6 +339,21 @@ class ConversationGenerationService:
                         "conversation is not available to the current user"
                     )
                 appended_user_sequence = appended_user.sequence_number
+                if attachment_ids:
+                    vision_input_service = VisionInputService(
+                        self.session,
+                        self.storage,
+                    )
+                    try:
+                        vision_metadata = await vision_input_service.resolve_for_owner_message(
+                            owner_id,
+                            conversation_id,
+                            appended_user.id,
+                            attachment_ids,
+                        )
+                    except BaseException:
+                        await self.session.rollback()
+                        raise
 
             context_snapshot = await MessageService(
                 self.session
@@ -375,24 +406,16 @@ class ConversationGenerationService:
                     "conversation sequence changed while context was captured"
                 )
 
-            context: list[TextGenerationMessage] = []
-            for message in snapshot:
-                try:
-                    generation_role = TextGenerationRole(message.role.value)
-                except ValueError:
-                    raise ConversationGenerationNotReadyError(
-                        "conversation contains an unsupported message role"
-                    ) from None
-                context.append(
-                    TextGenerationMessage(
-                        role=generation_role,
-                        content=message.content,
-                    )
-                )
             if snapshot[-1].role is not MessageRole.USER:
                 raise ConversationGenerationNotReadyError(
                     "conversation must end with a user message"
                 )
+
+            context = self._generation_context(
+                snapshot,
+                image_sequence=None,
+                images=(),
+            )
 
             model = await self.catalog.resolve_model(model_id)
             if model is None:
@@ -410,22 +433,71 @@ class ConversationGenerationService:
                 raise TextGenerationRuntimeUnsupportedError(
                     "model does not support text generation"
                 )
-            generated = await self.generation_router.generate(
-                model,
-                tuple(context),
-                max_output_tokens=max_output_tokens,
-                temperature=temperature,
-                seed=seed,
-                top_p=top_p,
-                top_k=top_k,
-                min_p=min_p,
-                repeat_penalty=repeat_penalty,
-                repeat_last_n=repeat_last_n,
-                typical_p=typical_p,
-                presence_penalty=presence_penalty,
-                frequency_penalty=frequency_penalty,
-                stop_sequences=stop_sequences,
-            )
+
+            generation_options = {
+                "max_output_tokens": max_output_tokens,
+                "temperature": temperature,
+                "seed": seed,
+                "top_p": top_p,
+                "top_k": top_k,
+                "min_p": min_p,
+                "repeat_penalty": repeat_penalty,
+                "repeat_last_n": repeat_last_n,
+                "typical_p": typical_p,
+                "presence_penalty": presence_penalty,
+                "frequency_penalty": frequency_penalty,
+                "stop_sequences": stop_sequences,
+            }
+            images: tuple[str, ...] = ()
+            if vision_metadata:
+                if vision_input_service is None:  # pragma: no cover
+                    raise RuntimeError("vision input service is unavailable")
+                if (
+                    ModelCapability.VISION_INPUT
+                    not in model.descriptor.capabilities
+                ):
+                    raise ConversationGenerationVisionCapabilityError(
+                        "model does not support vision input"
+                    )
+                request_limit = self.generation_router.request_byte_limit(model)
+                placeholder_images = vision_input_service.placeholder_images(
+                    vision_metadata,
+                    request_limit,
+                )
+                try:
+                    self.generation_router.preflight(
+                        model,
+                        self._generation_context(
+                            snapshot,
+                            image_sequence=appended_user_sequence,
+                            images=placeholder_images,
+                        ),
+                        **generation_options,
+                    )
+                except TextGenerationRequestTooLargeError as exc:
+                    raise VisionInputTooLargeError(
+                        "vision input is too large"
+                    ) from exc
+                finally:
+                    placeholder_images = ()
+                images = await vision_input_service.encode_images(vision_metadata)
+                context = self._generation_context(
+                    snapshot,
+                    image_sequence=appended_user_sequence,
+                    images=images,
+                )
+            try:
+                generated = await self.generation_router.generate(
+                    model,
+                    context,
+                    **generation_options,
+                )
+            except TextGenerationRequestTooLargeError as exc:
+                if not vision_metadata:
+                    raise
+                raise VisionInputTooLargeError(
+                    "vision input is too large"
+                ) from exc
             try:
                 validate_message_content(generated.content)
             except MessageContentTooLargeError as exc:
@@ -444,6 +516,35 @@ class ConversationGenerationService:
                     "conversation changed during generation"
                 )
             return message
+
+    @staticmethod
+    def _generation_context(
+        snapshot: tuple[GenerationContextMessage, ...],
+        *,
+        image_sequence: int | None,
+        images: tuple[str, ...],
+    ) -> tuple[TextGenerationMessage, ...]:
+        context: list[TextGenerationMessage] = []
+        for message in snapshot:
+            try:
+                generation_role = TextGenerationRole(message.role.value)
+            except ValueError:
+                raise ConversationGenerationNotReadyError(
+                    "conversation contains an unsupported message role"
+                ) from None
+            context.append(
+                TextGenerationMessage(
+                    role=generation_role,
+                    content=message.content,
+                    images=(
+                        images
+                        if image_sequence is not None
+                        and message.sequence_number == image_sequence
+                        else ()
+                    ),
+                )
+            )
+        return tuple(context)
 
     @asynccontextmanager
     async def _admitted_generation(
