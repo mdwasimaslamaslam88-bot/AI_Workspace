@@ -1,0 +1,303 @@
+import {
+  type BackendErrorEnvelope,
+  type ConversationCreateRequest,
+  type ConversationCreateResponse,
+  type ConversationCursor,
+  type ConversationPage,
+  type ConversationSummary,
+  type ConversationTextGenerationRequest,
+  type ConversationTextGenerationResponse,
+  type CurrentUser,
+  type LocalModelPage,
+  type MessagePage,
+  parseConversation,
+  parseConversationCreateResponse,
+  parseConversationPage,
+  parseCurrentUser,
+  parseGenerationResponse,
+  parseMessagePage,
+  parseModelPage,
+} from "./contracts";
+
+export type ApiErrorKind =
+  | "authentication"
+  | "not_found"
+  | "conflict"
+  | "too_large"
+  | "validation"
+  | "busy"
+  | "unavailable"
+  | "server"
+  | "network"
+  | "cancelled"
+  | "unexpected";
+
+const publicErrorCodes = new Set([
+  "HTTP_ERROR",
+  "VALIDATION_ERROR",
+  "INTERNAL_SERVER_ERROR",
+]);
+
+const statusErrors: Record<number, { kind: ApiErrorKind; message: string }> = {
+  400: { kind: "validation", message: "The request could not be accepted." },
+  401: { kind: "authentication", message: "Authentication failed." },
+  403: { kind: "authentication", message: "This action is not authorized." },
+  404: { kind: "not_found", message: "The requested item was not found." },
+  409: {
+    kind: "conflict",
+    message: "The conversation changed. Refresh and try again.",
+  },
+  413: { kind: "too_large", message: "The request is too large." },
+  422: { kind: "validation", message: "The request could not be validated." },
+  429: { kind: "busy", message: "Local generation is busy. Try again shortly." },
+  500: { kind: "server", message: "The backend could not complete the request." },
+  503: {
+    kind: "unavailable",
+    message: "The local model runtime is unavailable.",
+  },
+};
+
+export class ApiError extends Error {
+  readonly kind: ApiErrorKind;
+  readonly status: number | null;
+  readonly requestId: string | null;
+  readonly code: string | null;
+
+  constructor(
+    kind: ApiErrorKind,
+    message: string,
+    options: {
+      status?: number | null;
+      requestId?: string | null;
+      code?: string | null;
+    } = {},
+  ) {
+    super(message);
+    this.name = "ApiError";
+    this.kind = kind;
+    this.status = options.status ?? null;
+    this.requestId = options.requestId ?? null;
+    this.code = options.code ?? null;
+  }
+}
+
+export function normalizeApiBaseUrl(value: string | undefined): string {
+  const candidate = value?.trim() || "http://127.0.0.1:8000";
+  let parsed: URL;
+  try {
+    parsed = new URL(candidate);
+  } catch {
+    throw new Error("VITE_API_BASE_URL must be a valid HTTP origin.");
+  }
+  if (
+    !["http:", "https:"].includes(parsed.protocol) ||
+    parsed.username !== "" ||
+    parsed.password !== "" ||
+    parsed.search !== "" ||
+    parsed.hash !== "" ||
+    !["", "/"].includes(parsed.pathname)
+  ) {
+    throw new Error(
+      "VITE_API_BASE_URL must be an HTTP origin without credentials or a path.",
+    );
+  }
+  return parsed.origin;
+}
+
+export const API_BASE_URL = normalizeApiBaseUrl(import.meta.env.VITE_API_BASE_URL);
+
+type JsonDecoder<T> = (value: unknown) => T;
+type FetchImplementation = typeof fetch;
+
+interface ApiClientOptions {
+  baseUrl?: string;
+  fetchImplementation?: FetchImplementation;
+  onUnauthorized?: () => void;
+}
+
+interface RequestOptions<T> {
+  method?: "GET" | "POST";
+  body?: unknown;
+  signal?: AbortSignal;
+  decode: JsonDecoder<T>;
+}
+
+function safeEnvelopeCode(value: unknown): string | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return null;
+  }
+  const envelope = value as Partial<BackendErrorEnvelope>;
+  const code = envelope.error?.code;
+  return typeof code === "string" && publicErrorCodes.has(code) ? code : null;
+}
+
+async function readSafeErrorCode(response: Response): Promise<string | null> {
+  try {
+    return safeEnvelopeCode(await response.json());
+  } catch {
+    return null;
+  }
+}
+
+function errorForStatus(
+  status: number,
+  requestId: string | null,
+  code: string | null,
+): ApiError {
+  const normalized = statusErrors[status] ?? {
+    kind: "unexpected" as const,
+    message: "The backend rejected the request.",
+  };
+  return new ApiError(normalized.kind, normalized.message, {
+    status,
+    requestId,
+    code,
+  });
+}
+
+export class ApiClient {
+  readonly #baseUrl: string;
+  readonly #token: string;
+  readonly #fetch: FetchImplementation;
+  readonly #onUnauthorized: (() => void) | undefined;
+
+  constructor(token: string, options: ApiClientOptions = {}) {
+    if (token.length === 0) throw new Error("A bearer token is required.");
+    this.#token = token;
+    this.#baseUrl = normalizeApiBaseUrl(options.baseUrl ?? API_BASE_URL);
+    this.#fetch = options.fetchImplementation ?? fetch;
+    this.#onUnauthorized = options.onUnauthorized;
+  }
+
+  async #request<T>(path: string, options: RequestOptions<T>): Promise<T> {
+    const url = new URL(path, `${this.#baseUrl}/`);
+    const headers = new Headers({
+      Accept: "application/json",
+      Authorization: `Bearer ${this.#token}`,
+    });
+    if (options.body !== undefined) headers.set("Content-Type", "application/json");
+
+    let response: Response;
+    try {
+      response = await this.#fetch(url, {
+        method: options.method ?? "GET",
+        headers,
+        body:
+          options.body === undefined ? undefined : JSON.stringify(options.body),
+        signal: options.signal,
+      });
+    } catch (error) {
+      if (
+        options.signal?.aborted === true ||
+        (error instanceof DOMException && error.name === "AbortError")
+      ) {
+        throw new ApiError("cancelled", "Request cancelled.");
+      }
+      throw new ApiError("network", "Could not reach the local backend.");
+    }
+
+    const requestId = response.headers.get("X-Request-ID");
+    if (!response.ok) {
+      const code = await readSafeErrorCode(response);
+      if (response.status === 401) this.#onUnauthorized?.();
+      throw errorForStatus(response.status, requestId, code);
+    }
+
+    try {
+      return options.decode(await response.json());
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      throw new ApiError(
+        "unexpected",
+        "The backend returned an invalid response.",
+        { status: response.status, requestId },
+      );
+    }
+  }
+
+  getCurrentUser(signal?: AbortSignal): Promise<CurrentUser> {
+    return this.#request("api/v1/users/me", {
+      signal,
+      decode: parseCurrentUser,
+    });
+  }
+
+  listModels(signal?: AbortSignal): Promise<LocalModelPage> {
+    return this.#request("api/v1/ai/models", {
+      signal,
+      decode: parseModelPage,
+    });
+  }
+
+  listConversations(
+    options: {
+      limit?: number;
+      cursor?: ConversationCursor;
+      signal?: AbortSignal;
+    } = {},
+  ): Promise<ConversationPage> {
+    const query = new URLSearchParams();
+    if (options.limit !== undefined) query.set("limit", String(options.limit));
+    if (options.cursor !== undefined) {
+      query.set("cursor_updated_at", options.cursor.updated_at);
+      query.set("cursor_id", options.cursor.id);
+    }
+    const suffix = query.size === 0 ? "" : `?${query.toString()}`;
+    return this.#request(`api/v1/conversations${suffix}`, {
+      signal: options.signal,
+      decode: parseConversationPage,
+    });
+  }
+
+  createConversation(
+    request: ConversationCreateRequest,
+    signal?: AbortSignal,
+  ): Promise<ConversationCreateResponse> {
+    return this.#request("api/v1/conversations", {
+      method: "POST",
+      body: request,
+      signal,
+      decode: parseConversationCreateResponse,
+    });
+  }
+
+  getConversation(
+    conversationId: string,
+    signal?: AbortSignal,
+  ): Promise<ConversationSummary> {
+    return this.#request(
+      `api/v1/conversations/${encodeURIComponent(conversationId)}`,
+      { signal, decode: parseConversation },
+    );
+  }
+
+  listMessages(
+    conversationId: string,
+    options: { limit?: number; cursor?: number; signal?: AbortSignal } = {},
+  ): Promise<MessagePage> {
+    const query = new URLSearchParams();
+    if (options.limit !== undefined) query.set("limit", String(options.limit));
+    if (options.cursor !== undefined) query.set("cursor", String(options.cursor));
+    const suffix = query.size === 0 ? "" : `?${query.toString()}`;
+    return this.#request(
+      `api/v1/conversations/${encodeURIComponent(conversationId)}/messages${suffix}`,
+      { signal: options.signal, decode: parseMessagePage },
+    );
+  }
+
+  generateResponse(
+    conversationId: string,
+    request: ConversationTextGenerationRequest,
+    signal?: AbortSignal,
+  ): Promise<ConversationTextGenerationResponse> {
+    return this.#request(
+      `api/v1/conversations/${encodeURIComponent(conversationId)}/messages/generate`,
+      {
+        method: "POST",
+        body: request,
+        signal,
+        decode: parseGenerationResponse,
+      },
+    );
+  }
+}
