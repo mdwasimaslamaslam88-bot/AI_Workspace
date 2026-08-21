@@ -20,6 +20,7 @@ def main() -> None:
         "-m",
         "integration",
         "tests/db/test_postgres_integration.py",
+        "tests/db/test_owned_assets_postgres.py",
     ]
     os.chdir(PROJECT_ROOT)
     os.execvpe(sys.executable, command, environment)

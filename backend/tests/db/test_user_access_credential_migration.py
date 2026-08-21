@@ -45,7 +45,7 @@ def test_upgrade_adds_only_nullable_unique_digest_and_matches_metadata():
         ("add_column", "users.access_token_digest"),
         ("create_unique_constraint", "uq_users_access_token_digest"),
     ]
-    assert set(operations.metadata.tables) == set(Base.metadata.tables)
+    assert set(operations.metadata.tables) == {"users", "conversations", "messages"}
     assert _table_signature(operations.metadata.tables["conversations"]) == (
         _table_signature(Base.metadata.tables["conversations"])
     )

@@ -1,5 +1,6 @@
 import {
   type BackendErrorEnvelope,
+  type Asset,
   type ConversationCreateRequest,
   type ConversationCreateResponse,
   type ConversationCursor,
@@ -10,6 +11,7 @@ import {
   type CurrentUser,
   type LocalModelPage,
   type MessagePage,
+  parseAsset,
   parseConversation,
   parseConversationCreateResponse,
   parseConversationPage,
@@ -108,11 +110,18 @@ export const API_BASE_URL = normalizeApiBaseUrl(import.meta.env.VITE_API_BASE_UR
 
 type JsonDecoder<T> = (value: unknown) => T;
 type FetchImplementation = typeof fetch;
+type XhrFactory = () => XMLHttpRequest;
+
+export interface UploadProgress {
+  loaded: number;
+  total: number | null;
+}
 
 interface ApiClientOptions {
   baseUrl?: string;
   fetchImplementation?: FetchImplementation;
   onUnauthorized?: () => void;
+  xhrFactory?: XhrFactory;
 }
 
 interface RequestOptions<T> {
@@ -155,11 +164,27 @@ function errorForStatus(
   });
 }
 
+function attachmentErrorForStatus(
+  status: number,
+  requestId: string | null,
+  code: string | null,
+): ApiError {
+  if (status === 503 || status === 507) {
+    return new ApiError("unavailable", "Attachment storage is unavailable.", {
+      status,
+      requestId,
+      code,
+    });
+  }
+  return errorForStatus(status, requestId, code);
+}
+
 export class ApiClient {
   readonly #baseUrl: string;
   readonly #token: string;
   readonly #fetch: FetchImplementation;
   readonly #onUnauthorized: (() => void) | undefined;
+  readonly #xhrFactory: XhrFactory;
 
   constructor(token: string, options: ApiClientOptions = {}) {
     if (token.length === 0) throw new Error("A bearer token is required.");
@@ -167,6 +192,7 @@ export class ApiClient {
     this.#baseUrl = normalizeApiBaseUrl(options.baseUrl ?? API_BASE_URL);
     this.#fetch = options.fetchImplementation ?? fetch;
     this.#onUnauthorized = options.onUnauthorized;
+    this.#xhrFactory = options.xhrFactory ?? (() => new XMLHttpRequest());
   }
 
   async #request<T>(path: string, options: RequestOptions<T>): Promise<T> {
@@ -283,6 +309,145 @@ export class ApiClient {
       `api/v1/conversations/${encodeURIComponent(conversationId)}/messages${suffix}`,
       { signal: options.signal, decode: parseMessagePage },
     );
+  }
+
+  uploadAsset(
+    file: File,
+    idempotencyKey: string,
+    options: { signal?: AbortSignal; onProgress?: (value: UploadProgress) => void } = {},
+  ): Promise<Asset> {
+    return new Promise<Asset>((resolve, reject) => {
+      const xhr = this.#xhrFactory();
+      let settled = false;
+      const abortRequest = () => xhr.abort();
+      const cleanup = () => {
+        options.signal?.removeEventListener("abort", abortRequest);
+      };
+      const finish = (action: () => void) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        action();
+      };
+
+      if (options.signal?.aborted === true) {
+        reject(new ApiError("cancelled", "Request cancelled."));
+        return;
+      }
+      options.signal?.addEventListener("abort", abortRequest, { once: true });
+
+      xhr.open(
+        "POST",
+        new URL("api/v1/assets", `${this.#baseUrl}/`).toString(),
+      );
+      xhr.responseType = "json";
+      xhr.setRequestHeader("Accept", "application/json");
+      xhr.setRequestHeader("Authorization", `Bearer ${this.#token}`);
+      xhr.setRequestHeader("Idempotency-Key", idempotencyKey);
+      xhr.upload.onprogress = (event) => {
+        options.onProgress?.({
+          loaded: event.loaded,
+          total: event.lengthComputable ? event.total : null,
+        });
+      };
+      xhr.onload = () => {
+        const requestId = xhr.getResponseHeader("X-Request-ID");
+        if (xhr.status < 200 || xhr.status >= 300) {
+          const code = safeEnvelopeCode(xhr.response);
+          if (xhr.status === 401) this.#onUnauthorized?.();
+          finish(() => reject(attachmentErrorForStatus(xhr.status, requestId, code)));
+          return;
+        }
+        try {
+          const asset = parseAsset(xhr.response);
+          finish(() => resolve(asset));
+        } catch {
+          finish(() =>
+            reject(
+              new ApiError(
+                "unexpected",
+                "The backend returned an invalid response.",
+                { status: xhr.status, requestId },
+              ),
+            ),
+          );
+        }
+      };
+      xhr.onerror = () => {
+        finish(() => reject(new ApiError("network", "Could not reach the local backend.")));
+      };
+      xhr.onabort = () => {
+        finish(() => reject(new ApiError("cancelled", "Request cancelled.")));
+      };
+
+      const form = new FormData();
+      form.append("file", file);
+      xhr.send(form);
+    });
+  }
+
+  async downloadAsset(
+    assetId: string,
+    signal?: AbortSignal,
+  ): Promise<Blob> {
+    const url = new URL(`api/v1/assets/${encodeURIComponent(assetId)}/content`, `${this.#baseUrl}/`);
+    const headers = new Headers({
+      Accept: "application/octet-stream",
+      Authorization: `Bearer ${this.#token}`,
+    });
+    let response: Response;
+    try {
+      response = await this.#fetch(url, { headers, signal });
+    } catch (error) {
+      if (
+        signal?.aborted === true ||
+        (error instanceof DOMException && error.name === "AbortError")
+      ) {
+        throw new ApiError("cancelled", "Request cancelled.");
+      }
+      throw new ApiError("network", "Could not reach the local backend.");
+    }
+    const requestId = response.headers.get("X-Request-ID");
+    if (!response.ok) {
+      const code = await readSafeErrorCode(response);
+      if (response.status === 401) this.#onUnauthorized?.();
+      throw attachmentErrorForStatus(response.status, requestId, code);
+    }
+    try {
+      return await response.blob();
+    } catch {
+      throw new ApiError(
+        "unexpected",
+        "The backend returned an invalid response.",
+        { status: response.status, requestId },
+      );
+    }
+  }
+
+  async deleteAsset(assetId: string, signal?: AbortSignal): Promise<void> {
+    const url = new URL(`api/v1/assets/${encodeURIComponent(assetId)}`, `${this.#baseUrl}/`);
+    const headers = new Headers({
+      Accept: "application/json",
+      Authorization: `Bearer ${this.#token}`,
+    });
+    let response: Response;
+    try {
+      response = await this.#fetch(url, { method: "DELETE", headers, signal });
+    } catch (error) {
+      if (
+        signal?.aborted === true ||
+        (error instanceof DOMException && error.name === "AbortError")
+      ) {
+        throw new ApiError("cancelled", "Request cancelled.");
+      }
+      throw new ApiError("network", "Could not reach the local backend.");
+    }
+    const requestId = response.headers.get("X-Request-ID");
+    if (!response.ok) {
+      const code = await readSafeErrorCode(response);
+      if (response.status === 401) this.#onUnauthorized?.();
+      throw attachmentErrorForStatus(response.status, requestId, code);
+    }
   }
 
   generateResponse(

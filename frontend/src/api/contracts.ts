@@ -2,6 +2,27 @@ export type UUID = string;
 export type Timestamp = string;
 
 export type MessageRole = "system" | "user" | "assistant" | "tool";
+export type AttachmentState = "active" | "deleted";
+
+export interface Asset {
+  id: UUID;
+  original_filename: string | null;
+  media_type: string;
+  byte_size: number;
+  content_sha256: string;
+  created_at: Timestamp;
+  deleted_at: Timestamp | null;
+}
+
+export interface MessageAttachment {
+  id: UUID;
+  position: number;
+  state: AttachmentState;
+  original_filename: string | null;
+  media_type: string | null;
+  byte_size: number | null;
+}
+
 export type ModelModality = "text";
 export type ModelAvailability = "available" | "unavailable" | "unknown";
 export type ModelCapability =
@@ -63,6 +84,7 @@ export interface Message {
   sequence_number: number;
   created_at: Timestamp;
   updated_at: Timestamp;
+  attachments: MessageAttachment[];
 }
 
 export interface MessagePage {
@@ -74,6 +96,7 @@ export interface ConversationCreateRequest {
   initial_message: string;
   title?: string;
   system_prompt?: string;
+  attachment_ids?: UUID[];
 }
 
 export interface ConversationCreateResponse extends ConversationSummary {
@@ -83,6 +106,7 @@ export interface ConversationCreateResponse extends ConversationSummary {
 export interface ConversationTextGenerationRequest {
   model_id: string;
   user_message?: string;
+  attachment_ids?: UUID[];
   max_output_tokens?: number;
   temperature?: number;
   seed?: number;
@@ -205,11 +229,59 @@ export function parseConversation(value: unknown): ConversationSummary {
     updated_at: stringField(item.updated_at),
   };
 }
+export function parseAsset(value: unknown): Asset {
+  const item = record(value);
+  const byteSize = integerOrNull(item.byte_size);
+  const contentSha256 = stringField(item.content_sha256);
+  if (
+    byteSize === null || byteSize < 1 || !/^[0-9a-f]{64}$/.test(contentSha256)
+  ) {
+    return invalidResponse();
+  }
+  return {
+    id: stringField(item.id),
+    original_filename: nullableString(item.original_filename),
+    media_type: stringField(item.media_type),
+    byte_size: byteSize,
+    content_sha256: contentSha256,
+    created_at: stringField(item.created_at),
+    deleted_at: nullableString(item.deleted_at),
+  };
+}
+
+export function parseMessageAttachment(value: unknown): MessageAttachment {
+  const item = record(value);
+  const position = integerOrNull(item.position);
+  const state = enumField(item.state, ["active", "deleted"] as const);
+  const originalFilename = nullableString(item.original_filename);
+  const mediaType = nullableString(item.media_type);
+  const byteSize = integerOrNull(item.byte_size);
+  if (position === null || position < 1) return invalidResponse();
+  if (
+    (state === "deleted" &&
+      (originalFilename !== null || mediaType !== null || byteSize !== null)) ||
+    (state === "active" &&
+      (mediaType === null || byteSize === null || byteSize < 1))
+  ) {
+    return invalidResponse();
+  }
+  return {
+    id: stringField(item.id),
+    position,
+    state,
+    original_filename: originalFilename,
+    media_type: mediaType,
+    byte_size: byteSize,
+  };
+}
+
 
 export function parseMessage(value: unknown): Message {
   const item = record(value);
   const sequenceNumber = integerOrNull(item.sequence_number);
-  if (sequenceNumber === null) return invalidResponse();
+  if (sequenceNumber === null || !Array.isArray(item.attachments)) {
+    return invalidResponse();
+  }
   return {
     id: stringField(item.id),
     conversation_id: stringField(item.conversation_id),
@@ -218,6 +290,7 @@ export function parseMessage(value: unknown): Message {
     sequence_number: sequenceNumber,
     created_at: stringField(item.created_at),
     updated_at: stringField(item.updated_at),
+    attachments: item.attachments.map(parseMessageAttachment),
   };
 }
 

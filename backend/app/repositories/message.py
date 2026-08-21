@@ -3,8 +3,10 @@ from uuid import UUID
 
 from sqlalchemy import Integer, bindparam, func, or_, select, true, update
 
+from app.models.asset import Asset
 from app.models.conversation import Conversation
 from app.models.message import Message, MessageRole, validate_message_content
+from app.models.message_asset import MessageAsset
 from app.repositories.base import BaseRepository
 
 
@@ -64,6 +66,10 @@ class GenerationContextSnapshot:
     oversized: bool
 
 
+class MessageAttachmentClaimError(RuntimeError):
+    """An attachment cannot be claimed by this owner's new message."""
+
+
 class MessageRepository(BaseRepository):
     async def append_for_owner(
         self,
@@ -73,8 +79,11 @@ class MessageRepository(BaseRepository):
         content: str,
         *,
         expected_sequence_number: int | None = None,
+        attachment_ids: tuple[UUID, ...] = (),
     ) -> Message | None:
         validate_message_content(content)
+        if len(attachment_ids) != len(set(attachment_ids)):
+            raise ValueError("attachment_ids must be unique")
         if expected_sequence_number is not None:
             if isinstance(expected_sequence_number, bool) or not isinstance(
                 expected_sequence_number, int
@@ -108,12 +117,36 @@ class MessageRepository(BaseRepository):
         if sequence_number is None:
             return None
 
+        assets_by_id: dict[UUID, Asset] = {}
+        if attachment_ids:
+            assets_statement = (
+                select(Asset)
+                .outerjoin(MessageAsset, MessageAsset.asset_id == Asset.id)
+                .where(
+                    Asset.id.in_(attachment_ids),
+                    Asset.owner_id == owner_id,
+                    Asset.deleted_at.is_(None),
+                    MessageAsset.asset_id.is_(None),
+                )
+                .with_for_update(of=Asset)
+            )
+            assets_result = await self.session.execute(assets_statement)
+            assets_by_id = {asset.id: asset for asset in assets_result.scalars()}
+            if len(assets_by_id) != len(attachment_ids):
+                raise MessageAttachmentClaimError(
+                    "one or more attachments are unavailable"
+                )
+
         message = Message(
             conversation_id=conversation_id,
             role=role,
             content=content,
             sequence_number=sequence_number,
         )
+        message.asset_links = [
+            MessageAsset(asset=assets_by_id[asset_id], position=position)
+            for position, asset_id in enumerate(attachment_ids, start=1)
+        ]
         self.session.add(message)
         await self.session.flush()
         return message

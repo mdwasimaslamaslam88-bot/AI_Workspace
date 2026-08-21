@@ -27,7 +27,7 @@ from app.ai.generation import (
 )
 from app.core.security import digest_access_token, generate_access_token
 from app.main import app
-from app.models import Conversation, Message, MessageRole, User
+from app.models import Asset, Conversation, Message, MessageAsset, MessageRole, User
 from app.models.message import (
     MAX_MESSAGE_CONTENT_CHARACTERS,
     MessageContentTooLargeError,
@@ -130,14 +130,21 @@ def _inspect_schema(connection) -> dict:
         "tables": set(inspector.get_table_names()),
         "conversation_foreign_keys": inspector.get_foreign_keys("conversations"),
         "message_foreign_keys": inspector.get_foreign_keys("messages"),
+        "asset_foreign_keys": inspector.get_foreign_keys("assets"),
+        "message_asset_foreign_keys": inspector.get_foreign_keys("message_assets"),
         "conversation_indexes": inspector.get_indexes("conversations"),
+        "asset_indexes": inspector.get_indexes("assets"),
         "conversation_checks": inspector.get_check_constraints("conversations"),
         "message_checks": inspector.get_check_constraints("messages"),
+        "asset_checks": inspector.get_check_constraints("assets"),
+        "message_asset_checks": inspector.get_check_constraints("message_assets"),
         "user_uniques": inspector.get_unique_constraints("users"),
         "message_uniques": inspector.get_unique_constraints("messages"),
+        "asset_uniques": inspector.get_unique_constraints("assets"),
+        "message_asset_uniques": inspector.get_unique_constraints("message_assets"),
         "columns": {
             table_name: inspector.get_columns(table_name)
-            for table_name in ("users", "conversations", "messages")
+            for table_name in ("users", "conversations", "messages", "assets", "message_assets")
         },
     }
 
@@ -185,6 +192,8 @@ async def test_migration_creates_exact_expected_postgresql_schema(
         "users",
         "conversations",
         "messages",
+        "assets",
+        "message_assets",
     }
 
     owner_fk = _foreign_key(
@@ -2311,11 +2320,13 @@ async def test_authenticated_conversation_creation_uses_current_user_and_sequenc
         "sequence_number",
         "created_at",
         "updated_at",
+        "attachments",
     }
     assert initial_message_payload["conversation_id"] == str(conversation_id)
     assert initial_message_payload["role"] == "user"
     assert initial_message_payload["content"] == "  Exact API content  "
     assert initial_message_payload["sequence_number"] == 1
+    assert initial_message_payload["attachments"] == []
 
     assert set(appended_payload) == {
         "id",
@@ -2325,11 +2336,13 @@ async def test_authenticated_conversation_creation_uses_current_user_and_sequenc
         "sequence_number",
         "created_at",
         "updated_at",
+        "attachments",
     }
     assert appended_payload["conversation_id"] == str(conversation_id)
     assert appended_payload["role"] == "user"
     assert appended_payload["content"] == "  Exact API follow-up  "
     assert appended_payload["sequence_number"] == 2
+    assert appended_payload["attachments"] == []
 
     assert [
         item["sequence_number"] for item in first_message_page_payload["items"]
@@ -2986,6 +2999,7 @@ async def test_authenticated_conversation_generation_is_owner_scoped_and_stale_s
                     "sequence_number": 4,
                     "created_at": generated.json()["message"]["created_at"],
                     "updated_at": generated.json()["message"]["updated_at"],
+                    "attachments": [],
                 },
             }
             assert "/private/runtime/model:70b" not in generated.text

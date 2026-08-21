@@ -93,6 +93,7 @@ class ConversationGenerationService:
         model_id: str,
         *,
         user_message: str | None = None,
+        attachment_ids: tuple[UUID, ...] = (),
         max_output_tokens: int = MAX_GENERATION_OUTPUT_TOKENS,
         temperature: float | None = None,
         seed: int | None = None,
@@ -108,6 +109,10 @@ class ConversationGenerationService:
     ) -> Message:
         if user_message is not None:
             validate_message_content(user_message)
+        if attachment_ids and user_message is None:
+            raise ValueError("attachment_ids require a user_message")
+        if len(attachment_ids) != len(set(attachment_ids)):
+            raise ValueError("attachment_ids must be unique")
         if isinstance(max_output_tokens, bool) or not isinstance(
             max_output_tokens,
             int,
@@ -309,6 +314,9 @@ class ConversationGenerationService:
                     conversation_id,
                     MessageRole.USER,
                     user_message,
+                    **(
+                        {"attachment_ids": attachment_ids} if attachment_ids else {}
+                    ),
                 )
                 if appended_user is None:
                     raise ConversationGenerationNotFoundError(

@@ -465,7 +465,7 @@ async def test_successful_delete_orders_execute_commit():
     deleted = await service.delete_for_owner(uuid4(), conversation_id)
 
     assert deleted is True
-    assert events == ["execute", "commit"]
+    assert events == ["execute", "execute", "commit"]
     session.commit.assert_awaited_once_with()
     session.rollback.assert_not_awaited()
     session.flush.assert_not_awaited()

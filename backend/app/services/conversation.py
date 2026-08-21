@@ -1,7 +1,9 @@
+import asyncio
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.logging import get_logger
 from app.models.conversation import Conversation
 from app.models.message import Message, MessageRole, validate_message_content
 from app.repositories.conversation import (
@@ -9,12 +11,21 @@ from app.repositories.conversation import (
     ConversationPagination,
     ConversationRepository,
 )
-from app.repositories.message import MessageRepository
+from app.repositories.message import (
+    MessageAttachmentClaimError,
+    MessageRepository,
+)
+from app.services.message import MessageAttachmentUnavailableError
+from app.storage.base import AssetStorage
+from app.storage.local import StorageError
+
+logger = get_logger(__name__)
 
 
 class ConversationService:
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(self, session: AsyncSession, storage: AssetStorage | None = None) -> None:
         self.session = session
+        self.storage = storage
         self.repository = ConversationRepository(session)
         self.message_repository = MessageRepository(session)
 
@@ -35,6 +46,7 @@ class ConversationService:
         content: str,
         *,
         system_prompt: str | None = None,
+        attachment_ids: tuple[UUID, ...] = (),
     ) -> tuple[Conversation, Message] | None:
         if system_prompt is not None:
             validate_message_content(system_prompt)
@@ -57,6 +69,7 @@ class ConversationService:
                 conversation.id,
                 role,
                 content,
+                **({"attachment_ids": attachment_ids} if attachment_ids else {}),
             )
             if message is None:
                 await self.session.rollback()
@@ -64,6 +77,11 @@ class ConversationService:
 
             await self.session.commit()
             return conversation, message
+        except MessageAttachmentClaimError as exc:
+            await self.session.rollback()
+            raise MessageAttachmentUnavailableError(
+                "one or more attachments are unavailable"
+            ) from exc
         except BaseException:
             await self.session.rollback()
             raise
@@ -118,6 +136,11 @@ class ConversationService:
         conversation_id: UUID,
     ) -> bool:
         try:
+            storage_keys = (
+                await self.repository.soft_delete_assets_for_owner_conversation(
+                    owner_id, conversation_id
+                )
+            )
             deleted = await self.repository.delete_for_owner(
                 owner_id,
                 conversation_id,
@@ -127,6 +150,15 @@ class ConversationService:
                 return False
 
             await self.session.commit()
+            if self.storage is not None:
+                for storage_key in storage_keys:
+                    try:
+                        await asyncio.to_thread(self.storage.delete, storage_key)
+                    except (StorageError, OSError):
+                        logger.warning(
+                            "conversation_asset_delete_deferred",
+                            conversation_id=str(conversation_id),
+                        )
             return True
         except BaseException:
             await self.session.rollback()

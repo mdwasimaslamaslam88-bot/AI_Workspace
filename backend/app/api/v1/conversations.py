@@ -40,7 +40,11 @@ from app.schemas.conversation import (
 from app.schemas.message import MessageCreate, MessagePageResponse, MessageResponse
 from app.services.conversation import ConversationService
 from app.services.generation_admission import GenerationAdmissionRejectedError
-from app.services.message import MessageAppendConflictError, MessageService
+from app.services.message import (
+    MessageAppendConflictError,
+    MessageAttachmentUnavailableError,
+    MessageService,
+)
 from app.services.conversation_generation import (
     ConversationChangedDuringGenerationError,
     ConversationGenerationContextTooLargeError,
@@ -126,11 +130,21 @@ async def create_conversation(
             MessageRole.USER,
             request.initial_message,
             system_prompt=request.system_prompt,
+            **(
+                {"attachment_ids": tuple(request.attachment_ids)}
+                if request.attachment_ids
+                else {}
+            ),
         )
     except MessageContentTooLargeError:
         raise HTTPException(
             status_code=status.HTTP_413_CONTENT_TOO_LARGE,
             detail="Message content is too large",
+        ) from None
+    except MessageAttachmentUnavailableError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Attachment not found",
         ) from None
     if created is None:
         raise HTTPException(
@@ -201,10 +215,14 @@ async def rename_conversation(
 )
 async def delete_conversation(
     conversation_id: UUID,
+    request: Request,
     session: Annotated[AsyncSession, Depends(get_db_session)],
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> None:
-    deleted = await ConversationService(session).delete_for_owner(
+    storage = getattr(request.app.state, "asset_storage", None)
+    deleted = await ConversationService(
+        session, **({"storage": storage} if storage is not None else {})
+    ).delete_for_owner(
         current_user.id,
         conversation_id,
     )
@@ -232,6 +250,11 @@ async def append_message(
             conversation_id,
             MessageRole.USER,
             request.content,
+            **(
+                {"attachment_ids": tuple(request.attachment_ids)}
+                if request.attachment_ids
+                else {}
+            ),
         )
     except MessageContentTooLargeError:
         raise HTTPException(
@@ -242,6 +265,11 @@ async def append_message(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Message could not be appended",
+        ) from None
+    except MessageAttachmentUnavailableError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Attachment not found",
         ) from None
 
     if message is None:
@@ -308,6 +336,11 @@ async def generate_assistant_message(
             conversation_id,
             generation_request.model_id,
             user_message=generation_request.user_message,
+            **(
+                {"attachment_ids": tuple(generation_request.attachment_ids)}
+                if generation_request.attachment_ids
+                else {}
+            ),
             max_output_tokens=generation_request.max_output_tokens,
             temperature=generation_request.temperature,
             seed=generation_request.seed,
@@ -330,6 +363,11 @@ async def generate_assistant_message(
         raise HTTPException(
             status_code=status.HTTP_413_CONTENT_TOO_LARGE,
             detail="Message content is too large",
+        ) from None
+    except MessageAttachmentUnavailableError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Attachment not found",
         ) from None
     except GenerationAdmissionRejectedError:
         raise HTTPException(

@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -23,6 +23,9 @@ const baseProps = {
   onCancelGeneration: vi.fn(),
   onLoadMoreMessages: vi.fn(),
   onReloadMessages: vi.fn(),
+  onUploadAttachment: vi.fn(async () => Promise.reject(new Error("unused"))),
+  onDownloadAttachment: vi.fn(async () => new Blob()),
+  onDeleteAttachment: vi.fn(async () => undefined),
 };
 
 describe("ChatView", () => {
@@ -115,5 +118,98 @@ describe("ChatView", () => {
       system_prompt: "Be concise",
       initial_message: "Hello",
     });
+  });
+
+  it("uploads an opaque file and sends only its asset ID with the prompt", async () => {
+    const asset = {
+      id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      original_filename: "notes.txt",
+      media_type: "text/plain",
+      byte_size: 5,
+      content_sha256: "a".repeat(64),
+      created_at: "2026-01-03T00:00:00Z",
+      deleted_at: null,
+    };
+    const onUploadAttachment = vi.fn(
+      async (file: File, idempotencyKey: string) => {
+        expect(file.name).toBe("notes.txt");
+        expect(idempotencyKey).toMatch(/^[0-9a-f-]{36}$/);
+        return asset;
+      },
+    );
+    const onGenerate = vi.fn(async () => undefined);
+    render(
+      <ChatView
+        {...baseProps}
+        messages={[message(2, "assistant", "ready")]}
+        onUploadAttachment={onUploadAttachment}
+        onGenerate={onGenerate}
+      />,
+    );
+    const file = new File(["notes"], "notes.txt", { type: "text/plain" });
+    await userEvent.upload(screen.getByLabelText("Attach files"), file);
+    await waitFor(() => expect(onUploadAttachment).toHaveBeenCalledOnce());
+    expect(await screen.findByText("Uploaded")).toBeVisible();
+    expect(onUploadAttachment.mock.calls[0]?.[1]).toMatch(
+      /^[0-9a-f-]{36}$/,
+    );
+    await userEvent.type(screen.getByLabelText("Message"), "Use the notes");
+    await userEvent.click(screen.getByRole("button", { name: "Send" }));
+    expect(onGenerate).toHaveBeenCalledWith("Use the notes", [asset.id]);
+  });
+
+  it("renders filenames as text, tombstones deleted assets, and revokes download URLs", async () => {
+    const active = {
+      ...message(2, "assistant", "file"),
+      attachments: [
+        {
+          id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          position: 1,
+          state: "active" as const,
+          original_filename: `<img src=x onerror="${rawSecret}">`,
+          media_type: "application/octet-stream",
+          byte_size: 5,
+        },
+      ],
+    };
+    const deleted = {
+      ...message(3, "user", "gone"),
+      attachments: [
+        {
+          id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+          position: 1,
+          state: "deleted" as const,
+          original_filename: null,
+          media_type: null,
+          byte_size: null,
+        },
+      ],
+    };
+    const createObjectUrl = vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:safe");
+    const revokeObjectUrl = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => undefined);
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
+    const onDownloadAttachment = vi.fn(async () => new Blob(["notes"]));
+    const { container, unmount } = render(
+      <ChatView
+        {...baseProps}
+        messages={[active, deleted]}
+        onDownloadAttachment={onDownloadAttachment}
+      />,
+    );
+    expect(screen.getByText(/<img src=x/)).toBeVisible();
+    expect(screen.getByText("Deleted attachment")).toBeVisible();
+    expect(container.querySelector("img")).toBeNull();
+    expect(container.querySelector("object")).toBeNull();
+    expect(container.querySelector("iframe")).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: /<img src=x/ }));
+    await waitFor(() => expect(onDownloadAttachment).toHaveBeenCalledOnce());
+    expect(createObjectUrl).toHaveBeenCalledOnce();
+    expect(revokeObjectUrl).toHaveBeenCalledWith("blob:safe");
+    expect(click).toHaveBeenCalledOnce();
+    unmount();
+    expect(revokeObjectUrl).toHaveBeenCalledOnce();
+    click.mockRestore();
+    createObjectUrl.mockRestore();
+    revokeObjectUrl.mockRestore();
   });
 });

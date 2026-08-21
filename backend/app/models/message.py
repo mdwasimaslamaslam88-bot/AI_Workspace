@@ -22,6 +22,7 @@ from app.db.base import Base
 
 if TYPE_CHECKING:
     from app.models.conversation import Conversation
+    from app.models.message_asset import MessageAsset
 
 
 MAX_MESSAGE_CONTENT_CHARACTERS = 100_000
@@ -100,4 +101,11 @@ class Message(Base):
     conversation: Mapped[Conversation] = relationship(
         back_populates="messages",
         lazy="raise",
+    )
+    asset_links: Mapped[list[MessageAsset]] = relationship(
+        back_populates="message",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+        order_by="MessageAsset.position",
+        passive_deletes=True,
     )

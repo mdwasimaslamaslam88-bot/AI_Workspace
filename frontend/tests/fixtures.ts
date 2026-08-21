@@ -48,6 +48,7 @@ export function message(
     sequence_number: sequenceNumber,
     created_at: "2026-01-02T00:00:00Z",
     updated_at: "2026-01-02T00:00:00Z",
+    attachments: [],
   };
 }
 

@@ -14,7 +14,9 @@ from app.runtimes.ollama import (
     OllamaModelDiscoveryRuntime,
     OllamaTextGenerationRuntime,
 )
+from app.services.asset import reconcile_asset_storage
 from app.services.generation_admission import GenerationAdmissionController
+from app.storage.local import LocalAssetStorage
 
 
 @asynccontextmanager
@@ -32,6 +34,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
         app.state.postgres_engine = postgres_engine
         app.state.db_session_factory = create_session_factory(postgres_engine)
+        asset_storage = None
+        if settings.ASSET_STORAGE_ROOT is not None:
+            asset_storage = LocalAssetStorage(settings.ASSET_STORAGE_ROOT)
+            await reconcile_asset_storage(
+                app.state.db_session_factory, asset_storage
+            )
+        app.state.asset_storage = asset_storage
         app.state.redis_client = redis_client
         app.state.ollama_client = ollama_client
         app.state.generation_admission_controller = GenerationAdmissionController(

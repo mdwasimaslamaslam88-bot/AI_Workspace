@@ -1,7 +1,14 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
+from pydantic import (
+    AwareDatetime,
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_validator,
+    model_validator,
+)
 from pydantic_core import PydanticCustomError
 
 from app.repositories.conversation import (
@@ -17,6 +24,14 @@ class ConversationCreate(BaseModel):
     title: str | None = Field(default=None, max_length=255, pattern=r"\S")
     system_prompt: str | None = Field(default=None, pattern=r"\S")
     initial_message: str = Field(pattern=r"\S")
+    attachment_ids: list[UUID] = Field(default_factory=list)
+
+    @field_validator("attachment_ids")
+    @classmethod
+    def require_unique_attachment_ids(cls, value):
+        if len(value) != len(set(value)):
+            raise ValueError("attachment_ids must be unique")
+        return value
 
 
 class ConversationRename(BaseModel):

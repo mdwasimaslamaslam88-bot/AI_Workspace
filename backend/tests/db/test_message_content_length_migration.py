@@ -42,12 +42,12 @@ def test_upgrade_adds_only_the_bounded_message_content_check():
     assert operations.events == [
         ("create_check_constraint", CONSTRAINT_NAME),
     ]
-    assert set(operations.metadata.tables) == set(Base.metadata.tables)
-    for table_name, current_table in Base.metadata.tables.items():
+    assert set(operations.metadata.tables) == {"users", "conversations", "messages"}
+    for table_name, migrated_table in operations.metadata.tables.items():
         migrated_signature = _table_signature(
-            operations.metadata.tables[table_name]
+            migrated_table
         )
-        current_signature = _table_signature(current_table)
+        current_signature = _table_signature(Base.metadata.tables[table_name])
         if table_name == "users":
             assert set(migrated_signature[0]) == set(current_signature[0])
             assert migrated_signature[1:] == current_signature[1:]

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { ApiClient, ApiError } from "../api/client";
+import { ApiClient, ApiError, type UploadProgress } from "../api/client";
 import type {
+  Asset,
   ConversationCreateRequest,
   ConversationCursor,
   ConversationSummary,
@@ -369,7 +370,11 @@ export function App() {
   }, [client, messageCursor, selectedConversation]);
 
   const runGeneration = useCallback(
-    async (conversationId: string, userMessage?: string) => {
+    async (
+      conversationId: string,
+      userMessage?: string,
+      attachmentIds: string[] = [],
+    ) => {
       if (client === null || selectedModelId === null || generating) return;
       const controller = new AbortController();
       generationAbort.current = controller;
@@ -381,6 +386,9 @@ export function App() {
           {
             model_id: selectedModelId,
             ...(userMessage === undefined ? {} : { user_message: userMessage }),
+            ...(userMessage !== undefined && attachmentIds.length > 0
+              ? { attachment_ids: attachmentIds }
+              : {}),
           },
           controller.signal,
         );
@@ -436,6 +444,47 @@ export function App() {
       }
     },
     [client, reloadConversations, runGeneration, selectedModelId],
+  );
+
+  const uploadAttachment = useCallback(
+    (
+      file: File,
+      idempotencyKey: string,
+      options: { signal?: AbortSignal; onProgress?: (value: UploadProgress) => void },
+    ): Promise<Asset> => {
+      if (client === null) {
+        return Promise.reject(
+          new ApiError("authentication", "Authentication failed."),
+        );
+      }
+      return client.uploadAsset(file, idempotencyKey, options);
+    },
+    [client],
+  );
+
+  const downloadAttachment = useCallback(
+    (assetId: string, signal?: AbortSignal): Promise<Blob> => {
+      if (client === null) {
+        return Promise.reject(
+          new ApiError("authentication", "Authentication failed."),
+        );
+      }
+      return client.downloadAsset(assetId, signal);
+    },
+    [client],
+  );
+
+  const deleteAttachment = useCallback(
+    async (assetId: string, signal?: AbortSignal) => {
+      if (client === null) {
+        throw new ApiError("authentication", "Authentication failed.");
+      }
+      await client.deleteAsset(assetId, signal);
+      if (selectedConversation !== null) {
+        await refreshMessageSnapshot(selectedConversation.id, 2);
+      }
+    },
+    [client, refreshMessageSnapshot, selectedConversation],
   );
 
   function chooseModel(modelId: string) {
@@ -508,14 +557,17 @@ export function App() {
           notice={chatNotice}
           onCreateConversation={createConversation}
           onCancelNew={() => setCreatingNew(false)}
-          onGenerate={(message) =>
+          onGenerate={(message, attachmentIds) =>
             selectedConversation === null
               ? Promise.resolve()
-              : runGeneration(selectedConversation.id, message)
+              : runGeneration(selectedConversation.id, message, attachmentIds)
           }
           onCancelGeneration={() => generationAbort.current?.abort()}
           onLoadMoreMessages={() => void loadMoreMessages()}
           onReloadMessages={() => void reloadSelectedMessages()}
+          onUploadAttachment={uploadAttachment}
+          onDownloadAttachment={downloadAttachment}
+          onDeleteAttachment={deleteAttachment}
         />
       </section>
     </main>

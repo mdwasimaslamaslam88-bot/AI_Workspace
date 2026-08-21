@@ -1,5 +1,6 @@
 import ipaddress
 import re
+from pathlib import Path
 from typing import Any, Literal
 
 from pydantic import (
@@ -99,6 +100,7 @@ class Settings(BaseSettings):
     DATABASE_URL: PostgresDsn | None = None
     REDIS_URL: RedisDsn | None = None
     OLLAMA_BASE_URL: AnyHttpUrl | None = None
+    ASSET_STORAGE_ROOT: Path | None = None
     USER_PROVISIONING_TOKEN_DIGEST: str | None = Field(
         default=None,
         strict=True,
@@ -202,6 +204,7 @@ class Settings(BaseSettings):
         "TEST_DATABASE_URL",
         "REDIS_URL",
         "OLLAMA_BASE_URL",
+        "ASSET_STORAGE_ROOT",
         "DATABASE_SSL_ROOT_CERT",
         "USER_PROVISIONING_TOKEN_DIGEST",
         mode="before",
@@ -218,6 +221,22 @@ class Settings(BaseSettings):
         if value is not None and not str(value).startswith("postgresql+asyncpg://"):
             raise ValueError("PostgreSQL URLs must use the postgresql+asyncpg:// scheme")
         return value
+
+    @field_validator("ASSET_STORAGE_ROOT")
+    @classmethod
+    def require_private_absolute_asset_storage_root(cls, value):
+        if value is None:
+            return None
+        candidate = Path(value)
+        if not candidate.is_absolute():
+            raise ValueError("ASSET_STORAGE_ROOT must be an absolute path")
+        candidate = candidate.resolve(strict=False)
+        project_root = Path(__file__).resolve().parents[3]
+        if candidate == project_root or project_root in candidate.parents:
+            raise ValueError(
+                "ASSET_STORAGE_ROOT must be outside the project source tree"
+            )
+        return candidate
 
     @field_validator("OLLAMA_BASE_URL")
     @classmethod

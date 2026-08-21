@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.message import Message, MessageRole, validate_message_content
 from app.repositories.message import (
     GenerationContextSnapshot,
+    MessageAttachmentClaimError,
     MessagePage,
     MessagePagination,
     MessageRepository,
@@ -14,6 +15,10 @@ from app.repositories.message import (
 
 class MessageAppendConflictError(RuntimeError):
     """The database rejected an otherwise valid atomic message append."""
+
+
+class MessageAttachmentUnavailableError(RuntimeError):
+    """One or more requested assets cannot be claimed by the message."""
 
 
 class MessageService:
@@ -29,6 +34,7 @@ class MessageService:
         content: str,
         *,
         expected_sequence_number: int | None = None,
+        attachment_ids: tuple[UUID, ...] = (),
     ) -> Message | None:
         validate_message_content(content)
         try:
@@ -38,6 +44,7 @@ class MessageService:
                     conversation_id,
                     role,
                     content,
+                    **({"attachment_ids": attachment_ids} if attachment_ids else {}),
                 )
             else:
                 message = await self.repository.append_for_owner(
@@ -46,6 +53,7 @@ class MessageService:
                     role,
                     content,
                     expected_sequence_number=expected_sequence_number,
+                    **({"attachment_ids": attachment_ids} if attachment_ids else {}),
                 )
             if message is None:
                 await self.session.rollback()
@@ -53,6 +61,12 @@ class MessageService:
 
             await self.session.commit()
             return message
+        except MessageAttachmentClaimError as exc:
+            await self.session.rollback()
+            raise MessageAttachmentUnavailableError(
+                "one or more attachments are unavailable"
+            ) from exc
+
         except IntegrityError as exc:
             await self.session.rollback()
             raise MessageAppendConflictError(

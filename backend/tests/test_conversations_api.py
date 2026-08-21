@@ -1144,6 +1144,7 @@ def test_create_conversation_returns_201_with_exact_safe_response(conversation_a
             "sequence_number": 1,
             "created_at": "2026-08-11T09:00:01Z",
             "updated_at": "2026-08-11T09:00:02Z",
+            "attachments": [],
         },
     }
     response_text = response.text.lower()
@@ -1514,6 +1515,7 @@ def test_append_message_returns_201_with_exact_safe_response(conversation_api):
         "sequence_number": 2,
         "created_at": "2026-08-11T09:02:00Z",
         "updated_at": "2026-08-11T09:03:00Z",
+        "attachments": [],
     }
     response_text = response.text.lower()
     assert "owner_id" not in response_text
@@ -1762,6 +1764,7 @@ def test_list_messages_returns_200_with_exact_safe_terminal_page(conversation_ap
                 "sequence_number": 1,
                 "created_at": "2026-08-11T09:00:01Z",
                 "updated_at": "2026-08-11T09:00:02Z",
+                "attachments": [],
             },
             {
                 "id": str(appended_message.id),
@@ -1771,6 +1774,7 @@ def test_list_messages_returns_200_with_exact_safe_terminal_page(conversation_ap
                 "sequence_number": 2,
                 "created_at": "2026-08-11T09:02:00Z",
                 "updated_at": "2026-08-11T09:03:00Z",
+                "attachments": [],
             },
         ],
         "next_cursor": None,
@@ -1852,6 +1856,7 @@ def test_list_messages_preserves_exact_content_at_budget_boundary(
                 "sequence_number": 7,
                 "created_at": "2026-08-11T09:04:00Z",
                 "updated_at": "2026-08-11T09:05:00Z",
+                "attachments": [],
             }
         ],
         "next_cursor": 7,
@@ -2606,6 +2611,7 @@ def test_authenticated_generation_returns_exact_safe_created_message(
             "sequence_number": 3,
             "created_at": "2026-08-13T01:00:00Z",
             "updated_at": "2026-08-13T01:01:00Z",
+            "attachments": [],
         },
     }
     api["service_factory"].assert_called_once_with(
@@ -3567,6 +3573,7 @@ def test_generation_accepts_exact_optional_user_message_without_response_change(
             "sequence_number": 3,
             "created_at": "2026-08-13T01:00:00Z",
             "updated_at": "2026-08-13T01:01:00Z",
+            "attachments": [],
         },
     }
     assert "user_message" not in response.text

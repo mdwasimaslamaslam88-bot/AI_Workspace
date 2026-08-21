@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.dml import Update
 from sqlalchemy.sql.selectable import Select
 
-from app.models import Message, MessageRole
+from app.models import Asset, Message, MessageAsset, MessageRole
 from app.models.message import (
     MAX_MESSAGE_CONTENT_CHARACTERS,
     MessageContentTooLargeError,
@@ -20,6 +20,7 @@ from app.repositories.message import (
     GenerationContextSnapshot,
     MAX_MESSAGE_PAGE_CONTENT_CHARACTERS,
     MAX_MESSAGE_PAGE_SIZE,
+    MessageAttachmentClaimError,
     MessageCursor,
     MessagePagination,
     MessageRepository,

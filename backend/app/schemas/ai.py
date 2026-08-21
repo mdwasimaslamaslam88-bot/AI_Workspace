@@ -1,7 +1,8 @@
 import math
 from typing import Annotated
+from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from pydantic_core import PydanticCustomError
 
 from app.ai.catalog import ModelAvailability, ModelCapability, ModelModality
@@ -37,6 +38,7 @@ class ConversationTextGenerationRequest(BaseModel):
         pattern=r"^[a-z0-9][a-z0-9_-]{0,63}:[a-f0-9]{24}$"
     )
     user_message: str | None = Field(default=None, pattern=r"\S")
+    attachment_ids: list[UUID] = Field(default_factory=list)
     max_output_tokens: int = Field(default=1024, strict=True, ge=1, le=1024)
     temperature: float | None = Field(
         default=None,
@@ -111,6 +113,22 @@ class ConversationTextGenerationRequest(BaseModel):
             Field(strict=True, min_length=1, max_length=128),
         ]
     ] | None = Field(default=None, min_length=1, max_length=4)
+
+    @field_validator("attachment_ids")
+    @classmethod
+    def require_unique_attachment_ids(cls, value):
+        if len(value) != len(set(value)):
+            raise ValueError("attachment_ids must be unique")
+        return value
+
+    @model_validator(mode="after")
+    def require_user_message_for_attachments(self):
+        if self.attachment_ids and self.user_message is None:
+            raise PydanticCustomError(
+                "attachments_without_user_message",
+                "attachment_ids require user_message",
+            )
+        return self
 
     @field_validator("temperature", mode="before")
     @classmethod

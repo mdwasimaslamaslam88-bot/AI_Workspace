@@ -222,11 +222,12 @@ def test_initial_revision_preserves_original_domain_schema():
 
     revision.upgrade()
 
-    assert set(operations.metadata.tables) == set(Base.metadata.tables) == {
+    original_tables = {
         "users",
         "conversations",
         "messages",
     }
+    assert set(operations.metadata.tables) == original_tables
     assert _table_signature(operations.metadata.tables["conversations"]) == (
         _table_signature(Base.metadata.tables["conversations"])
     )

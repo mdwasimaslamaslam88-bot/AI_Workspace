@@ -16,6 +16,44 @@ import {
   user,
 } from "./fixtures";
 
+class FakeXmlHttpRequest {
+  method = "";
+  url = "";
+  responseType = "";
+  response: unknown = null;
+  status = 0;
+  body: Document | XMLHttpRequestBodyInit | null = null;
+  readonly requestHeaders = new Map<string, string>();
+  readonly responseHeaders = new Map<string, string>();
+  readonly upload = {
+    onprogress: null as ((event: ProgressEvent) => void) | null,
+  };
+  onload: (() => void) | null = null;
+  onerror: (() => void) | null = null;
+  onabort: (() => void) | null = null;
+
+  open(method: string, url: string) {
+    this.method = method;
+    this.url = url;
+  }
+
+  setRequestHeader(name: string, value: string) {
+    this.requestHeaders.set(name, value);
+  }
+
+  getResponseHeader(name: string): string | null {
+    return this.responseHeaders.get(name) ?? null;
+  }
+
+  send(body: Document | XMLHttpRequestBodyInit | null) {
+    this.body = body;
+  }
+
+  abort() {
+    this.onabort?.();
+  }
+}
+
 describe("ApiClient", () => {
   it("sends the bearer only in Authorization and preserves the request shape", async () => {
     const fetchImplementation = vi.fn(async (input: URL | RequestInfo, init?: RequestInit) => {
@@ -80,6 +118,7 @@ describe("ApiClient", () => {
     await client.generateResponse(conversation.id, {
       model_id: model.model_id,
       user_message: "next",
+      attachment_ids: ["aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"],
     });
 
     expect(calls[0]?.body).toEqual({
@@ -91,6 +130,7 @@ describe("ApiClient", () => {
     expect(calls[2]?.body).toEqual({
       model_id: model.model_id,
       user_message: "next",
+      attachment_ids: ["aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"],
     });
   });
 
@@ -191,5 +231,53 @@ describe("ApiClient", () => {
     );
     expect(() => normalizeApiBaseUrl("http://user:pass@localhost:8000")).toThrow();
     expect(() => normalizeApiBaseUrl("http://localhost:8000/api")).toThrow();
+  });
+
+  it("uploads one file with bearer, idempotency, and progress without setting multipart content type", async () => {
+    const xhr = new FakeXmlHttpRequest();
+    const onProgress = vi.fn();
+    const client = new ApiClient(token, {
+      xhrFactory: () => xhr as unknown as XMLHttpRequest,
+    });
+    const file = new File(["hello"], "hello.txt", { type: "text/plain" });
+    const idempotencyKey = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const request = client.uploadAsset(file, idempotencyKey, {
+      onProgress,
+    });
+
+    expect(xhr.method).toBe("POST");
+    expect(xhr.url).toBe("http://127.0.0.1:8000/api/v1/assets");
+    expect(xhr.url).not.toContain(token);
+    expect(xhr.requestHeaders.get("Authorization")).toBe(`Bearer ${token}`);
+    expect(xhr.requestHeaders.get("Idempotency-Key")).toBe(idempotencyKey);
+    expect(xhr.requestHeaders.get("Content-Type")).toBeUndefined();
+    expect(xhr.body).toBeInstanceOf(FormData);
+    expect((xhr.body as FormData).get("file")).toBe(file);
+
+    xhr.upload.onprogress?.(
+      {
+        loaded: 5,
+        total: 10,
+        lengthComputable: true,
+      } as unknown as ProgressEvent,
+    );
+    expect(onProgress).toHaveBeenCalledWith({ loaded: 5, total: 10 });
+
+    const asset = {
+      id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+      original_filename: "hello.txt",
+      media_type: "text/plain",
+      byte_size: 5,
+      content_sha256: "a".repeat(64),
+      created_at: "2026-01-03T00:00:00Z",
+      deleted_at: null,
+    };
+    xhr.status = 201;
+    xhr.response = asset;
+    xhr.responseHeaders.set("X-Request-ID", "upload-request");
+    xhr.onload?.();
+
+    await expect(request).resolves.toEqual(asset);
+    expect(onProgress).toHaveBeenCalledOnce();
   });
 });

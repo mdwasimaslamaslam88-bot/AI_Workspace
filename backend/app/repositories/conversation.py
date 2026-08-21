@@ -2,9 +2,12 @@ from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import Integer, bindparam, delete, select, tuple_, update
+from sqlalchemy import Integer, bindparam, delete, func, select, tuple_, update
 
+from app.models.asset import Asset
 from app.models.conversation import Conversation
+from app.models.message import Message
+from app.models.message_asset import MessageAsset
 from app.repositories.base import BaseRepository
 
 
@@ -139,6 +142,30 @@ class ConversationRepository(BaseRepository):
         )
         result = await self.session.execute(statement)
         return result.scalar_one_or_none()
+
+    async def soft_delete_assets_for_owner_conversation(
+        self,
+        owner_id: UUID,
+        conversation_id: UUID,
+    ) -> tuple[str, ...]:
+        asset_ids = (
+            select(MessageAsset.asset_id)
+            .join(Message, Message.id == MessageAsset.message_id)
+            .join(Conversation, Conversation.id == Message.conversation_id)
+            .where(
+                Message.conversation_id == conversation_id,
+                Conversation.id == conversation_id,
+                Conversation.owner_id == owner_id,
+            )
+        )
+        statement = (
+            update(Asset)
+            .where(Asset.id.in_(asset_ids), Asset.deleted_at.is_(None))
+            .values(deleted_at=func.now())
+            .returning(Asset.storage_key)
+        )
+        result = await self.session.execute(statement)
+        return tuple(result.scalars().all())
 
     async def delete_for_owner(
         self,

@@ -1,9 +1,20 @@
-import { type FormEvent, useState } from "react";
+import {
+  type ChangeEvent,
+  type FormEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
+import type { UploadProgress } from "../../api/client";
 import type {
+  Asset,
   ConversationCreateRequest,
   ConversationSummary,
   Message,
+  MessageAttachment,
 } from "../../api/contracts";
 
 export interface SafeNotice {
@@ -12,7 +23,39 @@ export interface SafeNotice {
   requestId: string | null;
 }
 
-interface ChatViewProps {
+type QueueState =
+  | "selected"
+  | "uploading"
+  | "uploaded"
+  | "failed"
+  | "cancelling"
+  | "cancelled"
+  | "attached"
+  | "deleted";
+
+interface QueuedAttachment {
+  idempotencyKey: string;
+  file: File;
+  state: QueueState;
+  progress: number | null;
+  asset: Asset | null;
+}
+
+type UploadAttachment = (
+  file: File,
+  idempotencyKey: string,
+  options: {
+    signal?: AbortSignal;
+    onProgress?: (value: UploadProgress) => void;
+  },
+) => Promise<Asset>;
+
+interface AttachmentActions {
+  onUploadAttachment: UploadAttachment;
+  onDeleteAttachment: (assetId: string, signal?: AbortSignal) => Promise<void>;
+}
+
+interface ChatViewProps extends AttachmentActions {
   conversation: ConversationSummary | null;
   creatingNew: boolean;
   canGenerate: boolean;
@@ -25,15 +68,280 @@ interface ChatViewProps {
   notice: SafeNotice | null;
   onCreateConversation: (request: ConversationCreateRequest) => Promise<void>;
   onCancelNew: () => void;
-  onGenerate: (userMessage?: string) => Promise<void>;
+  onGenerate: (userMessage?: string, attachmentIds?: string[]) => Promise<void>;
   onCancelGeneration: () => void;
   onLoadMoreMessages: () => void;
   onReloadMessages: () => void;
+  onDownloadAttachment: (assetId: string, signal?: AbortSignal) => Promise<Blob>;
 }
+
+const EMPTY_ATTACHMENT_STATES = new Map<string, MessageAttachment["state"]>();
 
 function formatTimestamp(timestamp: string): string {
   const date = new Date(timestamp);
   return Number.isNaN(date.valueOf()) ? "" : date.toLocaleString();
+}
+
+function queueStateLabel(item: QueuedAttachment): string {
+  if (item.state === "uploading" && item.progress !== null) {
+    return `Uploading ${item.progress}%`;
+  }
+  const labels: Record<QueueState, string> = {
+    selected: "Selected",
+    uploading: "Uploading",
+    uploaded: "Uploaded",
+    failed: "Upload failed",
+    cancelling: "Cancelling",
+    cancelled: "Cancelled",
+    attached: "Attached",
+    deleted: "Deleted",
+  };
+  return labels[item.state];
+}
+
+function useAttachmentQueue(
+  actions: AttachmentActions,
+  attachedStates: Map<string, MessageAttachment["state"]>,
+) {
+  const [items, setItems] = useState<QueuedAttachment[]>([]);
+  const controllers = useRef(new Map<string, AbortController>());
+  const mounted = useRef(true);
+
+  useEffect(() => {
+    mounted.current = true;
+    const activeControllers = controllers.current;
+    return () => {
+      mounted.current = false;
+      for (const controller of activeControllers.values()) controller.abort();
+      activeControllers.clear();
+    };
+  }, []);
+
+  const update = useCallback(
+    (idempotencyKey: string, change: Partial<QueuedAttachment>) => {
+      if (!mounted.current) return;
+      setItems((current) =>
+        current.map((item) =>
+          item.idempotencyKey === idempotencyKey
+            ? { ...item, ...change }
+            : item,
+        ),
+      );
+    },
+    [],
+  );
+
+  const startUpload = useCallback(
+    async (item: QueuedAttachment) => {
+      const controller = new AbortController();
+      controllers.current.set(item.idempotencyKey, controller);
+      update(item.idempotencyKey, {
+        state: "uploading",
+        progress: 0,
+      });
+      try {
+        const asset = await actions.onUploadAttachment(
+          item.file,
+          item.idempotencyKey,
+          {
+            signal: controller.signal,
+            onProgress: ({ loaded, total }) => {
+              if (total === null || total <= 0) {
+                update(item.idempotencyKey, { progress: null });
+                return;
+              }
+              update(item.idempotencyKey, {
+                progress: Math.min(100, Math.floor((loaded / total) * 100)),
+              });
+            },
+          },
+        );
+        update(item.idempotencyKey, {
+          asset,
+          progress: 100,
+          state: "uploaded",
+        });
+      } catch {
+        update(item.idempotencyKey, {
+          progress: null,
+          state: controller.signal.aborted ? "cancelled" : "failed",
+        });
+      } finally {
+        if (controllers.current.get(item.idempotencyKey) === controller) {
+          controllers.current.delete(item.idempotencyKey);
+        }
+      }
+    },
+    [actions, update],
+  );
+
+  const selectFiles = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      const selected = Array.from(event.target.files ?? []).map((file) => ({
+        idempotencyKey: crypto.randomUUID(),
+        file,
+        state: "selected" as const,
+        progress: null,
+        asset: null,
+      }));
+      event.target.value = "";
+      if (selected.length === 0) return;
+      setItems((current) => [...current, ...selected]);
+      for (const item of selected) void startUpload(item);
+    },
+    [startUpload],
+  );
+
+  const cancel = useCallback((item: QueuedAttachment) => {
+    setItems((current) =>
+      current.map((candidate) =>
+        candidate.idempotencyKey === item.idempotencyKey
+          ? { ...candidate, state: "cancelling" }
+          : candidate,
+      ),
+    );
+    controllers.current.get(item.idempotencyKey)?.abort();
+  }, []);
+
+  const retry = useCallback(
+    (item: QueuedAttachment) => void startUpload(item),
+    [startUpload],
+  );
+
+  const remove = useCallback(
+    async (item: QueuedAttachment) => {
+      if (item.state === "selected") {
+        setItems((current) =>
+          current.filter(
+            (candidate) => candidate.idempotencyKey !== item.idempotencyKey,
+          ),
+        );
+        return;
+      }
+      if (item.state !== "uploaded" || item.asset === null) return;
+      const controller = new AbortController();
+      controllers.current.set(item.idempotencyKey, controller);
+      update(item.idempotencyKey, { state: "cancelling" });
+      try {
+        await actions.onDeleteAttachment(item.asset.id, controller.signal);
+        update(item.idempotencyKey, { state: "deleted" });
+      } catch {
+        update(item.idempotencyKey, { state: "uploaded" });
+      } finally {
+        if (controllers.current.get(item.idempotencyKey) === controller) {
+          controllers.current.delete(item.idempotencyKey);
+        }
+      }
+    },
+    [actions, update],
+  );
+
+  useEffect(() => {
+    setItems((current) => {
+      let changed = false;
+      const reconciled = current.map((item) => {
+        if (item.asset === null) return item;
+        const serverState = attachedStates.get(item.asset.id);
+        const state =
+          serverState === "deleted"
+            ? "deleted"
+            : serverState === "active"
+              ? "attached"
+              : item.state;
+        if (state === item.state) return item;
+        changed = true;
+        return { ...item, state };
+      });
+      return changed ? reconciled : current;
+    });
+  }, [attachedStates]);
+
+  const readyAssetIds = items.flatMap((item) =>
+    item.state === "uploaded" && item.asset !== null ? [item.asset.id] : [],
+  );
+  const unresolved = items.some((item) =>
+    ["selected", "uploading", "failed", "cancelling", "cancelled"].includes(
+      item.state,
+    ),
+  );
+
+  return {
+    items,
+    readyAssetIds,
+    unresolved,
+    selectFiles,
+    cancel,
+    retry,
+    remove,
+  };
+}
+
+function AttachmentPicker({
+  queue,
+  disabled,
+}: {
+  queue: ReturnType<typeof useAttachmentQueue>;
+  disabled: boolean;
+}) {
+  return (
+    <div className="attachment-picker">
+      <label className="button button-secondary attachment-select">
+        Attach files
+        <input
+          type="file"
+          multiple
+          onChange={queue.selectFiles}
+          disabled={disabled}
+        />
+      </label>
+      {queue.items.length > 0 && (
+        <ul className="attachment-queue" aria-label="Selected attachments">
+          {queue.items.map((item) => (
+            <li key={item.idempotencyKey}>
+              <span className="attachment-name">{item.file.name}</span>
+              <span className="attachment-state" role="status">
+                {queueStateLabel(item)}
+              </span>
+              {item.state === "uploading" && item.progress !== null && (
+                <progress value={item.progress} max={100}>
+                  {item.progress}%
+                </progress>
+              )}
+              {item.state === "uploading" && (
+                <button
+                  type="button"
+                  className="button button-quiet"
+                  onClick={() => queue.cancel(item)}
+                >
+                  Cancel upload
+                </button>
+              )}
+              {(item.state === "failed" || item.state === "cancelled") && (
+                <button
+                  type="button"
+                  className="button button-quiet"
+                  onClick={() => queue.retry(item)}
+                  disabled={disabled}
+                >
+                  Retry upload
+                </button>
+              )}
+              {(item.state === "selected" || item.state === "uploaded") && (
+                <button
+                  type="button"
+                  className="button button-quiet"
+                  onClick={() => void queue.remove(item)}
+                  disabled={disabled}
+                >
+                  Remove
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
 }
 
 function NewConversationView({
@@ -42,25 +350,36 @@ function NewConversationView({
   notice,
   onCreate,
   onCancel,
+  onUploadAttachment,
+  onDeleteAttachment,
 }: {
   canGenerate: boolean;
   creating: boolean;
   notice: SafeNotice | null;
   onCreate: (request: ConversationCreateRequest) => Promise<void>;
   onCancel: () => void;
+  onUploadAttachment: UploadAttachment;
+  onDeleteAttachment: AttachmentActions["onDeleteAttachment"];
 }) {
   const [title, setTitle] = useState("");
   const [systemPrompt, setSystemPrompt] = useState("");
   const [initialMessage, setInitialMessage] = useState("");
+  const queue = useAttachmentQueue(
+    { onUploadAttachment, onDeleteAttachment },
+    EMPTY_ATTACHMENT_STATES,
+  );
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!initialMessage.trim() || !canGenerate) return;
+    if (!initialMessage.trim() || !canGenerate || queue.unresolved) return;
     const request: ConversationCreateRequest = {
       initial_message: initialMessage,
     };
     if (title.trim()) request.title = title;
     if (systemPrompt.trim()) request.system_prompt = systemPrompt;
+    if (queue.readyAssetIds.length > 0) {
+      request.attachment_ids = queue.readyAssetIds;
+    }
     await onCreate(request);
   }
 
@@ -108,6 +427,7 @@ function NewConversationView({
             disabled={creating}
           />
         </div>
+        <AttachmentPicker queue={queue} disabled={creating} />
         {notice !== null && (
           <div className="notice notice-error" role="alert">
             <p>{notice.message}</p>
@@ -124,7 +444,12 @@ function NewConversationView({
         )}
         <button
           className="button button-primary"
-          disabled={creating || !canGenerate || !initialMessage.trim()}
+          disabled={
+            creating ||
+            !canGenerate ||
+            !initialMessage.trim() ||
+            queue.unresolved
+          }
         >
           {creating ? "Creating…" : "Create and generate"}
         </button>
@@ -150,8 +475,89 @@ export function ChatView({
   onCancelGeneration,
   onLoadMoreMessages,
   onReloadMessages,
+  onUploadAttachment,
+  onDownloadAttachment,
+  onDeleteAttachment,
 }: ChatViewProps) {
   const [draft, setDraft] = useState("");
+  const [attachmentNotice, setAttachmentNotice] = useState<string | null>(null);
+  const objectUrls = useRef(new Set<string>());
+  const contentControllers = useRef(new Set<AbortController>());
+  const attachedStates = useMemo(
+    () =>
+      new Map(
+        messages.flatMap((message) =>
+          message.attachments.map((attachment) => [
+            attachment.id,
+            attachment.state,
+          ] as const),
+        ),
+      ),
+    [messages],
+  );
+  const queue = useAttachmentQueue(
+    { onUploadAttachment, onDeleteAttachment },
+    attachedStates,
+  );
+
+  useEffect(() => {
+    const urls = objectUrls.current;
+    const controllers = contentControllers.current;
+    return () => {
+      for (const controller of controllers) controller.abort();
+      controllers.clear();
+      for (const url of urls) URL.revokeObjectURL(url);
+      urls.clear();
+    };
+  }, []);
+
+  const download = useCallback(
+    async (attachment: MessageAttachment) => {
+      const controller = new AbortController();
+      contentControllers.current.add(controller);
+      let objectUrl: string | null = null;
+      setAttachmentNotice(null);
+      try {
+        const blob = await onDownloadAttachment(attachment.id, controller.signal);
+        objectUrl = URL.createObjectURL(blob);
+        objectUrls.current.add(objectUrl);
+        const link = document.createElement("a");
+        link.href = objectUrl;
+        link.download = attachment.original_filename ?? "attachment";
+        link.rel = "noopener";
+        link.click();
+      } catch {
+        if (!controller.signal.aborted) {
+          setAttachmentNotice("The attachment could not be downloaded.");
+        }
+      } finally {
+        contentControllers.current.delete(controller);
+        if (objectUrl !== null) {
+          URL.revokeObjectURL(objectUrl);
+          objectUrls.current.delete(objectUrl);
+        }
+      }
+    },
+    [onDownloadAttachment],
+  );
+
+  const deletePersistedAttachment = useCallback(
+    async (attachment: MessageAttachment) => {
+      const controller = new AbortController();
+      contentControllers.current.add(controller);
+      setAttachmentNotice(null);
+      try {
+        await onDeleteAttachment(attachment.id, controller.signal);
+      } catch {
+        if (!controller.signal.aborted) {
+          setAttachmentNotice("The attachment could not be deleted.");
+        }
+      } finally {
+        contentControllers.current.delete(controller);
+      }
+    },
+    [onDeleteAttachment],
+  );
 
   if (creatingNew) {
     return (
@@ -161,6 +567,8 @@ export function ChatView({
         notice={notice}
         onCreate={onCreateConversation}
         onCancel={onCancelNew}
+        onUploadAttachment={onUploadAttachment}
+        onDeleteAttachment={onDeleteAttachment}
       />
     );
   }
@@ -183,10 +591,15 @@ export function ChatView({
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!draft.trim() || generating || !canGenerate) return;
+    if (!draft.trim() || generating || !canGenerate || queue.unresolved) return;
     const message = draft;
+    const attachmentIds = queue.readyAssetIds;
     setDraft("");
-    await onGenerate(message);
+    if (attachmentIds.length > 0) {
+      await onGenerate(message, attachmentIds);
+    } else {
+      await onGenerate(message);
+    }
   }
 
   return (
@@ -216,6 +629,9 @@ export function ChatView({
           </div>
         </div>
       )}
+      {attachmentNotice !== null && (
+        <p className="notice notice-error" role="alert">{attachmentNotice}</p>
+      )}
 
       <div className="message-region" aria-live="polite" aria-busy={loadingMessages}>
         {loadingMessages && <p className="muted" role="status">Loading history…</p>}
@@ -232,6 +648,37 @@ export function ChatView({
                 </time>
               </div>
               <p>{message.content}</p>
+              {message.attachments.length > 0 && (
+                <ul className="message-attachments" aria-label="Message attachments">
+                  {message.attachments.map((attachment) => (
+                    <li key={attachment.id}>
+                      {attachment.state === "deleted" ? (
+                        <span className="attachment-tombstone">Deleted attachment</span>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            className="attachment-download"
+                            onClick={() => void download(attachment)}
+                          >
+                            {attachment.original_filename ?? "Attachment"}
+                          </button>
+                          <span className="attachment-details">
+                            {attachment.media_type} · {attachment.byte_size} bytes
+                          </span>
+                          <button
+                            type="button"
+                            className="button button-quiet"
+                            onClick={() => void deletePersistedAttachment(attachment)}
+                          >
+                            Delete
+                          </button>
+                        </>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </li>
           ))}
         </ol>
@@ -267,6 +714,7 @@ export function ChatView({
           onChange={(event) => setDraft(event.target.value)}
           disabled={generating}
         />
+        <AttachmentPicker queue={queue} disabled={generating} />
         <div className="composer-actions">
           {generating ? (
             <>
@@ -282,7 +730,7 @@ export function ChatView({
           ) : (
             <button
               className="button button-primary"
-              disabled={!canGenerate || !draft.trim()}
+              disabled={!canGenerate || !draft.trim() || queue.unresolved}
             >
               Send
             </button>
