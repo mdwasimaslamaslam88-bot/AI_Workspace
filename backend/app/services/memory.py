@@ -153,14 +153,16 @@ class MemoryService:
     async def setting_for_owner(self, owner_id: UUID) -> MemorySettingRecord:
         try:
             setting = await self.repository.setting_for_owner(owner_id)
-            await self.session.rollback()
             if setting is None:
-                return MemorySettingRecord(True, None, None)
-            return MemorySettingRecord(
-                setting.enabled,
-                setting.created_at,
-                setting.updated_at,
-            )
+                record = MemorySettingRecord(True, None, None)
+            else:
+                record = MemorySettingRecord(
+                    setting.enabled,
+                    setting.created_at,
+                    setting.updated_at,
+                )
+            await self.session.rollback()
+            return record
         except BaseException:
             await self.session.rollback()
             raise

@@ -115,6 +115,36 @@ async def test_disabled_memory_skips_candidate_materialization():
     session.rollback.assert_awaited_once()
 
 
+@pytest.mark.asyncio
+async def test_setting_is_materialized_before_transaction_release():
+    now = datetime(2026, 8, 22, tzinfo=timezone.utc)
+    events = []
+
+    class Setting:
+        enabled = True
+        created_at = now
+        updated_at = now
+
+    session = AsyncMock(spec=AsyncSession)
+
+    async def rollback():
+        events.append("rollback")
+
+    session.rollback.side_effect = rollback
+    service = MemoryService(session)
+    service.repository = Mock(
+        setting_for_owner=AsyncMock(
+            side_effect=lambda _owner: events.append("read") or Setting()
+        )
+    )
+
+    result = await service.setting_for_owner(uuid4())
+
+    assert result.enabled is True
+    assert result.created_at == now
+    assert events == ["read", "rollback"]
+
+
 def test_retrieval_includes_global_instructions_and_relevant_owned_context():
     now = datetime(2026, 8, 22, tzinfo=timezone.utc)
     instruction = MemoryCandidate(

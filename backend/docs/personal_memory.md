@@ -41,3 +41,10 @@ The web Memory control loads lazily after an authenticated user opens it. It
 supports explicit creation, enable/disable, inspection, and forgetting, uses
 fixed safe errors, aborts pending requests on close/unmount, renders all
 content as text, and shows forgotten entries only as content-free tombstones.
+
+The authenticated release smoke is `scripts/real_memory_smoke.py`. It is
+hard-restricted to the disposable `127.0.0.1/ai_workspace_test` database and
+cleans its rows before and after execution. It validates all four categories,
+explicit provenance, owner isolation, enable/disable, real local generation
+using retrieved memory, absence of automatic chat extraction, content-free
+forgetting in both API and PostgreSQL, and log redaction.
