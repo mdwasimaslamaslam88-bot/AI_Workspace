@@ -353,6 +353,10 @@ class ToolService:
                 arguments_json,
                 initiator=initiator,
             )
+            # Keep the scalar identity before commit. Database-backed tools may
+            # roll this shared session back while reading owner-scoped data,
+            # which expires ORM instances under SQLAlchemy's default policy.
+            execution_id = execution.id
             await self.session.commit()
         except ToolConversationNotFoundError:
             raise
@@ -372,7 +376,7 @@ class ToolService:
             )
             return await self._finish(
                 owner_id,
-                execution.id,
+                execution_id,
                 ToolExecutionStatus.COMPLETED,
                 started,
                 result_json=encoded,
@@ -380,7 +384,7 @@ class ToolService:
         except asyncio.TimeoutError:
             return await self._finish(
                 owner_id,
-                execution.id,
+                execution_id,
                 ToolExecutionStatus.TIMED_OUT,
                 started,
                 error_code="tool_timed_out",
@@ -389,7 +393,7 @@ class ToolService:
             await asyncio.shield(
                 self._finish(
                     owner_id,
-                    execution.id,
+                    execution_id,
                     ToolExecutionStatus.CANCELLED,
                     started,
                     error_code="tool_cancelled",
@@ -399,7 +403,7 @@ class ToolService:
         except (ToolInputInvalidError, _ToolInvocationFailed, ZoneInfoNotFoundError):
             return await self._finish(
                 owner_id,
-                execution.id,
+                execution_id,
                 ToolExecutionStatus.FAILED,
                 started,
                 error_code="tool_execution_failed",
@@ -408,7 +412,7 @@ class ToolService:
             await self.session.rollback()
             return await self._finish(
                 owner_id,
-                execution.id,
+                execution_id,
                 ToolExecutionStatus.FAILED,
                 started,
                 error_code="tool_unavailable",

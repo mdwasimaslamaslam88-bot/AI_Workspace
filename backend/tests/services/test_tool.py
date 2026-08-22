@@ -121,6 +121,41 @@ async def test_calculator_execution_is_a_durable_bounded_owner_audit():
 
 
 @pytest.mark.asyncio
+async def test_database_backed_tool_retains_audit_identity_after_session_reset():
+    owner_id = uuid4()
+    running = _execution(owner_id)
+    execution_id = running.id
+    completed = _execution(
+        owner_id,
+        status=ToolExecutionStatus.COMPLETED,
+        result={"items": []},
+    )
+    completed.id = execution_id
+    session = AsyncMock(spec=AsyncSession)
+    repository = Mock()
+    repository.create_running = AsyncMock(return_value=running)
+    repository.finish = AsyncMock(return_value=completed)
+    repository.conversation_exists_for_owner = AsyncMock(return_value=True)
+    service = ToolService(session)
+    service.repository = repository
+
+    async def invoke_and_expire(*_args):
+        # Owner-scoped database tools roll back the shared session. Model that
+        # ORM expiration by making the original instance identity unavailable.
+        running.id = None
+        return {"items": []}
+
+    service._invoke = AsyncMock(side_effect=invoke_and_expire)
+
+    result = await service.execute_for_owner(
+        owner_id, "memory_search", {"query": "private fact"}
+    )
+
+    assert result.status is ToolExecutionStatus.COMPLETED
+    assert repository.finish.await_args.args[:2] == (owner_id, execution_id)
+
+
+@pytest.mark.asyncio
 async def test_unknown_or_invalid_tool_never_creates_an_audit_record():
     session = AsyncMock(spec=AsyncSession)
     service = ToolService(session)
