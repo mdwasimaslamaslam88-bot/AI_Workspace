@@ -9,12 +9,13 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import app.services.document as document_module
-from app.documents.embedding import embed_text
+from app.documents.embedding import embed_text, pack_embedding
 from app.documents.parsers import DocumentChunkDraft
 from app.models.document import DocumentStatus
-from app.repositories.document import DocumentAssetSnapshot
+from app.repositories.document import DocumentAssetSnapshot, RetrievalCandidate
 from app.services.document import (
     DocumentContentUnavailableError,
+    DocumentRetrievalUnavailableError,
     DocumentService,
     IndexedChunk,
     _WorkCancelled,
@@ -122,6 +123,188 @@ async def test_ingestion_commits_claim_before_parser_and_persists_after_embeddin
     assert chunks[0].owner_id == owner_id
     assert chunks[0].asset_id == asset_id
     session.rollback.assert_awaited()
+
+
+@pytest.mark.asyncio
+async def test_ingestion_persists_configured_runtime_identity_and_dimensions(
+    monkeypatch,
+):
+    owner_id = uuid4()
+    asset_id = uuid4()
+    asset = SimpleNamespace(
+        id=asset_id,
+        media_type="text/plain",
+        deleted_at=None,
+        original_filename="notes.txt",
+    )
+    processing = _document(asset, status=DocumentStatus.FAILED)
+    ready = _document(asset, status=DocumentStatus.READY)
+    ready.id = processing.id
+    snapshot = DocumentAssetSnapshot(
+        document_id=processing.id,
+        asset_id=asset_id,
+        media_type="text/plain",
+        byte_size=5,
+        content_sha256="a" * 64,
+        storage_key="opaque-key",
+        original_filename="notes.txt",
+    )
+    repository = Mock(
+        get_active_asset=AsyncMock(return_value=asset),
+        get_for_owner_asset=AsyncMock(return_value=processing),
+        claim=AsyncMock(return_value=True),
+        snapshot_for_processing=AsyncMock(return_value=snapshot),
+        complete=AsyncMock(return_value=True),
+        get_for_owner=AsyncMock(return_value=ready),
+        finish_unsuccessfully=AsyncMock(return_value=True),
+    )
+    draft = DocumentChunkDraft(1, "local text", "text", None, None, None, None)
+    runtime_embedding = pack_embedding(
+        (1.0, 2.0, 3.0),
+        "ollama:nomic-embed-text:latest",
+    )
+    runtime = Mock(
+        model_id="ollama:nomic-embed-text:latest",
+        embed_texts=AsyncMock(return_value=(runtime_embedding,)),
+    )
+    service, _session = _service(repository)
+    service.embedding_runtime = runtime
+    monkeypatch.setattr(document_module, "_read_verified_document", lambda *_: b"local")
+    monkeypatch.setattr(document_module, "_run_parser_process", lambda *_: (draft,))
+
+    result = await service.ingest_for_owner(owner_id, asset_id)
+
+    assert result.status is DocumentStatus.READY
+    runtime.embed_texts.assert_awaited_once_with(("local text",))
+    chunk = repository.complete.await_args.args[3][0]
+    assert chunk.embedding_model == "ollama:nomic-embed-text:latest"
+    assert chunk.embedding_dimensions == 3
+    assert len(chunk.embedding) == 12
+
+
+@pytest.mark.asyncio
+async def test_search_scores_only_owner_candidates_with_matching_runtime_model():
+    owner_id = uuid4()
+    asset_id = uuid4()
+    model_id = "ollama:nomic-embed-text:latest"
+    stored = pack_embedding((1.0, 0.0, 0.0), model_id)
+    query = pack_embedding((1.0, 0.0, 0.0), model_id)
+    candidate = RetrievalCandidate(
+        chunk_id=uuid4(),
+        asset_id=asset_id,
+        content="owned source",
+        embedding=stored.packed,
+        embedding_model=model_id,
+        embedding_dimensions=stored.dimensions,
+        provenance_kind="text",
+        page_number=None,
+        row_start=None,
+        row_end=None,
+        section=None,
+        original_filename="owned.txt",
+    )
+    repository = Mock(
+        list_retrieval_candidates=AsyncMock(return_value=(candidate,))
+    )
+    runtime = Mock(
+        model_id=model_id,
+        embed_texts=AsyncMock(return_value=(query,)),
+    )
+    service, session = _service(repository)
+    service.embedding_runtime = runtime
+
+    results = await service.search_for_owner(owner_id, "owned", limit=1)
+
+    repository.list_retrieval_candidates.assert_awaited_once_with(owner_id)
+    session.rollback.assert_awaited_once()
+    runtime.embed_texts.assert_awaited_once_with(("owned",))
+    assert len(results) == 1
+    assert results[0].asset_id == asset_id
+    assert results[0].score == pytest.approx(1.0)
+
+
+@pytest.mark.asyncio
+async def test_search_converts_embedding_failure_to_safe_retrieval_error():
+    owner_id = uuid4()
+    model_id = "ollama:nomic-embed-text:latest"
+    stored = pack_embedding((1.0, 0.0), model_id)
+    candidate = RetrievalCandidate(
+        chunk_id=uuid4(),
+        asset_id=uuid4(),
+        content="owned source",
+        embedding=stored.packed,
+        embedding_model=model_id,
+        embedding_dimensions=stored.dimensions,
+        provenance_kind="text",
+        page_number=None,
+        row_start=None,
+        row_end=None,
+        section=None,
+        original_filename="owned.txt",
+    )
+    repository = Mock(
+        list_retrieval_candidates=AsyncMock(return_value=(candidate,))
+    )
+    runtime = Mock(
+        model_id=model_id,
+        embed_texts=AsyncMock(side_effect=RuntimeError("private runtime detail")),
+    )
+    service, _session = _service(repository)
+    service.embedding_runtime = runtime
+
+    with pytest.raises(DocumentRetrievalUnavailableError) as captured:
+        await service.search_for_owner(owner_id, "owned")
+
+    assert str(captured.value) == "local document retrieval is unavailable"
+    assert "private runtime detail" not in str(captured.value)
+
+
+@pytest.mark.asyncio
+async def test_search_uses_compatible_legacy_fallback_when_runtime_fails():
+    owner_id = uuid4()
+    remote_model = "ollama:nomic-embed-text:latest"
+    remote = pack_embedding((1.0, 0.0), remote_model)
+    legacy = embed_text("owned")
+
+    def candidate(model_id, embedding, dimensions, content):
+        return RetrievalCandidate(
+            chunk_id=uuid4(),
+            asset_id=uuid4(),
+            content=content,
+            embedding=embedding,
+            embedding_model=model_id,
+            embedding_dimensions=dimensions,
+            provenance_kind="text",
+            page_number=None,
+            row_start=None,
+            row_end=None,
+            section=None,
+            original_filename="owned.txt",
+        )
+
+    repository = Mock(
+        list_retrieval_candidates=AsyncMock(
+            return_value=(
+                candidate(remote_model, remote.packed, remote.dimensions, "remote"),
+                candidate(
+                    legacy.model_id,
+                    legacy.packed,
+                    legacy.dimensions,
+                    "legacy",
+                ),
+            )
+        )
+    )
+    runtime = Mock(
+        model_id=remote_model,
+        embed_texts=AsyncMock(side_effect=RuntimeError("runtime offline")),
+    )
+    service, _session = _service(repository)
+    service.embedding_runtime = runtime
+
+    results = await service.search_for_owner(owner_id, "owned")
+
+    assert [item.content for item in results] == ["legacy"]
 
 
 @pytest.mark.asyncio

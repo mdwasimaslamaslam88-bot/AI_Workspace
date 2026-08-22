@@ -33,6 +33,7 @@ if TYPE_CHECKING:
 
 DOCUMENT_EMBEDDING_DIMENSIONS = 256
 DOCUMENT_EMBEDDING_BYTES = DOCUMENT_EMBEDDING_DIMENSIONS * 4
+MAX_DOCUMENT_EMBEDDING_DIMENSIONS = 4_096
 MAX_DOCUMENT_CHUNK_CHARACTERS = 1_600
 
 
@@ -129,10 +130,19 @@ class DocumentChunk(Base):
             name="content_length_bounded",
         ),
         CheckConstraint(
-            f"octet_length(embedding) = {DOCUMENT_EMBEDDING_BYTES}",
-            name="embedding_dimensions_fixed",
+            "embedding_dimensions BETWEEN 1 AND "
+            f"{MAX_DOCUMENT_EMBEDDING_DIMENSIONS}",
+            name="embedding_dimensions_bounded",
+        ),
+        CheckConstraint(
+            "octet_length(embedding) = embedding_dimensions * 4",
+            name="embedding_bytes_consistent",
         ),
         CheckConstraint("embedding_norm > 0", name="embedding_norm_positive"),
+        CheckConstraint(
+            "embedding_model ~ '^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,254}$'",
+            name="embedding_model_safe",
+        ),
         CheckConstraint(
             "page_number IS NULL OR page_number >= 1",
             name="page_number_positive",
@@ -170,6 +180,8 @@ class DocumentChunk(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+    embedding_model: Mapped[str] = mapped_column(String(255), nullable=False)
+    embedding_dimensions: Mapped[int] = mapped_column(Integer, nullable=False)
 
     document: Mapped[Document] = relationship(back_populates="chunks", lazy="raise")
     asset: Mapped[Asset] = relationship(lazy="joined")

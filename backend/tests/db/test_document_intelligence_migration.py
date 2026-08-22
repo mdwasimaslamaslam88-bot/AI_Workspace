@@ -47,10 +47,30 @@ def test_upgrade_matches_exact_document_and_citation_orm_schema():
         ("create_index", "ix_document_chunks_owner_document_ordinal"),
         ("create_table", "message_citations"),
     ]
-    for table_name in ("documents", "document_chunks", "message_citations"):
+    for table_name in ("documents", "message_citations"):
         assert _table_signature(operations.metadata.tables[table_name]) == (
             _table_signature(Base.metadata.tables[table_name])
         )
+    historical_chunks = operations.metadata.tables["document_chunks"]
+    assert tuple(historical_chunks.c.keys()) == (
+        "id",
+        "owner_id",
+        "document_id",
+        "asset_id",
+        "ordinal",
+        "content",
+        "embedding",
+        "embedding_norm",
+        "provenance_kind",
+        "page_number",
+        "row_start",
+        "row_end",
+        "section",
+        "created_at",
+    )
+    assert {
+        constraint.name for constraint in historical_chunks.constraints
+    } >= {"ck_document_chunks_embedding_dimensions_fixed"}
 
 
 def test_downgrade_removes_document_relations_in_dependency_order():

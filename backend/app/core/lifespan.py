@@ -16,6 +16,7 @@ from app.runtimes.ollama import (
     OllamaModelDiscoveryRuntime,
     OllamaTextGenerationRuntime,
 )
+from app.runtimes.ollama_embedding import OllamaEmbeddingRuntime
 from app.services.asset import reconcile_asset_storage
 from app.services.generation_admission import GenerationAdmissionController
 from app.services.tool import reconcile_tool_executions
@@ -64,6 +65,21 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.document_ingestion_max_duration_seconds = (
             settings.DOCUMENT_INGESTION_MAX_DURATION_SECONDS
         )
+        app.state.document_embedding_runtime = (
+            OllamaEmbeddingRuntime(
+                ollama_client,
+                settings.OLLAMA_EMBEDDING_MODEL,
+                timeout_seconds=settings.OLLAMA_EMBEDDING_TIMEOUT_SECONDS,
+                max_request_bytes=settings.OLLAMA_EMBEDDING_MAX_REQUEST_BYTES,
+                max_response_bytes=settings.OLLAMA_EMBEDDING_MAX_RESPONSE_BYTES,
+                batch_size=settings.OLLAMA_EMBEDDING_BATCH_SIZE,
+                max_active=settings.OLLAMA_EMBEDDING_MAX_ACTIVE_PER_PROCESS,
+                keep_alive_seconds=settings.OLLAMA_KEEP_ALIVE_SECONDS,
+            )
+            if ollama_client is not None
+            and settings.OLLAMA_EMBEDDING_MODEL is not None
+            else None
+        )
         app.state.workflow_tasks = {}
         app.state.workflow_runner = (
             WorkflowRunner(
@@ -72,6 +88,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 app.state.workflow_tasks,
                 document_storage=asset_storage,
                 document_admission=app.state.document_ingestion_admission,
+                document_embedding_runtime=app.state.document_embedding_runtime,
             )
             if app.state.db_session_factory is not None
             else None

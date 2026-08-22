@@ -99,11 +99,32 @@ class RecordingOperations:
 
     def execute(self, statement, **kwargs) -> None:
         self.events.append(("execute", " ".join(str(statement).split())))
+        return _RecordingScalarResult(0)
+
+    def get_bind(self):
+        return self
+
+    def alter_column(self, table_name: str, column_name: str, **kwargs) -> None:
+        column = self.metadata.tables[table_name].c[column_name]
+        if "server_default" in kwargs:
+            default = kwargs["server_default"]
+            column.server_default = (
+                None if default is None else sa.DefaultClause(sa.text(str(default)))
+            )
+        self.events.append(("alter_column", f"{table_name}.{column_name}"))
 
     def drop_column(self, table_name: str, column_name: str, **kwargs) -> None:
         table = self.metadata.tables[table_name]
         table._columns.remove(table.c[column_name])
         self.events.append(("drop_column", f"{table_name}.{column_name}"))
+
+
+class _RecordingScalarResult:
+    def __init__(self, value) -> None:
+        self.value = value
+
+    def scalar_one(self):
+        return self.value
 
 
 def _revision_path(filename: str = "0001_initial_domain.py") -> Path:

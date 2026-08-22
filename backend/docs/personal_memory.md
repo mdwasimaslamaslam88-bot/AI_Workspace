@@ -23,8 +23,8 @@ rows to have bounded nonblank content and a fixed-size positive embedding, and
 requires deleted rows to contain neither. The content-free tombstone remains
 inspectable so the user can see that the memory was forgotten.
 
-Retrieval is local and deterministic. The same 256-dimensional feature-hash
-embedding used by document intelligence scores at most 500 active owner rows.
+Retrieval is local and deterministic. Memory retains its independent
+256-dimensional feature-hash embedding and scores at most 500 active owner rows.
 It selects at most eight entries within 4,000 characters. Instructions and
 preferences are globally applicable; facts and project context must meet a
 fixed relevance floor. A disabled owner setting prevents candidate

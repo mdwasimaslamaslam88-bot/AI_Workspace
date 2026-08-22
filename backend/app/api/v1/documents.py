@@ -20,6 +20,7 @@ from app.services.document import (
     DocumentIngestionRejectedError,
     DocumentIngestionUnavailableError,
     DocumentNotFoundError,
+    DocumentRetrievalUnavailableError,
     DocumentService,
     DocumentUnsupportedError,
 )
@@ -37,10 +38,18 @@ def _document_service(request: Request, session: AsyncSession) -> DocumentServic
     )
     if admission is None or max_duration is None:
         raise RuntimeError("Document ingestion is not configured")
+    embedding_runtime = getattr(
+        request.app.state, "document_embedding_runtime", None
+    )
     return DocumentService(
         session,
         getattr(request.app.state, "asset_storage", None),
         admission,
+        **(
+            {"embedding_runtime": embedding_runtime}
+            if embedding_runtime is not None
+            else {}
+        ),
         max_duration_seconds=max_duration,
         active_tasks=getattr(request.app.state, "document_ingestion_tasks", None),
     )
@@ -90,6 +99,11 @@ async def search_documents(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail="Document search query is invalid",
+        ) from None
+    except DocumentRetrievalUnavailableError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Document search is unavailable",
         ) from None
     return DocumentSearchResponse(
         items=[

@@ -9,6 +9,7 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.documents.embedding import EmbeddingRuntime
 from app.models.tool import ToolExecutionStatus
 from app.models.workflow import (
     MAX_WORKFLOW_NAME_CHARACTERS,
@@ -228,6 +229,7 @@ class WorkflowRunner:
         *,
         document_storage=None,
         document_admission: asyncio.Semaphore | None = None,
+        document_embedding_runtime: EmbeddingRuntime | None = None,
         wall_seconds: float = MAX_WORKFLOW_WALL_SECONDS,
         step_seconds: float = MAX_WORKFLOW_STEP_SECONDS,
     ) -> None:
@@ -242,6 +244,7 @@ class WorkflowRunner:
         self.active_tasks = active_tasks
         self.document_storage = document_storage
         self.document_admission = document_admission
+        self.document_embedding_runtime = document_embedding_runtime
         self.wall_seconds = wall_seconds
         self.step_seconds = step_seconds
 
@@ -417,6 +420,9 @@ class WorkflowRunner:
                             session,
                             document_storage=self.document_storage,
                             document_admission=self.document_admission,
+                            document_embedding_runtime=(
+                                self.document_embedding_runtime
+                            ),
                         ).execute_for_owner(
                             owner_id,
                             step.tool_name,

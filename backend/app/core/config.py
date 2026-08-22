@@ -11,6 +11,7 @@ from pydantic import (
     StrictFloat,
     StrictInt,
     field_validator,
+    model_validator,
 )
 from pydantic.fields import FieldInfo
 from pydantic_settings import (
@@ -29,6 +30,8 @@ MAX_OLLAMA_CATALOG_LIST_MODELS = 256
 MAX_OLLAMA_CATALOG_RESPONSE_BYTES = 1_048_576
 MAX_OLLAMA_GENERATION_REQUEST_BYTES = 1_048_576
 MAX_OLLAMA_GENERATION_RESPONSE_BYTES = 1_048_576
+MAX_OLLAMA_EMBEDDING_REQUEST_BYTES = 1_048_576
+MAX_OLLAMA_EMBEDDING_RESPONSE_BYTES = 16_777_216
 MAX_DOCUMENT_INGESTION_ACTIVE_PER_PROCESS = 4
 MAX_DOCUMENT_INGESTION_DURATION_SECONDS = 300.0
 MAX_REQUEST_BODY_BYTES = 1_048_576
@@ -40,6 +43,10 @@ _SOURCE_DECODED_STRICT_INTEGER_FIELDS = frozenset(
         "OLLAMA_GENERATION_MAX_REQUEST_BYTES",
         "OLLAMA_GENERATION_MAX_RESPONSE_BYTES",
         "OLLAMA_KEEP_ALIVE_SECONDS",
+        "OLLAMA_EMBEDDING_MAX_REQUEST_BYTES",
+        "OLLAMA_EMBEDDING_MAX_RESPONSE_BYTES",
+        "OLLAMA_EMBEDDING_BATCH_SIZE",
+        "OLLAMA_EMBEDDING_MAX_ACTIVE_PER_PROCESS",
         "GENERATION_MAX_ACTIVE_PER_PROCESS",
         "DOCUMENT_INGESTION_MAX_ACTIVE_PER_PROCESS",
         "REQUEST_MAX_BODY_BYTES",
@@ -143,6 +150,12 @@ class Settings(BaseSettings):
         allow_inf_nan=False,
     )
     OLLAMA_LOCAL_MODEL_ALLOWLIST: tuple[str, ...] = ()
+    OLLAMA_EMBEDDING_MODEL: str | None = Field(
+        default=None,
+        strict=True,
+        min_length=1,
+        max_length=240,
+    )
     MODEL_LIST_MAX_DISCOVERY_SECONDS: StrictFloat | StrictInt = Field(
         default=60.0,
         gt=0,
@@ -176,7 +189,7 @@ class Settings(BaseSettings):
         default=1_048_576,
         strict=True,
         ge=1,
-        le=MAX_OLLAMA_GENERATION_REQUEST_BYTES,
+        le=MAX_OLLAMA_EMBEDDING_REQUEST_BYTES,
     )
     OLLAMA_GENERATION_MAX_RESPONSE_BYTES: int = Field(
         default=262_144,
@@ -189,6 +202,36 @@ class Settings(BaseSettings):
         strict=True,
         ge=0,
         le=3600,
+    )
+    OLLAMA_EMBEDDING_TIMEOUT_SECONDS: float = Field(
+        default=60.0,
+        gt=0,
+        le=300.0,
+        allow_inf_nan=False,
+    )
+    OLLAMA_EMBEDDING_MAX_REQUEST_BYTES: int = Field(
+        default=1_048_576,
+        strict=True,
+        ge=1,
+        le=MAX_OLLAMA_GENERATION_REQUEST_BYTES,
+    )
+    OLLAMA_EMBEDDING_MAX_RESPONSE_BYTES: int = Field(
+        default=1_048_576,
+        strict=True,
+        ge=1,
+        le=MAX_OLLAMA_EMBEDDING_RESPONSE_BYTES,
+    )
+    OLLAMA_EMBEDDING_BATCH_SIZE: int = Field(
+        default=16,
+        strict=True,
+        ge=1,
+        le=64,
+    )
+    OLLAMA_EMBEDDING_MAX_ACTIVE_PER_PROCESS: int = Field(
+        default=1,
+        strict=True,
+        ge=1,
+        le=4,
     )
     GENERATION_MAX_ACTIVE_PER_PROCESS: int = Field(
         default=1,
@@ -226,6 +269,7 @@ class Settings(BaseSettings):
         "TEST_DATABASE_URL",
         "REDIS_URL",
         "OLLAMA_BASE_URL",
+        "OLLAMA_EMBEDDING_MODEL",
         "ASSET_STORAGE_ROOT",
         "DATABASE_SSL_ROOT_CERT",
         "USER_PROVISIONING_TOKEN_DIGEST",
@@ -332,6 +376,18 @@ class Settings(BaseSettings):
                 )
             seen.add(reference)
         return value
+
+    @model_validator(mode="after")
+    def require_allowlisted_embedding_model(self):
+        if (
+            self.OLLAMA_EMBEDDING_MODEL is not None
+            and self.OLLAMA_EMBEDDING_MODEL
+            not in self.OLLAMA_LOCAL_MODEL_ALLOWLIST
+        ):
+            raise ValueError(
+                "OLLAMA_EMBEDDING_MODEL must be present in the exact local model allowlist"
+            )
+        return self
 
     @classmethod
     def settings_customise_sources(

@@ -14,6 +14,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from pydantic import BaseModel, ConfigDict, Field, StrictInt, ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.documents.embedding import EmbeddingRuntime
 from app.models.tool import (
     MAX_TOOL_ARGUMENT_JSON_CHARACTERS,
     MAX_TOOL_RESULT_JSON_CHARACTERS,
@@ -292,11 +293,13 @@ class ToolService:
         *,
         document_storage=None,
         document_admission: asyncio.Semaphore | None = None,
+        document_embedding_runtime: EmbeddingRuntime | None = None,
     ) -> None:
         self.session = session
         self.repository = ToolRepository(session)
         self.document_storage = document_storage
         self.document_admission = document_admission
+        self.document_embedding_runtime = document_embedding_runtime
 
     @staticmethod
     def definitions() -> tuple[ToolDefinition, ...]:
@@ -464,6 +467,11 @@ class ToolService:
                 self.session,
                 self.document_storage,
                 self.document_admission,
+                **(
+                    {"embedding_runtime": self.document_embedding_runtime}
+                    if self.document_embedding_runtime is not None
+                    else {}
+                ),
             ).search_for_owner(owner_id, validated.query, limit=validated.limit)
             return {
                 "items": [

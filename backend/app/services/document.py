@@ -13,10 +13,18 @@ from datetime import datetime
 from typing import BinaryIO, Callable, MutableMapping, TypeVar
 from uuid import UUID, uuid4
 
+import structlog
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.documents.embedding import EmbeddingError, cosine_similarity, embed_text
+from app.documents.embedding import (
+    HASH_EMBEDDING_MODEL_ID,
+    EmbeddingError,
+    EmbeddingRuntime,
+    LocalEmbedding,
+    cosine_similarity,
+    embed_text,
+)
 from app.documents.parsers import (
     DocumentChunkDraft,
     DocumentParseError,
@@ -40,6 +48,7 @@ DOCUMENT_PARSER_MAX_SECONDS = 20.0
 MAX_RETRIEVAL_RESULTS = 4
 MAX_RETRIEVAL_CONTEXT_CHARACTERS = 6_000
 _T = TypeVar("_T")
+logger = structlog.get_logger(__name__)
 
 
 class DocumentNotFoundError(RuntimeError):
@@ -66,6 +75,10 @@ class DocumentIngestionUnavailableError(RuntimeError):
     """The local ingestion runtime failed or exceeded its deadline."""
 
 
+class DocumentRetrievalUnavailableError(RuntimeError):
+    """The configured local embedding runtime cannot serve retrieval."""
+
+
 class _WorkCancelled(RuntimeError):
     pass
 
@@ -75,6 +88,8 @@ class IndexedChunk:
     draft: DocumentChunkDraft
     embedding: bytes
     embedding_norm: float
+    embedding_model: str = HASH_EMBEDDING_MODEL_ID
+    embedding_dimensions: int = 256
 
 
 @dataclass(frozen=True, slots=True)
@@ -285,9 +300,40 @@ def _embed_chunks(
                 draft=draft,
                 embedding=embedding.packed,
                 embedding_norm=embedding.norm,
+                embedding_model=embedding.model_id,
+                embedding_dimensions=embedding.dimensions,
             )
         )
     return tuple(indexed)
+
+
+async def _embed_chunks_with_runtime(
+    drafts: tuple[DocumentChunkDraft, ...],
+    runtime: EmbeddingRuntime | None,
+) -> tuple[IndexedChunk, ...]:
+    if runtime is None:
+        return await _cancellable_thread(
+            lambda cancel_event: _embed_chunks(cancel_event, drafts)
+        )
+    embeddings = await runtime.embed_texts(tuple(draft.content for draft in drafts))
+    if (
+        len(embeddings) != len(drafts)
+        or any(item.model_id != runtime.model_id for item in embeddings)
+        or len({item.dimensions for item in embeddings}) > 1
+    ):
+        raise DocumentIngestionUnavailableError(
+            "local document embedding is unavailable"
+        )
+    return tuple(
+        IndexedChunk(
+            draft=draft,
+            embedding=embedding.packed,
+            embedding_norm=embedding.norm,
+            embedding_model=embedding.model_id,
+            embedding_dimensions=embedding.dimensions,
+        )
+        for draft, embedding in zip(drafts, embeddings)
+    )
 
 
 async def _finish_task(task: asyncio.Task[_T]) -> _T:
@@ -322,6 +368,7 @@ class DocumentService:
         storage: AssetStorage | None,
         admission: asyncio.Semaphore | None,
         *,
+        embedding_runtime: EmbeddingRuntime | None = None,
         max_duration_seconds: float = 30.0,
         active_tasks: MutableMapping[
             tuple[UUID, UUID], asyncio.Task[object]
@@ -330,6 +377,7 @@ class DocumentService:
         self.session = session
         self.storage = storage
         self.admission = admission
+        self.embedding_runtime = embedding_runtime
         self.max_duration_seconds = max_duration_seconds
         self.active_tasks = active_tasks
         self.repository = DocumentRepository(session)
@@ -445,8 +493,9 @@ class DocumentService:
                         )
                     finally:
                         data = b""
-                    indexed = await _cancellable_thread(
-                        lambda cancel_event: _embed_chunks(cancel_event, drafts)
+                    indexed = await _embed_chunks_with_runtime(
+                        drafts,
+                        self.embedding_runtime,
                     )
             finally:
                 if acquired:
@@ -464,6 +513,8 @@ class DocumentService:
                     asset_id=asset_id,
                     ordinal=item.draft.ordinal,
                     content=item.draft.content,
+                    embedding_model=item.embedding_model,
+                    embedding_dimensions=item.embedding_dimensions,
                     embedding=item.embedding,
                     embedding_norm=item.embedding_norm,
                     provenance_kind=item.draft.provenance_kind,
@@ -488,12 +539,14 @@ class DocumentService:
                 )
             await self.session.commit()
             ready = await self.repository.get_for_owner(owner_id, document_id)
-            await self.session.rollback()
             if ready is None:
+                await self.session.rollback()
                 raise DocumentIngestionUnavailableError(
                     "document ingestion result is unavailable"
                 )
-            return _document_record(ready)
+            record = _document_record(ready)
+            await self.session.rollback()
+            return record
         except asyncio.CancelledError:
             if document_id is not None and ingestion_token is not None:
                 await self._finish_unsuccessfully(
@@ -551,6 +604,10 @@ class DocumentService:
                 )
             if isinstance(exc, DocumentIngestionUnavailableError):
                 raise
+            logger.warning(
+                "document_ingestion_failed",
+                error_type=type(exc).__name__,
+            )
             raise DocumentIngestionUnavailableError(
                 "local document ingestion is unavailable"
             ) from exc
@@ -624,24 +681,60 @@ class DocumentService:
             raise ValueError("document search limit is outside its bound")
 
         try:
-            query_embedding = await _cancellable_thread(
-                lambda cancel_event: embed_text(query)
-            )
-        except EmbeddingError:
-            return ()
-        try:
             candidates = await self.repository.list_retrieval_candidates(owner_id)
             await self.session.rollback()
         except BaseException:
             await self.session.rollback()
             raise
 
+        candidate_models = {
+            (candidate.embedding_model, candidate.embedding_dimensions)
+            for candidate in candidates
+        }
+        query_embeddings: dict[tuple[str, int], LocalEmbedding] = {}
+        runtime_failure: Exception | None = None
+        for model_id, dimensions in sorted(candidate_models):
+            try:
+                if model_id == HASH_EMBEDDING_MODEL_ID:
+                    query_embedding = await _cancellable_thread(
+                        lambda cancel_event: embed_text(query)
+                    )
+                elif (
+                    self.embedding_runtime is not None
+                    and model_id == self.embedding_runtime.model_id
+                ):
+                    embedded = await self.embedding_runtime.embed_texts((query,))
+                    if len(embedded) != 1:
+                        continue
+                    query_embedding = embedded[0]
+                else:
+                    continue
+            except EmbeddingError:
+                continue
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                runtime_failure = exc
+                continue
+            if query_embedding.dimensions == dimensions:
+                query_embeddings[(model_id, dimensions)] = query_embedding
+        if not query_embeddings and runtime_failure is not None:
+            raise DocumentRetrievalUnavailableError(
+                "local document retrieval is unavailable"
+            ) from runtime_failure
+
         scored: list[tuple[float, RetrievalCandidate]] = []
         for candidate in candidates:
+            query_embedding = query_embeddings.get(
+                (candidate.embedding_model, candidate.embedding_dimensions)
+            )
+            if query_embedding is None:
+                continue
             try:
                 score = cosine_similarity(
                     query_embedding.packed,
                     candidate.embedding,
+                    candidate.embedding_dimensions,
                 )
             except EmbeddingError:
                 continue

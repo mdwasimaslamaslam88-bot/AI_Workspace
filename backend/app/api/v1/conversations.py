@@ -322,6 +322,9 @@ async def generate_assistant_message(
         "document_ingestion_admission",
         None,
     )
+    document_embedding_runtime = getattr(
+        request.app.state, "document_embedding_runtime", None
+    )
     if (
         catalog is None
         or generation_router is None
@@ -348,6 +351,15 @@ async def generate_assistant_message(
             **(
                 {"document_admission": document_admission}
                 if document_admission is not None
+                else {}
+            ),
+            **(
+                {
+                    "document_embedding_runtime": (
+                        document_embedding_runtime
+                    )
+                }
+                if document_embedding_runtime is not None
                 else {}
             ),
             memory_enabled=True,

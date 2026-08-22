@@ -26,11 +26,19 @@ router = APIRouter(prefix="/tools", tags=["Tools"])
 
 
 def _service(request: Request, session: AsyncSession) -> ToolService:
+    embedding_runtime = getattr(
+        request.app.state, "document_embedding_runtime", None
+    )
     return ToolService(
         session,
         document_storage=getattr(request.app.state, "asset_storage", None),
         document_admission=getattr(
             request.app.state, "document_ingestion_admission", None
+        ),
+        **(
+            {"document_embedding_runtime": embedding_runtime}
+            if embedding_runtime is not None
+            else {}
         ),
     )
 

@@ -136,6 +136,11 @@ async def test_lifespan_registers_configured_local_runtime_catalog(monkeypatch):
     )
     monkeypatch.setattr(
         lifespan_module.settings,
+        "OLLAMA_EMBEDDING_MODEL",
+        "verified-local:latest",
+    )
+    monkeypatch.setattr(
+        lifespan_module.settings,
         "MODEL_LIST_MAX_DISCOVERY_SECONDS",
         42.5,
     )
@@ -196,6 +201,10 @@ async def test_lifespan_registers_configured_local_runtime_catalog(monkeypatch):
         assert generation_runtime.local_model_allowlist == {
             "verified-local:latest"
         }
+        embedding_runtime = app.state.document_embedding_runtime
+        assert embedding_runtime.client is ollama_client
+        assert embedding_runtime.model_reference == "verified-local:latest"
+        assert embedding_runtime.model_id == "ollama:verified-local:latest"
         assert not hasattr(generation_runtime, "max_list_models")
         assert not hasattr(
             generation_runtime,

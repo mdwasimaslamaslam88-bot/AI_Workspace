@@ -551,13 +551,21 @@ content is never executed. Parser errors use fixed codes and never include
 document text, bytes, storage keys, or filesystem paths.
 
 Text is NFC-normalized and split deterministically into at most 1,024 chunks of
-1,200 characters with a 200-character overlap. A deterministic 256-dimensional
-feature-hash embedding is stored as fixed-size local binary data; retrieval
-scores at most 2,048 owner-scoped candidates and returns at most four chunks,
-two per Asset, within a 6,000-character context budget. No cloud embedding or
-vector service is used.
+1,200 characters with a 200-character overlap. When
+`OLLAMA_EMBEDDING_MODEL` selects an exact entry in
+`OLLAMA_LOCAL_MODEL_ALLOWLIST`, bounded batches are sent only to Ollama's
+loopback `/api/embed` endpoint. This workstation validates
+`nomic-embed-text:latest` at 768 dimensions. Each chunk stores the provider and
+model identity, dimensions, normalized binary vector, and positive norm;
+retrieval embeds once per candidate model and never compares incompatible
+vectors. Existing 256-dimensional `local-hash-v1` chunks remain readable, and
+the deterministic local hash remains the fail-closed fallback when no Ollama
+embedding model is configured. Retrieval scores at most 2,048 owner-scoped
+candidates and returns at most four chunks, two per Asset, within a
+6,000-character context budget. No cloud embedding or vector service is used.
 
-The claim is committed before storage reads, parser work, or embedding. The
+The claim is committed before storage reads, parser work, or embedding, and a
+query candidate transaction is rolled back before any embedding request. The
 completion transaction validates the opaque ingestion token and still-active
 source before replacing chunks. Client disconnect, the total ingestion
 deadline, and explicit cancellation terminate process-local work, release the
@@ -575,7 +583,10 @@ stale citation append rather than persisting an ungrounded response.
 Configure `DOCUMENT_INGESTION_MAX_ACTIVE_PER_PROCESS` from 1 through 4
 (default 2) and `DOCUMENT_INGESTION_MAX_DURATION_SECONDS` above zero through
 300 seconds (default 30). These are process-local resource controls; no network
-service or additional credential is required.
+service or additional credential is required. Ollama embedding requests have
+independent timeout, request/response byte, batch-size, and process-local
+concurrency bounds documented in `.env.example`; `OLLAMA_KEEP_ALIVE_SECONDS=0`
+unloads the embedding model after each batch for safe GPU model swaps.
 
 
 ## Explicit long-term personal memory

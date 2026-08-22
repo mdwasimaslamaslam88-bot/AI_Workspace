@@ -2688,6 +2688,38 @@ def test_generation_injects_private_asset_storage_when_configured(
     )
 
 
+def test_generation_injects_configured_document_embedding_runtime(
+    conversation_generation_api,
+):
+    api = conversation_generation_api
+    runtime = object()
+    missing = object()
+    previous = getattr(app.state, "document_embedding_runtime", missing)
+    app.state.document_embedding_runtime = runtime
+    try:
+        response = api["client"].post(
+            f"/api/v1/conversations/{api['conversation_id']}/messages/generate",
+            json={"model_id": GENERATION_MODEL_ID},
+        )
+    finally:
+        if previous is missing:
+            delattr(app.state, "document_embedding_runtime")
+        else:
+            app.state.document_embedding_runtime = previous
+
+    assert response.status_code == 201
+    api["service_factory"].assert_called_once_with(
+        api["session"],
+        api["catalog"],
+        api["router"],
+        api["admission"],
+        api["duration"],
+        document_admission=app.state.document_ingestion_admission,
+        document_embedding_runtime=runtime,
+        memory_enabled=True,
+    )
+
+
 def test_generation_forwards_only_attachment_ids_with_new_user_message(
     conversation_generation_api,
 ):

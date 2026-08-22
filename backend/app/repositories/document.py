@@ -32,6 +32,8 @@ class RetrievalCandidate:
     asset_id: UUID
     content: str
     embedding: bytes
+    embedding_model: str
+    embedding_dimensions: int
     provenance_kind: str
     page_number: int | None
     row_start: int | None
@@ -321,6 +323,8 @@ class DocumentRepository(BaseRepository):
                 DocumentChunk.asset_id,
                 DocumentChunk.content,
                 DocumentChunk.embedding,
+                DocumentChunk.embedding_model,
+                DocumentChunk.embedding_dimensions,
                 DocumentChunk.provenance_kind,
                 DocumentChunk.page_number,
                 DocumentChunk.row_start,
@@ -346,12 +350,14 @@ class DocumentRepository(BaseRepository):
                 asset_id=row[1],
                 content=row[2],
                 embedding=row[3],
-                provenance_kind=row[4],
-                page_number=row[5],
-                row_start=row[6],
-                row_end=row[7],
-                section=row[8],
-                original_filename=row[9],
+                embedding_model=row[4],
+                embedding_dimensions=row[5],
+                provenance_kind=row[6],
+                page_number=row[7],
+                row_start=row[8],
+                row_end=row[9],
+                section=row[10],
+                original_filename=row[11],
             )
             for row in result.all()
         )

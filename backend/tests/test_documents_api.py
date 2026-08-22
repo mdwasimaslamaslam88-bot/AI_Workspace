@@ -17,6 +17,7 @@ from app.models.user import User
 from app.services.document import (
     DocumentNotFoundError,
     DocumentRecord,
+    DocumentRetrievalUnavailableError,
     RetrievedDocumentChunk,
 )
 
@@ -102,6 +103,25 @@ def test_unowned_asset_uses_generic_not_found(document_api):
     assert response.json() == {"detail": "Document asset not found"}
 
 
+def test_document_routes_inject_configured_embedding_runtime(document_api):
+    client, _user, service, factory = document_api
+    runtime = object()
+    client.app.state.document_embedding_runtime = runtime
+
+    response = client.get("/api/v1/documents")
+
+    assert response.status_code == 200
+    factory.assert_called_once_with(
+        factory.call_args.args[0],
+        factory.call_args.args[1],
+        factory.call_args.args[2],
+        embedding_runtime=runtime,
+        max_duration_seconds=30.0,
+        active_tasks={},
+    )
+    service.list_for_owner.assert_awaited_once()
+
+
 def test_owner_scoped_search_returns_bounded_provenance(document_api):
     client, user, service, _factory = document_api
     item = RetrievedDocumentChunk(
@@ -124,3 +144,14 @@ def test_owner_scoped_search_returns_bounded_provenance(document_api):
     assert response.json()["items"][0]["content"] == "owned source excerpt"
     assert response.json()["items"][0]["row_start"] == 2
     service.search_for_owner.assert_awaited_once_with(user.id, "owned", limit=1)
+
+
+def test_embedding_runtime_failure_returns_generic_search_unavailable(document_api):
+    client, _user, service, _factory = document_api
+    service.search_for_owner.side_effect = DocumentRetrievalUnavailableError()
+
+    response = client.get("/api/v1/documents/search?query=owned")
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Document search is unavailable"}
+    assert "runtime" not in response.text.lower()

@@ -78,6 +78,12 @@ def test_settings_preserve_application_defaults():
     assert settings.OLLAMA_GENERATION_MAX_REQUEST_BYTES == 1_048_576
     assert settings.OLLAMA_GENERATION_MAX_RESPONSE_BYTES == 262_144
     assert settings.OLLAMA_LOCAL_MODEL_ALLOWLIST == ()
+    assert settings.OLLAMA_EMBEDDING_MODEL is None
+    assert settings.OLLAMA_EMBEDDING_TIMEOUT_SECONDS == 60.0
+    assert settings.OLLAMA_EMBEDDING_MAX_REQUEST_BYTES == 1_048_576
+    assert settings.OLLAMA_EMBEDDING_MAX_RESPONSE_BYTES == 1_048_576
+    assert settings.OLLAMA_EMBEDDING_BATCH_SIZE == 16
+    assert settings.OLLAMA_EMBEDDING_MAX_ACTIVE_PER_PROCESS == 1
     assert settings.OLLAMA_GENERATION_TIMEOUT_SECONDS == 120.0
     assert settings.GENERATION_MAX_ACTIVE_PER_PROCESS == 1
     assert settings.GENERATION_MAX_DURATION_SECONDS == 180.0
@@ -679,6 +685,23 @@ def test_local_model_allowlist_accepts_exact_unique_references():
 def test_local_model_allowlist_rejects_unsafe_entries(value):
     with pytest.raises(ValidationError):
         Settings(_env_file=None, OLLAMA_LOCAL_MODEL_ALLOWLIST=value)
+
+
+def test_embedding_model_must_be_in_exact_local_allowlist():
+    configured = Settings(
+        _env_file=None,
+        OLLAMA_LOCAL_MODEL_ALLOWLIST=["nomic-embed-text:latest"],
+        OLLAMA_EMBEDDING_MODEL="nomic-embed-text:latest",
+    )
+
+    assert configured.OLLAMA_EMBEDDING_MODEL == "nomic-embed-text:latest"
+
+    with pytest.raises(ValidationError):
+        Settings(
+            _env_file=None,
+            OLLAMA_LOCAL_MODEL_ALLOWLIST=["nomic-embed-text:latest"],
+            OLLAMA_EMBEDDING_MODEL="unapproved:latest",
+        )
 
 
 @pytest.mark.parametrize(

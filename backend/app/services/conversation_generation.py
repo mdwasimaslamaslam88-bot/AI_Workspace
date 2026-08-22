@@ -17,6 +17,7 @@ from app.ai.generation import (
     TextGenerationRuntimeUnavailableError,
     TextGenerationRuntimeUnsupportedError,
 )
+from app.documents.embedding import EmbeddingRuntime
 from app.models.message import (
     Message,
     MessageContentTooLargeError,
@@ -26,6 +27,7 @@ from app.models.message import (
 from app.repositories.message import GenerationContextMessage
 from app.services.conversation import ConversationService
 from app.services.document import (
+    DocumentRetrievalUnavailableError,
     DocumentService,
     RetrievedDocumentChunk,
 )
@@ -98,6 +100,7 @@ class ConversationGenerationService:
         *,
         storage: AssetStorage | None = None,
         document_admission: asyncio.Semaphore | None = None,
+        document_embedding_runtime: EmbeddingRuntime | None = None,
         memory_enabled: bool = False,
     ) -> None:
         self.session = session
@@ -106,6 +109,7 @@ class ConversationGenerationService:
         self.admission_controller = admission_controller
         self.max_duration_seconds = max_duration_seconds
         self.document_admission = document_admission
+        self.document_embedding_runtime = document_embedding_runtime
         self.memory_enabled = memory_enabled
         self.storage = storage
 
@@ -421,11 +425,25 @@ class ConversationGenerationService:
                 )
             retrieved_chunks: tuple[RetrievedDocumentChunk, ...] = ()
             if self.document_admission is not None:
-                retrieved_chunks = await DocumentService(
-                    self.session,
-                    self.storage,
-                    self.document_admission,
-                ).search_for_owner(owner_id, snapshot[-1].content)
+                try:
+                    retrieved_chunks = await DocumentService(
+                        self.session,
+                        self.storage,
+                        self.document_admission,
+                        **(
+                            {
+                                "embedding_runtime": (
+                                    self.document_embedding_runtime
+                                )
+                            }
+                            if self.document_embedding_runtime is not None
+                            else {}
+                        ),
+                    ).search_for_owner(owner_id, snapshot[-1].content)
+                except DocumentRetrievalUnavailableError as exc:
+                    raise TextGenerationRuntimeUnavailableError(
+                        "local text generation is unavailable"
+                    ) from exc
 
             retrieved_memories: tuple[RetrievedMemory, ...] = ()
             if self.memory_enabled:

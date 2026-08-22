@@ -364,16 +364,33 @@ async def test_migration_creates_exact_expected_postgresql_schema(
     chunk_checks = _checks_by_name(snapshot["document_chunk_checks"])
     assert set(chunk_checks) == {
         "ck_document_chunks_content_length_bounded",
-        "ck_document_chunks_embedding_dimensions_fixed",
+        "ck_document_chunks_embedding_bytes_consistent",
+        "ck_document_chunks_embedding_dimensions_bounded",
+        "ck_document_chunks_embedding_model_safe",
         "ck_document_chunks_embedding_norm_positive",
         "ck_document_chunks_ordinal_positive",
         "ck_document_chunks_page_number_positive",
         "ck_document_chunks_row_range_valid",
         "ck_document_chunks_row_start_positive",
     }
-    assert "octet_length(embedding) = 1024" in chunk_checks[
-        "ck_document_chunks_embedding_dimensions_fixed"
+    dimensions_check = chunk_checks[
+        "ck_document_chunks_embedding_dimensions_bounded"
     ]
+    assert "embedding_dimensions >= 1" in dimensions_check
+    assert "embedding_dimensions <= 4096" in dimensions_check
+    embedding_bytes_check = chunk_checks[
+        "ck_document_chunks_embedding_bytes_consistent"
+    ]
+    assert "octet_length(embedding)" in embedding_bytes_check
+    assert "embedding_dimensions * 4" in embedding_bytes_check
+    assert "embedding_model" in chunk_checks[
+        "ck_document_chunks_embedding_model_safe"
+    ]
+    chunk_columns = _columns_by_name(snapshot, "document_chunks")
+    assert isinstance(chunk_columns["embedding_model"]["type"], sa.String)
+    assert chunk_columns["embedding_model"]["nullable"] is False
+    assert isinstance(chunk_columns["embedding_dimensions"]["type"], sa.Integer)
+    assert chunk_columns["embedding_dimensions"]["nullable"] is False
     chunk_unique = next(
         item
         for item in snapshot["document_chunk_uniques"]

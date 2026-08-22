@@ -71,6 +71,15 @@ joins and filters the chunk, document, and asset owner independently and
 excludes deleted Assets. Citations reference immutable chunk identities and
 render deleted sources as content-free tombstones.
 
+Alembic revision `0009_document_embedding_models` preserves existing document
+chunks as `local-hash-v1` with 256 dimensions, then adds explicit embedding
+model identity and dimensions. Database checks bind each vector byte length to
+its declared dimension count, bound dimensions to 1 through 4,096, require a
+safe model identifier, and retain the positive-norm invariant. This permits
+future local embedding upgrades without changing document, citation, API, or
+frontend identities. Downgrade refuses to discard model metadata while any
+non-legacy vector remains.
+
 Alembic revision `0006_personal_memory` follows document intelligence and
 adds owner-scoped `memory_settings` and `memories`. Active memory rows require
 bounded nonblank content and a fixed-size positive embedding. Forgotten rows
