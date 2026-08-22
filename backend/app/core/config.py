@@ -39,6 +39,7 @@ _SOURCE_DECODED_STRICT_INTEGER_FIELDS = frozenset(
         "OLLAMA_CATALOG_MAX_LIST_MODELS",
         "OLLAMA_GENERATION_MAX_REQUEST_BYTES",
         "OLLAMA_GENERATION_MAX_RESPONSE_BYTES",
+        "OLLAMA_KEEP_ALIVE_SECONDS",
         "GENERATION_MAX_ACTIVE_PER_PROCESS",
         "DOCUMENT_INGESTION_MAX_ACTIVE_PER_PROCESS",
         "REQUEST_MAX_BODY_BYTES",
@@ -182,6 +183,12 @@ class Settings(BaseSettings):
         strict=True,
         ge=1,
         le=MAX_OLLAMA_GENERATION_RESPONSE_BYTES,
+    )
+    OLLAMA_KEEP_ALIVE_SECONDS: int = Field(
+        default=0,
+        strict=True,
+        ge=0,
+        le=3600,
     )
     GENERATION_MAX_ACTIVE_PER_PROCESS: int = Field(
         default=1,

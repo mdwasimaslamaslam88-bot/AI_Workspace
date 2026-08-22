@@ -197,6 +197,49 @@ def _model_list_response_json_size(
             _json_string_size(item.availability.value, maximum - size),
             maximum,
         )
+        size = _checked_add(size, len(b',"scale_class":'), maximum)
+        if item.scale_class is None:
+            size = _checked_add(size, 4, maximum)
+        else:
+            size = _checked_add(
+                size,
+                _json_string_size(item.scale_class.value, maximum - size),
+                maximum,
+            )
+        for field_name, value in (
+            (b',"required_vram_bytes":', item.required_vram_bytes),
+            (b',"required_ram_bytes":', item.required_ram_bytes),
+        ):
+            size = _checked_add(size, len(field_name), maximum)
+            size = _checked_add(
+                size,
+                4
+                if value is None
+                else _integer_json_size(value, maximum - size),
+                maximum,
+            )
+        size = _checked_add(size, len(b',"installed":'), maximum)
+        size = _checked_add(size, 4 if item.installed else 5, maximum)
+        size = _checked_add(size, len(b',"runnable_now":'), maximum)
+        size = _checked_add(size, 4 if item.runnable_now else 5, maximum)
+        size = _checked_add(size, len(b',"hardware_class":'), maximum)
+        if item.hardware_class is None:
+            size = _checked_add(size, 4, maximum)
+        else:
+            size = _checked_add(
+                size,
+                _json_string_size(item.hardware_class.value, maximum - size),
+                maximum,
+            )
+        size = _checked_add(size, len(b',"fallback_model_id":'), maximum)
+        if item.fallback_model_id is None:
+            size = _checked_add(size, 4, maximum)
+        else:
+            size = _checked_add(
+                size,
+                _json_string_size(item.fallback_model_id, maximum - size),
+                maximum,
+            )
         size = _checked_add(size, 1, maximum)
 
     return _checked_add(size, len(b']}'), maximum)
@@ -247,11 +290,13 @@ async def list_product_capabilities(
 
     text_model_available = any(
         model.availability is ModelAvailability.AVAILABLE
+        and model.runnable_now
         and ModelCapability.TEXT_GENERATION in model.capabilities
         for model in models
     )
     vision_model_available = any(
         model.availability is ModelAvailability.AVAILABLE
+        and model.runnable_now
         and ModelCapability.TEXT_GENERATION in model.capabilities
         and ModelCapability.VISION_INPUT in model.capabilities
         for model in models
@@ -352,6 +397,13 @@ async def list_local_models(
                 quantization=model.quantization,
                 estimated_vram_bytes=model.estimated_vram_bytes,
                 availability=model.availability,
+                scale_class=model.scale_class,
+                required_vram_bytes=model.required_vram_bytes,
+                required_ram_bytes=model.required_ram_bytes,
+                installed=model.installed,
+                runnable_now=model.runnable_now,
+                hardware_class=model.hardware_class,
+                fallback_model_id=model.fallback_model_id,
             )
             for model in models
         ]

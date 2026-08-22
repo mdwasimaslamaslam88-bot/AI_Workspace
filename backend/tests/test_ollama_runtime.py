@@ -4837,3 +4837,25 @@ async def test_ollama_generation_request_cancellation_closes_body_and_propagates
     assert transport.request_body is not None
     assert transport.request_body.closed is True
     assert transport.request_body._chunks == ()
+
+
+def test_ollama_configured_zero_keep_alive_bounds_model_residency():
+    runtime = OllamaTextGenerationRuntime(
+        object(),
+        10,
+        LOCAL_MODEL_ALLOWLIST,
+        keep_alive_seconds=0,
+    )
+
+    payload = runtime._generation_payload(
+        LOCAL_MODEL_REFERENCE,
+        (
+            TextGenerationMessage(
+                role=TextGenerationRole.USER,
+                content="bounded residency",
+            ),
+        ),
+        max_output_tokens=16,
+    )
+
+    assert payload["keep_alive"] == 0

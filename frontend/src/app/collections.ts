@@ -9,6 +9,8 @@ export function selectableTextModels(models: LocalModel[]): LocalModel[] {
     (model) =>
       model.modality === "text" &&
       model.availability === "available" &&
+      model.installed &&
+      model.runnable_now &&
       model.capabilities.includes("text_generation"),
   );
 }

@@ -229,7 +229,11 @@ async def test_malformed_or_comma_ambiguous_content_length_is_safe_400(value):
     payload = _assert_safe_error(sent, 400, "Invalid request headers")
     assert downstream_called is False
     assert receive_calls == 0
-    response_text = json.dumps(payload)
+    # A server-generated ISO timestamp can coincidentally contain short
+    # numeric header fragments; only reflected response fields are relevant.
+    response_text = json.dumps(
+        {key: item for key, item in payload.items() if key != "timestamp"}
+    )
     if value:
         assert value.decode(errors="ignore") not in response_text
     assert "secret body" not in response_text

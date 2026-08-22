@@ -446,7 +446,10 @@ class ConversationGenerationService:
                 raise ConversationGenerationModelNotFoundError(
                     "model is not present in the local catalog"
                 )
-            if model.descriptor.availability is ModelAvailability.UNAVAILABLE:
+            if (
+                model.descriptor.availability is not ModelAvailability.AVAILABLE
+                or not model.descriptor.runnable_now
+            ):
                 raise ConversationGenerationModelUnavailableError(
                     "model is not currently available"
                 )

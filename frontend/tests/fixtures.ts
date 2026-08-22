@@ -27,6 +27,13 @@ export const model: LocalModel = {
   quantization: "Q4",
   estimated_vram_bytes: null,
   availability: "available",
+  scale_class: "7b_8b",
+  required_vram_bytes: 7_000_000_000,
+  required_ram_bytes: 8_000_000_000,
+  installed: true,
+  runnable_now: true,
+  hardware_class: "gpu_8_to_15gb",
+  fallback_model_id: null,
 };
 
 export const visionModel: LocalModel = {

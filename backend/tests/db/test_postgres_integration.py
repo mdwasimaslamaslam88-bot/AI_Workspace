@@ -2975,9 +2975,16 @@ async def test_authenticated_local_model_listing_is_database_read_only(
                 "capabilities": ["chat", "text_generation"],
                 "context_window": None,
                 "quantization": None,
-                "estimated_vram_bytes": None,
-                "availability": "available",
-            }
+                    "estimated_vram_bytes": None,
+                    "availability": "available",
+                    "scale_class": None,
+                    "required_vram_bytes": None,
+                    "required_ram_bytes": None,
+                    "installed": True,
+                    "runnable_now": True,
+                    "hardware_class": None,
+                    "fallback_model_id": None,
+                }
             assert model["model_id"].startswith("integration-local:")
             assert "/private/runtime/model:32b" not in authenticated.text
             assert runtime.discovery_calls == 1

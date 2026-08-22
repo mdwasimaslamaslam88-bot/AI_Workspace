@@ -5,7 +5,13 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from pydantic_core import PydanticCustomError
 
-from app.ai.catalog import ModelAvailability, ModelCapability, ModelModality
+from app.ai.catalog import (
+    ModelAvailability,
+    ModelCapability,
+    ModelModality,
+    ModelScaleClass,
+)
+from app.hardware import HardwareClass
 from app.schemas.message import MessageResponse
 
 
@@ -23,6 +29,13 @@ class LocalModelResponse(BaseModel):
     quantization: str | None
     estimated_vram_bytes: int | None
     availability: ModelAvailability
+    scale_class: ModelScaleClass | None
+    required_vram_bytes: int | None
+    required_ram_bytes: int | None
+    installed: bool
+    runnable_now: bool
+    hardware_class: HardwareClass | None
+    fallback_model_id: str | None
 
 
 class LocalModelPageResponse(BaseModel):

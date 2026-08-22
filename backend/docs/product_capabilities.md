@@ -8,8 +8,9 @@ runtime URLs, hardware identifiers, credentials, model references, private
 content, or exception text.
 
 The backend remains authoritative. Text chat and vision availability come from
-the bounded allowlisted local model catalog; vision also requires configured
-owned-asset storage. Attachments and document RAG require the same storage.
+the bounded allowlisted local model catalog and require a hardware-planned
+`runnable_now` model; vision also requires configured owned-asset storage.
+Attachments and document RAG require the same storage.
 Personal memory, the strict tool registry, and bounded workflows are implemented
 local product features. Model discovery begins only after the authentication
 read transaction is rolled back.

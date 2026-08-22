@@ -43,7 +43,20 @@ describe("ModelSelector", () => {
       model_id: "ollama-local:cccccccccccccccccccccccc",
       capabilities: ["embeddings" as const],
     };
-    expect(selectableTextModels([model, unavailable, embedding])).toEqual([model]);
+    const insufficientHardware = {
+      ...model,
+      model_id: "ollama-local:eeeeeeeeeeeeeeeeeeeeeeee",
+      runnable_now: false,
+      fallback_model_id: model.model_id,
+    };
+    expect(
+      selectableTextModels([
+        model,
+        unavailable,
+        embedding,
+        insufficientHardware,
+      ]),
+    ).toEqual([model]);
 
     render(
       <ModelSelector

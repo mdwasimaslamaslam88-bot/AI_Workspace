@@ -1,5 +1,5 @@
 from collections.abc import AsyncIterator, Callable, Mapping
-from dataclasses import replace
+from dataclasses import dataclass, replace
 import json
 import math
 import re
@@ -10,6 +10,7 @@ import httpx
 from app.ai.catalog import (
     ModelCapability,
     ModelRuntimeUnavailableError,
+    ModelScaleClass,
     RuntimeModel,
 )
 from app.ai.generation import (
@@ -265,18 +266,21 @@ class OllamaModelDiscoveryRuntime:
                 )
             discovered: list[RuntimeModel] = []
             for model in models:
+                detail = _parse_model_details(
+                    await _request_catalog_json(
+                        self.client,
+                        "POST",
+                        "/api/show",
+                        max_response_bytes=self.max_response_bytes,
+                        request_json={"model": model.reference},
+                    )
+                )
                 discovered.append(
                     replace(
                         model,
-                        capabilities=_parse_capabilities(
-                            await _request_catalog_json(
-                                self.client,
-                                "POST",
-                                "/api/show",
-                                max_response_bytes=self.max_response_bytes,
-                                request_json={"model": model.reference},
-                            )
-                        ),
+                        capabilities=detail.capabilities,
+                        context_window=detail.context_window,
+                        scale_class=detail.scale_class,
                     )
                 )
             return tuple(discovered)
@@ -299,6 +303,7 @@ class OllamaTextGenerationRuntime:
         *,
         max_request_bytes: int = 1_048_576,
         max_response_bytes: int = 262_144,
+        keep_alive_seconds: int | None = None,
     ) -> None:
         if isinstance(timeout_seconds, bool) or not isinstance(
             timeout_seconds, (int, float)
@@ -330,6 +335,12 @@ class OllamaTextGenerationRuntime:
                 "generation response cap must be between 1 and "
                 f"{MAX_OLLAMA_GENERATION_RESPONSE_BYTES}"
             )
+        if keep_alive_seconds is not None and (
+            isinstance(keep_alive_seconds, bool)
+            or not isinstance(keep_alive_seconds, int)
+            or not 0 <= keep_alive_seconds <= 3600
+        ):
+            raise ValueError("keep-alive seconds must be between 0 and 3600")
         self.client = client
         self.timeout_seconds = float(timeout_seconds)
         self.max_request_bytes = max_request_bytes
@@ -337,6 +348,7 @@ class OllamaTextGenerationRuntime:
         self.local_model_allowlist = _validated_local_model_allowlist(
             local_model_allowlist
         )
+        self.keep_alive_seconds = keep_alive_seconds
 
     def _generation_payload(
         self,
@@ -385,7 +397,7 @@ class OllamaTextGenerationRuntime:
             options["frequency_penalty"] = frequency_penalty
         if stop_sequences is not None:
             options["stop"] = stop_sequences
-        return {
+        payload: dict[str, Any] = {
             "model": runtime_reference,
             "messages": [
                 {
@@ -398,6 +410,11 @@ class OllamaTextGenerationRuntime:
             "stream": False,
             "options": options,
         }
+        if self.keep_alive_seconds is not None:
+            # Bound residency so sequential model choices swap instead of
+            # accumulating several large models on the GPU.
+            payload["keep_alive"] = self.keep_alive_seconds
+        return payload
 
     def preflight_text(
         self,
@@ -782,6 +799,17 @@ def _parse_inventory(
         family = _safe_optional_text(details.get("family"))
         parameter_class = _safe_optional_text(details.get("parameter_size"))
         quantization = _safe_optional_text(details.get("quantization_level"))
+        installed_size = _safe_positive_integer(item.get("size"))
+        required_vram_bytes = (
+            installed_size + max(1024**3, installed_size // 5)
+            if installed_size is not None
+            else None
+        )
+        required_ram_bytes = (
+            installed_size + max(2 * 1024**3, installed_size // 4)
+            if installed_size is not None
+            else None
+        )
         display_parts = [part for part in (family, parameter_class) if part]
         display_name = " ".join(display_parts) or "Local text model"
         if (
@@ -797,6 +825,10 @@ def _parse_inventory(
                 family=family,
                 parameter_class=parameter_class,
                 quantization=quantization,
+                estimated_vram_bytes=required_vram_bytes,
+                required_vram_bytes=required_vram_bytes,
+                required_ram_bytes=required_ram_bytes,
+                supports_multi_gpu=True,
             )
         )
     if list_limit_exceeded:
@@ -806,7 +838,14 @@ def _parse_inventory(
     return tuple(parsed)
 
 
-def _parse_capabilities(payload: Any) -> tuple[ModelCapability, ...]:
+@dataclass(frozen=True, slots=True)
+class _OllamaModelDetails:
+    capabilities: tuple[ModelCapability, ...]
+    context_window: int | None
+    scale_class: ModelScaleClass | None
+
+
+def _parse_model_details(payload: Any) -> _OllamaModelDetails:
     if not isinstance(payload, Mapping):
         raise ModelRuntimeUnavailableError(
             "local model runtime returned invalid model details"
@@ -825,7 +864,7 @@ def _parse_capabilities(payload: Any) -> tuple[ModelCapability, ...]:
         "embedding": ModelCapability.EMBEDDINGS,
         "tools": ModelCapability.TOOL_CALLING,
     }
-    return tuple(
+    parsed_capabilities = tuple(
         sorted(
             {
                 mapping[capability]
@@ -835,6 +874,56 @@ def _parse_capabilities(payload: Any) -> tuple[ModelCapability, ...]:
             key=lambda capability: capability.value,
         )
     )
+    model_info = payload.get("model_info")
+    context_window: int | None = None
+    parameter_count: int | None = None
+    if isinstance(model_info, Mapping):
+        context_values = {
+            value
+            for key, value in model_info.items()
+            if isinstance(key, str)
+            and key.endswith(".context_length")
+            and _safe_positive_integer(value) is not None
+        }
+        if len(context_values) == 1:
+            context_window = next(iter(context_values))
+        parameter_count = _safe_positive_integer(
+            model_info.get("general.parameter_count")
+        )
+    return _OllamaModelDetails(
+        capabilities=parsed_capabilities,
+        context_window=context_window,
+        scale_class=_scale_class(parameter_count),
+    )
+
+
+def _parse_capabilities(payload: Any) -> tuple[ModelCapability, ...]:
+    return _parse_model_details(payload).capabilities
+
+
+def _scale_class(parameter_count: int | None) -> ModelScaleClass | None:
+    if parameter_count is None:
+        return None
+    billions = parameter_count / 1_000_000_000
+    if 6 <= billions <= 10:
+        return ModelScaleClass.SEVEN_TO_EIGHT_B
+    if 10 < billions <= 20:
+        return ModelScaleClass.FOURTEEN_B
+    if 20 < billions <= 45:
+        return ModelScaleClass.THIRTY_TO_THIRTY_FOUR_B
+    if 45 < billions <= 90:
+        return ModelScaleClass.SEVENTY_B
+    if 90 < billions < 200:
+        return ModelScaleClass.HUNDRED_B_PLUS
+    if billions >= 200:
+        return ModelScaleClass.TWO_HUNDRED_B_PLUS
+    return None
+
+
+def _safe_positive_integer(value: Any) -> int | None:
+    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+        return None
+    return value
 
 
 def _safe_optional_text(value: Any) -> str | None:

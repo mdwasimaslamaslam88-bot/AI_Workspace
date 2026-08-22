@@ -17,6 +17,7 @@ from app.ai.catalog import (
     ModelDescriptor,
     ModelModality,
     ModelRuntimeUnavailableError,
+    ModelScaleClass,
     RuntimeModel,
 )
 from app.api.dependencies import get_current_user
@@ -244,6 +245,9 @@ def test_authenticated_model_listing_returns_exact_safe_normalized_metadata(
                 quantization="Q4_K_M",
                 estimated_vram_bytes=48_000_000_000,
                 availability=ModelAvailability.AVAILABLE,
+                scale_class=ModelScaleClass.SEVENTY_B,
+                required_vram_bytes=48_000_000_000,
+                required_ram_bytes=56_000_000_000,
             ),
         )
     )
@@ -270,6 +274,13 @@ def test_authenticated_model_listing_returns_exact_safe_normalized_metadata(
         "quantization",
         "estimated_vram_bytes",
         "availability",
+        "scale_class",
+        "required_vram_bytes",
+        "required_ram_bytes",
+        "installed",
+        "runnable_now",
+        "hardware_class",
+        "fallback_model_id",
     }
     assert first == {
         "model_id": first["model_id"],
@@ -287,6 +298,13 @@ def test_authenticated_model_listing_returns_exact_safe_normalized_metadata(
         "quantization": "Q4_K_M",
         "estimated_vram_bytes": 48_000_000_000,
         "availability": ModelAvailability.AVAILABLE.value,
+        "scale_class": ModelScaleClass.SEVENTY_B.value,
+        "required_vram_bytes": 48_000_000_000,
+        "required_ram_bytes": 56_000_000_000,
+        "installed": True,
+        "runnable_now": True,
+        "hardware_class": None,
+        "fallback_model_id": None,
     }
     assert first["model_id"].startswith("local-runtime:")
     assert raw_reference not in response.text
@@ -387,8 +405,13 @@ def test_model_listing_cap_plus_one_returns_redacted_generic_503(
     }
     assert private_marker not in response.text
     assert "PrivateFamily" not in response.text
-    assert str(successful_size) not in response.text
-    assert str(successful_size - 1) not in response.text
+    reflected_fields = {
+        key: value
+        for key, value in response.json().items()
+        if key != "timestamp"
+    }
+    assert str(successful_size) not in str(reflected_fields)
+    assert str(successful_size - 1) not in str(reflected_fields)
     assert models[0].model_id not in response.text
 
 

@@ -54,13 +54,19 @@ Each discovered model is represented by safe, normalized metadata:
 - `modality`;
 - nullable `family` and `parameter_class`;
 - normalized `capabilities`;
-- nullable `context_window`, `quantization`, and `estimated_vram_bytes`;
-- `availability`.
+- nullable `context_window`, `quantization`, `estimated_vram_bytes`,
+  `required_vram_bytes`, and `required_ram_bytes`;
+- `availability`, `installed`, and the hardware-planned `runnable_now`;
+- nullable normalized `scale_class`, `hardware_class`, and
+  `fallback_model_id`.
 
 The public identifier is derived from—but does not expose—the runtime's opaque
 model reference. Runtime URLs, raw tags/references, local filesystem paths,
 hardware identifiers, and credentials are never included in the response.
 Unknown metadata remains `null` instead of being inferred from a model name.
+Ollama parameter scale and context are derived only from numeric `/api/show`
+metadata. Runtime memory estimates are conservative functions of the installed
+artifact size; they are estimates, never a promise that an unknown model fits.
 
 Ollama discovery uses `GET /api/tags` only for installed-model inventory. The
 complete bounded inventory is parsed before detail fan-out. The exact local-model
@@ -178,10 +184,19 @@ continues in reverse acquisition order even when an earlier closer fails.
 Readiness remains a request-time status probe; lifespan ownership does not add
 an Ollama startup probe or change the existing availability policy.
 
-Parameter classes such as 7B, 14B, 32B, and 70B+ are descriptive metadata, not
-application routing branches. Future generation requests can select the public
-`model_id`; the catalog can then resolve the appropriate local adapter without
-changing User, Conversation, or Message persistence.
+Scale classes cover 7B/8B, 14B, 30B–34B, 70B, 100B+, 200B+, and MoE/very-large
+models as runtime-neutral metadata, not application routing branches. Each
+application start detects total RAM and per-GPU VRAM capacity without retaining
+device identifiers. The planner reserves operating-system/display headroom,
+fails closed when requirements are unknown, marks oversized installed models
+`runnable_now=false`, and attaches the smallest compatible text fallback when
+one exists. Multi-GPU capacity is aggregated only when the runtime adapter
+explicitly declares placement support; otherwise the largest single GPU remains
+the safe bound. Generation repeats the runnable check before runtime dispatch, so a
+catalog change cannot bypass admission. Replacing or adding GPUs therefore
+requires only a process restart and runtime/model inventory refresh; User,
+Conversation, Message, RAG, memory, tool, workflow, API, and frontend persistence
+remain unchanged.
 
 This endpoint performs inventory discovery only. It does not generate text,
 stream output, load or download models, pull tags, start jobs, choose a global
@@ -415,11 +430,13 @@ request committed an optional user Message before inference, that Message
 remains committed and a generation-only retry is available. Admission release
 and stale-generation authority remain unchanged.
 
-Generation may cause Ollama to load the selected model into memory. The
-application does not override `keep_alive`, so Ollama's configured keep-alive
-policy applies; Ollama's default is to retain a loaded model for five minutes.
-The application does not pull or download models and exposes no preload,
-unload, or global model-selection endpoint.
+Generation may cause Ollama to load the selected model into memory. Configure
+`OLLAMA_KEEP_ALIVE_SECONDS` from 0 through 3600; the default is 0, which asks
+Ollama to unload after each completed request so sequential model choices do not
+accumulate VRAM. A deployment with larger detected capacity may explicitly
+raise both this residency value and bounded generation concurrency. The
+application does not pull or download models and exposes no preload, unload, or
+global model-selection endpoint.
 
 Generation admission is fail-fast and process-local. Configure
 `GENERATION_MAX_ACTIVE_PER_PROCESS` as a strict integer from 1 through 8; the

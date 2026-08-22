@@ -195,8 +195,25 @@ export interface WorkflowCreateRequest {
   steps: WorkflowStepCreateRequest[];
 }
 
-export type ModelModality = "text";
+export type ModelModality = "text" | "image" | "audio" | "multimodal";
 export type ModelAvailability = "available" | "unavailable" | "unknown";
+export type ModelScaleClass =
+  | "7b_8b"
+  | "14b"
+  | "30b_34b"
+  | "70b"
+  | "100b_plus"
+  | "200b_plus"
+  | "moe_very_large";
+export type HardwareClass =
+  | "cpu_only"
+  | "gpu_under_8gb"
+  | "gpu_8_to_15gb"
+  | "gpu_16_to_23gb"
+  | "gpu_24_to_47gb"
+  | "gpu_48_to_79gb"
+  | "gpu_80gb_plus"
+  | "multi_gpu";
 export type ModelCapability =
   | "text_generation"
   | "chat"
@@ -205,7 +222,11 @@ export type ModelCapability =
   | "tool_calling"
   | "structured_output"
   | "vision_input"
-  | "embeddings";
+  | "embeddings"
+  | "image_generation"
+  | "image_editing"
+  | "speech_recognition"
+  | "speech_synthesis";
 
 export interface CurrentUser {
   id: UUID;
@@ -225,6 +246,13 @@ export interface LocalModel {
   quantization: string | null;
   estimated_vram_bytes: number | null;
   availability: ModelAvailability;
+  scale_class: ModelScaleClass | null;
+  required_vram_bytes: number | null;
+  required_ram_bytes: number | null;
+  installed: boolean;
+  runnable_now: boolean;
+  hardware_class: HardwareClass | null;
+  fallback_model_id: string | null;
 }
 
 export interface LocalModelPage {
@@ -370,6 +398,11 @@ function integerOrNull(value: unknown): number | null {
   return value as number;
 }
 
+function booleanField(value: unknown): boolean {
+  if (typeof value !== "boolean") return invalidResponse();
+  return value;
+}
+
 function enumField<T extends string>(value: unknown, values: readonly T[]): T {
   if (typeof value !== "string" || !values.includes(value as T)) {
     return invalidResponse();
@@ -387,8 +420,31 @@ const modelCapabilities = [
   "structured_output",
   "vision_input",
   "embeddings",
+  "image_generation",
+  "image_editing",
+  "speech_recognition",
+  "speech_synthesis",
 ] as const;
 const modelAvailabilities = ["available", "unavailable", "unknown"] as const;
+const modelScaleClasses = [
+  "7b_8b",
+  "14b",
+  "30b_34b",
+  "70b",
+  "100b_plus",
+  "200b_plus",
+  "moe_very_large",
+] as const;
+const hardwareClasses = [
+  "cpu_only",
+  "gpu_under_8gb",
+  "gpu_8_to_15gb",
+  "gpu_16_to_23gb",
+  "gpu_24_to_47gb",
+  "gpu_48_to_79gb",
+  "gpu_80gb_plus",
+  "multi_gpu",
+] as const;
 const productCapabilityIds = [
   "chat",
   "vision_input",
@@ -428,7 +484,10 @@ export function parseModel(value: unknown): LocalModel {
     model_id: stringField(item.model_id),
     display_name: stringField(item.display_name),
     runtime_id: stringField(item.runtime_id),
-    modality: enumField(item.modality, ["text"] as const),
+    modality: enumField(
+      item.modality,
+      ["text", "image", "audio", "multimodal"] as const,
+    ),
     family: nullableString(item.family),
     parameter_class: nullableString(item.parameter_class),
     capabilities: item.capabilities.map((capability) =>
@@ -438,6 +497,19 @@ export function parseModel(value: unknown): LocalModel {
     quantization: nullableString(item.quantization),
     estimated_vram_bytes: integerOrNull(item.estimated_vram_bytes),
     availability: enumField(item.availability, modelAvailabilities),
+    scale_class:
+      item.scale_class === null
+        ? null
+        : enumField(item.scale_class, modelScaleClasses),
+    required_vram_bytes: integerOrNull(item.required_vram_bytes),
+    required_ram_bytes: integerOrNull(item.required_ram_bytes),
+    installed: booleanField(item.installed),
+    runnable_now: booleanField(item.runnable_now),
+    hardware_class:
+      item.hardware_class === null
+        ? null
+        : enumField(item.hardware_class, hardwareClasses),
+    fallback_model_id: nullableString(item.fallback_model_id),
   };
 }
 

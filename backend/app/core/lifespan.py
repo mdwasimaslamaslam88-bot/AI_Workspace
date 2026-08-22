@@ -11,6 +11,7 @@ from app.clients.postgres import create_postgres_engine, dispose_postgres
 from app.clients.redis import close_redis, create_redis_client
 from app.core.config import settings
 from app.db.session import create_session_factory
+from app.hardware import detect_hardware
 from app.runtimes.ollama import (
     OllamaModelDiscoveryRuntime,
     OllamaTextGenerationRuntime,
@@ -25,6 +26,8 @@ from app.storage.local import LocalAssetStorage
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     async with AsyncExitStack() as resource_stack:
+        hardware_inventory = await asyncio.to_thread(detect_hardware)
+        app.state.hardware_inventory = hardware_inventory
         postgres_engine = create_postgres_engine(settings)
         resource_stack.push_async_callback(
             dispose_postgres,
@@ -98,6 +101,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             max_list_discovery_seconds=(
                 settings.MODEL_LIST_MAX_DISCOVERY_SECONDS
             ),
+            hardware_inventory=hardware_inventory,
         )
         app.state.text_generation_router = TextGenerationRouter(
             (
@@ -111,6 +115,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                     max_response_bytes=(
                         settings.OLLAMA_GENERATION_MAX_RESPONSE_BYTES
                     ),
+                    keep_alive_seconds=settings.OLLAMA_KEEP_ALIVE_SECONDS,
                 ),
             )
             if ollama_client is not None

@@ -10,6 +10,7 @@ import re
 from typing import Protocol, runtime_checkable
 
 from app.core.config import MAX_MODEL_LIST_DISCOVERY_SECONDS
+from app.hardware.planner import HardwareClass, HardwareInventory, HardwarePlanner
 
 
 _RUNTIME_ID_PATTERN = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
@@ -21,6 +22,9 @@ _PUBLIC_METADATA_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ +()-]{0,254}$")
 
 class ModelModality(StrEnum):
     TEXT = "text"
+    IMAGE = "image"
+    AUDIO = "audio"
+    MULTIMODAL = "multimodal"
 
 
 class ModelCapability(StrEnum):
@@ -32,6 +36,20 @@ class ModelCapability(StrEnum):
     STRUCTURED_OUTPUT = "structured_output"
     VISION_INPUT = "vision_input"
     EMBEDDINGS = "embeddings"
+    IMAGE_GENERATION = "image_generation"
+    IMAGE_EDITING = "image_editing"
+    SPEECH_RECOGNITION = "speech_recognition"
+    SPEECH_SYNTHESIS = "speech_synthesis"
+
+
+class ModelScaleClass(StrEnum):
+    SEVEN_TO_EIGHT_B = "7b_8b"
+    FOURTEEN_B = "14b"
+    THIRTY_TO_THIRTY_FOUR_B = "30b_34b"
+    SEVENTY_B = "70b"
+    HUNDRED_B_PLUS = "100b_plus"
+    TWO_HUNDRED_B_PLUS = "200b_plus"
+    MOE_VERY_LARGE = "moe_very_large"
 
 
 class ModelAvailability(StrEnum):
@@ -86,6 +104,11 @@ class RuntimeModel:
     quantization: str | None = None
     estimated_vram_bytes: int | None = None
     availability: ModelAvailability = ModelAvailability.AVAILABLE
+    scale_class: ModelScaleClass | None = None
+    required_vram_bytes: int | None = None
+    required_ram_bytes: int | None = None
+    installed: bool = True
+    supports_multi_gpu: bool = False
 
     def __post_init__(self) -> None:
         if not isinstance(self.reference, str):
@@ -102,6 +125,14 @@ class RuntimeModel:
             raise TypeError("model modality must be a ModelModality")
         if not isinstance(self.availability, ModelAvailability):
             raise TypeError("model availability must be a ModelAvailability")
+        if self.scale_class is not None and not isinstance(
+            self.scale_class, ModelScaleClass
+        ):
+            raise TypeError("model scale_class must be a ModelScaleClass or None")
+        if not isinstance(self.installed, bool):
+            raise TypeError("model installed must be a boolean")
+        if not isinstance(self.supports_multi_gpu, bool):
+            raise TypeError("model supports_multi_gpu must be a boolean")
         _optional_text(self.family, "model family")
         _optional_text(self.parameter_class, "model parameter_class")
         _optional_text(self.quantization, "model quantization")
@@ -119,6 +150,16 @@ class RuntimeModel:
             raise ValueError(
                 "model estimated_vram_bytes must be a positive integer"
             )
+        for field_name, value in (
+            ("required_vram_bytes", self.required_vram_bytes),
+            ("required_ram_bytes", self.required_ram_bytes),
+        ):
+            if value is not None and (
+                isinstance(value, bool)
+                or not isinstance(value, int)
+                or value < 1
+            ):
+                raise ValueError(f"model {field_name} must be a positive integer")
         object.__setattr__(
             self,
             "capabilities",
@@ -139,6 +180,14 @@ class ModelDescriptor:
     quantization: str | None
     estimated_vram_bytes: int | None
     availability: ModelAvailability
+    scale_class: ModelScaleClass | None = None
+    required_vram_bytes: int | None = None
+    required_ram_bytes: int | None = None
+    installed: bool = True
+    runnable_now: bool = True
+    hardware_class: HardwareClass | None = None
+    fallback_model_id: str | None = None
+    supports_multi_gpu: bool = False
 
     def __post_init__(self) -> None:
         if not isinstance(self.model_id, str) or not _PUBLIC_MODEL_ID_PATTERN.fullmatch(
@@ -162,9 +211,22 @@ class ModelDescriptor:
             quantization=self.quantization,
             estimated_vram_bytes=self.estimated_vram_bytes,
             availability=self.availability,
+            scale_class=self.scale_class,
+            required_vram_bytes=self.required_vram_bytes,
+            required_ram_bytes=self.required_ram_bytes,
+            installed=self.installed,
+            supports_multi_gpu=self.supports_multi_gpu,
         )
-
-
+        if not isinstance(self.runnable_now, bool):
+            raise TypeError("model runnable_now must be a boolean")
+        if self.hardware_class is not None and not isinstance(
+            self.hardware_class, HardwareClass
+        ):
+            raise TypeError("model hardware_class must be a HardwareClass or None")
+        if self.fallback_model_id is not None and not _PUBLIC_MODEL_ID_PATTERN.fullmatch(
+            self.fallback_model_id
+        ):
+            raise ValueError("model fallback_model_id must be a public model ID or None")
         object.__setattr__(self, "capabilities", validated.capabilities)
 
 
@@ -208,6 +270,7 @@ class ModelCatalog:
         runtimes: tuple[ModelDiscoveryRuntime, ...] = (),
         *,
         max_list_discovery_seconds: float = 60.0,
+        hardware_inventory: HardwareInventory | None = None,
     ) -> None:
         if isinstance(max_list_discovery_seconds, bool) or not isinstance(
             max_list_discovery_seconds,
@@ -238,6 +301,11 @@ class ModelCatalog:
                 raise ValueError(f"duplicate runtime_id: {runtime_id}")
             runtime_ids.add(runtime_id)
         self.runtimes = runtimes
+        self.hardware_planner = (
+            HardwarePlanner(hardware_inventory)
+            if hardware_inventory is not None
+            else None
+        )
         self.max_list_discovery_seconds = float(
             max_list_discovery_seconds
         )
@@ -259,11 +327,43 @@ class ModelCatalog:
                 if model_id in resolved:
                     raise ValueError(f"duplicate public model_id: {model_id}")
                 resolved[model_id] = model
-        return tuple(
+        ordered = tuple(
             sorted(
                 (model.descriptor for model in resolved.values()),
                 key=lambda item: (item.display_name.casefold(), item.model_id),
             )
+        )
+        return self._attach_fallbacks(ordered)
+
+    @staticmethod
+    def _attach_fallbacks(
+        models: tuple[ModelDescriptor, ...],
+    ) -> tuple[ModelDescriptor, ...]:
+        from dataclasses import replace
+
+        runnable_text = sorted(
+            (
+                model
+                for model in models
+                if model.runnable_now
+                and ModelCapability.TEXT_GENERATION in model.capabilities
+            ),
+            key=lambda model: (
+                model.required_vram_bytes is None,
+                model.required_vram_bytes or 0,
+                model.model_id,
+            ),
+        )
+        if not runnable_text:
+            return models
+        fallback = runnable_text[0]
+        return tuple(
+            replace(model, fallback_model_id=fallback.model_id)
+            if not model.runnable_now
+            and ModelCapability.TEXT_GENERATION in model.capabilities
+            and model.model_id != fallback.model_id
+            else model
+            for model in models
         )
 
     async def _join_list_models_flight(self) -> _ListModelsFlight:
@@ -393,8 +493,8 @@ class ModelCatalog:
             resolved = model
         return resolved
 
-    @staticmethod
     async def _discover_runtime(
+        self,
         runtime: ModelDiscoveryRuntime,
         *,
         reference_selector: Callable[[str], bool] | None = None,
@@ -422,6 +522,19 @@ class ModelCatalog:
             if model_id in public_ids:
                 raise ValueError(f"duplicate public model_id: {model_id}")
             public_ids.add(model_id)
+            runnable_now = (
+                self.hardware_planner.runnable_now(
+                    installed=model.installed,
+                    required_vram_bytes=model.required_vram_bytes,
+                    required_ram_bytes=model.required_ram_bytes,
+                    supports_multi_gpu=model.supports_multi_gpu,
+                )
+                if self.hardware_planner is not None
+                else (
+                    model.installed
+                    and model.availability is ModelAvailability.AVAILABLE
+                )
+            )
             resolved.append(
                 ResolvedModel(
                     descriptor=ModelDescriptor(
@@ -436,6 +549,20 @@ class ModelCatalog:
                         quantization=model.quantization,
                         estimated_vram_bytes=model.estimated_vram_bytes,
                         availability=model.availability,
+                        scale_class=model.scale_class,
+                        required_vram_bytes=model.required_vram_bytes,
+                        required_ram_bytes=model.required_ram_bytes,
+                        installed=model.installed,
+                        runnable_now=runnable_now,
+                        supports_multi_gpu=model.supports_multi_gpu,
+                        hardware_class=(
+                            self.hardware_planner.required_hardware_class(
+                                model.required_vram_bytes,
+                                supports_multi_gpu=model.supports_multi_gpu,
+                            )
+                            if self.hardware_planner is not None
+                            else None
+                        ),
                     ),
                     runtime_reference=model.reference,
                 )
