@@ -11,7 +11,11 @@ import {
   type CurrentUser,
   type IndexedDocument,
   type LocalModelPage,
+  type MemoryCreateRequest,
+  type MemoryPage,
+  type MemorySetting,
   type MessagePage,
+  type PersonalMemory,
   parseIndexedDocument,
   parseAsset,
   parseConversation,
@@ -19,8 +23,11 @@ import {
   parseConversationPage,
   parseCurrentUser,
   parseGenerationResponse,
+  parseMemoryPage,
+  parseMemorySetting,
   parseMessagePage,
   parseModelPage,
+  parsePersonalMemory,
 } from "./contracts";
 
 export type ApiErrorKind =
@@ -127,7 +134,7 @@ interface ApiClientOptions {
 }
 
 interface RequestOptions<T> {
-  method?: "GET" | "POST";
+  method?: "GET" | "POST" | "PUT" | "DELETE";
   body?: unknown;
   signal?: AbortSignal;
   decode: JsonDecoder<T>;
@@ -254,6 +261,58 @@ export class ApiClient {
     return this.#request("api/v1/ai/models", {
       signal,
       decode: parseModelPage,
+    });
+  }
+
+  listMemories(
+    options: { includeDeleted?: boolean; signal?: AbortSignal } = {},
+  ): Promise<MemoryPage> {
+    const query = new URLSearchParams();
+    if (options.includeDeleted !== undefined) {
+      query.set("include_deleted", String(options.includeDeleted));
+    }
+    const suffix = query.size === 0 ? "" : `?${query.toString()}`;
+    return this.#request(`api/v1/memories${suffix}`, {
+      signal: options.signal,
+      decode: parseMemoryPage,
+    });
+  }
+
+  createMemory(
+    request: MemoryCreateRequest,
+    signal?: AbortSignal,
+  ): Promise<PersonalMemory> {
+    return this.#request("api/v1/memories", {
+      method: "POST",
+      body: request,
+      signal,
+      decode: parsePersonalMemory,
+    });
+  }
+
+  forgetMemory(memoryId: string, signal?: AbortSignal): Promise<PersonalMemory> {
+    return this.#request(
+      `api/v1/memories/${encodeURIComponent(memoryId)}`,
+      { method: "DELETE", signal, decode: parsePersonalMemory },
+    );
+  }
+
+  getMemorySetting(signal?: AbortSignal): Promise<MemorySetting> {
+    return this.#request("api/v1/memories/settings", {
+      signal,
+      decode: parseMemorySetting,
+    });
+  }
+
+  updateMemorySetting(
+    enabled: boolean,
+    signal?: AbortSignal,
+  ): Promise<MemorySetting> {
+    return this.#request("api/v1/memories/settings", {
+      method: "PUT",
+      body: { enabled },
+      signal,
+      decode: parseMemorySetting,
     });
   }
 

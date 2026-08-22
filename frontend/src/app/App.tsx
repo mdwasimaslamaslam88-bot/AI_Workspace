@@ -9,7 +9,10 @@ import type {
   CurrentUser,
   IndexedDocument,
   LocalModel,
+  MemoryCreateRequest,
+  MemorySetting,
   Message,
+  PersonalMemory,
 } from "../api/contracts";
 import {
   mergeConversations,
@@ -28,6 +31,7 @@ import {
 import { ConnectView } from "../features/auth/ConnectView";
 import { ChatView, type SafeNotice } from "../features/chat/ChatView";
 import { ConversationList } from "../features/conversations/ConversationList";
+import { MemoryPanel } from "../features/memory/MemoryPanel";
 import { ModelSelector } from "../features/models/ModelSelector";
 
 type AuthenticationStatus = "checking" | "anonymous" | "authenticated";
@@ -113,6 +117,7 @@ export function App() {
   const [messagesLoadingMore, setMessagesLoadingMore] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [chatNotice, setChatNotice] = useState<SafeNotice | null>(null);
+  const [memoryOpen, setMemoryOpen] = useState(false);
 
   const authAbort = useRef<AbortController | null>(null);
   const modelsAbort = useRef<AbortController | null>(null);
@@ -138,6 +143,7 @@ export function App() {
     setMessageCursor(null);
     setCreatingNew(false);
     setGenerating(false);
+    setMemoryOpen(false);
     setAuthenticationStatus("anonymous");
   }, []);
 
@@ -508,6 +514,59 @@ export function App() {
     [client],
   );
 
+  const loadMemory = useCallback(
+    async (signal?: AbortSignal): Promise<{
+      memories: PersonalMemory[];
+      setting: MemorySetting;
+    }> => {
+      if (client === null) {
+        throw new ApiError("authentication", "Authentication failed.");
+      }
+      const [page, setting] = await Promise.all([
+        client.listMemories({ includeDeleted: true, signal }),
+        client.getMemorySetting(signal),
+      ]);
+      return { memories: page.items, setting };
+    },
+    [client],
+  );
+
+  const createMemory = useCallback(
+    (request: MemoryCreateRequest, signal?: AbortSignal): Promise<PersonalMemory> => {
+      if (client === null) {
+        return Promise.reject(
+          new ApiError("authentication", "Authentication failed."),
+        );
+      }
+      return client.createMemory(request, signal);
+    },
+    [client],
+  );
+
+  const forgetMemory = useCallback(
+    (memoryId: string, signal?: AbortSignal): Promise<PersonalMemory> => {
+      if (client === null) {
+        return Promise.reject(
+          new ApiError("authentication", "Authentication failed."),
+        );
+      }
+      return client.forgetMemory(memoryId, signal);
+    },
+    [client],
+  );
+
+  const setMemoryEnabled = useCallback(
+    (enabled: boolean, signal?: AbortSignal): Promise<MemorySetting> => {
+      if (client === null) {
+        return Promise.reject(
+          new ApiError("authentication", "Authentication failed."),
+        );
+      }
+      return client.updateMemorySetting(enabled, signal);
+    },
+    [client],
+  );
+
   const downloadAttachment = useCallback(
     (assetId: string, signal?: AbortSignal): Promise<Blob> => {
       if (client === null) {
@@ -583,6 +642,15 @@ export function App() {
       />
       <section className="workspace-main">
         <header className="workspace-toolbar">
+          <button
+            type="button"
+            className="button button-secondary"
+            aria-expanded={memoryOpen}
+            aria-controls="personal-memory-panel"
+            onClick={() => setMemoryOpen((current) => !current)}
+          >
+            Memory
+          </button>
           <ModelSelector
             models={models}
             selectedModelId={selectedModelId}
@@ -593,6 +661,17 @@ export function App() {
             onReload={() => void reloadModels()}
           />
         </header>
+        {memoryOpen && (
+          <div id="personal-memory-panel">
+            <MemoryPanel
+              onClose={() => setMemoryOpen(false)}
+              onLoad={loadMemory}
+              onCreate={createMemory}
+              onForget={forgetMemory}
+              onSetEnabled={setMemoryEnabled}
+            />
+          </div>
+        )}
         <ChatView
           conversation={selectedConversation}
           creatingNew={creatingNew}

@@ -27,7 +27,16 @@ from app.ai.generation import (
 )
 from app.core.security import digest_access_token, generate_access_token
 from app.main import app
-from app.models import Asset, Conversation, Message, MessageAsset, MessageRole, User
+from app.models import (
+    Asset,
+    Conversation,
+    Memory,
+    MemoryCategory,
+    Message,
+    MessageAsset,
+    MessageRole,
+    User,
+)
 from app.models.message import (
     MAX_MESSAGE_CONTENT_CHARACTERS,
     MessageContentTooLargeError,
@@ -37,6 +46,7 @@ from app.repositories.message import MessagePagination
 from app.repositories.user import UserRepository
 from app.services.conversation import ConversationService
 from app.services.generation_admission import GenerationAdmissionController
+from app.services.memory import MemoryService
 from app.services.message import MessageService
 from app.services.user import UserService
 
@@ -135,10 +145,13 @@ def _inspect_schema(connection) -> dict:
         "document_foreign_keys": inspector.get_foreign_keys("documents"),
         "document_chunk_foreign_keys": inspector.get_foreign_keys("document_chunks"),
         "message_citation_foreign_keys": inspector.get_foreign_keys("message_citations"),
+        "memory_setting_foreign_keys": inspector.get_foreign_keys("memory_settings"),
+        "memory_foreign_keys": inspector.get_foreign_keys("memories"),
         "conversation_indexes": inspector.get_indexes("conversations"),
         "asset_indexes": inspector.get_indexes("assets"),
         "document_indexes": inspector.get_indexes("documents"),
         "document_chunk_indexes": inspector.get_indexes("document_chunks"),
+        "memory_indexes": inspector.get_indexes("memories"),
         "conversation_checks": inspector.get_check_constraints("conversations"),
         "message_checks": inspector.get_check_constraints("messages"),
         "asset_checks": inspector.get_check_constraints("assets"),
@@ -146,6 +159,7 @@ def _inspect_schema(connection) -> dict:
         "document_checks": inspector.get_check_constraints("documents"),
         "document_chunk_checks": inspector.get_check_constraints("document_chunks"),
         "message_citation_checks": inspector.get_check_constraints("message_citations"),
+        "memory_checks": inspector.get_check_constraints("memories"),
         "user_uniques": inspector.get_unique_constraints("users"),
         "message_uniques": inspector.get_unique_constraints("messages"),
         "asset_uniques": inspector.get_unique_constraints("assets"),
@@ -164,6 +178,8 @@ def _inspect_schema(connection) -> dict:
                 "documents",
                 "document_chunks",
                 "message_citations",
+                "memory_settings",
+                "memories",
             )
         },
     }
@@ -217,6 +233,8 @@ async def test_migration_creates_exact_expected_postgresql_schema(
         "documents",
         "document_chunks",
         "message_citations",
+        "memory_settings",
+        "memories",
     }
 
     owner_fk = _foreign_key(
@@ -371,6 +389,66 @@ async def test_migration_creates_exact_expected_postgresql_schema(
         "message_citation",
         "fk_message_citations_message_id_messages",
     )["options"]["ondelete"] == "CASCADE"
+
+    memory_checks = _checks_by_name(snapshot["memory_checks"])
+    assert set(memory_checks) == {
+        "ck_memories_active_content_embedding_consistent",
+        "ck_memories_category_allowed",
+        "ck_memories_content_bounded_non_blank",
+        "ck_memories_provenance_kind_allowed",
+    }
+    assert "octet_length(embedding) = 1024" in memory_checks[
+        "ck_memories_active_content_embedding_consistent"
+    ]
+    assert "content is null" in memory_checks[
+        "ck_memories_active_content_embedding_consistent"
+    ]
+    assert set(re.findall(r"'([^']+)'", memory_checks["ck_memories_category_allowed"])) == {
+        "preference",
+        "fact",
+        "instruction",
+        "project_context",
+    }
+    assert {
+        item["name"]
+        for item in snapshot["memory_indexes"]
+        if item.get("duplicates_constraint") is None
+    } == {"ix_memories_owner_category", "ix_memories_owner_updated_at"}
+    assert _foreign_key(
+        snapshot,
+        "memory_setting",
+        "fk_memory_settings_owner_id_users",
+    )["options"]["ondelete"] == "RESTRICT"
+    assert _foreign_key(
+        snapshot,
+        "memory",
+        "fk_memories_owner_id_users",
+    )["options"]["ondelete"] == "RESTRICT"
+
+    memory_settings = _columns_by_name(snapshot, "memory_settings")
+    assert set(memory_settings) == {"owner_id", "enabled", "created_at", "updated_at"}
+    _assert_required_uuid(memory_settings["owner_id"])
+    assert isinstance(memory_settings["enabled"]["type"], sa.Boolean)
+    assert memory_settings["enabled"]["nullable"] is False
+
+    memories = _columns_by_name(snapshot, "memories")
+    assert set(memories) == {
+        "id",
+        "owner_id",
+        "category",
+        "content",
+        "embedding",
+        "embedding_norm",
+        "provenance_kind",
+        "created_at",
+        "updated_at",
+        "deleted_at",
+    }
+    _assert_required_uuid(memories["id"])
+    _assert_required_uuid(memories["owner_id"])
+    assert isinstance(memories["content"]["type"], sa.Text)
+    assert memories["content"]["nullable"] is True
+    assert memories["embedding"]["nullable"] is True
 
     users = _columns_by_name(snapshot, "users")
     assert set(users) == {
@@ -4391,3 +4469,56 @@ async def test_generation_deadline_preserves_retry_and_releases_postgres_resourc
             delattr(app.state, "generation_max_duration_seconds")
         else:
             app.state.generation_max_duration_seconds = previous_duration
+
+
+@pytest.mark.asyncio
+async def test_personal_memory_is_owner_isolated_disableable_and_forgotten(
+    test_database_engine: AsyncEngine,
+):
+    async with AsyncSession(test_database_engine, expire_on_commit=False) as session:
+        owner = await UserService(session).create(User())
+        other = await UserService(session).create(User())
+        owner_id = owner.id
+        other_id = other.id
+        service = MemoryService(session)
+        owned = await service.create_for_owner(
+            owner_id,
+            MemoryCategory.PROJECT_CONTEXT,
+            "The Apollo project deadline is Friday.",
+        )
+        await service.create_for_owner(
+            other_id,
+            MemoryCategory.FACT,
+            "Foreign private memory.",
+        )
+
+        assert [item.id for item in await service.list_for_owner(owner_id)] == [
+            owned.id
+        ]
+        assert await service.forget_for_owner(other_id, owned.id) is None
+        retrieved = await service.retrieve_for_owner(
+            owner_id,
+            "When is the Apollo project deadline?",
+        )
+        assert [item.id for item in retrieved] == [owned.id]
+
+        disabled = await service.set_enabled_for_owner(owner_id, False)
+        assert disabled.enabled is False
+        assert await service.retrieve_for_owner(
+            owner_id,
+            "When is the Apollo project deadline?",
+        ) == ()
+
+        forgotten = await service.forget_for_owner(owner_id, owned.id)
+        assert forgotten is not None
+        assert forgotten.content is None
+        assert forgotten.deleted_at is not None
+
+    async with AsyncSession(test_database_engine) as verification_session:
+        stored = await verification_session.get(Memory, owned.id)
+        assert stored is not None
+        assert stored.owner_id == owner_id
+        assert stored.content is None
+        assert stored.embedding is None
+        assert stored.embedding_norm is None
+        assert stored.deleted_at is not None

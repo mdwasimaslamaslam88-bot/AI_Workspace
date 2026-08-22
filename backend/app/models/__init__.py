@@ -9,6 +9,7 @@ from app.models.document import Document, DocumentChunk, DocumentStatus
 from app.models.message import Message, MessageRole
 from app.models.message_asset import MessageAsset
 from app.models.message_citation import MessageCitation
+from app.models.memory import Memory, MemoryCategory, MemorySetting
 from app.models.user import User
 
 __all__ = [
@@ -20,6 +21,9 @@ __all__ = [
     "Message",
     "MessageAsset",
     "MessageCitation",
+    "Memory",
+    "MemoryCategory",
+    "MemorySetting",
     "MessageRole",
     "User",
 ]

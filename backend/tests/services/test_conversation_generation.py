@@ -21,6 +21,7 @@ from app.ai.generation import (
     TextGenerationRuntimeUnsupportedError,
 )
 from app.models import Conversation, Message, MessageRole
+from app.models.memory import MemoryCategory
 from app.models.message import (
     MAX_MESSAGE_CONTENT_CHARACTERS,
     MessageContentTooLargeError,
@@ -4056,4 +4057,71 @@ async def test_generation_injects_owner_rag_and_persists_exact_citations(
         "Friday",
         expected_sequence_number=2,
         citation_chunk_ids=(chunk_id,),
+    )
+
+
+@pytest.mark.asyncio
+async def test_generation_injects_explicit_memory_below_current_instructions(
+    monkeypatch,
+):
+    owner_id = uuid4()
+    conversation_id = uuid4()
+    user_message = _message(
+        conversation_id,
+        MessageRole.USER,
+        "Use detailed steps for this answer.",
+        1,
+    )
+    appended = _message(
+        conversation_id,
+        MessageRole.ASSISTANT,
+        "Detailed answer",
+        2,
+    )
+    dependencies = _dependencies(
+        monkeypatch,
+        conversation=_conversation(owner_id, conversation_id, 2),
+        context=(user_message,),
+        appended=appended,
+        generated=TextGenerationResult(content="Detailed answer"),
+    )
+    retrieved = generation_module.RetrievedMemory(
+        id=uuid4(),
+        category=MemoryCategory.INSTRUCTION,
+        content="Always use one short sentence.",
+        score=0.5,
+        created_at=datetime(2026, 8, 22, tzinfo=timezone.utc),
+    )
+    retrieve = AsyncMock(return_value=(retrieved,))
+    memory_factory = Mock(return_value=Mock(retrieve_for_owner=retrieve))
+    monkeypatch.setattr(generation_module, "MemoryService", memory_factory)
+    session = AsyncMock(spec=AsyncSession)
+
+    result = await ConversationGenerationService(
+        session,
+        dependencies["catalog"],
+        dependencies["router"],
+        dependencies["admission"],
+        memory_enabled=True,
+    ).generate_for_owner(owner_id, conversation_id, MODEL_ID)
+
+    assert result is appended
+    memory_factory.assert_called_once_with(session)
+    retrieve.assert_awaited_once_with(
+        owner_id,
+        "Use detailed steps for this answer.",
+    )
+    context = dependencies["router"].generate.await_args.args[1]
+    assert context[0].role.value == "system"
+    assert "explicitly saved" in context[0].content
+    assert "Current system and user instructions always override" in context[0].content
+    assert "Always use one short sentence." in context[0].content
+    assert context[-1].role.value == "user"
+    assert context[-1].content == "Use detailed steps for this answer."
+    dependencies["append"].assert_awaited_once_with(
+        owner_id,
+        conversation_id,
+        MessageRole.ASSISTANT,
+        "Detailed answer",
+        expected_sequence_number=2,
     )

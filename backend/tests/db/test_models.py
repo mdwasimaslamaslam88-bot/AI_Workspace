@@ -26,6 +26,8 @@ from app.models import (
     Message,
     MessageAsset,
     MessageCitation,
+    Memory,
+    MemorySetting,
     MessageRole,
     User,
 )
@@ -45,6 +47,8 @@ EXPECTED_TABLES = {
     "documents",
     "document_chunks",
     "message_citations",
+    "memory_settings",
+    "memories",
 }
 EXPECTED_MESSAGE_ROLES = ("system", "user", "assistant", "tool")
 
@@ -90,6 +94,8 @@ def test_model_registry_contains_only_the_approved_domain_tables():
     assert Document.__table__ is Base.metadata.tables["documents"]
     assert DocumentChunk.__table__ is Base.metadata.tables["document_chunks"]
     assert MessageCitation.__table__ is Base.metadata.tables["message_citations"]
+    assert MemorySetting.__table__ is Base.metadata.tables["memory_settings"]
+    assert Memory.__table__ is Base.metadata.tables["memories"]
 
 
 def test_user_has_uuid_primary_key_timestamps_and_access_credential_digest():

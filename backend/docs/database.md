@@ -71,6 +71,12 @@ joins and filters the chunk, document, and asset owner independently and
 excludes deleted Assets. Citations reference immutable chunk identities and
 render deleted sources as content-free tombstones.
 
+Alembic revision `0006_personal_memory` follows document intelligence and
+adds owner-scoped `memory_settings` and `memories`. Active memory rows require
+bounded nonblank content and a fixed-size positive embedding. Forgotten rows
+must have a timestamp and must contain no content or embedding. The database
+therefore enforces the same erasure state returned by the API.
+
 Public Message history pagination applies a separate 100,000-character
 cumulative page budget without changing the durable per-Message invariant.
 `MessageRepository.list_for_owner()` uses one owner-scoped SQL statement: a

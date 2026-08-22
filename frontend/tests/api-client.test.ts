@@ -346,4 +346,62 @@ describe("ApiClient", () => {
       excerpt: "bounded excerpt",
     });
   });
+
+  it("uses explicit memory CRUD/settings contracts and decodes tombstones", async () => {
+    const activeMemory = {
+      id: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+      category: "instruction",
+      state: "active",
+      content: "Always show steps.",
+      provenance_kind: "explicit_user_entry",
+      created_at: "2026-08-22T00:00:00Z",
+      updated_at: "2026-08-22T00:00:00Z",
+      deleted_at: null,
+    };
+    const deletedMemory = {
+      ...activeMemory,
+      state: "deleted",
+      content: null,
+      deleted_at: "2026-08-22T01:00:00Z",
+      updated_at: "2026-08-22T01:00:00Z",
+    };
+    const calls: Array<{ url: string; method: string | undefined; body: unknown }> = [];
+    const fetchImplementation = vi.fn(
+      async (input: URL | RequestInfo, init?: RequestInit) => {
+        const url = input.toString();
+        const body = init?.body ? JSON.parse(String(init.body)) : undefined;
+        calls.push({ url, method: init?.method, body });
+        if (url.endsWith("/settings")) {
+          return jsonResponse({ enabled: false, created_at: null, updated_at: null });
+        }
+        if (init?.method === "POST") return jsonResponse(activeMemory, 201);
+        if (init?.method === "DELETE") return jsonResponse(deletedMemory);
+        return jsonResponse({ items: [activeMemory, deletedMemory] });
+      },
+    );
+    const client = new ApiClient(token, {
+      fetchImplementation: fetchImplementation as typeof fetch,
+    });
+
+    const page = await client.listMemories({ includeDeleted: true });
+    await client.createMemory({
+      category: "instruction",
+      content: "Always show steps.",
+    });
+    const forgotten = await client.forgetMemory(activeMemory.id);
+    const setting = await client.updateMemorySetting(false);
+
+    expect(page.items[1]).toEqual(deletedMemory);
+    expect(forgotten.content).toBeNull();
+    expect(setting.enabled).toBe(false);
+    expect(calls[0]?.url).toBe(
+      "http://127.0.0.1:8000/api/v1/memories?include_deleted=true",
+    );
+    expect(calls[1]).toMatchObject({
+      method: "POST",
+      body: { category: "instruction", content: "Always show steps." },
+    });
+    expect(calls[2]?.method).toBe("DELETE");
+    expect(calls[3]).toMatchObject({ method: "PUT", body: { enabled: false } });
+  });
 });

@@ -28,6 +28,12 @@ function installWorkspaceFetch(options: {
     calls.push({ url, init });
 
     if (url.pathname === "/api/v1/users/me") return jsonResponse(user);
+    if (url.pathname === "/api/v1/memories/settings") {
+      return jsonResponse({ enabled: true, created_at: null, updated_at: null });
+    }
+    if (url.pathname === "/api/v1/memories") {
+      return jsonResponse({ items: [] });
+    }
     if (url.pathname === "/api/v1/ai/models") {
       return jsonResponse({ items: options.models ?? [model] });
     }
@@ -98,6 +104,32 @@ describe("App integration", () => {
     await userEvent.click(screen.getByRole("button", { name: "Logout" }));
     expect(readSessionToken()).toBeNull();
     expect(screen.getByRole("heading", { name: /Connect to your Personal AI/ })).toBeVisible();
+  });
+
+
+  it("loads personal memory only when the explicit control is opened", async () => {
+    writeSessionToken(token);
+    const workspace = installWorkspaceFetch();
+    render(<App />);
+
+    await screen.findByRole("button", { name: /Local chat/ });
+    expect(
+      workspace.calls.filter((call) => call.url.pathname.startsWith("/api/v1/memories")),
+    ).toHaveLength(0);
+
+    await userEvent.click(screen.getByRole("button", { name: "Memory" }));
+
+    expect(
+      await screen.findByRole("heading", { name: "What your AI remembers" }),
+    ).toBeVisible();
+    expect(screen.getByText("No personal memories saved.")).toBeVisible();
+    await waitFor(() =>
+      expect(
+        workspace.calls.filter((call) =>
+          call.url.pathname.startsWith("/api/v1/memories"),
+        ),
+      ).toHaveLength(2),
+    );
   });
 
   it("propagates public vision capability from discovered model metadata", async () => {

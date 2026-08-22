@@ -559,3 +559,12 @@ Configure `DOCUMENT_INGESTION_MAX_ACTIVE_PER_PROCESS` from 1 through 4
 (default 2) and `DOCUMENT_INGESTION_MAX_DURATION_SECONDS` above zero through
 300 seconds (default 30). These are process-local resource controls; no network
 service or additional credential is required.
+
+
+## Explicit long-term personal memory
+
+Long-term memory is an explicit, user-owned store separate from Conversation
+history. Nothing in the generation path creates memory. Users deliberately add
+entries in the Memory panel or authenticated memory API, and can inspect,
+disable, or forget them. See [`personal_memory.md`](personal_memory.md) for the
+full ownership, erasure, retrieval, precedence, and UI contract.

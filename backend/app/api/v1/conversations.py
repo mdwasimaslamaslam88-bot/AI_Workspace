@@ -350,6 +350,7 @@ async def generate_assistant_message(
                 if document_admission is not None
                 else {}
             ),
+            memory_enabled=True,
         ).generate_for_owner(
             current_user.id,
             conversation_id,

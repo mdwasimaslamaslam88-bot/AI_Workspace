@@ -58,6 +58,38 @@ export interface IndexedDocument {
   completed_at: Timestamp | null;
 }
 
+export type MemoryCategory =
+  | "preference"
+  | "fact"
+  | "instruction"
+  | "project_context";
+
+export interface PersonalMemory {
+  id: UUID;
+  category: MemoryCategory;
+  state: "active" | "deleted";
+  content: string | null;
+  provenance_kind: "explicit_user_entry";
+  created_at: Timestamp;
+  updated_at: Timestamp;
+  deleted_at: Timestamp | null;
+}
+
+export interface MemoryPage {
+  items: PersonalMemory[];
+}
+
+export interface MemorySetting {
+  enabled: boolean;
+  created_at: Timestamp | null;
+  updated_at: Timestamp | null;
+}
+
+export interface MemoryCreateRequest {
+  category: MemoryCategory;
+  content: string;
+}
+
 export type ModelModality = "text";
 export type ModelAvailability = "available" | "unavailable" | "unknown";
 export type ModelCapability =
@@ -316,6 +348,53 @@ export function parseIndexedDocument(value: unknown): IndexedDocument {
     created_at: stringField(item.created_at),
     updated_at: stringField(item.updated_at),
     completed_at: nullableString(item.completed_at),
+  };
+}
+
+export function parsePersonalMemory(value: unknown): PersonalMemory {
+  const item = record(value);
+  const state = enumField(item.state, ["active", "deleted"] as const);
+  const content = nullableString(item.content);
+  const deletedAt = nullableString(item.deleted_at);
+  if (
+    (state === "active" &&
+      (content === null || !content.trim() || content.length > 2_000 || deletedAt !== null)) ||
+    (state === "deleted" && (content !== null || deletedAt === null))
+  ) {
+    return invalidResponse();
+  }
+  return {
+    id: stringField(item.id),
+    category: enumField(item.category, [
+      "preference",
+      "fact",
+      "instruction",
+      "project_context",
+    ] as const),
+    state,
+    content,
+    provenance_kind: enumField(item.provenance_kind, [
+      "explicit_user_entry",
+    ] as const),
+    created_at: stringField(item.created_at),
+    updated_at: stringField(item.updated_at),
+    deleted_at: deletedAt,
+  };
+}
+
+export function parseMemoryPage(value: unknown): MemoryPage {
+  const page = record(value);
+  if (!Array.isArray(page.items)) return invalidResponse();
+  return { items: page.items.map(parsePersonalMemory) };
+}
+
+export function parseMemorySetting(value: unknown): MemorySetting {
+  const item = record(value);
+  if (typeof item.enabled !== "boolean") return invalidResponse();
+  return {
+    enabled: item.enabled,
+    created_at: nullableString(item.created_at),
+    updated_at: nullableString(item.updated_at),
   };
 }
 
