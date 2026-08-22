@@ -29,6 +29,7 @@ from app.models import (
     Memory,
     MemorySetting,
     MessageRole,
+    ToolExecution,
     User,
 )
 from app.models.message import (
@@ -49,6 +50,7 @@ EXPECTED_TABLES = {
     "message_citations",
     "memory_settings",
     "memories",
+    "tool_executions",
 }
 EXPECTED_MESSAGE_ROLES = ("system", "user", "assistant", "tool")
 
@@ -96,6 +98,7 @@ def test_model_registry_contains_only_the_approved_domain_tables():
     assert MessageCitation.__table__ is Base.metadata.tables["message_citations"]
     assert MemorySetting.__table__ is Base.metadata.tables["memory_settings"]
     assert Memory.__table__ is Base.metadata.tables["memories"]
+    assert ToolExecution.__table__ is Base.metadata.tables["tool_executions"]
 
 
 def test_user_has_uuid_primary_key_timestamps_and_access_credential_digest():

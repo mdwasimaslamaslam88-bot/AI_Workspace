@@ -90,6 +90,58 @@ export interface MemoryCreateRequest {
   content: string;
 }
 
+export type JsonValue =
+  | null
+  | boolean
+  | number
+  | string
+  | JsonValue[]
+  | { [key: string]: JsonValue };
+
+export type ToolExecutionStatus =
+  | "running"
+  | "completed"
+  | "failed"
+  | "timed_out"
+  | "cancelled";
+
+export interface ToolDescriptor {
+  name: string;
+  description: string;
+  input_schema: { [key: string]: JsonValue };
+  permission: string;
+  timeout_seconds: number;
+  max_output_characters: number;
+}
+
+export interface ToolDescriptorPage {
+  items: ToolDescriptor[];
+}
+
+export interface ToolExecution {
+  id: UUID;
+  conversation_id: UUID | null;
+  tool_name: string;
+  permission: string;
+  status: ToolExecutionStatus;
+  initiator: "explicit_user";
+  arguments: { [key: string]: JsonValue };
+  result: JsonValue;
+  error_code: string | null;
+  started_at: Timestamp;
+  completed_at: Timestamp | null;
+  duration_ms: number | null;
+}
+
+export interface ToolExecutionPage {
+  items: ToolExecution[];
+}
+
+export interface ToolExecutionRequest {
+  arguments: { [key: string]: JsonValue };
+  conversation_id?: UUID;
+}
+
 export type ModelModality = "text";
 export type ModelAvailability = "available" | "unavailable" | "unknown";
 export type ModelCapability =
@@ -521,4 +573,117 @@ export function parseGenerationResponse(
     model_id: stringField(response.model_id),
     message: parseMessage(response.message),
   };
+}
+
+function jsonValue(value: unknown, depth = 0): JsonValue {
+  if (depth > 12) return invalidResponse();
+  if (
+    value === null ||
+    typeof value === "boolean" ||
+    typeof value === "string"
+  ) {
+    if (typeof value === "string" && value.length > 16_384) {
+      return invalidResponse();
+    }
+    return value;
+  }
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) return invalidResponse();
+    return value;
+  }
+  if (Array.isArray(value)) {
+    if (value.length > 100) return invalidResponse();
+    return value.map((item) => jsonValue(item, depth + 1));
+  }
+  const item = record(value);
+  if (Object.keys(item).length > 100) return invalidResponse();
+  return Object.fromEntries(
+    Object.entries(item).map(([key, child]) => [key, jsonValue(child, depth + 1)]),
+  );
+}
+
+export function parseToolDescriptor(value: unknown): ToolDescriptor {
+  const item = record(value);
+  const timeout = item.timeout_seconds;
+  const maximum = integerOrNull(item.max_output_characters);
+  const inputSchema = jsonValue(item.input_schema);
+  if (
+    typeof timeout !== "number" ||
+    !Number.isFinite(timeout) ||
+    timeout <= 0 ||
+    timeout > 5 ||
+    maximum === null ||
+    maximum < 1 ||
+    maximum > 16_384 ||
+    inputSchema === null ||
+    Array.isArray(inputSchema) ||
+    typeof inputSchema !== "object"
+  ) {
+    return invalidResponse();
+  }
+  return {
+    name: stringField(item.name),
+    description: stringField(item.description),
+    input_schema: inputSchema,
+    permission: stringField(item.permission),
+    timeout_seconds: timeout,
+    max_output_characters: maximum,
+  };
+}
+
+export function parseToolDescriptorPage(value: unknown): ToolDescriptorPage {
+  const page = record(value);
+  if (!Array.isArray(page.items)) return invalidResponse();
+  return { items: page.items.map(parseToolDescriptor) };
+}
+
+export function parseToolExecution(value: unknown): ToolExecution {
+  const item = record(value);
+  const status = enumField(item.status, [
+    "running",
+    "completed",
+    "failed",
+    "timed_out",
+    "cancelled",
+  ] as const);
+  const argumentsValue = jsonValue(item.arguments);
+  const result = jsonValue(item.result);
+  const completedAt = nullableString(item.completed_at);
+  const duration = integerOrNull(item.duration_ms);
+  const errorCode = nullableString(item.error_code);
+  if (
+    argumentsValue === null ||
+    Array.isArray(argumentsValue) ||
+    typeof argumentsValue !== "object" ||
+    duration !== null && duration < 0 ||
+    (status === "running" &&
+      (completedAt !== null || duration !== null || result !== null || errorCode !== null)) ||
+    (status === "completed" &&
+      (completedAt === null || duration === null || result === null || errorCode !== null)) ||
+    (["failed", "timed_out", "cancelled"] as const).includes(
+      status as "failed" | "timed_out" | "cancelled",
+    ) && (completedAt === null || duration === null || result !== null || errorCode === null)
+  ) {
+    return invalidResponse();
+  }
+  return {
+    id: stringField(item.id),
+    conversation_id: nullableString(item.conversation_id),
+    tool_name: stringField(item.tool_name),
+    permission: stringField(item.permission),
+    status,
+    initiator: enumField(item.initiator, ["explicit_user"] as const),
+    arguments: argumentsValue,
+    result,
+    error_code: errorCode,
+    started_at: stringField(item.started_at),
+    completed_at: completedAt,
+    duration_ms: duration,
+  };
+}
+
+export function parseToolExecutionPage(value: unknown): ToolExecutionPage {
+  const page = record(value);
+  if (!Array.isArray(page.items)) return invalidResponse();
+  return { items: page.items.map(parseToolExecution) };
 }

@@ -568,3 +568,20 @@ history. Nothing in the generation path creates memory. Users deliberately add
 entries in the Memory panel or authenticated memory API, and can inspect,
 disable, or forget them. See [`personal_memory.md`](personal_memory.md) for the
 full ownership, erasure, retrieval, precedence, and UI contract.
+
+
+## Bounded local tools
+
+The authenticated fixed tool registry and durable owner-scoped execution
+lifecycle are documented in [`tools.md`](tools.md). Calculator, local time,
+owned document search, owned Conversation search, and owned enabled-memory
+search are available through the Tools panel and `/api/v1/tools`. No registered
+tool can execute code or shell commands, access arbitrary paths, or reach the
+network.
+
+## Media runtime availability
+
+Image generation/editing and voice remain fail-closed when their local runtimes
+and allowlisted models are absent. The current workstation audit and exact
+operator prerequisites are recorded in
+[`media_runtime_prerequisites.md`](media_runtime_prerequisites.md).

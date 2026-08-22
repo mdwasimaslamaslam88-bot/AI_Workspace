@@ -147,11 +147,13 @@ def _inspect_schema(connection) -> dict:
         "message_citation_foreign_keys": inspector.get_foreign_keys("message_citations"),
         "memory_setting_foreign_keys": inspector.get_foreign_keys("memory_settings"),
         "memory_foreign_keys": inspector.get_foreign_keys("memories"),
+        "tool_execution_foreign_keys": inspector.get_foreign_keys("tool_executions"),
         "conversation_indexes": inspector.get_indexes("conversations"),
         "asset_indexes": inspector.get_indexes("assets"),
         "document_indexes": inspector.get_indexes("documents"),
         "document_chunk_indexes": inspector.get_indexes("document_chunks"),
         "memory_indexes": inspector.get_indexes("memories"),
+        "tool_execution_indexes": inspector.get_indexes("tool_executions"),
         "conversation_checks": inspector.get_check_constraints("conversations"),
         "message_checks": inspector.get_check_constraints("messages"),
         "asset_checks": inspector.get_check_constraints("assets"),
@@ -160,6 +162,7 @@ def _inspect_schema(connection) -> dict:
         "document_chunk_checks": inspector.get_check_constraints("document_chunks"),
         "message_citation_checks": inspector.get_check_constraints("message_citations"),
         "memory_checks": inspector.get_check_constraints("memories"),
+        "tool_execution_checks": inspector.get_check_constraints("tool_executions"),
         "user_uniques": inspector.get_unique_constraints("users"),
         "message_uniques": inspector.get_unique_constraints("messages"),
         "asset_uniques": inspector.get_unique_constraints("assets"),
@@ -180,6 +183,7 @@ def _inspect_schema(connection) -> dict:
                 "message_citations",
                 "memory_settings",
                 "memories",
+                "tool_executions",
             )
         },
     }
@@ -235,6 +239,7 @@ async def test_migration_creates_exact_expected_postgresql_schema(
         "message_citations",
         "memory_settings",
         "memories",
+        "tool_executions",
     }
 
     owner_fk = _foreign_key(
@@ -449,6 +454,63 @@ async def test_migration_creates_exact_expected_postgresql_schema(
     assert isinstance(memories["content"]["type"], sa.Text)
     assert memories["content"]["nullable"] is True
     assert memories["embedding"]["nullable"] is True
+
+    tool_checks = _checks_by_name(snapshot["tool_execution_checks"])
+    assert set(tool_checks) == {
+        "ck_tool_executions_arguments_json_bounded",
+        "ck_tool_executions_error_code_allowed",
+        "ck_tool_executions_initiator_allowed",
+        "ck_tool_executions_permission_allowed",
+        "ck_tool_executions_result_json_bounded",
+        "ck_tool_executions_status_allowed",
+        "ck_tool_executions_terminal_state_consistent",
+        "ck_tool_executions_tool_name_allowed",
+    }
+    assert set(re.findall(r"'([^']+)'", tool_checks["ck_tool_executions_tool_name_allowed"])) == {
+        "calculator",
+        "local_time",
+        "document_search",
+        "conversation_search",
+        "memory_search",
+    }
+    assert {
+        item["name"]
+        for item in snapshot["tool_execution_indexes"]
+        if item.get("duplicates_constraint") is None
+    } == {
+        "ix_tool_executions_owner_started_at",
+        "ix_tool_executions_owner_conversation",
+    }
+    assert _foreign_key(
+        snapshot,
+        "tool_execution",
+        "fk_tool_executions_owner_id_users",
+    )["options"]["ondelete"] == "RESTRICT"
+    assert _foreign_key(
+        snapshot,
+        "tool_execution",
+        "fk_tool_executions_conversation_id_conversations",
+    )["options"]["ondelete"] == "SET NULL"
+    tool_executions = _columns_by_name(snapshot, "tool_executions")
+    assert set(tool_executions) == {
+        "id",
+        "owner_id",
+        "conversation_id",
+        "tool_name",
+        "permission",
+        "status",
+        "initiator",
+        "arguments_json",
+        "result_json",
+        "error_code",
+        "started_at",
+        "completed_at",
+        "duration_ms",
+    }
+    _assert_required_uuid(tool_executions["id"])
+    _assert_required_uuid(tool_executions["owner_id"])
+    assert tool_executions["conversation_id"]["nullable"] is True
+    _assert_required_timestamp(tool_executions["started_at"])
 
     users = _columns_by_name(snapshot, "users")
     assert set(users) == {

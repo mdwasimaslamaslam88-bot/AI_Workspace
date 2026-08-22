@@ -43,22 +43,26 @@ placed in a URL, page text, diagnostic, or application log.
 
 ## Current workflow
 
-The MVP supports:
+The local client supports:
 
-- current-user validation;
-- selection of available models that advertise `text_generation`;
-- real backend conversation keyset pagination;
-- conversation creation with supported optional title and system prompt;
-- bounded message pagination;
-- non-streaming generation and explicit cancellation;
-- safe status-based errors with an optional backend `X-Request-ID`;
-- history reconciliation after generation success or ambiguous failure.
+- current-user validation and capability-aware local model selection;
+- real backend Conversation/message pagination, generation, and cancellation;
+- owned attachment upload/download/deletion, vision images, and safe local
+  TXT/CSV/PDF/DOCX document indexing;
+- cited document retrieval in generated responses;
+- explicit inspectable long-term memory with enable/disable and forget controls;
+- a server-authorized Tools panel for calculator, local time, and owner-scoped
+  document, Conversation, and memory search;
+- safe status-based errors, bounded media states, and history reconciliation
+  after generation success or ambiguous failure.
 
 The backend remains authoritative for authentication, ownership, persistence,
 model resolution, generation admission, deadlines, and cancellation.
 
-This milestone does not add streaming, files, images, memory, voice, tools,
-agents, cloud providers, or a new authentication mechanism.
+The client does not provision users or add a cloud provider. Image
+creation/editing and voice remain hidden until bounded local runtimes and
+allowlisted models are installed and validated. Workflow/agent execution is a
+separate bounded backend capability.
 
 ## Validation
 

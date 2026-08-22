@@ -34,6 +34,23 @@ function installWorkspaceFetch(options: {
     if (url.pathname === "/api/v1/memories") {
       return jsonResponse({ items: [] });
     }
+    if (url.pathname === "/api/v1/tools") {
+      return jsonResponse({
+        items: [
+          {
+            name: "calculator",
+            description: "Bounded arithmetic.",
+            input_schema: { additionalProperties: false, type: "object" },
+            permission: "utility",
+            timeout_seconds: 1,
+            max_output_characters: 1024,
+          },
+        ],
+      });
+    }
+    if (url.pathname === "/api/v1/tools/executions") {
+      return jsonResponse({ items: [] });
+    }
     if (url.pathname === "/api/v1/ai/models") {
       return jsonResponse({ items: options.models ?? [model] });
     }
@@ -127,6 +144,29 @@ describe("App integration", () => {
       expect(
         workspace.calls.filter((call) =>
           call.url.pathname.startsWith("/api/v1/memories"),
+        ),
+      ).toHaveLength(2),
+    );
+  });
+
+  it("loads bounded tools only when the explicit control is opened", async () => {
+    writeSessionToken(token);
+    const workspace = installWorkspaceFetch();
+    render(<App />);
+
+    await screen.findByRole("button", { name: /Local chat/ });
+    expect(
+      workspace.calls.filter((call) => call.url.pathname.startsWith("/api/v1/tools")),
+    ).toHaveLength(0);
+
+    await userEvent.click(screen.getByRole("button", { name: "Tools" }));
+
+    expect(await screen.findByRole("heading", { name: "Local tools" })).toBeVisible();
+    expect(screen.getByText("No tool calls yet.")).toBeVisible();
+    await waitFor(() =>
+      expect(
+        workspace.calls.filter((call) =>
+          call.url.pathname.startsWith("/api/v1/tools"),
         ),
       ).toHaveLength(2),
     );

@@ -59,6 +59,10 @@ async def test_lifespan_creates_factory_and_disposes_configured_engine(monkeypat
     monkeypatch.setattr(lifespan_module, "dispose_postgres", dispose_postgres)
     monkeypatch.setattr(lifespan_module, "close_redis", close_redis)
     monkeypatch.setattr(lifespan_module, "close_ollama", close_ollama)
+    reconcile_tools = AsyncMock(return_value=0)
+    monkeypatch.setattr(
+        lifespan_module, "reconcile_tool_executions", reconcile_tools
+    )
 
     async with lifespan_module.lifespan(app):
         assert app.state.postgres_engine is engine
@@ -74,6 +78,7 @@ async def test_lifespan_creates_factory_and_disposes_configured_engine(monkeypat
         dispose_postgres.assert_not_awaited()
 
     create_session_factory.assert_called_once_with(engine)
+    reconcile_tools.assert_awaited_once_with(factory)
     dispose_postgres.assert_awaited_once_with(engine)
     close_redis.assert_awaited_once_with(None)
     close_ollama.assert_awaited_once_with(None)
@@ -230,6 +235,7 @@ def _install_resource_lifecycle_mocks(monkeypatch):
         "create_redis": Mock(side_effect=create_redis),
         "create_ollama": Mock(side_effect=create_ollama),
         "create_session_factory": Mock(return_value=session_factory),
+        "reconcile_tools": AsyncMock(return_value=0),
         "dispose_postgres": AsyncMock(side_effect=dispose_postgres),
         "close_redis": AsyncMock(side_effect=close_redis),
         "close_ollama": AsyncMock(side_effect=close_ollama),
@@ -253,6 +259,11 @@ def _install_resource_lifecycle_mocks(monkeypatch):
         lifespan_module,
         "create_session_factory",
         resources["create_session_factory"],
+    )
+    monkeypatch.setattr(
+        lifespan_module,
+        "reconcile_tool_executions",
+        resources["reconcile_tools"],
     )
     monkeypatch.setattr(
         lifespan_module,

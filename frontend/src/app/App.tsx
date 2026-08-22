@@ -13,6 +13,9 @@ import type {
   MemorySetting,
   Message,
   PersonalMemory,
+  ToolDescriptor,
+  ToolExecution,
+  ToolExecutionRequest,
 } from "../api/contracts";
 import {
   mergeConversations,
@@ -33,6 +36,7 @@ import { ChatView, type SafeNotice } from "../features/chat/ChatView";
 import { ConversationList } from "../features/conversations/ConversationList";
 import { MemoryPanel } from "../features/memory/MemoryPanel";
 import { ModelSelector } from "../features/models/ModelSelector";
+import { ToolPanel } from "../features/tools/ToolPanel";
 
 type AuthenticationStatus = "checking" | "anonymous" | "authenticated";
 
@@ -118,6 +122,7 @@ export function App() {
   const [generating, setGenerating] = useState(false);
   const [chatNotice, setChatNotice] = useState<SafeNotice | null>(null);
   const [memoryOpen, setMemoryOpen] = useState(false);
+  const [toolsOpen, setToolsOpen] = useState(false);
 
   const authAbort = useRef<AbortController | null>(null);
   const modelsAbort = useRef<AbortController | null>(null);
@@ -144,6 +149,7 @@ export function App() {
     setCreatingNew(false);
     setGenerating(false);
     setMemoryOpen(false);
+    setToolsOpen(false);
     setAuthenticationStatus("anonymous");
   }, []);
 
@@ -567,6 +573,40 @@ export function App() {
     [client],
   );
 
+
+  const loadTools = useCallback(
+    async (signal?: AbortSignal): Promise<{
+      tools: ToolDescriptor[];
+      executions: ToolExecution[];
+    }> => {
+      if (client === null) {
+        throw new ApiError("authentication", "Authentication failed.");
+      }
+      const [tools, executions] = await Promise.all([
+        client.listTools(signal),
+        client.listToolExecutions({ limit: 20, signal }),
+      ]);
+      return { tools: tools.items, executions: executions.items };
+    },
+    [client],
+  );
+
+  const executeTool = useCallback(
+    (
+      toolName: string,
+      request: ToolExecutionRequest,
+      signal?: AbortSignal,
+    ): Promise<ToolExecution> => {
+      if (client === null) {
+        return Promise.reject(
+          new ApiError("authentication", "Authentication failed."),
+        );
+      }
+      return client.executeTool(toolName, request, signal);
+    },
+    [client],
+  );
+
   const downloadAttachment = useCallback(
     (assetId: string, signal?: AbortSignal): Promise<Blob> => {
       if (client === null) {
@@ -645,9 +685,24 @@ export function App() {
           <button
             type="button"
             className="button button-secondary"
+            aria-expanded={toolsOpen}
+            aria-controls="personal-tools-panel"
+            onClick={() => {
+              setToolsOpen((current) => !current);
+              setMemoryOpen(false);
+            }}
+          >
+            Tools
+          </button>
+          <button
+            type="button"
+            className="button button-secondary"
             aria-expanded={memoryOpen}
             aria-controls="personal-memory-panel"
-            onClick={() => setMemoryOpen((current) => !current)}
+            onClick={() => {
+              setMemoryOpen((current) => !current);
+              setToolsOpen(false);
+            }}
           >
             Memory
           </button>
@@ -661,6 +716,16 @@ export function App() {
             onReload={() => void reloadModels()}
           />
         </header>
+        {toolsOpen && (
+          <div id="personal-tools-panel">
+            <ToolPanel
+              activeConversationId={selectedConversation?.id ?? null}
+              onClose={() => setToolsOpen(false)}
+              onLoad={loadTools}
+              onExecute={executeTool}
+            />
+          </div>
+        )}
         {memoryOpen && (
           <div id="personal-memory-panel">
             <MemoryPanel

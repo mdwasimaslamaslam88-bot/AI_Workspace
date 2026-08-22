@@ -17,6 +17,7 @@ from app.runtimes.ollama import (
 )
 from app.services.asset import reconcile_asset_storage
 from app.services.generation_admission import GenerationAdmissionController
+from app.services.tool import reconcile_tool_executions
 from app.storage.local import LocalAssetStorage
 
 
@@ -35,6 +36,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
         app.state.postgres_engine = postgres_engine
         app.state.db_session_factory = create_session_factory(postgres_engine)
+        await reconcile_tool_executions(app.state.db_session_factory)
         asset_storage = None
         if settings.ASSET_STORAGE_ROOT is not None:
             asset_storage = LocalAssetStorage(settings.ASSET_STORAGE_ROOT)

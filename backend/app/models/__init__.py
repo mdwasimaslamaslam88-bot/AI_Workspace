@@ -10,6 +10,7 @@ from app.models.message import Message, MessageRole
 from app.models.message_asset import MessageAsset
 from app.models.message_citation import MessageCitation
 from app.models.memory import Memory, MemoryCategory, MemorySetting
+from app.models.tool import ToolExecution, ToolExecutionStatus
 from app.models.user import User
 
 __all__ = [
@@ -24,6 +25,8 @@ __all__ = [
     "Memory",
     "MemoryCategory",
     "MemorySetting",
+    "ToolExecution",
+    "ToolExecutionStatus",
     "MessageRole",
     "User",
 ]

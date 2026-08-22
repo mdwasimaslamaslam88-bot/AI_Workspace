@@ -126,3 +126,13 @@ python -m pytest -q -m integration tests/db/test_postgres_integration.py
 The session fixture uses the existing Alembic chain to downgrade to `base`,
 upgrade to `head`, run the focused tests, and downgrade to `base` again
 during cleanup. It does not create schema objects from ORM metadata.
+
+
+Alembic revision `0007_bounded_tools` follows personal memory and adds
+`tool_executions`. Every row has an immutable owner, a server-assigned fixed
+permission, bounded canonical arguments/result text, safe terminal status
+metadata, and optional Conversation context that becomes null if the
+Conversation is deleted. Owner/time and owner/Conversation indexes support
+bounded history and audit queries. Database constraints enforce the tool,
+permission, initiator, status/error vocabulary, size caps, and consistent
+running versus terminal state.

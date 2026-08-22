@@ -16,6 +16,10 @@ import {
   type MemorySetting,
   type MessagePage,
   type PersonalMemory,
+  type ToolDescriptorPage,
+  type ToolExecution,
+  type ToolExecutionPage,
+  type ToolExecutionRequest,
   parseIndexedDocument,
   parseAsset,
   parseConversation,
@@ -28,6 +32,9 @@ import {
   parseMessagePage,
   parseModelPage,
   parsePersonalMemory,
+  parseToolDescriptorPage,
+  parseToolExecution,
+  parseToolExecutionPage,
 } from "./contracts";
 
 export type ApiErrorKind =
@@ -314,6 +321,42 @@ export class ApiClient {
       signal,
       decode: parseMemorySetting,
     });
+  }
+
+
+  listTools(signal?: AbortSignal): Promise<ToolDescriptorPage> {
+    return this.#request("api/v1/tools", {
+      signal,
+      decode: parseToolDescriptorPage,
+    });
+  }
+
+  listToolExecutions(
+    options: { limit?: number; signal?: AbortSignal } = {},
+  ): Promise<ToolExecutionPage> {
+    const query = new URLSearchParams();
+    if (options.limit !== undefined) query.set("limit", String(options.limit));
+    const suffix = query.size === 0 ? "" : `?${query.toString()}`;
+    return this.#request(`api/v1/tools/executions${suffix}`, {
+      signal: options.signal,
+      decode: parseToolExecutionPage,
+    });
+  }
+
+  executeTool(
+    toolName: string,
+    request: ToolExecutionRequest,
+    signal?: AbortSignal,
+  ): Promise<ToolExecution> {
+    return this.#request(
+      `api/v1/tools/${encodeURIComponent(toolName)}/executions`,
+      {
+        method: "POST",
+        body: request,
+        signal,
+        decode: parseToolExecution,
+      },
+    );
   }
 
   listConversations(

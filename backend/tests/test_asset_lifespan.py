@@ -52,6 +52,10 @@ async def test_lifespan_initializes_and_reconciles_configured_storage(
     monkeypatch.setattr(lifespan_module, "dispose_postgres", AsyncMock())
     monkeypatch.setattr(lifespan_module, "close_redis", AsyncMock())
     monkeypatch.setattr(lifespan_module, "close_ollama", AsyncMock())
+    reconcile_tools = AsyncMock(return_value=0)
+    monkeypatch.setattr(
+        lifespan_module, "reconcile_tool_executions", reconcile_tools
+    )
     storage_factory = Mock(return_value=storage)
     reconcile = AsyncMock()
     monkeypatch.setattr(lifespan_module, "LocalAssetStorage", storage_factory)
@@ -59,6 +63,7 @@ async def test_lifespan_initializes_and_reconciles_configured_storage(
 
     async with lifespan_module.lifespan(app):
         assert app.state.asset_storage is storage
+        reconcile_tools.assert_awaited_once_with(session_factory)
         reconcile.assert_awaited_once_with(session_factory, storage)
 
     storage_factory.assert_called_once_with(root)
