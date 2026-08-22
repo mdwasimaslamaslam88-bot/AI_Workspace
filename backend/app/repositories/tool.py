@@ -20,6 +20,8 @@ class ToolRepository(BaseRepository):
         tool_name: str,
         permission: str,
         arguments_json: str,
+        *,
+        initiator: str,
     ) -> ToolExecution:
         execution = ToolExecution(
             owner_id=owner_id,
@@ -27,7 +29,7 @@ class ToolRepository(BaseRepository):
             tool_name=tool_name,
             permission=permission,
             status=ToolExecutionStatus.RUNNING,
-            initiator="explicit_user",
+            initiator=initiator,
             arguments_json=arguments_json,
         )
         self.session.add(execution)

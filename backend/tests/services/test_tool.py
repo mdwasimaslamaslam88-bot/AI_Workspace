@@ -105,7 +105,12 @@ async def test_calculator_execution_is_a_durable_bounded_owner_audit():
     assert result.status is ToolExecutionStatus.COMPLETED
     assert result.result == {"value": 14}
     repository.create_running.assert_awaited_once_with(
-        owner_id, None, "calculator", "utility", '{"expression":"2+3*4"}'
+        owner_id,
+        None,
+        "calculator",
+        "utility",
+        '{"expression":"2+3*4"}',
+        initiator="explicit_user",
     )
     assert repository.finish.await_args.args[:3] == (
         owner_id,

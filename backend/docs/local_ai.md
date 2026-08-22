@@ -579,6 +579,17 @@ search are available through the Tools panel and `/api/v1/tools`. No registered
 tool can execute code or shell commands, access arbitrary paths, or reach the
 network.
 
+## Bounded local workflows
+
+Authenticated users can compose one to eight fixed-registry tool steps, start
+them asynchronously, inspect durable step activity, and cancel pending or
+running work through `/api/v1/workflows` or the Workflows panel. Execution is
+strictly sequential, owner-scoped, permission-checked at creation and runtime,
+limited to 10 seconds per step and 60 seconds overall, and reconciled to a
+deterministic terminal state on cancellation, timeout, or restart. See
+[`workflows.md`](workflows.md) for the complete state, transaction, output, and
+UI contract.
+
 ## Media runtime availability
 
 Image generation/editing and voice remain fail-closed when their local runtimes

@@ -53,6 +53,8 @@ The local client supports:
 - explicit inspectable long-term memory with enable/disable and forget controls;
 - a server-authorized Tools panel for calculator, local time, and owner-scoped
   document, Conversation, and memory search;
+- a bounded Workflows panel for persisted one-to-eight-step owner research
+  tasks, live progress, tool activity, safe results, and cancellation;
 - safe status-based errors, bounded media states, and history reconciliation
   after generation success or ambiguous failure.
 
@@ -61,8 +63,8 @@ model resolution, generation admission, deadlines, and cancellation.
 
 The client does not provision users or add a cloud provider. Image
 creation/editing and voice remain hidden until bounded local runtimes and
-allowlisted models are installed and validated. Workflow/agent execution is a
-separate bounded backend capability.
+allowlisted models are installed and validated. Workflow execution is limited
+to the fixed server tool registry; there is no arbitrary agent autonomy.
 
 ## Validation
 

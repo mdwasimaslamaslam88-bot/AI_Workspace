@@ -97,6 +97,9 @@ class RecordingOperations:
         table.constraints.remove(constraint)
         self.events.append(("drop_constraint", constraint_name))
 
+    def execute(self, statement, **kwargs) -> None:
+        self.events.append(("execute", " ".join(str(statement).split())))
+
     def drop_column(self, table_name: str, column_name: str, **kwargs) -> None:
         table = self.metadata.tables[table_name]
         table._columns.remove(table.c[column_name])

@@ -16,6 +16,8 @@ import type {
   ToolDescriptor,
   ToolExecution,
   ToolExecutionRequest,
+  Workflow,
+  WorkflowCreateRequest,
 } from "../api/contracts";
 import {
   mergeConversations,
@@ -37,6 +39,7 @@ import { ConversationList } from "../features/conversations/ConversationList";
 import { MemoryPanel } from "../features/memory/MemoryPanel";
 import { ModelSelector } from "../features/models/ModelSelector";
 import { ToolPanel } from "../features/tools/ToolPanel";
+import { WorkflowPanel } from "../features/workflows/WorkflowPanel";
 
 type AuthenticationStatus = "checking" | "anonymous" | "authenticated";
 
@@ -123,6 +126,7 @@ export function App() {
   const [chatNotice, setChatNotice] = useState<SafeNotice | null>(null);
   const [memoryOpen, setMemoryOpen] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
+  const [workflowsOpen, setWorkflowsOpen] = useState(false);
 
   const authAbort = useRef<AbortController | null>(null);
   const modelsAbort = useRef<AbortController | null>(null);
@@ -150,6 +154,7 @@ export function App() {
     setGenerating(false);
     setMemoryOpen(false);
     setToolsOpen(false);
+    setWorkflowsOpen(false);
     setAuthenticationStatus("anonymous");
   }, []);
 
@@ -607,6 +612,65 @@ export function App() {
     [client],
   );
 
+
+  const loadWorkflows = useCallback(
+    async (signal?: AbortSignal): Promise<Workflow[]> => {
+      if (client === null) {
+        throw new ApiError("authentication", "Authentication failed.");
+      }
+      return (await client.listWorkflows({ limit: 20, signal })).items;
+    },
+    [client],
+  );
+
+  const createWorkflow = useCallback(
+    (request: WorkflowCreateRequest, signal?: AbortSignal): Promise<Workflow> => {
+      if (client === null) {
+        return Promise.reject(
+          new ApiError("authentication", "Authentication failed."),
+        );
+      }
+      return client.createWorkflow(request, signal);
+    },
+    [client],
+  );
+
+  const startWorkflow = useCallback(
+    (workflowId: string, signal?: AbortSignal): Promise<Workflow> => {
+      if (client === null) {
+        return Promise.reject(
+          new ApiError("authentication", "Authentication failed."),
+        );
+      }
+      return client.startWorkflow(workflowId, signal);
+    },
+    [client],
+  );
+
+  const getWorkflow = useCallback(
+    (workflowId: string, signal?: AbortSignal): Promise<Workflow> => {
+      if (client === null) {
+        return Promise.reject(
+          new ApiError("authentication", "Authentication failed."),
+        );
+      }
+      return client.getWorkflow(workflowId, signal);
+    },
+    [client],
+  );
+
+  const cancelWorkflow = useCallback(
+    (workflowId: string, signal?: AbortSignal): Promise<Workflow> => {
+      if (client === null) {
+        return Promise.reject(
+          new ApiError("authentication", "Authentication failed."),
+        );
+      }
+      return client.cancelWorkflow(workflowId, signal);
+    },
+    [client],
+  );
+
   const downloadAttachment = useCallback(
     (assetId: string, signal?: AbortSignal): Promise<Blob> => {
       if (client === null) {
@@ -685,11 +749,25 @@ export function App() {
           <button
             type="button"
             className="button button-secondary"
+            aria-expanded={workflowsOpen}
+            aria-controls="personal-workflows-panel"
+            onClick={() => {
+              setWorkflowsOpen((current) => !current);
+              setToolsOpen(false);
+              setMemoryOpen(false);
+            }}
+          >
+            Workflows
+          </button>
+          <button
+            type="button"
+            className="button button-secondary"
             aria-expanded={toolsOpen}
             aria-controls="personal-tools-panel"
             onClick={() => {
               setToolsOpen((current) => !current);
               setMemoryOpen(false);
+              setWorkflowsOpen(false);
             }}
           >
             Tools
@@ -702,6 +780,7 @@ export function App() {
             onClick={() => {
               setMemoryOpen((current) => !current);
               setToolsOpen(false);
+              setWorkflowsOpen(false);
             }}
           >
             Memory
@@ -716,6 +795,18 @@ export function App() {
             onReload={() => void reloadModels()}
           />
         </header>
+        {workflowsOpen && (
+          <div id="personal-workflows-panel">
+            <WorkflowPanel
+              onClose={() => setWorkflowsOpen(false)}
+              onLoad={loadWorkflows}
+              onCreate={createWorkflow}
+              onStart={startWorkflow}
+              onGet={getWorkflow}
+              onCancel={cancelWorkflow}
+            />
+          </div>
+        )}
         {toolsOpen && (
           <div id="personal-tools-panel">
             <ToolPanel

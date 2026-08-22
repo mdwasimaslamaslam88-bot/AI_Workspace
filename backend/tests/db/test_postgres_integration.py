@@ -148,12 +148,16 @@ def _inspect_schema(connection) -> dict:
         "memory_setting_foreign_keys": inspector.get_foreign_keys("memory_settings"),
         "memory_foreign_keys": inspector.get_foreign_keys("memories"),
         "tool_execution_foreign_keys": inspector.get_foreign_keys("tool_executions"),
+        "workflow_foreign_keys": inspector.get_foreign_keys("workflows"),
+        "workflow_step_foreign_keys": inspector.get_foreign_keys("workflow_steps"),
         "conversation_indexes": inspector.get_indexes("conversations"),
         "asset_indexes": inspector.get_indexes("assets"),
         "document_indexes": inspector.get_indexes("documents"),
         "document_chunk_indexes": inspector.get_indexes("document_chunks"),
         "memory_indexes": inspector.get_indexes("memories"),
         "tool_execution_indexes": inspector.get_indexes("tool_executions"),
+        "workflow_indexes": inspector.get_indexes("workflows"),
+        "workflow_step_indexes": inspector.get_indexes("workflow_steps"),
         "conversation_checks": inspector.get_check_constraints("conversations"),
         "message_checks": inspector.get_check_constraints("messages"),
         "asset_checks": inspector.get_check_constraints("assets"),
@@ -163,6 +167,8 @@ def _inspect_schema(connection) -> dict:
         "message_citation_checks": inspector.get_check_constraints("message_citations"),
         "memory_checks": inspector.get_check_constraints("memories"),
         "tool_execution_checks": inspector.get_check_constraints("tool_executions"),
+        "workflow_checks": inspector.get_check_constraints("workflows"),
+        "workflow_step_checks": inspector.get_check_constraints("workflow_steps"),
         "user_uniques": inspector.get_unique_constraints("users"),
         "message_uniques": inspector.get_unique_constraints("messages"),
         "asset_uniques": inspector.get_unique_constraints("assets"),
@@ -170,6 +176,8 @@ def _inspect_schema(connection) -> dict:
         "document_uniques": inspector.get_unique_constraints("documents"),
         "document_chunk_uniques": inspector.get_unique_constraints("document_chunks"),
         "message_citation_uniques": inspector.get_unique_constraints("message_citations"),
+        "workflow_step_uniques": inspector.get_unique_constraints("workflow_steps"),
+        "workflow_uniques": inspector.get_unique_constraints("workflows"),
         "columns": {
             table_name: inspector.get_columns(table_name)
             for table_name in (
@@ -184,6 +192,8 @@ def _inspect_schema(connection) -> dict:
                 "memory_settings",
                 "memories",
                 "tool_executions",
+                "workflows",
+                "workflow_steps",
             )
         },
     }
@@ -240,6 +250,8 @@ async def test_migration_creates_exact_expected_postgresql_schema(
         "memory_settings",
         "memories",
         "tool_executions",
+        "workflows",
+        "workflow_steps",
     }
 
     owner_fk = _foreign_key(
@@ -473,6 +485,12 @@ async def test_migration_creates_exact_expected_postgresql_schema(
         "conversation_search",
         "memory_search",
     }
+    assert set(
+        re.findall(
+            r"'([^']+)'",
+            tool_checks["ck_tool_executions_initiator_allowed"],
+        )
+    ) == {"explicit_user", "workflow"}
     assert {
         item["name"]
         for item in snapshot["tool_execution_indexes"]
@@ -511,6 +529,101 @@ async def test_migration_creates_exact_expected_postgresql_schema(
     _assert_required_uuid(tool_executions["owner_id"])
     assert tool_executions["conversation_id"]["nullable"] is True
     _assert_required_timestamp(tool_executions["started_at"])
+
+    workflow_checks = _checks_by_name(snapshot["workflow_checks"])
+    assert set(workflow_checks) == {
+        "ck_workflows_current_step_position_bounded",
+        "ck_workflows_error_code_allowed",
+        "ck_workflows_lifecycle_consistent",
+        "ck_workflows_name_bounded_non_blank",
+        "ck_workflows_result_json_bounded",
+        "ck_workflows_status_allowed",
+        "ck_workflows_step_count_bounded",
+    }
+    workflow_step_checks = _checks_by_name(snapshot["workflow_step_checks"])
+    assert set(workflow_step_checks) == {
+        "ck_workflow_steps_arguments_json_bounded",
+        "ck_workflow_steps_error_code_allowed",
+        "ck_workflow_steps_lifecycle_consistent",
+        "ck_workflow_steps_permission_allowed",
+        "ck_workflow_steps_position_bounded",
+        "ck_workflow_steps_result_json_bounded",
+        "ck_workflow_steps_status_allowed",
+        "ck_workflow_steps_tool_name_allowed",
+    }
+    assert {
+        item["name"]
+        for item in snapshot["workflow_indexes"]
+        if item.get("duplicates_constraint") is None
+    } == {"ix_workflows_owner_created_at", "ix_workflows_owner_status"}
+    assert {
+        item["name"]
+        for item in snapshot["workflow_step_indexes"]
+        if item.get("duplicates_constraint") is None
+    } == {"ix_workflow_steps_owner_workflow_position"}
+    assert _foreign_key(
+        snapshot,
+        "workflow",
+        "fk_workflows_owner_id_users",
+    )["options"]["ondelete"] == "RESTRICT"
+    assert _foreign_key(
+        snapshot,
+        "workflow_step",
+        "fk_workflow_steps_workflow_owner_workflows",
+    )["options"]["ondelete"] == "CASCADE"
+    assert _foreign_key(
+        snapshot,
+        "workflow_step",
+        "fk_workflow_steps_tool_execution_id_tool_executions",
+    )["options"]["ondelete"] == "SET NULL"
+    assert {item["name"] for item in snapshot["workflow_step_uniques"]} == {
+        "uq_workflow_steps_position"
+    }
+    assert {item["name"] for item in snapshot["workflow_uniques"]} == {
+        "uq_workflows_id_owner"
+    }
+    workflows = _columns_by_name(snapshot, "workflows")
+    assert set(workflows) == {
+        "id",
+        "owner_id",
+        "name",
+        "status",
+        "step_count",
+        "current_step_position",
+        "cancel_requested",
+        "result_json",
+        "error_code",
+        "created_at",
+        "updated_at",
+        "started_at",
+        "completed_at",
+    }
+    _assert_required_uuid(workflows["id"])
+    _assert_required_uuid(workflows["owner_id"])
+    _assert_required_timestamp(workflows["created_at"])
+    _assert_required_timestamp(workflows["updated_at"])
+    workflow_steps = _columns_by_name(snapshot, "workflow_steps")
+    assert set(workflow_steps) == {
+        "id",
+        "workflow_id",
+        "owner_id",
+        "position",
+        "tool_name",
+        "permission",
+        "arguments_json",
+        "status",
+        "tool_execution_id",
+        "result_json",
+        "error_code",
+        "created_at",
+        "started_at",
+        "completed_at",
+        "duration_ms",
+    }
+    _assert_required_uuid(workflow_steps["id"])
+    _assert_required_uuid(workflow_steps["workflow_id"])
+    _assert_required_uuid(workflow_steps["owner_id"])
+    _assert_required_timestamp(workflow_steps["created_at"])
 
     users = _columns_by_name(snapshot, "users")
     assert set(users) == {

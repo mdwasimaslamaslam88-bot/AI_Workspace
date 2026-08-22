@@ -31,6 +31,8 @@ from app.models import (
     MessageRole,
     ToolExecution,
     User,
+    Workflow,
+    WorkflowStep,
 )
 from app.models.message import (
     MAX_MESSAGE_CONTENT_CHARACTERS,
@@ -51,6 +53,8 @@ EXPECTED_TABLES = {
     "memory_settings",
     "memories",
     "tool_executions",
+    "workflows",
+    "workflow_steps",
 }
 EXPECTED_MESSAGE_ROLES = ("system", "user", "assistant", "tool")
 
@@ -99,6 +103,8 @@ def test_model_registry_contains_only_the_approved_domain_tables():
     assert MemorySetting.__table__ is Base.metadata.tables["memory_settings"]
     assert Memory.__table__ is Base.metadata.tables["memories"]
     assert ToolExecution.__table__ is Base.metadata.tables["tool_executions"]
+    assert Workflow.__table__ is Base.metadata.tables["workflows"]
+    assert WorkflowStep.__table__ is Base.metadata.tables["workflow_steps"]
 
 
 def test_user_has_uuid_primary_key_timestamps_and_access_credential_digest():

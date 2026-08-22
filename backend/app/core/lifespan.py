@@ -18,6 +18,7 @@ from app.runtimes.ollama import (
 from app.services.asset import reconcile_asset_storage
 from app.services.generation_admission import GenerationAdmissionController
 from app.services.tool import reconcile_tool_executions
+from app.services.workflow import WorkflowRunner, reconcile_workflows
 from app.storage.local import LocalAssetStorage
 
 
@@ -37,6 +38,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.postgres_engine = postgres_engine
         app.state.db_session_factory = create_session_factory(postgres_engine)
         await reconcile_tool_executions(app.state.db_session_factory)
+        await reconcile_workflows(app.state.db_session_factory)
         asset_storage = None
         if settings.ASSET_STORAGE_ROOT is not None:
             asset_storage = LocalAssetStorage(settings.ASSET_STORAGE_ROOT)
@@ -59,6 +61,22 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.document_ingestion_max_duration_seconds = (
             settings.DOCUMENT_INGESTION_MAX_DURATION_SECONDS
         )
+        app.state.workflow_tasks = {}
+        app.state.workflow_runner = (
+            WorkflowRunner(
+                app.state.db_session_factory,
+                asyncio.Semaphore(2),
+                app.state.workflow_tasks,
+                document_storage=asset_storage,
+                document_admission=app.state.document_ingestion_admission,
+            )
+            if app.state.db_session_factory is not None
+            else None
+        )
+        if app.state.workflow_runner is not None:
+            resource_stack.push_async_callback(
+                app.state.workflow_runner.shutdown
+            )
         app.state.model_list_max_response_bytes = (
             settings.MODEL_LIST_MAX_RESPONSE_BYTES
         )

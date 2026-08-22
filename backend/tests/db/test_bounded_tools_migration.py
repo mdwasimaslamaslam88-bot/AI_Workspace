@@ -1,4 +1,5 @@
 import app.models  # noqa: F401
+import sqlalchemy as sa
 from app.db.base import Base
 from tests.db.test_initial_domain_migration import (
     RecordingOperations,
@@ -45,8 +46,24 @@ def test_upgrade_matches_exact_tool_execution_orm_schema():
         ("create_index", "ix_tool_executions_owner_started_at"),
         ("create_index", "ix_tool_executions_owner_conversation"),
     ]
+    expected_metadata = sa.MetaData(naming_convention=Base.metadata.naming_convention)
+    expected = Base.metadata.tables["tool_executions"].to_metadata(
+        expected_metadata
+    )
+    initiator_constraint = next(
+        constraint
+        for constraint in expected.constraints
+        if constraint.name == "ck_tool_executions_initiator_allowed"
+    )
+    expected.constraints.remove(initiator_constraint)
+    expected.append_constraint(
+        sa.CheckConstraint(
+            "initiator = 'explicit_user'",
+            name="initiator_allowed",
+        )
+    )
     assert _table_signature(operations.metadata.tables["tool_executions"]) == (
-        _table_signature(Base.metadata.tables["tool_executions"])
+        _table_signature(expected)
     )
 
 

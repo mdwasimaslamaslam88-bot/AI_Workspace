@@ -49,7 +49,10 @@ class ToolExecution(Base):
             "status IN ('running', 'completed', 'failed', 'timed_out', 'cancelled')",
             name="status_allowed",
         ),
-        CheckConstraint("initiator = 'explicit_user'", name="initiator_allowed"),
+        CheckConstraint(
+            "initiator IN ('explicit_user', 'workflow')",
+            name="initiator_allowed",
+        ),
         CheckConstraint(
             "char_length(arguments_json) BETWEEN 2 AND 8192",
             name="arguments_json_bounded",

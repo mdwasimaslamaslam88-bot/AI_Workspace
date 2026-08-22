@@ -51,6 +51,9 @@ function installWorkspaceFetch(options: {
     if (url.pathname === "/api/v1/tools/executions") {
       return jsonResponse({ items: [] });
     }
+    if (url.pathname === "/api/v1/workflows") {
+      return jsonResponse({ items: [] });
+    }
     if (url.pathname === "/api/v1/ai/models") {
       return jsonResponse({ items: options.models ?? [model] });
     }
@@ -169,6 +172,33 @@ describe("App integration", () => {
           call.url.pathname.startsWith("/api/v1/tools"),
         ),
       ).toHaveLength(2),
+    );
+  });
+
+  it("loads bounded workflows only when the explicit control is opened", async () => {
+    writeSessionToken(token);
+    const workspace = installWorkspaceFetch();
+    render(<App />);
+
+    await screen.findByRole("button", { name: /Local chat/ });
+    expect(
+      workspace.calls.filter((call) =>
+        call.url.pathname.startsWith("/api/v1/workflows"),
+      ),
+    ).toHaveLength(0);
+
+    await userEvent.click(screen.getByRole("button", { name: "Workflows" }));
+
+    expect(
+      await screen.findByRole("heading", { name: "Research tasks" }),
+    ).toBeVisible();
+    expect(screen.getByText("No workflows yet.")).toBeVisible();
+    await waitFor(() =>
+      expect(
+        workspace.calls.filter((call) =>
+          call.url.pathname.startsWith("/api/v1/workflows"),
+        ),
+      ).toHaveLength(1),
     );
   });
 

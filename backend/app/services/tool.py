@@ -153,6 +153,13 @@ TOOL_DEFINITIONS = (
 TOOL_REGISTRY = {definition.name: definition for definition in TOOL_DEFINITIONS}
 
 
+@dataclass(frozen=True, slots=True)
+class ValidatedToolCall:
+    definition: ToolDefinition
+    arguments: dict[str, Any]
+    arguments_json: str
+
+
 def _bounded_number(value: int | float) -> int | float:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise ToolInputInvalidError("calculator expression is invalid")
@@ -236,6 +243,27 @@ def _canonical_json(value: Any, maximum: int) -> str:
     return encoded
 
 
+def validate_tool_call(
+    tool_name: str,
+    arguments: dict[str, Any],
+) -> ValidatedToolCall:
+    definition = TOOL_REGISTRY.get(tool_name)
+    if definition is None:
+        raise ToolNotFoundError("tool is not registered")
+    try:
+        validated = definition.input_model.model_validate(arguments)
+    except ValidationError as exc:
+        raise ToolInputInvalidError("tool arguments are invalid") from exc
+    arguments_value = validated.model_dump(mode="json", exclude_none=True)
+    try:
+        arguments_json = _canonical_json(
+            arguments_value, MAX_TOOL_ARGUMENT_JSON_CHARACTERS
+        )
+    except _ToolInvocationFailed as exc:
+        raise ToolInputInvalidError("tool arguments are invalid") from exc
+    return ValidatedToolCall(definition, arguments_value, arguments_json)
+
+
 def _record(execution: ToolExecution) -> ToolExecutionRecord:
     return ToolExecutionRecord(
         id=execution.id,
@@ -293,21 +321,16 @@ class ToolService:
         arguments: dict[str, Any],
         *,
         conversation_id: UUID | None = None,
+        initiator: str = "explicit_user",
     ) -> ToolExecutionRecord:
-        definition = TOOL_REGISTRY.get(tool_name)
-        if definition is None:
-            raise ToolNotFoundError("tool is not registered")
-        try:
-            validated = definition.input_model.model_validate(arguments)
-        except ValidationError as exc:
-            raise ToolInputInvalidError("tool arguments are invalid") from exc
-        arguments_value = validated.model_dump(mode="json", exclude_none=True)
-        try:
-            arguments_json = _canonical_json(
-                arguments_value, MAX_TOOL_ARGUMENT_JSON_CHARACTERS
-            )
-        except _ToolInvocationFailed as exc:
-            raise ToolInputInvalidError("tool arguments are invalid") from exc
+        if initiator not in {"explicit_user", "workflow"}:
+            raise ValueError("tool initiator is invalid")
+        validated_call = validate_tool_call(tool_name, arguments)
+        definition = validated_call.definition
+        validated = definition.input_model.model_validate(
+            validated_call.arguments
+        )
+        arguments_json = validated_call.arguments_json
 
         try:
             conversation_is_owned = (
@@ -325,6 +348,7 @@ class ToolService:
                 definition.name,
                 definition.permission,
                 arguments_json,
+                initiator=initiator,
             )
             await self.session.commit()
         except ToolConversationNotFoundError:

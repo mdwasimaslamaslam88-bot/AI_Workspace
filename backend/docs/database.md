@@ -136,3 +136,18 @@ Conversation is deleted. Owner/time and owner/Conversation indexes support
 bounded history and audit queries. Database constraints enforce the tool,
 permission, initiator, status/error vocabulary, size caps, and consistent
 running versus terminal state.
+
+Alembic revision `0008_bounded_workflows` follows bounded tools and adds
+owner-scoped `workflows` and `workflow_steps`. The parent records a bounded
+terminal lifecycle and aggregate result; each ordered child captures a
+server-assigned permission, canonical arguments, tool-execution provenance,
+bounded result, duration, and safe failure code. Constraints enforce the fixed
+tool and permission allowlists, one to eight unique positions per workflow,
+JSON size limits, and consistent pending/running/terminal fields. Every runtime
+transition filters both workflow identity and owner, and supporting indexes
+cover owner history, owner/status reconciliation, and owner/position access.
+The step-to-parent composite foreign key also requires the duplicated step
+owner to equal its workflow owner, including for direct database writes.
+Downgrading this revision removes workflow records and converts the no-longer-
+representable `workflow` tool-audit initiator to `explicit_user` before
+restoring revision 0007's original constraint; other audit fields remain.

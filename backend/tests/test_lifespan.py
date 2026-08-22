@@ -60,8 +60,17 @@ async def test_lifespan_creates_factory_and_disposes_configured_engine(monkeypat
     monkeypatch.setattr(lifespan_module, "close_redis", close_redis)
     monkeypatch.setattr(lifespan_module, "close_ollama", close_ollama)
     reconcile_tools = AsyncMock(return_value=0)
+    reconcile_workflow_rows = AsyncMock(return_value=0)
+    workflow_runner = Mock(shutdown=AsyncMock())
+    workflow_runner_factory = Mock(return_value=workflow_runner)
     monkeypatch.setattr(
         lifespan_module, "reconcile_tool_executions", reconcile_tools
+    )
+    monkeypatch.setattr(
+        lifespan_module, "reconcile_workflows", reconcile_workflow_rows
+    )
+    monkeypatch.setattr(
+        lifespan_module, "WorkflowRunner", workflow_runner_factory
     )
 
     async with lifespan_module.lifespan(app):
@@ -75,10 +84,15 @@ async def test_lifespan_creates_factory_and_disposes_configured_engine(monkeypat
         assert app.state.model_catalog.max_list_discovery_seconds == 60.0
         assert await app.state.model_catalog.list_models() == ()
         assert app.state.text_generation_router._runtimes == {}
+        assert app.state.workflow_runner is workflow_runner
+        workflow_runner.shutdown.assert_not_awaited()
         dispose_postgres.assert_not_awaited()
 
     create_session_factory.assert_called_once_with(engine)
     reconcile_tools.assert_awaited_once_with(factory)
+    reconcile_workflow_rows.assert_awaited_once_with(factory)
+    workflow_runner_factory.assert_called_once()
+    workflow_runner.shutdown.assert_awaited_once_with()
     dispose_postgres.assert_awaited_once_with(engine)
     close_redis.assert_awaited_once_with(None)
     close_ollama.assert_awaited_once_with(None)
@@ -225,6 +239,7 @@ def _install_resource_lifecycle_mocks(monkeypatch):
         assert resource is ollama_client
         events.append("close_ollama")
 
+    workflow_runner = Mock(shutdown=AsyncMock())
     resources = {
         "events": events,
         "postgres_engine": postgres_engine,
@@ -236,6 +251,9 @@ def _install_resource_lifecycle_mocks(monkeypatch):
         "create_ollama": Mock(side_effect=create_ollama),
         "create_session_factory": Mock(return_value=session_factory),
         "reconcile_tools": AsyncMock(return_value=0),
+        "reconcile_workflows": AsyncMock(return_value=0),
+        "workflow_runner": workflow_runner,
+        "workflow_runner_factory": Mock(return_value=workflow_runner),
         "dispose_postgres": AsyncMock(side_effect=dispose_postgres),
         "close_redis": AsyncMock(side_effect=close_redis),
         "close_ollama": AsyncMock(side_effect=close_ollama),
@@ -264,6 +282,16 @@ def _install_resource_lifecycle_mocks(monkeypatch):
         lifespan_module,
         "reconcile_tool_executions",
         resources["reconcile_tools"],
+    )
+    monkeypatch.setattr(
+        lifespan_module,
+        "reconcile_workflows",
+        resources["reconcile_workflows"],
+    )
+    monkeypatch.setattr(
+        lifespan_module,
+        "WorkflowRunner",
+        resources["workflow_runner_factory"],
     )
     monkeypatch.setattr(
         lifespan_module,

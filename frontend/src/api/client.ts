@@ -20,6 +20,9 @@ import {
   type ToolExecution,
   type ToolExecutionPage,
   type ToolExecutionRequest,
+  type Workflow,
+  type WorkflowCreateRequest,
+  type WorkflowPage,
   parseIndexedDocument,
   parseAsset,
   parseConversation,
@@ -35,6 +38,8 @@ import {
   parseToolDescriptorPage,
   parseToolExecution,
   parseToolExecutionPage,
+  parseWorkflow,
+  parseWorkflowPage,
 } from "./contracts";
 
 export type ApiErrorKind =
@@ -356,6 +361,52 @@ export class ApiClient {
         signal,
         decode: parseToolExecution,
       },
+    );
+  }
+
+
+  listWorkflows(
+    options: { limit?: number; signal?: AbortSignal } = {},
+  ): Promise<WorkflowPage> {
+    const query = new URLSearchParams();
+    if (options.limit !== undefined) query.set("limit", String(options.limit));
+    const suffix = query.size === 0 ? "" : `?${query.toString()}`;
+    return this.#request(`api/v1/workflows${suffix}`, {
+      signal: options.signal,
+      decode: parseWorkflowPage,
+    });
+  }
+
+  createWorkflow(
+    request: WorkflowCreateRequest,
+    signal?: AbortSignal,
+  ): Promise<Workflow> {
+    return this.#request("api/v1/workflows", {
+      method: "POST",
+      body: request,
+      signal,
+      decode: parseWorkflow,
+    });
+  }
+
+  getWorkflow(workflowId: string, signal?: AbortSignal): Promise<Workflow> {
+    return this.#request(
+      `api/v1/workflows/${encodeURIComponent(workflowId)}`,
+      { signal, decode: parseWorkflow },
+    );
+  }
+
+  startWorkflow(workflowId: string, signal?: AbortSignal): Promise<Workflow> {
+    return this.#request(
+      `api/v1/workflows/${encodeURIComponent(workflowId)}/start`,
+      { method: "POST", signal, decode: parseWorkflow },
+    );
+  }
+
+  cancelWorkflow(workflowId: string, signal?: AbortSignal): Promise<Workflow> {
+    return this.#request(
+      `api/v1/workflows/${encodeURIComponent(workflowId)}`,
+      { method: "DELETE", signal, decode: parseWorkflow },
     );
   }
 

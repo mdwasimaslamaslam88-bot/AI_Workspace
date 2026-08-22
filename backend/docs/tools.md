@@ -34,4 +34,5 @@ calls interrupted by process exit as `failed` with `server_restarted`.
 Execution history contains owner ID internally but never returns it. Optional
 Conversation context is verified against the same owner before audit creation.
 Arguments and results are canonical bounded JSON text; internal exceptions and
-raw database details are never returned or logged.
+raw database details are never returned or logged. Audit metadata distinguishes
+direct `explicit_user` calls from calls executed by a bounded `workflow`.

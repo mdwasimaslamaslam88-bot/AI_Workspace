@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -35,7 +35,7 @@ class ToolExecutionResponse(BaseModel):
     tool_name: str
     permission: str
     status: ToolExecutionStatus
-    initiator: str
+    initiator: Literal["explicit_user", "workflow"]
     arguments: dict[str, Any]
     result: Any | None
     error_code: str | None

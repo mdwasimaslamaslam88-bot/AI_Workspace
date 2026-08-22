@@ -124,7 +124,7 @@ export interface ToolExecution {
   tool_name: string;
   permission: string;
   status: ToolExecutionStatus;
-  initiator: "explicit_user";
+  initiator: "explicit_user" | "workflow";
   arguments: { [key: string]: JsonValue };
   result: JsonValue;
   error_code: string | null;
@@ -140,6 +140,59 @@ export interface ToolExecutionPage {
 export interface ToolExecutionRequest {
   arguments: { [key: string]: JsonValue };
   conversation_id?: UUID;
+}
+
+export type WorkflowStatus =
+  | "pending"
+  | "running"
+  | "completed"
+  | "failed"
+  | "cancelled"
+  | "timed_out";
+
+export interface WorkflowStep {
+  id: UUID;
+  position: number;
+  tool_name: string;
+  permission: string;
+  arguments: { [key: string]: JsonValue };
+  status: WorkflowStatus;
+  tool_execution_id: UUID | null;
+  result: JsonValue;
+  error_code: string | null;
+  started_at: Timestamp | null;
+  completed_at: Timestamp | null;
+  duration_ms: number | null;
+}
+
+export interface Workflow {
+  id: UUID;
+  name: string | null;
+  status: WorkflowStatus;
+  step_count: number;
+  current_step_position: number | null;
+  cancel_requested: boolean;
+  result: JsonValue;
+  error_code: string | null;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+  started_at: Timestamp | null;
+  completed_at: Timestamp | null;
+  steps: WorkflowStep[];
+}
+
+export interface WorkflowPage {
+  items: Workflow[];
+}
+
+export interface WorkflowStepCreateRequest {
+  tool_name: string;
+  arguments: { [key: string]: JsonValue };
+}
+
+export interface WorkflowCreateRequest {
+  name?: string;
+  steps: WorkflowStepCreateRequest[];
 }
 
 export type ModelModality = "text";
@@ -672,7 +725,10 @@ export function parseToolExecution(value: unknown): ToolExecution {
     tool_name: stringField(item.tool_name),
     permission: stringField(item.permission),
     status,
-    initiator: enumField(item.initiator, ["explicit_user"] as const),
+    initiator: enumField(
+      item.initiator,
+      ["explicit_user", "workflow"] as const,
+    ),
     arguments: argumentsValue,
     result,
     error_code: errorCode,
@@ -686,4 +742,116 @@ export function parseToolExecutionPage(value: unknown): ToolExecutionPage {
   const page = record(value);
   if (!Array.isArray(page.items)) return invalidResponse();
   return { items: page.items.map(parseToolExecution) };
+}
+
+const workflowStatuses = [
+  "pending",
+  "running",
+  "completed",
+  "failed",
+  "cancelled",
+  "timed_out",
+] as const;
+
+export function parseWorkflowStep(value: unknown): WorkflowStep {
+  const item = record(value);
+  const position = integerOrNull(item.position);
+  const status = enumField(item.status, workflowStatuses);
+  const argumentsValue = jsonValue(item.arguments);
+  const result = jsonValue(item.result);
+  const toolExecutionId = nullableString(item.tool_execution_id);
+  const errorCode = nullableString(item.error_code);
+  const startedAt = nullableString(item.started_at);
+  const completedAt = nullableString(item.completed_at);
+  const duration = integerOrNull(item.duration_ms);
+  if (
+    position === null || position < 1 || position > 8 ||
+    argumentsValue === null || Array.isArray(argumentsValue) ||
+    typeof argumentsValue !== "object" ||
+    (duration !== null && duration < 0) ||
+    (status === "pending" &&
+      (startedAt !== null || completedAt !== null || toolExecutionId !== null ||
+        result !== null || errorCode !== null || duration !== null)) ||
+    (status === "running" &&
+      (startedAt === null || completedAt !== null || result !== null ||
+        errorCode !== null || duration !== null)) ||
+    (status === "completed" &&
+      (startedAt === null || completedAt === null || toolExecutionId === null ||
+        result === null || errorCode !== null || duration === null)) ||
+    (["failed", "cancelled", "timed_out"] as const).includes(
+      status as "failed" | "cancelled" | "timed_out",
+    ) && (completedAt === null || result !== null || errorCode === null || duration === null)
+  ) {
+    return invalidResponse();
+  }
+  return {
+    id: stringField(item.id),
+    position,
+    tool_name: stringField(item.tool_name),
+    permission: stringField(item.permission),
+    arguments: argumentsValue,
+    status,
+    tool_execution_id: toolExecutionId,
+    result,
+    error_code: errorCode,
+    started_at: startedAt,
+    completed_at: completedAt,
+    duration_ms: duration,
+  };
+}
+
+export function parseWorkflow(value: unknown): Workflow {
+  const item = record(value);
+  const status = enumField(item.status, workflowStatuses);
+  const stepCount = integerOrNull(item.step_count);
+  const current = integerOrNull(item.current_step_position);
+  const result = jsonValue(item.result);
+  const errorCode = nullableString(item.error_code);
+  const startedAt = nullableString(item.started_at);
+  const completedAt = nullableString(item.completed_at);
+  if (!Array.isArray(item.steps) || typeof item.cancel_requested !== "boolean") {
+    return invalidResponse();
+  }
+  const steps = item.steps.map(parseWorkflowStep);
+  if (
+    stepCount === null || stepCount < 1 || stepCount > 8 ||
+    steps.length !== stepCount ||
+    steps.some((step, index) => step.position !== index + 1) ||
+    (current !== null && (current < 1 || current > stepCount)) ||
+    (status === "pending" &&
+      (startedAt !== null || completedAt !== null || current !== null ||
+        result !== null || errorCode !== null || item.cancel_requested)) ||
+    (status === "running" &&
+      (startedAt === null || completedAt !== null || current === null ||
+        result !== null || errorCode !== null)) ||
+    (status === "completed" &&
+      (startedAt === null || completedAt === null || current === null ||
+        result === null || errorCode !== null || item.cancel_requested)) ||
+    (["failed", "cancelled", "timed_out"] as const).includes(
+      status as "failed" | "cancelled" | "timed_out",
+    ) && (completedAt === null || result !== null || errorCode === null)
+  ) {
+    return invalidResponse();
+  }
+  return {
+    id: stringField(item.id),
+    name: nullableString(item.name),
+    status,
+    step_count: stepCount,
+    current_step_position: current,
+    cancel_requested: item.cancel_requested,
+    result,
+    error_code: errorCode,
+    created_at: stringField(item.created_at),
+    updated_at: stringField(item.updated_at),
+    started_at: startedAt,
+    completed_at: completedAt,
+    steps,
+  };
+}
+
+export function parseWorkflowPage(value: unknown): WorkflowPage {
+  const page = record(value);
+  if (!Array.isArray(page.items)) return invalidResponse();
+  return { items: page.items.map(parseWorkflow) };
 }
