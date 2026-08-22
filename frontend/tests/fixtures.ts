@@ -3,6 +3,7 @@ import type {
   CurrentUser,
   LocalModel,
   Message,
+  ProductCapability,
 } from "../src/api/contracts";
 
 export const token = "frontend-test-bearer-token";
@@ -34,6 +35,42 @@ export const visionModel: LocalModel = {
   display_name: "Local Vision Model",
   capabilities: ["chat", "text_generation", "vision_input"],
 };
+
+export const productCapabilities: ProductCapability[] = [
+  "chat",
+  "vision_input",
+  "attachments",
+  "documents_rag",
+  "personal_memory",
+  "bounded_tools",
+  "bounded_workflows",
+].map((id) => ({
+  id: id as ProductCapability["id"],
+  status: "available",
+  blocking_reasons: [],
+}));
+productCapabilities.push(
+  {
+    id: "image_generation",
+    status: "unavailable",
+    blocking_reasons: ["local_image_runtime_and_model_required"],
+  },
+  {
+    id: "image_editing",
+    status: "unavailable",
+    blocking_reasons: ["local_image_edit_runtime_and_model_required"],
+  },
+  {
+    id: "voice_input",
+    status: "unavailable",
+    blocking_reasons: ["local_voice_runtime_and_models_required"],
+  },
+  {
+    id: "voice_output",
+    status: "unavailable",
+    blocking_reasons: ["local_voice_runtime_and_models_required"],
+  },
+);
 
 export const conversation: ConversationSummary = {
   id: "22222222-2222-4222-8222-222222222222",

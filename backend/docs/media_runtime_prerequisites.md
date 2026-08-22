@@ -14,7 +14,9 @@ Environment audit recorded on 2026-08-22 for this workstation:
 
 Therefore image generation, image editing, and voice real-runtime validation
 are blocked by external runtime/model prerequisites; no mock adapter is enabled.
-To unblock image generation, install a loopback-only, deadline/cancellation-aware
+All three asset pipelines also require a configured private absolute
+`ASSET_STORAGE_ROOT`. To unblock image generation, install a loopback-only,
+deadline/cancellation-aware
 local image runtime plus an explicitly allowlisted text-to-image checkpoint that
 fits the 12 GiB GPU. Image editing additionally requires an allowlisted
 image-to-image/inpainting checkpoint and bounded workflow. To unblock voice,

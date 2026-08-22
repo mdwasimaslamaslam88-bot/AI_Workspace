@@ -16,6 +16,7 @@ import {
   type MemorySetting,
   type MessagePage,
   type PersonalMemory,
+  type ProductCapabilityPage,
   type ToolDescriptorPage,
   type ToolExecution,
   type ToolExecutionPage,
@@ -35,6 +36,7 @@ import {
   parseMessagePage,
   parseModelPage,
   parsePersonalMemory,
+  parseProductCapabilityPage,
   parseToolDescriptorPage,
   parseToolExecution,
   parseToolExecutionPage,
@@ -214,6 +216,13 @@ export class ApiClient {
     this.#fetch = options.fetchImplementation ?? fetch;
     this.#onUnauthorized = options.onUnauthorized;
     this.#xhrFactory = options.xhrFactory ?? (() => new XMLHttpRequest());
+  }
+
+  getProductCapabilities(signal?: AbortSignal): Promise<ProductCapabilityPage> {
+    return this.#request("api/v1/ai/capabilities", {
+      signal,
+      decode: parseProductCapabilityPage,
+    });
   }
 
   async #request<T>(path: string, options: RequestOptions<T>): Promise<T> {

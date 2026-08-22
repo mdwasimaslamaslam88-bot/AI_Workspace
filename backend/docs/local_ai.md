@@ -596,3 +596,13 @@ Image generation/editing and voice remain fail-closed when their local runtimes
 and allowlisted models are absent. The current workstation audit and exact
 operator prerequisites are recorded in
 [`media_runtime_prerequisites.md`](media_runtime_prerequisites.md).
+
+## Integrated capability diagnostics
+
+The authenticated `/api/v1/ai/capabilities` snapshot and final web Settings &
+Diagnostics panel expose the currently usable text, vision, attachment,
+document, memory, tool, workflow, image, and voice surfaces without revealing
+private runtime configuration. Availability is derived from server-owned
+implementation, storage, and allowlisted model state. The fixed response and UI
+contract are documented in
+[`product_capabilities.md`](product_capabilities.md).

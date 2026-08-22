@@ -231,6 +231,38 @@ export interface LocalModelPage {
   items: LocalModel[];
 }
 
+export type ProductCapabilityId =
+  | "chat"
+  | "vision_input"
+  | "attachments"
+  | "documents_rag"
+  | "personal_memory"
+  | "bounded_tools"
+  | "bounded_workflows"
+  | "image_generation"
+  | "image_editing"
+  | "voice_input"
+  | "voice_output";
+
+export type ProductCapabilityReason =
+  | "asset_storage_required"
+  | "local_model_runtime_unavailable"
+  | "allowlisted_text_model_required"
+  | "allowlisted_vision_model_required"
+  | "local_image_runtime_and_model_required"
+  | "local_image_edit_runtime_and_model_required"
+  | "local_voice_runtime_and_models_required";
+
+export interface ProductCapability {
+  id: ProductCapabilityId;
+  status: "available" | "unavailable";
+  blocking_reasons: ProductCapabilityReason[];
+}
+
+export interface ProductCapabilityPage {
+  items: ProductCapability[];
+}
+
 export interface ConversationSummary {
   id: UUID;
   title: string | null;
@@ -357,6 +389,28 @@ const modelCapabilities = [
   "embeddings",
 ] as const;
 const modelAvailabilities = ["available", "unavailable", "unknown"] as const;
+const productCapabilityIds = [
+  "chat",
+  "vision_input",
+  "attachments",
+  "documents_rag",
+  "personal_memory",
+  "bounded_tools",
+  "bounded_workflows",
+  "image_generation",
+  "image_editing",
+  "voice_input",
+  "voice_output",
+] as const;
+const productCapabilityReasons = [
+  "asset_storage_required",
+  "local_model_runtime_unavailable",
+  "allowlisted_text_model_required",
+  "allowlisted_vision_model_required",
+  "local_image_runtime_and_model_required",
+  "local_image_edit_runtime_and_model_required",
+  "local_voice_runtime_and_models_required",
+] as const;
 
 export function parseCurrentUser(value: unknown): CurrentUser {
   const item = record(value);
@@ -391,6 +445,42 @@ export function parseModelPage(value: unknown): LocalModelPage {
   const page = record(value);
   if (!Array.isArray(page.items)) return invalidResponse();
   return { items: page.items.map(parseModel) };
+}
+
+export function parseProductCapability(value: unknown): ProductCapability {
+  const item = record(value);
+  const status = enumField(item.status, ["available", "unavailable"] as const);
+  if (!Array.isArray(item.blocking_reasons)) return invalidResponse();
+  const blockingReasons = item.blocking_reasons.map((reason) =>
+    enumField(reason, productCapabilityReasons),
+  );
+  if (
+    blockingReasons.length > 3 ||
+    new Set(blockingReasons).size !== blockingReasons.length ||
+    (status === "available" && blockingReasons.length !== 0) ||
+    (status === "unavailable" && blockingReasons.length === 0)
+  ) {
+    return invalidResponse();
+  }
+  return {
+    id: enumField(item.id, productCapabilityIds),
+    status,
+    blocking_reasons: blockingReasons,
+  };
+}
+
+export function parseProductCapabilityPage(
+  value: unknown,
+): ProductCapabilityPage {
+  const page = record(value);
+  if (!Array.isArray(page.items) || page.items.length !== 11) {
+    return invalidResponse();
+  }
+  const items = page.items.map(parseProductCapability);
+  if (new Set(items.map((item) => item.id)).size !== productCapabilityIds.length) {
+    return invalidResponse();
+  }
+  return { items };
 }
 
 export function parseConversation(value: unknown): ConversationSummary {

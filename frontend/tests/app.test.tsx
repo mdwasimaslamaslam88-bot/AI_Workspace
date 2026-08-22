@@ -10,6 +10,7 @@ import {
   jsonResponse,
   message,
   model,
+  productCapabilities,
   rawSecret,
   token,
   user,
@@ -50,6 +51,9 @@ function installWorkspaceFetch(options: {
     }
     if (url.pathname === "/api/v1/tools/executions") {
       return jsonResponse({ items: [] });
+    }
+    if (url.pathname === "/api/v1/ai/capabilities") {
+      return jsonResponse({ items: productCapabilities });
     }
     if (url.pathname === "/api/v1/workflows") {
       return jsonResponse({ items: [] });
@@ -200,6 +204,39 @@ describe("App integration", () => {
         ),
       ).toHaveLength(1),
     );
+  });
+
+  it("loads diagnostics only when Settings opens and links to memory controls", async () => {
+    writeSessionToken(token);
+    const workspace = installWorkspaceFetch();
+    render(<App />);
+
+    await screen.findByRole("button", { name: /Local chat/ });
+    expect(
+      workspace.calls.filter((call) =>
+        call.url.pathname === "/api/v1/ai/capabilities",
+      ),
+    ).toHaveLength(0);
+
+    await userEvent.click(screen.getByRole("button", { name: "Settings" }));
+
+    expect(
+      await screen.findByRole("heading", { name: "Settings & diagnostics" }),
+    ).toBeVisible();
+    expect(screen.getByText("7 of 11 capabilities available now.")).toBeVisible();
+    expect(screen.getByText(/bounded loopback image adapter/)).toBeVisible();
+    await waitFor(() =>
+      expect(
+        workspace.calls.filter((call) =>
+          call.url.pathname === "/api/v1/ai/capabilities",
+        ),
+      ).toHaveLength(1),
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Manage memory" }));
+    expect(
+      await screen.findByRole("heading", { name: "What your AI remembers" }),
+    ).toBeVisible();
   });
 
   it("propagates public vision capability from discovered model metadata", async () => {

@@ -3,11 +3,22 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import async_object_session
 
-from app.ai.catalog import ModelRuntimeUnavailableError
+from app.ai.catalog import (
+    ModelAvailability,
+    ModelCapability,
+    ModelRuntimeUnavailableError,
+)
 from app.api.dependencies import get_current_user
 from app.core.config import settings
 from app.models.user import User
-from app.schemas.ai import LocalModelPageResponse, LocalModelResponse
+from app.schemas.ai import (
+    LocalModelPageResponse,
+    LocalModelResponse,
+    ProductCapabilityPageResponse,
+    ProductCapabilityResponse,
+    ProductCapabilityId,
+    ProductCapabilityReason,
+)
 
 
 router = APIRouter(prefix="/ai", tags=["AI"])
@@ -198,16 +209,120 @@ def _runtime_unavailable() -> HTTPException:
     )
 
 
+async def _release_authentication_session(current_user: User) -> None:
+    authentication_session = async_object_session(current_user)
+    if authentication_session is None:
+        raise RuntimeError("Authenticated user session is not available")
+    await authentication_session.rollback()
+
+
+def _product_capability(
+    capability_id: ProductCapabilityId,
+    *blocking_reasons: ProductCapabilityReason,
+) -> ProductCapabilityResponse:
+    return ProductCapabilityResponse(
+        id=capability_id,
+        status="unavailable" if blocking_reasons else "available",
+        blocking_reasons=list(blocking_reasons),
+    )
+
+
+@router.get(
+    "/capabilities",
+    response_model=ProductCapabilityPageResponse,
+)
+async def list_product_capabilities(
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> ProductCapabilityPageResponse:
+    await _release_authentication_session(current_user)
+    catalog = getattr(request.app.state, "model_catalog", None)
+    model_runtime_unavailable = catalog is None
+    models = ()
+    if catalog is not None:
+        try:
+            models = await catalog.list_models()
+        except ModelRuntimeUnavailableError:
+            model_runtime_unavailable = True
+
+    text_model_available = any(
+        model.availability is ModelAvailability.AVAILABLE
+        and ModelCapability.TEXT_GENERATION in model.capabilities
+        for model in models
+    )
+    vision_model_available = any(
+        model.availability is ModelAvailability.AVAILABLE
+        and ModelCapability.TEXT_GENERATION in model.capabilities
+        and ModelCapability.VISION_INPUT in model.capabilities
+        for model in models
+    )
+    storage_available = getattr(request.app.state, "asset_storage", None) is not None
+    model_runtime_reason: ProductCapabilityReason | None = (
+        "local_model_runtime_unavailable"
+        if model_runtime_unavailable
+        else None
+    )
+    chat_reason: ProductCapabilityReason | None = (
+        model_runtime_reason
+        or (None if text_model_available else "allowlisted_text_model_required")
+    )
+    vision_reasons: list[ProductCapabilityReason] = []
+    if not storage_available:
+        vision_reasons.append("asset_storage_required")
+    if model_runtime_reason is not None:
+        vision_reasons.append(model_runtime_reason)
+    elif not vision_model_available:
+        vision_reasons.append("allowlisted_vision_model_required")
+    storage_reasons: tuple[ProductCapabilityReason, ...] = (
+        () if storage_available else ("asset_storage_required",)
+    )
+
+    return ProductCapabilityPageResponse(
+        items=[
+            _product_capability("chat", *(() if chat_reason is None else (chat_reason,))),
+            _product_capability("vision_input", *vision_reasons),
+            _product_capability(
+                "attachments",
+                *(() if storage_available else ("asset_storage_required",)),
+            ),
+            _product_capability(
+                "documents_rag",
+                *(() if storage_available else ("asset_storage_required",)),
+            ),
+            _product_capability("personal_memory"),
+            _product_capability("bounded_tools"),
+            _product_capability("bounded_workflows"),
+            _product_capability(
+                "image_generation",
+                *storage_reasons,
+                "local_image_runtime_and_model_required",
+            ),
+            _product_capability(
+                "image_editing",
+                *storage_reasons,
+                "local_image_edit_runtime_and_model_required",
+            ),
+            _product_capability(
+                "voice_input",
+                *storage_reasons,
+                "local_voice_runtime_and_models_required",
+            ),
+            _product_capability(
+                "voice_output",
+                *storage_reasons,
+                "local_voice_runtime_and_models_required",
+            ),
+        ]
+    )
+
+
 @router.get("/models", response_model=LocalModelPageResponse)
 async def list_local_models(
     request: Request,
     _current_user: Annotated[User, Depends(get_current_user)],
 ) -> LocalModelPageResponse:
     if isinstance(_current_user, User):
-        authentication_session = async_object_session(_current_user)
-        if authentication_session is None:
-            raise RuntimeError("Authenticated user session is not available")
-        await authentication_session.rollback()
+        await _release_authentication_session(_current_user)
 
     catalog = getattr(request.app.state, "model_catalog", None)
     if catalog is None:

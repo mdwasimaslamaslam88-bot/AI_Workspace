@@ -1,5 +1,5 @@
 import math
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -29,6 +29,75 @@ class LocalModelPageResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     items: list[LocalModelResponse]
+
+
+ProductCapabilityId = Literal[
+    "chat",
+    "vision_input",
+    "attachments",
+    "documents_rag",
+    "personal_memory",
+    "bounded_tools",
+    "bounded_workflows",
+    "image_generation",
+    "image_editing",
+    "voice_input",
+    "voice_output",
+]
+ProductCapabilityReason = Literal[
+    "asset_storage_required",
+    "local_model_runtime_unavailable",
+    "allowlisted_text_model_required",
+    "allowlisted_vision_model_required",
+    "local_image_runtime_and_model_required",
+    "local_image_edit_runtime_and_model_required",
+    "local_voice_runtime_and_models_required",
+]
+PRODUCT_CAPABILITY_IDS = frozenset(
+    {
+        "chat",
+        "vision_input",
+        "attachments",
+        "documents_rag",
+        "personal_memory",
+        "bounded_tools",
+        "bounded_workflows",
+        "image_generation",
+        "image_editing",
+        "voice_input",
+        "voice_output",
+    }
+)
+
+
+class ProductCapabilityResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: ProductCapabilityId
+    status: Literal["available", "unavailable"]
+    blocking_reasons: list[ProductCapabilityReason] = Field(max_length=3)
+
+    @model_validator(mode="after")
+    def require_consistent_status(self):
+        if self.status == "available" and self.blocking_reasons:
+            raise ValueError("available capabilities cannot have blockers")
+        if self.status == "unavailable" and not self.blocking_reasons:
+            raise ValueError("unavailable capabilities require a blocker")
+        if len(self.blocking_reasons) != len(set(self.blocking_reasons)):
+            raise ValueError("capability blockers must be unique")
+        return self
+
+
+class ProductCapabilityPageResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    items: list[ProductCapabilityResponse] = Field(min_length=11, max_length=11)
+
+    @model_validator(mode="after")
+    def require_exact_capability_set(self):
+        if {item.id for item in self.items} != PRODUCT_CAPABILITY_IDS:
+            raise ValueError("product capability set is invalid")
+        return self
 
 
 class ConversationTextGenerationRequest(BaseModel):

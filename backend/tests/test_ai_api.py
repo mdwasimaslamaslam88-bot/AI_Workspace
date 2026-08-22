@@ -5,6 +5,7 @@ from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
+from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import app.api.dependencies as authentication_module
@@ -23,7 +24,11 @@ from app.core.security import digest_access_token
 from app.db.dependencies import get_db_session
 from app.main import app
 from app.models.user import User
-from app.schemas.ai import LocalModelPageResponse, LocalModelResponse
+from app.schemas.ai import (
+    LocalModelPageResponse,
+    LocalModelResponse,
+    ProductCapabilityPageResponse,
+)
 
 
 def _current_user() -> User:
@@ -92,12 +97,129 @@ def authenticated_ai_client(monkeypatch):
 
     app.dependency_overrides[get_current_user] = override_current_user
     previous_catalog = getattr(app.state, "model_catalog", None)
+    previous_storage = getattr(app.state, "asset_storage", None)
     try:
         with TestClient(app, raise_server_exceptions=False) as client:
             yield client, user
     finally:
         app.dependency_overrides.pop(get_current_user, None)
         app.state.model_catalog = previous_catalog
+        app.state.asset_storage = previous_storage
+
+
+def test_product_capabilities_report_implemented_and_blocked_features(
+    authenticated_ai_client,
+):
+    client, _user = authenticated_ai_client
+    app.state.asset_storage = object()
+    app.state.model_catalog = Mock(
+        list_models=AsyncMock(
+            return_value=(
+                _descriptor(
+                    capabilities=(
+                        ModelCapability.TEXT_GENERATION,
+                        ModelCapability.VISION_INPUT,
+                    )
+                ),
+            )
+        )
+    )
+
+    response = client.get("/api/v1/ai/capabilities")
+
+    assert response.status_code == 200
+    items = {item["id"]: item for item in response.json()["items"]}
+    assert len(items) == 11
+    for capability_id in (
+        "chat",
+        "vision_input",
+        "attachments",
+        "documents_rag",
+        "personal_memory",
+        "bounded_tools",
+        "bounded_workflows",
+    ):
+        assert items[capability_id] == {
+            "id": capability_id,
+            "status": "available",
+            "blocking_reasons": [],
+        }
+    assert items["image_generation"]["blocking_reasons"] == [
+        "local_image_runtime_and_model_required"
+    ]
+    assert items["image_editing"]["blocking_reasons"] == [
+        "local_image_edit_runtime_and_model_required"
+    ]
+    assert items["voice_input"]["blocking_reasons"] == [
+        "local_voice_runtime_and_models_required"
+    ]
+    assert items["voice_output"] == {
+        **items["voice_input"],
+        "id": "voice_output",
+    }
+    assert "127.0.0.1" not in response.text
+    assert "/private/" not in response.text
+
+
+def test_product_capabilities_return_fixed_safe_runtime_and_storage_blockers(
+    authenticated_ai_client,
+):
+    client, _user = authenticated_ai_client
+    app.state.asset_storage = None
+    app.state.model_catalog = Mock(
+        list_models=AsyncMock(
+            side_effect=ModelRuntimeUnavailableError(
+                "private runtime http://127.0.0.1:11434/private/model"
+            )
+        )
+    )
+
+    response = client.get("/api/v1/ai/capabilities")
+
+    assert response.status_code == 200
+    items = {item["id"]: item for item in response.json()["items"]}
+    assert items["chat"]["blocking_reasons"] == [
+        "local_model_runtime_unavailable"
+    ]
+    assert items["vision_input"]["blocking_reasons"] == [
+        "asset_storage_required",
+        "local_model_runtime_unavailable",
+    ]
+    assert items["attachments"]["blocking_reasons"] == [
+        "asset_storage_required"
+    ]
+    assert items["documents_rag"]["blocking_reasons"] == [
+        "asset_storage_required"
+    ]
+    for capability_id in (
+        "image_generation",
+        "image_editing",
+        "voice_input",
+        "voice_output",
+    ):
+        assert items[capability_id]["blocking_reasons"][0] == (
+            "asset_storage_required"
+        )
+    assert items["personal_memory"]["status"] == "available"
+    assert "127.0.0.1" not in response.text
+    assert "private/model" not in response.text
+    ai_module.async_object_session.return_value.rollback.assert_awaited_once_with()
+
+
+def test_product_capability_schema_rejects_duplicate_ids():
+    with pytest.raises(ValidationError):
+        ProductCapabilityPageResponse.model_validate(
+            {
+                "items": [
+                    {
+                        "id": "chat",
+                        "status": "available",
+                        "blocking_reasons": [],
+                    }
+                    for _ in range(11)
+                ]
+            }
+        )
 
 
 def test_authenticated_model_listing_returns_exact_safe_normalized_metadata(
@@ -809,7 +931,15 @@ def test_ai_route_scope_is_discovery_only_and_existing_routes_remain_registered(
     }
 
     assert ai_methods == {"GET"}
+    capability_methods = {
+        method
+        for route in ai_module.router.routes
+        if getattr(route, "path", None) == "/ai/capabilities"
+        for method in getattr(route, "methods", ())
+    }
+    assert capability_methods == {"GET"}
     assert client.get("/api/v1/ai/models").status_code == 200
+    assert client.get("/api/v1/ai/capabilities").status_code == 200
     assert client.get("/api/v1/users/me").status_code == 200
     assert client.get("/api/v1/health").status_code == 200
     assert client.post("/api/v1/ai/models").status_code == 405

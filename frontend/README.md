@@ -55,6 +55,8 @@ The local client supports:
   document, Conversation, and memory search;
 - a bounded Workflows panel for persisted one-to-eight-step owner research
   tasks, live progress, tool activity, safe results, and cancellation;
+- a Settings & Diagnostics panel with an authoritative local capability matrix,
+  fixed prerequisite guidance, and a direct path to memory controls;
 - safe status-based errors, bounded media states, and history reconciliation
   after generation success or ambiguous failure.
 
@@ -62,9 +64,10 @@ The backend remains authoritative for authentication, ownership, persistence,
 model resolution, generation admission, deadlines, and cancellation.
 
 The client does not provision users or add a cloud provider. Image
-creation/editing and voice remain hidden until bounded local runtimes and
-allowlisted models are installed and validated. Workflow execution is limited
-to the fixed server tool registry; there is no arbitrary agent autonomy.
+creation/editing and voice have no execution controls and remain explicitly
+unavailable until bounded local adapters, runtimes, and allowlisted models are
+installed, implemented, and validated. Workflow execution is limited to the
+fixed server tool registry; there is no arbitrary agent autonomy.
 
 ## Validation
 

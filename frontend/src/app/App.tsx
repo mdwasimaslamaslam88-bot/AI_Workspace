@@ -13,6 +13,7 @@ import type {
   MemorySetting,
   Message,
   PersonalMemory,
+  ProductCapability,
   ToolDescriptor,
   ToolExecution,
   ToolExecutionRequest,
@@ -38,6 +39,7 @@ import { ChatView, type SafeNotice } from "../features/chat/ChatView";
 import { ConversationList } from "../features/conversations/ConversationList";
 import { MemoryPanel } from "../features/memory/MemoryPanel";
 import { ModelSelector } from "../features/models/ModelSelector";
+import { SettingsPanel } from "../features/settings/SettingsPanel";
 import { ToolPanel } from "../features/tools/ToolPanel";
 import { WorkflowPanel } from "../features/workflows/WorkflowPanel";
 
@@ -127,6 +129,7 @@ export function App() {
   const [memoryOpen, setMemoryOpen] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [workflowsOpen, setWorkflowsOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const authAbort = useRef<AbortController | null>(null);
   const modelsAbort = useRef<AbortController | null>(null);
@@ -155,6 +158,7 @@ export function App() {
     setMemoryOpen(false);
     setToolsOpen(false);
     setWorkflowsOpen(false);
+    setSettingsOpen(false);
     setAuthenticationStatus("anonymous");
   }, []);
 
@@ -542,6 +546,16 @@ export function App() {
     [client],
   );
 
+  const loadProductCapabilities = useCallback(
+    async (signal?: AbortSignal): Promise<ProductCapability[]> => {
+      if (client === null) {
+        throw new ApiError("authentication", "Authentication failed.");
+      }
+      return (await client.getProductCapabilities(signal)).items;
+    },
+    [client],
+  );
+
   const createMemory = useCallback(
     (request: MemoryCreateRequest, signal?: AbortSignal): Promise<PersonalMemory> => {
       if (client === null) {
@@ -749,12 +763,27 @@ export function App() {
           <button
             type="button"
             className="button button-secondary"
+            aria-expanded={settingsOpen}
+            aria-controls="personal-settings-panel"
+            onClick={() => {
+              setSettingsOpen((current) => !current);
+              setWorkflowsOpen(false);
+              setToolsOpen(false);
+              setMemoryOpen(false);
+            }}
+          >
+            Settings
+          </button>
+          <button
+            type="button"
+            className="button button-secondary"
             aria-expanded={workflowsOpen}
             aria-controls="personal-workflows-panel"
             onClick={() => {
               setWorkflowsOpen((current) => !current);
               setToolsOpen(false);
               setMemoryOpen(false);
+              setSettingsOpen(false);
             }}
           >
             Workflows
@@ -768,6 +797,7 @@ export function App() {
               setToolsOpen((current) => !current);
               setMemoryOpen(false);
               setWorkflowsOpen(false);
+              setSettingsOpen(false);
             }}
           >
             Tools
@@ -781,6 +811,7 @@ export function App() {
               setMemoryOpen((current) => !current);
               setToolsOpen(false);
               setWorkflowsOpen(false);
+              setSettingsOpen(false);
             }}
           >
             Memory
@@ -795,6 +826,18 @@ export function App() {
             onReload={() => void reloadModels()}
           />
         </header>
+        {settingsOpen && (
+          <div id="personal-settings-panel">
+            <SettingsPanel
+              onClose={() => setSettingsOpen(false)}
+              onLoad={loadProductCapabilities}
+              onManageMemory={() => {
+                setSettingsOpen(false);
+                setMemoryOpen(true);
+              }}
+            />
+          </div>
+        )}
         {workflowsOpen && (
           <div id="personal-workflows-panel">
             <WorkflowPanel
