@@ -13,10 +13,12 @@ import type {
   Asset,
   ConversationCreateRequest,
   ConversationSummary,
+  IndexedDocument,
   Message,
+  MessageCitation,
   MessageAttachment,
 } from "../../api/contracts";
-import { isVisionImageMediaType } from "../../app/collections";
+import { isDocumentMediaType, isVisionImageMediaType } from "../../app/collections";
 
 export interface SafeNotice {
   message: string;
@@ -27,6 +29,9 @@ export interface SafeNotice {
 type QueueState =
   | "selected"
   | "uploading"
+  | "indexing"
+  | "indexed"
+  | "index_failed"
   | "uploaded"
   | "failed"
   | "cancelling"
@@ -53,6 +58,10 @@ type UploadAttachment = (
 
 interface AttachmentActions {
   onUploadAttachment: UploadAttachment;
+  onIngestDocument: (
+    assetId: string,
+    signal?: AbortSignal,
+  ) => Promise<IndexedDocument>;
   onDeleteAttachment: (assetId: string, signal?: AbortSignal) => Promise<void>;
 }
 
@@ -84,6 +93,20 @@ function formatTimestamp(timestamp: string): string {
   return Number.isNaN(date.valueOf()) ? "" : date.toLocaleString();
 }
 
+function citationLocation(citation: MessageCitation): string {
+  const parts: string[] = [];
+  if (citation.page_number !== null) parts.push(`page ${citation.page_number}`);
+  if (citation.row_start !== null) {
+    parts.push(
+      citation.row_end === null || citation.row_end === citation.row_start
+        ? `row ${citation.row_start}`
+        : `rows ${citation.row_start}–${citation.row_end}`,
+    );
+  }
+  if (citation.section !== null) parts.push(citation.section);
+  return parts.join(" · ");
+}
+
 function queueStateLabel(item: QueuedAttachment): string {
   if (item.state === "uploading" && item.progress !== null) {
     return `Uploading ${item.progress}%`;
@@ -92,6 +115,9 @@ function queueStateLabel(item: QueuedAttachment): string {
     selected: "Selected",
     uploading: "Uploading",
     uploaded: "Uploaded",
+    indexing: "Indexing document",
+    indexed: "Document ready",
+    index_failed: "Document indexing failed",
     failed: "Upload failed",
     cancelling: "Cancelling",
     cancelled: "Cancelled",
@@ -136,13 +162,14 @@ function useAttachmentQueue(
   const startUpload = useCallback(
     async (item: QueuedAttachment) => {
       const controller = new AbortController();
+      let uploadedAsset: Asset | null = null;
       controllers.current.set(item.idempotencyKey, controller);
       update(item.idempotencyKey, {
         state: "uploading",
         progress: 0,
       });
       try {
-        const asset = await actions.onUploadAttachment(
+        uploadedAsset = await actions.onUploadAttachment(
           item.file,
           item.idempotencyKey,
           {
@@ -158,15 +185,30 @@ function useAttachmentQueue(
             },
           },
         );
-        update(item.idempotencyKey, {
-          asset,
-          progress: 100,
-          state: "uploaded",
-        });
+        if (isDocumentMediaType(uploadedAsset.media_type)) {
+          update(item.idempotencyKey, {
+            asset: uploadedAsset,
+            progress: 100,
+            state: "indexing",
+          });
+          await actions.onIngestDocument(uploadedAsset.id, controller.signal);
+          update(item.idempotencyKey, { state: "indexed" });
+        } else {
+          update(item.idempotencyKey, {
+            asset: uploadedAsset,
+            progress: 100,
+            state: "uploaded",
+          });
+        }
       } catch {
         update(item.idempotencyKey, {
+          asset: uploadedAsset ?? item.asset,
           progress: null,
-          state: controller.signal.aborted ? "cancelled" : "failed",
+          state: controller.signal.aborted
+            ? "cancelled"
+            : uploadedAsset === null
+              ? "failed"
+              : "index_failed",
         });
       } finally {
         if (controllers.current.get(item.idempotencyKey) === controller) {
@@ -220,7 +262,11 @@ function useAttachmentQueue(
         );
         return;
       }
-      if (item.state !== "uploaded" || item.asset === null) return;
+      if (
+        !["uploaded", "indexed", "index_failed"].includes(item.state) ||
+        item.asset === null
+      ) return;
+      const previousState = item.state;
       const controller = new AbortController();
       controllers.current.set(item.idempotencyKey, controller);
       update(item.idempotencyKey, { state: "cancelling" });
@@ -228,7 +274,7 @@ function useAttachmentQueue(
         await actions.onDeleteAttachment(item.asset.id, controller.signal);
         update(item.idempotencyKey, { state: "deleted" });
       } catch {
-        update(item.idempotencyKey, { state: "uploaded" });
+        update(item.idempotencyKey, { state: previousState });
       } finally {
         if (controllers.current.get(item.idempotencyKey) === controller) {
           controllers.current.delete(item.idempotencyKey);
@@ -259,13 +305,21 @@ function useAttachmentQueue(
   }, [attachedStates]);
 
   const readyAssets = items.flatMap((item) =>
-    item.state === "uploaded" && item.asset !== null ? [item.asset] : [],
+    ["uploaded", "indexed"].includes(item.state) && item.asset !== null
+      ? [item.asset]
+      : [],
   );
   const readyAssetIds = readyAssets.map((asset) => asset.id);
   const unresolved = items.some((item) =>
-    ["selected", "uploading", "failed", "cancelling", "cancelled"].includes(
-      item.state,
-    ),
+    [
+      "selected",
+      "uploading",
+      "indexing",
+      "failed",
+      "index_failed",
+      "cancelling",
+      "cancelled",
+    ].includes(item.state),
   );
 
   return {
@@ -307,6 +361,10 @@ function AttachmentPicker({
                 isVisionImageMediaType(item.asset.media_type) && (
                   <span className="attachment-kind">Vision image</span>
                 )}
+              {item.asset !== null &&
+                isDocumentMediaType(item.asset.media_type) && (
+                  <span className="attachment-kind">Searchable document</span>
+                )}
               <span className="attachment-state" role="status">
                 {queueStateLabel(item)}
               </span>
@@ -315,26 +373,30 @@ function AttachmentPicker({
                   {item.progress}%
                 </progress>
               )}
-              {item.state === "uploading" && (
+              {(item.state === "uploading" || item.state === "indexing") && (
                 <button
                   type="button"
                   className="button button-quiet"
                   onClick={() => queue.cancel(item)}
                 >
-                  Cancel upload
+                  {item.state === "indexing" ? "Cancel indexing" : "Cancel upload"}
                 </button>
               )}
-              {(item.state === "failed" || item.state === "cancelled") && (
+              {(item.state === "failed" ||
+                item.state === "index_failed" ||
+                item.state === "cancelled") && (
                 <button
                   type="button"
                   className="button button-quiet"
                   onClick={() => queue.retry(item)}
                   disabled={disabled}
                 >
-                  Retry upload
+                  {item.state === "index_failed" ? "Retry indexing" : "Retry upload"}
                 </button>
               )}
-              {(item.state === "selected" || item.state === "uploaded") && (
+              {(
+                ["selected", "uploaded", "indexed", "index_failed"] as QueueState[]
+              ).includes(item.state) && (
                 <button
                   type="button"
                   className="button button-quiet"
@@ -359,6 +421,7 @@ function NewConversationView({
   onCreate,
   onCancel,
   onUploadAttachment,
+  onIngestDocument,
   onDeleteAttachment,
 }: {
   canGenerate: boolean;
@@ -367,13 +430,14 @@ function NewConversationView({
   onCreate: (request: ConversationCreateRequest) => Promise<void>;
   onCancel: () => void;
   onUploadAttachment: UploadAttachment;
+  onIngestDocument: AttachmentActions["onIngestDocument"];
   onDeleteAttachment: AttachmentActions["onDeleteAttachment"];
 }) {
   const [title, setTitle] = useState("");
   const [systemPrompt, setSystemPrompt] = useState("");
   const [initialMessage, setInitialMessage] = useState("");
   const queue = useAttachmentQueue(
-    { onUploadAttachment, onDeleteAttachment },
+    { onUploadAttachment, onIngestDocument, onDeleteAttachment },
     EMPTY_ATTACHMENT_STATES,
   );
   const hasInitialImage = queue.readyAssets.some((asset) =>
@@ -502,6 +566,7 @@ export function ChatView({
   onLoadMoreMessages,
   onReloadMessages,
   onUploadAttachment,
+  onIngestDocument,
   onDownloadAttachment,
   onDeleteAttachment,
 }: ChatViewProps) {
@@ -522,7 +587,7 @@ export function ChatView({
     [messages],
   );
   const queue = useAttachmentQueue(
-    { onUploadAttachment, onDeleteAttachment },
+    { onUploadAttachment, onIngestDocument, onDeleteAttachment },
     attachedStates,
   );
   const readyVisionImages = queue.readyAssets.filter((asset) =>
@@ -617,6 +682,7 @@ export function ChatView({
         onCreate={onCreateConversation}
         onCancel={onCancelNew}
         onUploadAttachment={onUploadAttachment}
+        onIngestDocument={onIngestDocument}
         onDeleteAttachment={onDeleteAttachment}
       />
     );
@@ -745,6 +811,34 @@ export function ChatView({
                     </li>
                   ))}
                 </ul>
+              )}
+              {message.citations.length > 0 && (
+                <section className="message-citations" aria-label="Sources">
+                  <strong>Sources</strong>
+                  <ol>
+                    {message.citations.map((citation) => (
+                      <li key={citation.asset_id + ":" + citation.position}>
+                        {citation.state === "deleted" ? (
+                          <span className="attachment-tombstone">
+                            Deleted document source
+                          </span>
+                        ) : (
+                          <>
+                            <div className="citation-heading">
+                              <span>{citation.original_filename ?? "Document"}</span>
+                              {citationLocation(citation) && (
+                                <span>{citationLocation(citation)}</span>
+                              )}
+                            </div>
+                            {citation.excerpt !== null && (
+                              <p className="citation-excerpt">{citation.excerpt}</p>
+                            )}
+                          </>
+                        )}
+                      </li>
+                    ))}
+                  </ol>
+                </section>
               )}
             </li>
           ))}

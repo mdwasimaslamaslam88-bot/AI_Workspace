@@ -18,7 +18,17 @@ from sqlalchemy.schema import CreateIndex
 
 import app.models  # noqa: F401  # Populate the model registry.
 from app.db.base import Base
-from app.models import Asset, Conversation, Message, MessageAsset, MessageRole, User
+from app.models import (
+    Asset,
+    Conversation,
+    Document,
+    DocumentChunk,
+    Message,
+    MessageAsset,
+    MessageCitation,
+    MessageRole,
+    User,
+)
 from app.models.message import (
     MAX_MESSAGE_CONTENT_CHARACTERS,
     MessageContentTooLargeError,
@@ -26,7 +36,16 @@ from app.models.message import (
 )
 
 
-EXPECTED_TABLES = {"users", "conversations", "messages", "assets", "message_assets"}
+EXPECTED_TABLES = {
+    "users",
+    "conversations",
+    "messages",
+    "assets",
+    "message_assets",
+    "documents",
+    "document_chunks",
+    "message_citations",
+}
 EXPECTED_MESSAGE_ROLES = ("system", "user", "assistant", "tool")
 
 
@@ -68,6 +87,9 @@ def test_model_registry_contains_only_the_approved_domain_tables():
     assert Message.__table__ is Base.metadata.tables["messages"]
     assert Asset.__table__ is Base.metadata.tables["assets"]
     assert MessageAsset.__table__ is Base.metadata.tables["message_assets"]
+    assert Document.__table__ is Base.metadata.tables["documents"]
+    assert DocumentChunk.__table__ is Base.metadata.tables["document_chunks"]
+    assert MessageCitation.__table__ is Base.metadata.tables["message_citations"]
 
 
 def test_user_has_uuid_primary_key_timestamps_and_access_credential_digest():

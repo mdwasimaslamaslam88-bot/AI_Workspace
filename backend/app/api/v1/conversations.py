@@ -317,6 +317,11 @@ async def generate_assistant_message(
         None,
     )
     storage = getattr(request.app.state, "asset_storage", None)
+    document_admission = getattr(
+        request.app.state,
+        "document_ingestion_admission",
+        None,
+    )
     if (
         catalog is None
         or generation_router is None
@@ -340,6 +345,11 @@ async def generate_assistant_message(
             admission_controller,
             generation_max_duration_seconds,
             **({"storage": storage} if storage is not None else {}),
+            **(
+                {"document_admission": document_admission}
+                if document_admission is not None
+                else {}
+            ),
         ).generate_for_owner(
             current_user.id,
             conversation_id,

@@ -132,19 +132,39 @@ def _inspect_schema(connection) -> dict:
         "message_foreign_keys": inspector.get_foreign_keys("messages"),
         "asset_foreign_keys": inspector.get_foreign_keys("assets"),
         "message_asset_foreign_keys": inspector.get_foreign_keys("message_assets"),
+        "document_foreign_keys": inspector.get_foreign_keys("documents"),
+        "document_chunk_foreign_keys": inspector.get_foreign_keys("document_chunks"),
+        "message_citation_foreign_keys": inspector.get_foreign_keys("message_citations"),
         "conversation_indexes": inspector.get_indexes("conversations"),
         "asset_indexes": inspector.get_indexes("assets"),
+        "document_indexes": inspector.get_indexes("documents"),
+        "document_chunk_indexes": inspector.get_indexes("document_chunks"),
         "conversation_checks": inspector.get_check_constraints("conversations"),
         "message_checks": inspector.get_check_constraints("messages"),
         "asset_checks": inspector.get_check_constraints("assets"),
         "message_asset_checks": inspector.get_check_constraints("message_assets"),
+        "document_checks": inspector.get_check_constraints("documents"),
+        "document_chunk_checks": inspector.get_check_constraints("document_chunks"),
+        "message_citation_checks": inspector.get_check_constraints("message_citations"),
         "user_uniques": inspector.get_unique_constraints("users"),
         "message_uniques": inspector.get_unique_constraints("messages"),
         "asset_uniques": inspector.get_unique_constraints("assets"),
         "message_asset_uniques": inspector.get_unique_constraints("message_assets"),
+        "document_uniques": inspector.get_unique_constraints("documents"),
+        "document_chunk_uniques": inspector.get_unique_constraints("document_chunks"),
+        "message_citation_uniques": inspector.get_unique_constraints("message_citations"),
         "columns": {
             table_name: inspector.get_columns(table_name)
-            for table_name in ("users", "conversations", "messages", "assets", "message_assets")
+            for table_name in (
+                "users",
+                "conversations",
+                "messages",
+                "assets",
+                "message_assets",
+                "documents",
+                "document_chunks",
+                "message_citations",
+            )
         },
     }
 
@@ -194,6 +214,9 @@ async def test_migration_creates_exact_expected_postgresql_schema(
         "messages",
         "assets",
         "message_assets",
+        "documents",
+        "document_chunks",
+        "message_citations",
     }
 
     owner_fk = _foreign_key(
@@ -268,6 +291,86 @@ async def test_migration_creates_exact_expected_postgresql_schema(
     )
     assert message_unique["column_names"] == ["conversation_id", "sequence_number"]
     assert len(snapshot["message_uniques"]) == 1
+
+    document_checks = _checks_by_name(snapshot["document_checks"])
+    assert set(document_checks) == {
+        "ck_documents_chunk_count_nonnegative",
+        "ck_documents_character_count_nonnegative",
+        "ck_documents_failure_code_safe",
+        "ck_documents_processing_token_consistent",
+        "ck_documents_status_allowed",
+    }
+    assert "ingestion_token is not null" in document_checks[
+        "ck_documents_processing_token_consistent"
+    ]
+    status_values = set(
+        re.findall(r"'([^']+)'", document_checks["ck_documents_status_allowed"])
+    )
+    assert status_values == {
+        "pending",
+        "processing",
+        "ready",
+        "failed",
+        "cancelled",
+    }
+    assert len(snapshot["document_uniques"]) == 1
+    document_unique = snapshot["document_uniques"][0]
+    assert document_unique["name"] == "uq_documents_asset_id"
+    assert document_unique["column_names"] == ["asset_id"]
+    assert {
+        item["name"]
+        for item in snapshot["document_indexes"]
+        if item.get("duplicates_constraint") is None
+    } == {
+        "ix_documents_owner_status",
+        "ix_documents_owner_updated_at",
+    }
+
+    chunk_checks = _checks_by_name(snapshot["document_chunk_checks"])
+    assert set(chunk_checks) == {
+        "ck_document_chunks_content_length_bounded",
+        "ck_document_chunks_embedding_dimensions_fixed",
+        "ck_document_chunks_embedding_norm_positive",
+        "ck_document_chunks_ordinal_positive",
+        "ck_document_chunks_page_number_positive",
+        "ck_document_chunks_row_range_valid",
+        "ck_document_chunks_row_start_positive",
+    }
+    assert "octet_length(embedding) = 1024" in chunk_checks[
+        "ck_document_chunks_embedding_dimensions_fixed"
+    ]
+    chunk_unique = next(
+        item
+        for item in snapshot["document_chunk_uniques"]
+        if item["name"] == "uq_document_chunks_ordinal"
+    )
+    assert chunk_unique["column_names"] == ["document_id", "ordinal"]
+    assert {
+        item["name"]
+        for item in snapshot["document_chunk_indexes"]
+        if item.get("duplicates_constraint") is None
+    } == {"ix_document_chunks_owner_document_ordinal"}
+
+    citation_checks = _checks_by_name(snapshot["message_citation_checks"])
+    assert set(citation_checks) == {"ck_message_citations_position_positive"}
+    assert {item["name"] for item in snapshot["message_citation_uniques"]} == {
+        "uq_message_citations_message_position"
+    }
+    assert _foreign_key(
+        snapshot,
+        "document",
+        "fk_documents_owner_id_users",
+    )["options"]["ondelete"] == "RESTRICT"
+    assert _foreign_key(
+        snapshot,
+        "document_chunk",
+        "fk_document_chunks_document_id_documents",
+    )["options"]["ondelete"] == "CASCADE"
+    assert _foreign_key(
+        snapshot,
+        "message_citation",
+        "fk_message_citations_message_id_messages",
+    )["options"]["ondelete"] == "CASCADE"
 
     users = _columns_by_name(snapshot, "users")
     assert set(users) == {

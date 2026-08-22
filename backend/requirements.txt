@@ -9,6 +9,8 @@ structlog
 httpx
 requests
 python-multipart
+pypdf
+python-docx
 pytest
 pytest-asyncio
 

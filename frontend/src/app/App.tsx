@@ -7,6 +7,7 @@ import type {
   ConversationCursor,
   ConversationSummary,
   CurrentUser,
+  IndexedDocument,
   LocalModel,
   Message,
 } from "../api/contracts";
@@ -61,6 +62,25 @@ function conversationFromCreate(
     created_at: conversation.created_at,
     updated_at: conversation.updated_at,
   };
+}
+
+function abortableDelay(milliseconds: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new DOMException("Request cancelled.", "AbortError"));
+      return;
+    }
+    let timeout = 0;
+    const onAbort = () => {
+      window.clearTimeout(timeout);
+      reject(new DOMException("Request cancelled.", "AbortError"));
+    };
+    timeout = window.setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, milliseconds);
+    signal?.addEventListener("abort", onAbort, { once: true });
+  });
 }
 
 export function App() {
@@ -463,6 +483,31 @@ export function App() {
     [client],
   );
 
+  const ingestDocument = useCallback(
+    async (assetId: string, signal?: AbortSignal): Promise<IndexedDocument> => {
+      if (client === null) {
+        throw new ApiError("authentication", "Authentication failed.");
+      }
+      let document = await client.ingestDocument(assetId, signal);
+      const deadline = Date.now() + 35_000;
+      while (document.status === "pending" || document.status === "processing") {
+        if (Date.now() >= deadline) {
+          throw new ApiError(
+            "unavailable",
+            "Document indexing did not finish within its local deadline.",
+          );
+        }
+        await abortableDelay(500, signal);
+        document = await client.getDocument(document.id, signal);
+      }
+      if (document.status !== "ready") {
+        throw new ApiError("validation", "Document could not be indexed safely.");
+      }
+      return document;
+    },
+    [client],
+  );
+
   const downloadAttachment = useCallback(
     (assetId: string, signal?: AbortSignal): Promise<Blob> => {
       if (client === null) {
@@ -571,6 +616,7 @@ export function App() {
           onLoadMoreMessages={() => void loadMoreMessages()}
           onReloadMessages={() => void reloadSelectedMessages()}
           onUploadAttachment={uploadAttachment}
+          onIngestDocument={ingestDocument}
           onDownloadAttachment={downloadAttachment}
           onDeleteAttachment={deleteAttachment}
         />

@@ -29,6 +29,8 @@ MAX_OLLAMA_CATALOG_LIST_MODELS = 256
 MAX_OLLAMA_CATALOG_RESPONSE_BYTES = 1_048_576
 MAX_OLLAMA_GENERATION_REQUEST_BYTES = 1_048_576
 MAX_OLLAMA_GENERATION_RESPONSE_BYTES = 1_048_576
+MAX_DOCUMENT_INGESTION_ACTIVE_PER_PROCESS = 4
+MAX_DOCUMENT_INGESTION_DURATION_SECONDS = 300.0
 MAX_REQUEST_BODY_BYTES = 1_048_576
 _SOURCE_DECODED_STRICT_INTEGER_FIELDS = frozenset(
     {
@@ -38,6 +40,7 @@ _SOURCE_DECODED_STRICT_INTEGER_FIELDS = frozenset(
         "OLLAMA_GENERATION_MAX_REQUEST_BYTES",
         "OLLAMA_GENERATION_MAX_RESPONSE_BYTES",
         "GENERATION_MAX_ACTIVE_PER_PROCESS",
+        "DOCUMENT_INGESTION_MAX_ACTIVE_PER_PROCESS",
         "REQUEST_MAX_BODY_BYTES",
         "DATABASE_POOL_SIZE",
         "DATABASE_MAX_OVERFLOW",
@@ -192,6 +195,18 @@ class Settings(BaseSettings):
         le=MAX_GENERATION_DURATION_SECONDS,
         allow_inf_nan=False,
     )
+    DOCUMENT_INGESTION_MAX_ACTIVE_PER_PROCESS: int = Field(
+        default=2,
+        strict=True,
+        ge=1,
+        le=MAX_DOCUMENT_INGESTION_ACTIVE_PER_PROCESS,
+    )
+    DOCUMENT_INGESTION_MAX_DURATION_SECONDS: StrictFloat | StrictInt = Field(
+        default=30.0,
+        gt=0,
+        le=MAX_DOCUMENT_INGESTION_DURATION_SECONDS,
+        allow_inf_nan=False,
+    )
     REQUEST_MAX_BODY_BYTES: int = Field(
         default=262_144,
         strict=True,
@@ -284,6 +299,15 @@ class Settings(BaseSettings):
     def validate_generation_max_duration(cls, value):
         if isinstance(value, bool) or not isinstance(value, (int, float)):
             raise ValueError("GENERATION_MAX_DURATION_SECONDS must be numeric")
+        return value
+
+    @field_validator("DOCUMENT_INGESTION_MAX_DURATION_SECONDS", mode="before")
+    @classmethod
+    def validate_document_ingestion_max_duration(cls, value):
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise ValueError(
+                "DOCUMENT_INGESTION_MAX_DURATION_SECONDS must be numeric"
+            )
         return value
 
     @field_validator("OLLAMA_LOCAL_MODEL_ALLOWLIST")

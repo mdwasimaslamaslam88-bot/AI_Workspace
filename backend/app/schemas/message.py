@@ -32,6 +32,20 @@ class MessageAttachmentResponse(BaseModel):
     byte_size: int | None
 
 
+class MessageCitationResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    asset_id: UUID
+    position: int
+    state: Literal["active", "deleted"]
+    original_filename: str | None
+    page_number: int | None
+    row_start: int | None
+    row_end: int | None
+    section: str | None
+    excerpt: str | None
+
+
 class MessageResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -45,6 +59,11 @@ class MessageResponse(BaseModel):
     attachments: list[MessageAttachmentResponse] = Field(
         default_factory=list,
         validation_alias="asset_links",
+    )
+    citations: list[MessageCitationResponse] = Field(
+        default_factory=list,
+        validation_alias="citation_links",
+        exclude_if=lambda value: not value,
     )
 
 

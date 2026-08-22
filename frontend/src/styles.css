@@ -567,6 +567,36 @@ textarea {
 .attachment-details {
   flex: 1;
 }
+
+.message-citations {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.8rem;
+  border-top: 1px solid var(--line);
+  padding-top: 0.65rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.message-citations ol {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+.citation-heading {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.7rem;
+  color: var(--text);
+}
+
+.message .citation-excerpt {
+  margin-top: 0.25rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
 @media (max-width: 760px) {
   .workspace-shell {
     grid-template-columns: 1fr;

@@ -7,6 +7,7 @@ from app.models.message import Message, MessageRole, validate_message_content
 from app.repositories.message import (
     GenerationContextSnapshot,
     MessageAttachmentClaimError,
+    MessageCitationClaimError,
     MessagePage,
     MessagePagination,
     MessageRepository,
@@ -35,8 +36,14 @@ class MessageService:
         *,
         expected_sequence_number: int | None = None,
         attachment_ids: tuple[UUID, ...] = (),
+        citation_chunk_ids: tuple[UUID, ...] = (),
     ) -> Message | None:
         validate_message_content(content)
+        claim_options = {}
+        if attachment_ids:
+            claim_options["attachment_ids"] = attachment_ids
+        if citation_chunk_ids:
+            claim_options["citation_chunk_ids"] = citation_chunk_ids
         try:
             if expected_sequence_number is None:
                 message = await self.repository.append_for_owner(
@@ -44,7 +51,7 @@ class MessageService:
                     conversation_id,
                     role,
                     content,
-                    **({"attachment_ids": attachment_ids} if attachment_ids else {}),
+                    **claim_options,
                 )
             else:
                 message = await self.repository.append_for_owner(
@@ -53,7 +60,7 @@ class MessageService:
                     role,
                     content,
                     expected_sequence_number=expected_sequence_number,
-                    **({"attachment_ids": attachment_ids} if attachment_ids else {}),
+                    **claim_options,
                 )
             if message is None:
                 await self.session.rollback()
@@ -67,7 +74,7 @@ class MessageService:
                 "one or more attachments are unavailable"
             ) from exc
 
-        except IntegrityError as exc:
+        except (IntegrityError, MessageCitationClaimError) as exc:
             await self.session.rollback()
             raise MessageAppendConflictError(
                 "message append violated a persistence constraint"

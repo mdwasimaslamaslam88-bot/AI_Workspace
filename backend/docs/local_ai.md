@@ -512,3 +512,50 @@ repeat-penalty, repetition-window, locally typical sampling, presence-penalty,
 frequency-penalty, and bounded stop-sequence fields, tools, model preferences,
 explicit model lifecycle controls, image/audio/video generation, or any cloud
 AI dependency.
+
+
+## Local document intelligence and retrieval
+
+Authenticated owners can ingest active TXT, CSV, PDF, and DOCX Assets through
+`POST /api/v1/documents/assets/{asset_id}/ingest`, inspect status at
+`GET /api/v1/documents/{document_id}`, list their indexes at
+`GET /api/v1/documents`, cancel active work with
+`DELETE /api/v1/documents/{document_id}/ingestion`, and run bounded local
+search through `GET /api/v1/documents/search`. Every repository path scopes the
+chunk, document, and source Asset to the authenticated owner. Deleted sources
+are excluded from retrieval and appear only as content-free citation
+tombstones.
+
+Ingestion accepts at most 1 MiB and runs parsing in a spawned, terminable local
+process. PDF parsing is capped at 200 pages. CSV rows, columns, and fields are
+bounded. DOCX ZIP paths, encryption, archive member count, expanded size, and
+compression ratio are validated before inert XML text extraction. Uploaded
+content is never executed. Parser errors use fixed codes and never include
+document text, bytes, storage keys, or filesystem paths.
+
+Text is NFC-normalized and split deterministically into at most 1,024 chunks of
+1,200 characters with a 200-character overlap. A deterministic 256-dimensional
+feature-hash embedding is stored as fixed-size local binary data; retrieval
+scores at most 2,048 owner-scoped candidates and returns at most four chunks,
+two per Asset, within a 6,000-character context budget. No cloud embedding or
+vector service is used.
+
+The claim is committed before storage reads, parser work, or embedding. The
+completion transaction validates the opaque ingestion token and still-active
+source before replacing chunks. Client disconnect, the total ingestion
+deadline, and explicit cancellation terminate process-local work, release the
+semaphore, clear the active-task registry, and record a deterministic terminal
+status. A second concurrent request observes the existing processing record
+instead of starting duplicate work.
+
+Retrieved content is injected as explicitly untrusted reference data ahead of
+the persisted conversation context. Current system and user instructions take
+priority. The assistant append atomically revalidates that every cited chunk,
+document, and source Asset is ready, active, and owned before persisting the
+ordered citations. A deletion or state change during generation rejects the
+stale citation append rather than persisting an ungrounded response.
+
+Configure `DOCUMENT_INGESTION_MAX_ACTIVE_PER_PROCESS` from 1 through 4
+(default 2) and `DOCUMENT_INGESTION_MAX_DURATION_SECONDS` above zero through
+300 seconds (default 30). These are process-local resource controls; no network
+service or additional credential is required.

@@ -63,6 +63,14 @@ that content. Application services reject oversized content before persistence,
 repositories repeat the check before sequence allocation, and PostgreSQL is the
 final authority for direct or bypass writes.
 
+Alembic revision `0005_document_intelligence` follows the owned-asset
+revision and adds owner-scoped `documents`, deterministic `document_chunks`,
+and persisted `message_citations`. Document completion is token-guarded and
+also requires the source Asset to remain active for the same owner. Retrieval
+joins and filters the chunk, document, and asset owner independently and
+excludes deleted Assets. Citations reference immutable chunk identities and
+render deleted sources as content-free tombstones.
+
 Public Message history pagination applies a separate 100,000-character
 cumulative page budget without changing the durable per-Message invariant.
 `MessageRepository.list_for_owner()` uses one owner-scoped SQL statement: a

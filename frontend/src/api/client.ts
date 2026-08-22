@@ -9,8 +9,10 @@ import {
   type ConversationTextGenerationRequest,
   type ConversationTextGenerationResponse,
   type CurrentUser,
+  type IndexedDocument,
   type LocalModelPage,
   type MessagePage,
+  parseIndexedDocument,
   parseAsset,
   parseConversation,
   parseConversationCreateResponse,
@@ -308,6 +310,30 @@ export class ApiClient {
     return this.#request(
       `api/v1/conversations/${encodeURIComponent(conversationId)}/messages${suffix}`,
       { signal: options.signal, decode: parseMessagePage },
+    );
+  }
+
+  ingestDocument(
+    assetId: string,
+    signal?: AbortSignal,
+  ): Promise<IndexedDocument> {
+    return this.#request(
+      `api/v1/documents/assets/${encodeURIComponent(assetId)}/ingest`,
+      {
+        method: "POST",
+        signal,
+        decode: parseIndexedDocument,
+      },
+    );
+  }
+
+  getDocument(
+    documentId: string,
+    signal?: AbortSignal,
+  ): Promise<IndexedDocument> {
+    return this.#request(
+      `api/v1/documents/${encodeURIComponent(documentId)}`,
+      { signal, decode: parseIndexedDocument },
     );
   }
 

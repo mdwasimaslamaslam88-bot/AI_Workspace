@@ -5,8 +5,10 @@ from sqlalchemy import Integer, bindparam, func, or_, select, true, update
 
 from app.models.asset import Asset
 from app.models.conversation import Conversation
+from app.models.document import Document, DocumentChunk, DocumentStatus
 from app.models.message import Message, MessageRole, validate_message_content
 from app.models.message_asset import MessageAsset
+from app.models.message_citation import MessageCitation
 from app.repositories.base import BaseRepository
 
 
@@ -80,6 +82,10 @@ class MessageAttachmentClaimError(RuntimeError):
     """An attachment cannot be claimed by this owner's new message."""
 
 
+class MessageCitationClaimError(RuntimeError):
+    """A citation cannot be claimed from the owner's ready document index."""
+
+
 class MessageRepository(BaseRepository):
     async def append_for_owner(
         self,
@@ -90,10 +96,13 @@ class MessageRepository(BaseRepository):
         *,
         expected_sequence_number: int | None = None,
         attachment_ids: tuple[UUID, ...] = (),
+        citation_chunk_ids: tuple[UUID, ...] = (),
     ) -> Message | None:
         validate_message_content(content)
         if len(attachment_ids) != len(set(attachment_ids)):
             raise ValueError("attachment_ids must be unique")
+        if len(citation_chunk_ids) != len(set(citation_chunk_ids)):
+            raise ValueError("citation_chunk_ids must be unique")
         if expected_sequence_number is not None:
             if isinstance(expected_sequence_number, bool) or not isinstance(
                 expected_sequence_number, int
@@ -147,6 +156,31 @@ class MessageRepository(BaseRepository):
                     "one or more attachments are unavailable"
                 )
 
+        chunks_by_id: dict[UUID, DocumentChunk] = {}
+        if citation_chunk_ids:
+            chunks_statement = (
+                select(DocumentChunk)
+                .join(Document, Document.id == DocumentChunk.document_id)
+                .join(Asset, Asset.id == DocumentChunk.asset_id)
+                .where(
+                    DocumentChunk.id.in_(citation_chunk_ids),
+                    DocumentChunk.owner_id == owner_id,
+                    Document.owner_id == owner_id,
+                    Document.status == DocumentStatus.READY,
+                    Asset.owner_id == owner_id,
+                    Asset.deleted_at.is_(None),
+                )
+                .with_for_update(of=Asset)
+            )
+            chunks_result = await self.session.execute(chunks_statement)
+            chunks_by_id = {
+                chunk.id: chunk for chunk in chunks_result.scalars().unique()
+            }
+            if len(chunks_by_id) != len(citation_chunk_ids):
+                raise MessageCitationClaimError(
+                    "one or more citations are unavailable"
+                )
+
         message = Message(
             conversation_id=conversation_id,
             role=role,
@@ -156,6 +190,10 @@ class MessageRepository(BaseRepository):
         message.asset_links = [
             MessageAsset(asset=assets_by_id[asset_id], position=position)
             for position, asset_id in enumerate(attachment_ids, start=1)
+        ]
+        message.citation_links = [
+            MessageCitation(chunk=chunks_by_id[chunk_id], position=position)
+            for position, chunk_id in enumerate(citation_chunk_ids, start=1)
         ]
         self.session.add(message)
         await self.session.flush()

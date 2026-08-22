@@ -280,4 +280,70 @@ describe("ApiClient", () => {
     await expect(request).resolves.toEqual(asset);
     expect(onProgress).toHaveBeenCalledOnce();
   });
+
+  it("uses owner-scoped document endpoints and decodes safe citation provenance", async () => {
+    const document = {
+      id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+      asset_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      status: "ready",
+      source_state: "active",
+      original_filename: "notes.txt",
+      media_type: "text/plain",
+      chunk_count: 1,
+      character_count: 5,
+      failure_code: null,
+      created_at: "2026-01-03T00:00:00Z",
+      updated_at: "2026-01-03T00:00:01Z",
+      completed_at: "2026-01-03T00:00:01Z",
+    };
+    const citedMessage = {
+      ...message(2, "assistant", "grounded"),
+      citations: [
+        {
+          asset_id: document.asset_id,
+          position: 1,
+          state: "active",
+          original_filename: "notes.txt",
+          page_number: null,
+          row_start: 2,
+          row_end: 3,
+          section: null,
+          excerpt: "bounded excerpt",
+        },
+      ],
+    };
+    const calls: Array<{ url: string; method: string | undefined }> = [];
+    const fetchImplementation = vi.fn(
+      async (input: URL | RequestInfo, init?: RequestInit) => {
+        const url = input.toString();
+        calls.push({ url, method: init?.method });
+        if (url.endsWith("/ingest")) return jsonResponse(document, 202);
+        if (url.includes("/messages?")) {
+          return jsonResponse({ items: [citedMessage], next_cursor: null });
+        }
+        return jsonResponse(document);
+      },
+    );
+    const client = new ApiClient(token, {
+      fetchImplementation: fetchImplementation as typeof fetch,
+    });
+
+    await expect(client.ingestDocument(document.asset_id)).resolves.toEqual(document);
+    await expect(client.getDocument(document.id)).resolves.toEqual(document);
+    const page = await client.listMessages(conversation.id, { limit: 1 });
+
+    expect(calls[0]).toEqual({
+      url: `http://127.0.0.1:8000/api/v1/documents/assets/${document.asset_id}/ingest`,
+      method: "POST",
+    });
+    expect(calls[1]?.url).toBe(
+      `http://127.0.0.1:8000/api/v1/documents/${document.id}`,
+    );
+    expect(page.items[0]?.citations[0]).toMatchObject({
+      original_filename: "notes.txt",
+      row_start: 2,
+      row_end: 3,
+      excerpt: "bounded excerpt",
+    });
+  });
 });

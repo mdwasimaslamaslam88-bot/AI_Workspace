@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import AsyncIterator
 from contextlib import AsyncExitStack, asynccontextmanager
 
@@ -48,6 +49,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         )
         app.state.generation_max_duration_seconds = (
             settings.GENERATION_MAX_DURATION_SECONDS
+        )
+        app.state.document_ingestion_admission = asyncio.Semaphore(
+            settings.DOCUMENT_INGESTION_MAX_ACTIVE_PER_PROCESS
+        )
+        app.state.document_ingestion_tasks = {}
+        app.state.document_ingestion_max_duration_seconds = (
+            settings.DOCUMENT_INGESTION_MAX_DURATION_SECONDS
         )
         app.state.model_list_max_response_bytes = (
             settings.MODEL_LIST_MAX_RESPONSE_BYTES

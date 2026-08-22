@@ -23,6 +23,18 @@ export function isVisionImageMediaType(
   return mediaType === "image/png" || mediaType === "image/jpeg";
 }
 
+export function isDocumentMediaType(
+  mediaType: string | null | undefined,
+): boolean {
+  return (
+    mediaType === "text/plain" ||
+    mediaType === "text/csv" ||
+    mediaType === "application/pdf" ||
+    mediaType ===
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+  );
+}
+
 export function mergeConversations(
   existing: ConversationSummary[],
   incoming: ConversationSummary[],

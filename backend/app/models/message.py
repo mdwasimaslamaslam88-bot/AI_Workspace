@@ -23,6 +23,7 @@ from app.db.base import Base
 if TYPE_CHECKING:
     from app.models.conversation import Conversation
     from app.models.message_asset import MessageAsset
+    from app.models.message_citation import MessageCitation
 
 
 MAX_MESSAGE_CONTENT_CHARACTERS = 100_000
@@ -107,5 +108,12 @@ class Message(Base):
         cascade="all, delete-orphan",
         lazy="selectin",
         order_by="MessageAsset.position",
+        passive_deletes=True,
+    )
+    citation_links: Mapped[list[MessageCitation]] = relationship(
+        back_populates="message",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+        order_by="MessageCitation.position",
         passive_deletes=True,
     )

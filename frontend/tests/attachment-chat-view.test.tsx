@@ -2,7 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
-import type { Asset } from "../src/api/contracts";
+import type { Asset, IndexedDocument } from "../src/api/contracts";
 import { ChatView } from "../src/features/chat/ChatView";
 import { conversation, message } from "./fixtures";
 
@@ -33,6 +33,21 @@ const unsupportedImageAsset: Asset = {
   media_type: "image/gif",
 };
 
+const indexedDocument: IndexedDocument = {
+  id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+  asset_id: asset.id,
+  status: "ready",
+  source_state: "active",
+  original_filename: asset.original_filename,
+  media_type: asset.media_type,
+  chunk_count: 1,
+  character_count: 5,
+  failure_code: null,
+  created_at: "2026-01-03T00:00:00Z",
+  updated_at: "2026-01-03T00:00:01Z",
+  completed_at: "2026-01-03T00:00:01Z",
+};
+
 
 function props(overrides = {}) {
   return {
@@ -54,6 +69,7 @@ function props(overrides = {}) {
     onLoadMoreMessages: vi.fn(),
     onReloadMessages: vi.fn(),
     onUploadAttachment: vi.fn(async () => asset),
+    onIngestDocument: vi.fn(async () => indexedDocument),
     onDownloadAttachment: vi.fn(async () => new Blob()),
     onDeleteAttachment: vi.fn(async () => undefined),
     ...overrides,
@@ -75,7 +91,7 @@ describe("attachment queue", () => {
     );
     expect(await screen.findByText("Upload failed")).toBeVisible();
     await userEvent.click(screen.getByRole("button", { name: "Retry upload" }));
-    expect(await screen.findByText("Uploaded")).toBeVisible();
+    expect(await screen.findByText("Document ready")).toBeVisible();
 
     expect(onUploadAttachment).toHaveBeenCalledTimes(2);
     expect(onUploadAttachment.mock.calls[0]?.[1]).toBe(
@@ -121,7 +137,7 @@ describe("attachment queue", () => {
       screen.getByLabelText("Attach files"),
       new File(["notes"], "notes.txt"),
     );
-    expect(await screen.findByText("Uploaded")).toBeVisible();
+    expect(await screen.findByText("Document ready")).toBeVisible();
     await userEvent.click(screen.getByRole("button", { name: "Remove" }));
 
     await waitFor(() => expect(onDeleteAttachment).toHaveBeenCalledWith(asset.id, expect.any(AbortSignal)));

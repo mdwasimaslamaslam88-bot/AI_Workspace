@@ -3982,3 +3982,78 @@ async def test_cancellation_during_vision_read_releases_admission(monkeypatch):
     assert dependencies["append"].await_count == 1
     assert dependencies["admission"]._active_users == set()
     assert dependencies["admission"]._active_count == 0
+
+
+@pytest.mark.asyncio
+async def test_generation_injects_owner_rag_and_persists_exact_citations(
+    monkeypatch,
+):
+    owner_id = uuid4()
+    conversation_id = uuid4()
+    user_message = _message(
+        conversation_id,
+        MessageRole.USER,
+        "What is the project deadline?",
+        1,
+    )
+    appended = _message(
+        conversation_id,
+        MessageRole.ASSISTANT,
+        "Friday",
+        2,
+    )
+    dependencies = _dependencies(
+        monkeypatch,
+        conversation=_conversation(owner_id, conversation_id, 2),
+        context=(user_message,),
+        appended=appended,
+        generated=TextGenerationResult(content="Friday"),
+    )
+    chunk_id = uuid4()
+    retrieved = generation_module.RetrievedDocumentChunk(
+        chunk_id=chunk_id,
+        asset_id=uuid4(),
+        content="The project deadline is Friday.",
+        score=0.8,
+        original_filename="plan.txt",
+        provenance_kind="text",
+        page_number=None,
+        row_start=None,
+        row_end=None,
+        section=None,
+    )
+    search = AsyncMock(return_value=(retrieved,))
+    document_factory = Mock(return_value=Mock(search_for_owner=search))
+    monkeypatch.setattr(generation_module, "DocumentService", document_factory)
+    session = AsyncMock(spec=AsyncSession)
+    document_admission = asyncio.Semaphore(2)
+
+    result = await ConversationGenerationService(
+        session,
+        dependencies["catalog"],
+        dependencies["router"],
+        dependencies["admission"],
+        document_admission=document_admission,
+    ).generate_for_owner(owner_id, conversation_id, MODEL_ID)
+
+    assert result is appended
+    document_factory.assert_called_once_with(
+        session,
+        None,
+        document_admission,
+    )
+    search.assert_awaited_once_with(owner_id, "What is the project deadline?")
+    context = dependencies["router"].generate.await_args.args[1]
+    assert context[0].role.value == "system"
+    assert "untrusted reference data" in context[0].content
+    assert "[source 1: plan.txt]" in context[0].content
+    assert "The project deadline is Friday." in context[0].content
+    assert context[-1].role.value == "user"
+    dependencies["append"].assert_awaited_once_with(
+        owner_id,
+        conversation_id,
+        MessageRole.ASSISTANT,
+        "Friday",
+        expected_sequence_number=2,
+        citation_chunk_ids=(chunk_id,),
+    )

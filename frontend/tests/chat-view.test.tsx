@@ -2,9 +2,25 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
+import type { IndexedDocument } from "../src/api/contracts";
 import { mergeMessages } from "../src/app/collections";
 import { ChatView, type SafeNotice } from "../src/features/chat/ChatView";
 import { conversation, message, rawSecret } from "./fixtures";
+
+const indexedDocument: IndexedDocument = {
+  id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+  asset_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+  status: "ready",
+  source_state: "active",
+  original_filename: "notes.txt",
+  media_type: "text/plain",
+  chunk_count: 1,
+  character_count: 5,
+  failure_code: null,
+  created_at: "2026-01-03T00:00:00Z",
+  updated_at: "2026-01-03T00:00:01Z",
+  completed_at: "2026-01-03T00:00:01Z",
+};
 
 const baseProps = {
   conversation,
@@ -24,6 +40,7 @@ const baseProps = {
   onLoadMoreMessages: vi.fn(),
   onReloadMessages: vi.fn(),
   onUploadAttachment: vi.fn(async () => Promise.reject(new Error("unused"))),
+  onIngestDocument: vi.fn(async () => indexedDocument),
   onDownloadAttachment: vi.fn(async () => new Blob()),
   onDeleteAttachment: vi.fn(async () => undefined),
 };
@@ -149,13 +166,50 @@ describe("ChatView", () => {
     const file = new File(["notes"], "notes.txt", { type: "text/plain" });
     await userEvent.upload(screen.getByLabelText("Attach files"), file);
     await waitFor(() => expect(onUploadAttachment).toHaveBeenCalledOnce());
-    expect(await screen.findByText("Uploaded")).toBeVisible();
+    expect(await screen.findByText("Document ready")).toBeVisible();
     expect(onUploadAttachment.mock.calls[0]?.[1]).toMatch(
       /^[0-9a-f-]{36}$/,
     );
     await userEvent.type(screen.getByLabelText("Message"), "Use the notes");
     await userEvent.click(screen.getByRole("button", { name: "Send" }));
     expect(onGenerate).toHaveBeenCalledWith("Use the notes", [asset.id]);
+  });
+
+  it("renders document citations as text with provenance and safe tombstones", () => {
+    const cited = {
+      ...message(2, "assistant", "Grounded response"),
+      citations: [
+        {
+          asset_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          position: 1,
+          state: "active" as const,
+          original_filename: `<img src=x onerror="${rawSecret}">.txt`,
+          page_number: 3,
+          row_start: null,
+          row_end: null,
+          section: "Overview",
+          excerpt: "A bounded source excerpt.",
+        },
+        {
+          asset_id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+          position: 2,
+          state: "deleted" as const,
+          original_filename: null,
+          page_number: null,
+          row_start: null,
+          row_end: null,
+          section: null,
+          excerpt: null,
+        },
+      ],
+    };
+    const { container } = render(<ChatView {...baseProps} messages={[cited]} />);
+    expect(screen.getByRole("region", { name: "Sources" })).toHaveTextContent(
+      "page 3 · Overview",
+    );
+    expect(screen.getByText("A bounded source excerpt.")).toBeVisible();
+    expect(screen.getByText("Deleted document source")).toBeVisible();
+    expect(container.querySelector("img")).toBeNull();
   });
 
   it("renders filenames as text, tombstones deleted assets, and revokes download URLs", async () => {

@@ -124,8 +124,12 @@ def canonical_media_type(claimed: str | None, prefix: bytes) -> str:
     if _looks_like_mp3(prefix):
         return "audio/mpeg"
     if prefix.startswith(b"PK\x03\x04"):
-        # A bounded prefix cannot prove OOXML package structure, so ZIP-based
-        # formats remain an opaque generic archive in this first slice.
+        if normalized_claim == (
+            "application/vnd.openxmlformats-officedocument."
+            "wordprocessingml.document"
+        ):
+            # Full package bounds are validated before inert bytes are parsed.
+            return normalized_claim
         return "application/zip"
     if normalized_claim in {"text/plain", "text/csv"} and b"\x00" not in prefix:
         try:

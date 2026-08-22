@@ -2620,6 +2620,7 @@ def test_authenticated_generation_returns_exact_safe_created_message(
         api["router"],
         api["admission"],
         api["duration"],
+        document_admission=app.state.document_ingestion_admission,
     )
     api["generate"].assert_awaited_once_with(
         api["current_user"].id,
@@ -2681,6 +2682,7 @@ def test_generation_injects_private_asset_storage_when_configured(
         api["admission"],
         api["duration"],
         storage=storage,
+        document_admission=app.state.document_ingestion_admission,
     )
 
 

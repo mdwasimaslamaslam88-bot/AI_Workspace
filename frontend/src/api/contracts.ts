@@ -23,6 +23,41 @@ export interface MessageAttachment {
   byte_size: number | null;
 }
 
+
+export interface MessageCitation {
+  asset_id: UUID;
+  position: number;
+  state: AttachmentState;
+  original_filename: string | null;
+  page_number: number | null;
+  row_start: number | null;
+  row_end: number | null;
+  section: string | null;
+  excerpt: string | null;
+}
+
+export type DocumentStatus =
+  | "pending"
+  | "processing"
+  | "ready"
+  | "failed"
+  | "cancelled";
+
+export interface IndexedDocument {
+  id: UUID;
+  asset_id: UUID;
+  status: DocumentStatus;
+  source_state: AttachmentState;
+  original_filename: string | null;
+  media_type: string | null;
+  chunk_count: number;
+  character_count: number;
+  failure_code: string | null;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+  completed_at: Timestamp | null;
+}
+
 export type ModelModality = "text";
 export type ModelAvailability = "available" | "unavailable" | "unknown";
 export type ModelCapability =
@@ -85,6 +120,7 @@ export interface Message {
   created_at: Timestamp;
   updated_at: Timestamp;
   attachments: MessageAttachment[];
+  citations: MessageCitation[];
 }
 
 export interface MessagePage {
@@ -249,6 +285,40 @@ export function parseAsset(value: unknown): Asset {
   };
 }
 
+export function parseIndexedDocument(value: unknown): IndexedDocument {
+  const item = record(value);
+  const chunkCount = integerOrNull(item.chunk_count);
+  const characterCount = integerOrNull(item.character_count);
+  if (
+    chunkCount === null ||
+    chunkCount < 0 ||
+    characterCount === null ||
+    characterCount < 0
+  ) {
+    return invalidResponse();
+  }
+  return {
+    id: stringField(item.id),
+    asset_id: stringField(item.asset_id),
+    status: enumField(item.status, [
+      "pending",
+      "processing",
+      "ready",
+      "failed",
+      "cancelled",
+    ] as const),
+    source_state: enumField(item.source_state, ["active", "deleted"] as const),
+    original_filename: nullableString(item.original_filename),
+    media_type: nullableString(item.media_type),
+    chunk_count: chunkCount,
+    character_count: characterCount,
+    failure_code: nullableString(item.failure_code),
+    created_at: stringField(item.created_at),
+    updated_at: stringField(item.updated_at),
+    completed_at: nullableString(item.completed_at),
+  };
+}
+
 export function parseMessageAttachment(value: unknown): MessageAttachment {
   const item = record(value);
   const position = integerOrNull(item.position);
@@ -275,11 +345,44 @@ export function parseMessageAttachment(value: unknown): MessageAttachment {
   };
 }
 
+export function parseMessageCitation(value: unknown): MessageCitation {
+  const item = record(value);
+  const position = integerOrNull(item.position);
+  const pageNumber = integerOrNull(item.page_number);
+  const rowStart = integerOrNull(item.row_start);
+  const rowEnd = integerOrNull(item.row_end);
+  const state = enumField(item.state, ["active", "deleted"] as const);
+  const originalFilename = nullableString(item.original_filename);
+  const excerpt = nullableString(item.excerpt);
+  if (
+    position === null ||
+    position < 1 ||
+    (pageNumber !== null && pageNumber < 1) ||
+    (rowStart !== null && rowStart < 1) ||
+    (rowEnd !== null && (rowStart === null || rowEnd < rowStart)) ||
+    (state === "deleted" &&
+      (originalFilename !== null || excerpt !== null))
+  ) {
+    return invalidResponse();
+  }
+  return {
+    asset_id: stringField(item.asset_id),
+    position,
+    state,
+    original_filename: originalFilename,
+    page_number: pageNumber,
+    row_start: rowStart,
+    row_end: rowEnd,
+    section: nullableString(item.section),
+    excerpt,
+  };
+}
 
 export function parseMessage(value: unknown): Message {
   const item = record(value);
   const sequenceNumber = integerOrNull(item.sequence_number);
-  if (sequenceNumber === null || !Array.isArray(item.attachments)) {
+  const citations = item.citations ?? [];
+  if (sequenceNumber === null || !Array.isArray(item.attachments) || !Array.isArray(citations)) {
     return invalidResponse();
   }
   return {
@@ -291,6 +394,7 @@ export function parseMessage(value: unknown): Message {
     created_at: stringField(item.created_at),
     updated_at: stringField(item.updated_at),
     attachments: item.attachments.map(parseMessageAttachment),
+    citations: citations.map(parseMessageCitation),
   };
 }
 
