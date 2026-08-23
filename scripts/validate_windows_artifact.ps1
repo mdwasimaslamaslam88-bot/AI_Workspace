@@ -56,12 +56,19 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 function Assert-NoPattern([string]$Pattern, [string[]]$Paths, [string]$Failure) {
-  & rg --text --quiet --hidden --no-ignore --regexp $Pattern -- @Paths
-  if ($LASTEXITCODE -eq 0) {
-    throw $Failure
-  }
-  if ($LASTEXITCODE -ne 1) {
-    throw "Artifact scanner failed."
+  foreach ($path in $Paths) {
+    $files = if ((Get-Item $path).PSIsContainer) {
+      Get-ChildItem -Path $path -File -Recurse -Force
+    } else {
+      @(Get-Item $path)
+    }
+    foreach ($file in $files) {
+      $bytes = [System.IO.File]::ReadAllBytes($file.FullName)
+      $content = [System.Text.Encoding]::Latin1.GetString($bytes)
+      if ([System.Text.RegularExpressions.Regex]::IsMatch($content, $Pattern)) {
+        throw $Failure
+      }
+    }
   }
 }
 
