@@ -1,8 +1,23 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("../src/platform/desktop", () => ({
+  isDesktopRuntime: vi.fn(() => false),
+  readDesktopAutostartEnabled: vi.fn(async () => false),
+  readDesktopNotificationPermission: vi.fn(async () => false),
+  requestDesktopNotificationPermission: vi.fn(async () => true),
+  writeDesktopAutostartEnabled: vi.fn(async () => undefined),
+}));
 
 import { SettingsPanel } from "../src/features/settings/SettingsPanel";
+import {
+  isDesktopRuntime,
+  readDesktopAutostartEnabled,
+  readDesktopNotificationPermission,
+  requestDesktopNotificationPermission,
+  writeDesktopAutostartEnabled,
+} from "../src/platform/desktop";
 import {
   productCapabilities,
   rawSecret,
@@ -67,6 +82,15 @@ function props() {
 }
 
 describe("SettingsPanel", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(isDesktopRuntime).mockReturnValue(false);
+    vi.mocked(readDesktopAutostartEnabled).mockResolvedValue(false);
+    vi.mocked(readDesktopNotificationPermission).mockResolvedValue(false);
+    vi.mocked(requestDesktopNotificationPermission).mockResolvedValue(true);
+    vi.mocked(writeDesktopAutostartEnabled).mockResolvedValue(undefined);
+  });
+
   it("shows available features and exact fixed local prerequisites", async () => {
     const actions = props();
     render(<SettingsPanel {...actions} />);
@@ -164,5 +188,31 @@ describe("SettingsPanel", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Log out on this device" }));
     expect(actions.onLogout).toHaveBeenCalledOnce();
+  });
+
+  it("configures packaged desktop startup and private notification permission", async () => {
+    vi.mocked(isDesktopRuntime).mockReturnValue(true);
+    const actions = props();
+    render(<SettingsPanel {...actions} />);
+
+    const autostart = await screen.findByRole("checkbox", {
+      name: "Open WORK STATION when I sign in",
+    });
+    expect(autostart).not.toBeChecked();
+    expect(readDesktopAutostartEnabled).toHaveBeenCalledOnce();
+    expect(readDesktopNotificationPermission).toHaveBeenCalledOnce();
+
+    await userEvent.click(autostart);
+    expect(writeDesktopAutostartEnabled).toHaveBeenCalledWith(true);
+    expect(await screen.findByText("Desktop startup enabled.")).toBeVisible();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Enable notifications" }),
+    );
+    expect(requestDesktopNotificationPermission).toHaveBeenCalledOnce();
+    expect(await screen.findByText("Private desktop notifications enabled.")).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Notifications enabled" }),
+    ).toBeDisabled();
   });
 });

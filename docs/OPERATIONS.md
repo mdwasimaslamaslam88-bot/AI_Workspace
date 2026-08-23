@@ -63,3 +63,7 @@ the client API or data model. Do not install every model automatically.
 Desktop and mobile notifications remain generic by default (completion or
 failure, no prompt/response content). Remote push delivery is disabled until an
 owner-controlled provider and device-revocation path are explicitly configured.
+The packaged desktop app exposes notification permission and sign-in startup in
+Settings. Desktop image/workflow alerts and mobile task alerts contain only
+fixed WORK STATION copy; private result details remain inside the authenticated
+application.

@@ -1,5 +1,16 @@
 type TauriCore = typeof import("@tauri-apps/api/core");
 
+const PRIVATE_TASK_NOTIFICATION = {
+  success: {
+    title: "WORK STATION task finished",
+    body: "Open WORK STATION to review the private result.",
+  },
+  failure: {
+    title: "WORK STATION task needs attention",
+    body: "Open WORK STATION to review the private result.",
+  },
+} as const;
+
 export function isDesktopRuntime(): boolean {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 }
@@ -19,4 +30,40 @@ export async function writeDesktopSessionToken(token: string): Promise<void> {
 
 export async function clearDesktopSessionToken(): Promise<void> {
   await (await core()).invoke("clear_session_token");
+}
+
+export async function readDesktopAutostartEnabled(): Promise<boolean> {
+  if (!isDesktopRuntime()) return false;
+  return (await import("@tauri-apps/plugin-autostart")).isEnabled();
+}
+
+export async function writeDesktopAutostartEnabled(enabled: boolean): Promise<void> {
+  if (!isDesktopRuntime()) throw new Error("Desktop runtime is unavailable.");
+  const autostart = await import("@tauri-apps/plugin-autostart");
+  if (enabled) await autostart.enable();
+  else await autostart.disable();
+}
+
+export async function readDesktopNotificationPermission(): Promise<boolean> {
+  if (!isDesktopRuntime()) return false;
+  return (await import("@tauri-apps/plugin-notification")).isPermissionGranted();
+}
+
+export async function requestDesktopNotificationPermission(): Promise<boolean> {
+  if (!isDesktopRuntime()) throw new Error("Desktop runtime is unavailable.");
+  const notifications = await import("@tauri-apps/plugin-notification");
+  if (await notifications.isPermissionGranted()) return true;
+  return (await notifications.requestPermission()) === "granted";
+}
+
+export async function notifyDesktopTaskFinished(succeeded: boolean): Promise<boolean> {
+  if (!isDesktopRuntime()) return false;
+  const notifications = await import("@tauri-apps/plugin-notification");
+  if (!(await notifications.isPermissionGranted())) return false;
+  notifications.sendNotification(
+    succeeded
+      ? PRIVATE_TASK_NOTIFICATION.success
+      : PRIVATE_TASK_NOTIFICATION.failure,
+  );
+  return true;
 }

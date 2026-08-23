@@ -2,8 +2,16 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+const desktopNotification = vi.hoisted(() => vi.fn(async () => false));
+
+vi.mock("../src/platform/desktop", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../src/platform/desktop")>();
+  return { ...actual, notifyDesktopTaskFinished: desktopNotification };
+});
+
 import { App } from "../src/app/App";
 import { readSessionToken, writeSessionToken } from "../src/auth/session";
+import type { Workflow, WorkflowStatus } from "../src/api/contracts";
 import {
   conversation,
   errorEnvelope,
@@ -18,9 +26,54 @@ import {
   visionModel,
 } from "./fixtures";
 
+const testWorkflowId = "66666666-6666-4666-8666-666666666666";
+
+function testWorkflow(
+  status: Extract<WorkflowStatus, "pending" | "running" | "completed" | "failed">,
+): Workflow {
+  const started = status === "pending" ? null : "2026-08-22T00:00:01Z";
+  const terminal = status === "completed" || status === "failed";
+  const completed = terminal ? "2026-08-22T00:00:02Z" : null;
+  const stepStatus = status;
+  return {
+    id: testWorkflowId,
+    name: "Release check",
+    status,
+    step_count: 1,
+    current_step_position: status === "pending" ? null : 1,
+    cancel_requested: false,
+    result: status === "completed" ? { step_count: 1 } : null,
+    error_code: status === "failed" ? "tool_failed" : null,
+    created_at: "2026-08-22T00:00:00Z",
+    updated_at: completed ?? started ?? "2026-08-22T00:00:00Z",
+    started_at: started,
+    completed_at: completed,
+    steps: [
+      {
+        id: "77777777-7777-4777-8777-777777777777",
+        position: 1,
+        tool_name: "document_search",
+        permission: "personal_documents_read",
+        arguments: { query: "release check", limit: 4 },
+        status: stepStatus,
+        tool_execution_id:
+          status === "completed"
+            ? "88888888-8888-4888-8888-888888888888"
+            : null,
+        result: status === "completed" ? { items: [] } : null,
+        error_code: status === "failed" ? "tool_failed" : null,
+        started_at: started,
+        completed_at: completed,
+        duration_ms: terminal ? 2 : null,
+      },
+    ],
+  };
+}
+
 function installWorkspaceFetch(options: {
   generationStatus?: 201 | 409 | "pending";
   models?: Array<typeof model>;
+  workflowOutcome?: Extract<WorkflowStatus, "completed" | "failed">;
 } = {}) {
   let generated = false;
   let messageReads = 0;
@@ -78,8 +131,26 @@ function installWorkspaceFetch(options: {
     if (url.pathname === "/api/v1/diagnostics") {
       return jsonResponse(systemDiagnostics);
     }
-    if (url.pathname === "/api/v1/workflows") {
+    if (
+      url.pathname === "/api/v1/workflows" &&
+      (init?.method ?? "GET") === "GET"
+    ) {
       return jsonResponse({ items: [] });
+    }
+    if (url.pathname === "/api/v1/workflows" && init?.method === "POST") {
+      return jsonResponse(testWorkflow("pending"), 201);
+    }
+    if (
+      url.pathname === `/api/v1/workflows/${testWorkflowId}/start` &&
+      init?.method === "POST"
+    ) {
+      return jsonResponse(testWorkflow("running"), 202);
+    }
+    if (
+      url.pathname === `/api/v1/workflows/${testWorkflowId}` &&
+      (init?.method ?? "GET") === "GET"
+    ) {
+      return jsonResponse(testWorkflow(options.workflowOutcome ?? "completed"));
     }
     if (url.pathname === "/api/v1/ai/models") {
       return jsonResponse({ items: options.models ?? [model] });
@@ -136,6 +207,7 @@ function installWorkspaceFetch(options: {
 describe("App integration", () => {
   beforeEach(() => {
     vi.unstubAllGlobals();
+    vi.clearAllMocks();
   });
 
   it("restores a valid session, renders safe identity, and clears it on logout", async () => {
@@ -228,6 +300,31 @@ describe("App integration", () => {
       ).toHaveLength(1),
     );
   });
+
+  it.each([
+    ["completed", true],
+    ["failed", false],
+  ] as const)(
+    "emits only a generic desktop notification after a workflow is %s",
+    async (workflowOutcome, succeeded) => {
+      writeSessionToken(token);
+      installWorkspaceFetch({ workflowOutcome });
+      render(<App />);
+
+      await userEvent.click(
+        await screen.findByRole("button", { name: "Workflows" }),
+      );
+      await screen.findByText("No workflows yet.");
+      await userEvent.type(screen.getByLabelText("Research goal"), "release check");
+      await userEvent.click(screen.getByRole("button", { name: "Run workflow" }));
+
+      await waitFor(() => {
+        expect(desktopNotification).toHaveBeenCalledWith(succeeded);
+      });
+      expect(desktopNotification).toHaveBeenCalledOnce();
+      expect(document.body.textContent).not.toContain(token);
+    },
+  );
 
   it("loads diagnostics only when Settings opens and links to memory controls", async () => {
     writeSessionToken(token);

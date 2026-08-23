@@ -48,6 +48,7 @@ import { ModelSelector } from "../features/models/ModelSelector";
 import { SettingsPanel } from "../features/settings/SettingsPanel";
 import { ToolPanel } from "../features/tools/ToolPanel";
 import { WorkflowPanel } from "../features/workflows/WorkflowPanel";
+import { notifyDesktopTaskFinished } from "../platform/desktop";
 import {
   applyAppearancePreference,
   type AppearancePreference,
@@ -938,25 +939,34 @@ export function App() {
   );
 
   const startWorkflow = useCallback(
-    (workflowId: string, signal?: AbortSignal): Promise<Workflow> => {
+    async (workflowId: string, signal?: AbortSignal): Promise<Workflow> => {
       if (client === null) {
-        return Promise.reject(
-          new ApiError("authentication", "Authentication failed."),
-        );
+        throw new ApiError("authentication", "Authentication failed.");
       }
-      return client.startWorkflow(workflowId, signal);
+      try {
+        return await client.startWorkflow(workflowId, signal);
+      } catch (error) {
+        if (!(error instanceof ApiError && error.kind === "cancelled")) {
+          void notifyDesktopTaskFinished(false).catch(() => undefined);
+        }
+        throw error;
+      }
     },
     [client],
   );
 
   const getWorkflow = useCallback(
-    (workflowId: string, signal?: AbortSignal): Promise<Workflow> => {
+    async (workflowId: string, signal?: AbortSignal): Promise<Workflow> => {
       if (client === null) {
-        return Promise.reject(
-          new ApiError("authentication", "Authentication failed."),
+        throw new ApiError("authentication", "Authentication failed.");
+      }
+      const workflow = await client.getWorkflow(workflowId, signal);
+      if (["completed", "failed", "timed_out"].includes(workflow.status)) {
+        void notifyDesktopTaskFinished(workflow.status === "completed").catch(
+          () => undefined,
         );
       }
-      return client.getWorkflow(workflowId, signal);
+      return workflow;
     },
     [client],
   );
@@ -1100,10 +1110,14 @@ export function App() {
           crypto.randomUUID(),
           controller.signal,
         );
+        void notifyDesktopTaskFinished(true).catch(() => undefined);
         setMessages((current) => mergeMessages(current, [result.message]));
         await refreshMessageSnapshot(selectedConversation.id, 2);
         await reloadConversations();
       } catch (error) {
+        if (!(error instanceof ApiError && error.kind === "cancelled")) {
+          void notifyDesktopTaskFinished(false).catch(() => undefined);
+        }
         const reconciled = await refreshMessageSnapshot(
           selectedConversation.id,
           2,
@@ -1157,10 +1171,14 @@ export function App() {
           crypto.randomUUID(),
           controller.signal,
         );
+        void notifyDesktopTaskFinished(true).catch(() => undefined);
         setMessages((current) => mergeMessages(current, [result.message]));
         await refreshMessageSnapshot(selectedConversation.id, 2);
         await reloadConversations();
       } catch (error) {
+        if (!(error instanceof ApiError && error.kind === "cancelled")) {
+          void notifyDesktopTaskFinished(false).catch(() => undefined);
+        }
         const reconciled = await refreshMessageSnapshot(
           selectedConversation.id,
           2,

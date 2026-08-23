@@ -9,6 +9,13 @@ import type {
   UserSessionProvision,
 } from "../../api/contracts";
 import type { AppearancePreference } from "../../preferences/appearance";
+import {
+  isDesktopRuntime,
+  readDesktopAutostartEnabled,
+  readDesktopNotificationPermission,
+  requestDesktopNotificationPermission,
+  writeDesktopAutostartEnabled,
+} from "../../platform/desktop";
 
 interface SettingsPanelProps {
   onClose: () => void;
@@ -98,6 +105,11 @@ export function SettingsPanel({
   const [newSessionLabel, setNewSessionLabel] = useState("");
   const [issuedSession, setIssuedSession] =
     useState<UserSessionProvision | null>(null);
+  const desktopRuntime = isDesktopRuntime();
+  const [desktopAutostart, setDesktopAutostart] = useState(false);
+  const [desktopNotifications, setDesktopNotifications] = useState(false);
+  const [desktopBusy, setDesktopBusy] = useState(false);
+  const [desktopNotice, setDesktopNotice] = useState<string | null>(null);
   const controller = useRef<AbortController | null>(null);
 
   const load = useCallback(async () => {
@@ -133,6 +145,26 @@ export function SettingsPanel({
     void load();
     return () => controller.current?.abort();
   }, [load]);
+
+  useEffect(() => {
+    if (!desktopRuntime) return;
+    let active = true;
+    void Promise.all([
+      readDesktopAutostartEnabled(),
+      readDesktopNotificationPermission(),
+    ])
+      .then(([autostartEnabled, notificationsEnabled]) => {
+        if (!active) return;
+        setDesktopAutostart(autostartEnabled);
+        setDesktopNotifications(notificationsEnabled);
+      })
+      .catch(() => {
+        if (active) setDesktopNotice("Desktop preferences could not be read.");
+      });
+    return () => {
+      active = false;
+    };
+  }, [desktopRuntime]);
 
   const available = capabilities.filter(
     (capability) => capability.status === "available",
@@ -227,6 +259,38 @@ export function SettingsPanel({
       });
     }
   }, [issuedSession]);
+
+  const updateDesktopAutostart = useCallback(async (enabled: boolean) => {
+    setDesktopBusy(true);
+    setDesktopNotice(null);
+    try {
+      await writeDesktopAutostartEnabled(enabled);
+      setDesktopAutostart(enabled);
+      setDesktopNotice(enabled ? "Desktop startup enabled." : "Desktop startup disabled.");
+    } catch {
+      setDesktopNotice("Desktop startup preference could not be changed.");
+    } finally {
+      setDesktopBusy(false);
+    }
+  }, []);
+
+  const enableDesktopNotifications = useCallback(async () => {
+    setDesktopBusy(true);
+    setDesktopNotice(null);
+    try {
+      const granted = await requestDesktopNotificationPermission();
+      setDesktopNotifications(granted);
+      setDesktopNotice(
+        granted
+          ? "Private desktop notifications enabled."
+          : "Desktop notification permission was not granted.",
+      );
+    } catch {
+      setDesktopNotice("Desktop notification preference could not be changed.");
+    } finally {
+      setDesktopBusy(false);
+    }
+  }, []);
 
   return (
     <aside className="settings-panel" aria-labelledby="settings-panel-title">
@@ -478,6 +542,33 @@ export function SettingsPanel({
             </p>
           </div>
         </div>
+        {desktopRuntime && (
+          <div className="desktop-preferences">
+            <label className="desktop-preference-toggle">
+              <input
+                type="checkbox"
+                checked={desktopAutostart}
+                disabled={desktopBusy}
+                onChange={(event) => void updateDesktopAutostart(event.target.checked)}
+              />
+              <span>Open WORK STATION when I sign in</span>
+            </label>
+            <div className="settings-section-heading">
+              <p className="field-help">
+                Native alerts: {desktopNotifications ? "enabled" : "not enabled"}
+              </p>
+              <button
+                type="button"
+                className="button button-secondary"
+                disabled={desktopBusy || desktopNotifications}
+                onClick={() => void enableDesktopNotifications()}
+              >
+                {desktopNotifications ? "Notifications enabled" : "Enable notifications"}
+              </button>
+            </div>
+            {desktopNotice !== null && <p role="status">{desktopNotice}</p>}
+          </div>
+        )}
       </section>
 
       <section aria-labelledby="diagnostics-title" className="settings-section">

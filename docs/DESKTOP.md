@@ -14,7 +14,10 @@ does not contain AI or authorization logic.
 - system tray, single-instance behavior, close-to-tray, persisted window state,
   native drag/drop, and `work-station://` deep-link registration
 - generic notifications only; sensitive response content is not used as a
-  preview
+  preview; the Settings panel requests OS permission explicitly and image or
+  workflow completion/failure alerts contain only fixed generic text
+- owner-configurable sign-in startup through Settings; the native plugin owns
+  the platform startup entry and no credential is placed in startup arguments
 - explicit owner session naming, issuance, revocation, and token rotation
   through Settings; the replacement remains in the OS credential vault and
   invalidates only the prior token for this desktop session

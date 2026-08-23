@@ -697,6 +697,24 @@ textarea {
   line-height: 1.45;
 }
 
+.desktop-preferences {
+  display: grid;
+  gap: 0.85rem;
+  margin-top: 0.85rem;
+}
+
+.desktop-preference-toggle {
+  align-items: center;
+  display: flex;
+  gap: 0.75rem;
+  min-height: 44px;
+}
+
+.desktop-preference-toggle input {
+  height: 1.15rem;
+  width: 1.15rem;
+}
+
 
 .tool-form {
   display: grid;
