@@ -27,6 +27,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { MobileApiError, type MobileApiClient, type MobileUpload } from "@/api/client";
+import { citationLocation, citationSourceLabel } from "@/chat/citations";
 import { useWorkStation } from "@/context/work-station";
 import { workStationColors, type WorkStationColors } from "@/theme/colors";
 
@@ -700,6 +701,32 @@ export default function ChatScreen() {
               {item.attachments.length > 0 && (
                 <Text style={styles.attachmentMeta}>{item.attachments.length} private attachment(s)</Text>
               )}
+              {item.citations.length > 0 && (
+                <View style={styles.citationList}>
+                  <Text accessibilityRole="header" style={styles.citationHeading}>
+                    Sources
+                  </Text>
+                  {item.citations.map((citation) => {
+                    const location = citationLocation(citation);
+                    return (
+                      <View
+                        key={`${citation.asset_id}:${citation.position}`}
+                        style={styles.citation}
+                      >
+                        <Text style={styles.citationSource}>
+                          {citationSourceLabel(citation)}
+                          {location ? ` · ${location}` : ""}
+                        </Text>
+                        {citation.state === "active" && citation.excerpt !== null && (
+                          <Text selectable style={styles.citationExcerpt}>
+                            {citation.excerpt}
+                          </Text>
+                        )}
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
               {editable && editingMessageId !== item.id && (
                 <Pressable
                   accessibilityRole="button"
@@ -850,6 +877,11 @@ function createStyles(colors: WorkStationColors) {
   messageRole: { color: colors.muted, fontSize: 10, fontWeight: "900", textTransform: "uppercase", marginBottom: 5 },
   messageText: { color: colors.text, fontSize: 15, lineHeight: 22 },
   attachmentMeta: { color: colors.muted, fontSize: 11, marginTop: 8 },
+  citationList: { gap: 7, marginTop: 8, borderTopColor: colors.line, borderTopWidth: 1, paddingTop: 8 },
+  citationHeading: { color: colors.text, fontSize: 12, fontWeight: "900" },
+  citation: { gap: 3 },
+  citationSource: { color: colors.accent, fontSize: 12, fontWeight: "800" },
+  citationExcerpt: { color: colors.muted, fontSize: 12, lineHeight: 18 },
   errorBanner: { color: colors.danger, backgroundColor: colors.dangerSoft, padding: 10, marginHorizontal: 12, borderRadius: 10 },
   attachmentRow: { gap: 6, paddingHorizontal: 12, paddingVertical: 6 },
   attachmentChip: { color: colors.accent, backgroundColor: colors.soft, borderRadius: 8, padding: 7, fontSize: 11 },
