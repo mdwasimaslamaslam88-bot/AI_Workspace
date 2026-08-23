@@ -30,6 +30,11 @@ labels, and compact chat/Studio controls retain at least a 44-point touch
 target. A static TypeScript-AST regression test prevents unlabeled Pressable
 controls from entering the mobile client.
 
+Private message media is fetched only after an owner action and removed from
+the app cache when its component unmounts. Image and document rows do not
+initialize native audio players; audio resources are allocated only for audio
+attachments.
+
 The Studio tab uses the existing owner-scoped backend APIs for explicit memory,
 allowlisted tool execution, bounded workflow creation/start/cancel/status,
 image generation/editing, and text-to-speech. It does not duplicate AI or

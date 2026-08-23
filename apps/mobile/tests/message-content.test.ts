@@ -4,6 +4,7 @@ import * as Clipboard from "expo-clipboard";
 import type { MessageAttachment } from "@work-station/shared";
 
 import {
+  privateAttachmentKind,
   privateAttachmentDetails,
   privateAttachmentLabel,
 } from "../src/chat/attachments";
@@ -74,6 +75,11 @@ describe("mobile private message presentation", () => {
     expect(privateAttachmentDetails({ ...attachment, state: "deleted" })).toBeNull();
     expect(privateAttachmentLabel({ ...attachment, state: "deleted" })).toBe(
       "Deleted attachment",
+    );
+    expect(privateAttachmentKind(attachment)).toBe("image");
+    expect(privateAttachmentKind({ ...attachment, media_type: "audio/wav" })).toBe("audio");
+    expect(privateAttachmentKind({ ...attachment, media_type: "application/pdf" })).toBe(
+      "document",
     );
   });
 });
