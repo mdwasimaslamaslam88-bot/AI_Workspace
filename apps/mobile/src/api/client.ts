@@ -68,6 +68,12 @@ export function normalizeMobileApiBaseUrl(value: string | undefined): string {
   ) {
     throw new Error("EXPO_PUBLIC_API_BASE_URL must be an HTTP origin without credentials or a path.");
   }
+  if (
+    parsed.protocol === "http:" &&
+    !["localhost", "127.0.0.1", "[::1]"].includes(parsed.hostname)
+  ) {
+    throw new Error("Remote EXPO_PUBLIC_API_BASE_URL origins must use HTTPS.");
+  }
   return parsed.origin;
 }
 

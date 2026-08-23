@@ -14,6 +14,7 @@ import type {
   Message,
   PersonalMemory,
   ProductCapability,
+  SystemDiagnostics,
   ToolDescriptor,
   ToolExecution,
   ToolExecutionRequest,
@@ -617,6 +618,16 @@ export function App() {
     [client],
   );
 
+  const loadSystemDiagnostics = useCallback(
+    async (signal?: AbortSignal): Promise<SystemDiagnostics> => {
+      if (client === null) {
+        throw new ApiError("authentication", "Authentication failed.");
+      }
+      return client.getSystemDiagnostics(signal);
+    },
+    [client],
+  );
+
   const createMemory = useCallback(
     (request: MemoryCreateRequest, signal?: AbortSignal): Promise<PersonalMemory> => {
       if (client === null) {
@@ -1101,6 +1112,7 @@ export function App() {
             <SettingsPanel
               onClose={() => setSettingsOpen(false)}
               onLoad={loadProductCapabilities}
+              onLoadDiagnostics={loadSystemDiagnostics}
               onManageMemory={() => {
                 setSettingsOpen(false);
                 setMemoryOpen(true);

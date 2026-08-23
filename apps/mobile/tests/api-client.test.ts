@@ -19,6 +19,8 @@ describe("mobile API client", () => {
     );
     expect(() => normalizeMobileApiBaseUrl("https://token@example.test/api"))
       .toThrow("without credentials or a path");
+    expect(() => normalizeMobileApiBaseUrl("http://192.0.2.1:8000"))
+      .toThrow("must use HTTPS");
   });
 
   it("authenticates /users/me without exposing the bearer in the URL", async () => {

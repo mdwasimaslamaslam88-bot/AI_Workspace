@@ -88,19 +88,23 @@ def test_hardware_planner_admits_cpu_compatible_model_without_gpu_vram():
     assert planner.required_hardware_class(0) is HardwareClass.CPU_ONLY
 
 
-def test_detect_hardware_uses_capacity_only(monkeypatch):
-    completed = Mock(stdout="12288\n", returncode=0)
+def test_detect_hardware_uses_bounded_model_and_capacity(monkeypatch):
+    completed = Mock(stdout="NVIDIA GeForce RTX 3060, 12288\n", returncode=0)
     run = Mock(return_value=completed)
     monkeypatch.setattr("app.hardware.planner.subprocess.run", run)
     monkeypatch.setattr("app.hardware.planner._total_ram_bytes", lambda: 80 * GIBIBYTE)
 
     inventory = detect_hardware()
 
-    assert inventory == HardwareInventory(80 * GIBIBYTE, (12 * GIBIBYTE,))
+    assert inventory == HardwareInventory(
+        80 * GIBIBYTE,
+        (12 * GIBIBYTE,),
+        ("NVIDIA GeForce RTX 3060",),
+    )
     command = run.call_args.args[0]
     assert command == [
         "nvidia-smi",
-        "--query-gpu=memory.total",
+        "--query-gpu=name,memory.total",
         "--format=csv,noheader,nounits",
     ]
 

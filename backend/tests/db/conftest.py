@@ -29,6 +29,26 @@ def pytest_configure(config) -> None:
     )
 
 
+@pytest.fixture(autouse=True)
+def isolate_process_local_edge_rate_limits():
+    """ASGITransport does not emit lifespan events between integration tests."""
+
+    from app.main import app
+    from app.middleware.edge_rate_limit import EdgeRateLimitMiddleware
+
+    if app.middleware_stack is None:
+        app.middleware_stack = app.build_middleware_stack()
+    middleware = app.middleware_stack
+    while middleware is not None:
+        if isinstance(middleware, EdgeRateLimitMiddleware):
+            middleware._clear()
+            break
+        middleware = getattr(middleware, "app", None)
+    yield
+    if isinstance(middleware, EdgeRateLimitMiddleware):
+        middleware._clear()
+
+
 def _integration_tests_selected(config) -> bool:
     mark_expression = config.getoption("-m") or ""
     return re.search(r"\bintegration\b", mark_expression) is not None

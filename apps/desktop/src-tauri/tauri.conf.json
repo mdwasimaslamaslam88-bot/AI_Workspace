@@ -12,7 +12,7 @@
   "app": {
     "security": {
       "capabilities": ["main-window"],
-      "csp": "default-src 'self' customprotocol: asset:; connect-src 'self' ipc: http://ipc.localhost http://127.0.0.1:8000 http://localhost:8000 https:; img-src 'self' asset: http://asset.localhost blob: data:; media-src 'self' blob: data:; style-src 'self' 'unsafe-inline'; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
+      "csp": "default-src 'self' customprotocol: asset:; connect-src 'self' ipc: http://ipc.localhost http://127.0.0.1:8000 http://localhost:8000 https://*.ts.net; img-src 'self' asset: http://asset.localhost blob: data:; media-src 'self' blob: data:; style-src 'self' 'unsafe-inline'; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
     },
     "windows": [
       {

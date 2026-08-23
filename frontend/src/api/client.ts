@@ -20,6 +20,7 @@ import {
   type MessagePage,
   type PersonalMemory,
   type ProductCapabilityPage,
+  type SystemDiagnostics,
   type ToolDescriptorPage,
   type ToolExecution,
   type ToolExecutionPage,
@@ -45,6 +46,7 @@ import {
   parseModelPage,
   parsePersonalMemory,
   parseProductCapabilityPage,
+  parseSystemDiagnostics,
   parseToolDescriptorPage,
   parseToolExecution,
   parseToolExecutionPage,
@@ -120,8 +122,28 @@ export class ApiError extends Error {
   }
 }
 
-export function normalizeApiBaseUrl(value: string | undefined): string {
-  const candidate = value?.trim() || "http://127.0.0.1:8000";
+export function normalizeApiBaseUrl(
+  value: string | undefined,
+  browserOrigin?: string,
+): string {
+  let inferredOrigin = "http://127.0.0.1:8000";
+  if (value?.trim() === "" || value === undefined) {
+    try {
+      const browserUrl = new URL(browserOrigin ?? "");
+      const localDevelopment =
+        ["localhost", "127.0.0.1", "[::1]"].includes(browserUrl.hostname) &&
+        browserUrl.port !== "8000";
+      if (
+        ["http:", "https:"].includes(browserUrl.protocol) &&
+        !localDevelopment
+      ) {
+        inferredOrigin = browserUrl.origin;
+      }
+    } catch {
+      // Desktop asset protocols and test environments use the loopback API.
+    }
+  }
+  const candidate = value?.trim() || inferredOrigin;
   let parsed: URL;
   try {
     parsed = new URL(candidate);
@@ -140,10 +162,19 @@ export function normalizeApiBaseUrl(value: string | undefined): string {
       "VITE_API_BASE_URL must be an HTTP origin without credentials or a path.",
     );
   }
+  if (
+    parsed.protocol === "http:" &&
+    !["localhost", "127.0.0.1", "[::1]"].includes(parsed.hostname)
+  ) {
+    throw new Error("Remote VITE_API_BASE_URL origins must use HTTPS.");
+  }
   return parsed.origin;
 }
 
-export const API_BASE_URL = normalizeApiBaseUrl(import.meta.env.VITE_API_BASE_URL);
+export const API_BASE_URL = normalizeApiBaseUrl(
+  import.meta.env.VITE_API_BASE_URL,
+  typeof window === "undefined" ? undefined : window.location.origin,
+);
 
 type JsonDecoder<T> = (value: unknown) => T;
 type FetchImplementation = typeof fetch;
@@ -237,6 +268,13 @@ export class ApiClient {
     return this.#request("api/v1/ai/capabilities", {
       signal,
       decode: parseProductCapabilityPage,
+    });
+  }
+
+  getSystemDiagnostics(signal?: AbortSignal): Promise<SystemDiagnostics> {
+    return this.#request("api/v1/diagnostics", {
+      signal,
+      decode: parseSystemDiagnostics,
     });
   }
 

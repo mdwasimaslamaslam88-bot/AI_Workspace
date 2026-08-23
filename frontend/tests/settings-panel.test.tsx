@@ -6,6 +6,7 @@ import { SettingsPanel } from "../src/features/settings/SettingsPanel";
 import {
   productCapabilities,
   rawSecret,
+  systemDiagnostics,
 } from "./fixtures";
 
 function props() {
@@ -14,6 +15,10 @@ function props() {
     onLoad: vi.fn(async (signal?: AbortSignal) => {
       void signal;
       return productCapabilities;
+    }),
+    onLoadDiagnostics: vi.fn(async (signal?: AbortSignal) => {
+      void signal;
+      return systemDiagnostics;
     }),
     onManageMemory: vi.fn(),
   };
@@ -29,7 +34,11 @@ describe("SettingsPanel", () => {
     expect(screen.getByText("Image generation")).toBeVisible();
     expect(screen.getByText(/bounded loopback image adapter/)).toBeVisible();
     expect(screen.getAllByText("unavailable")).toHaveLength(4);
+    expect(screen.getByText("Connection mode: LOCAL")).toBeVisible();
+    expect(screen.getByText("Remote gateway")).toBeVisible();
+    expect(screen.getByText(/Test GPU · 12 GiB · ready/)).toBeVisible();
     expect(actions.onLoad.mock.calls[0]?.[0]).toBeInstanceOf(AbortSignal);
+    expect(actions.onLoadDiagnostics.mock.calls[0]?.[0]).toBeInstanceOf(AbortSignal);
     expect(document.body.textContent).not.toContain("127.0.0.1");
 
     await userEvent.click(screen.getByRole("button", { name: "Manage memory" }));

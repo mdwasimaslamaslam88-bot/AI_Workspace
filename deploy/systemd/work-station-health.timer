@@ -1,0 +1,12 @@
+[Unit]
+Description=Periodically verify WORK STATION backend liveness
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+RandomizedDelaySec=30s
+Persistent=true
+Unit=work-station-health.service
+
+[Install]
+WantedBy=timers.target

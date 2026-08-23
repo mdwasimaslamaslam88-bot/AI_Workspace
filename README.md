@@ -1,17 +1,75 @@
-# AI Workspace
+# WORK STATION
 
-A local-first Personal AI modular monolith with a FastAPI/PostgreSQL backend and
-a React/TypeScript client. The authenticated workspace integrates text chat,
-vision-capable owned attachments, TXT/CSV/PDF/DOCX intelligence with local RAG
-and citations, explicit long-term memory, a fixed safe tool registry, bounded
-workflows, local image generation/editing, local speech recognition/synthesis,
-model selection, settings, and truthful capability diagnostics.
+WORK STATION is an owner-only Personal AI product built around one authoritative
+FastAPI/PostgreSQL backend. The canonical React application runs as an
+installable PWA, a Tauri desktop application, and an Expo Android/iOS client.
+Every client uses the same authenticated API and shared TypeScript contracts;
+AI, authorization, storage, and workflow logic stay on the workstation.
 
-Every media feature remains fail-closed unless its private storage, bounded
-adapter, exact local model or voice, and current hardware admission are all
-available. The unified UI exposes only the controls the authenticated backend
-can execute locally; it never substitutes a cloud API or mocked runtime.
+The existing local platform provides text chat, vision, document intelligence
+and RAG, explicit long-term memory, image generation/editing, speech-to-text,
+text-to-speech, bounded tools/workflows, private assets, and hardware-aware
+model admission. Availability shown by a client always comes from the backend.
 
-See [frontend/README.md](frontend/README.md) for browser setup and
-[backend/docs/local_ai.md](backend/docs/local_ai.md) for backend architecture,
-security boundaries, runtime configuration, and validation.
+## Product surfaces
+
+| Surface | Implementation | Session storage | Current distribution |
+| --- | --- | --- | --- |
+| Web/PWA | `frontend` | browser session storage | production Vite build |
+| Desktop | `apps/desktop` (Tauri 2) | OS credential vault | Linux `.deb`; Windows/macOS projects prepared |
+| Mobile | `apps/mobile` (Expo SDK 57) | Keychain/Keystore via SecureStore | Android/iOS project and release profiles |
+| Shared client | `shared` | none | workspace TypeScript package |
+
+The backend and all AI runtimes remain loopback-only. Worldwide access uses one
+private Tailscale Serve HTTPS gateway to the compiled web application and API;
+it does not expose development ports, PostgreSQL, Ollama, ComfyUI, or audio
+runtimes.
+
+## Quick start
+
+```bash
+npm install
+cd backend
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+cp .env.example .env
+.venv/bin/alembic upgrade head
+cd ..
+npm run dev:web
+```
+
+In another terminal:
+
+```bash
+cd backend
+.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+Provisioning remains an operator-only action. The PWA, desktop application,
+and mobile app accept only a user bearer token; they never receive the
+provisioning credential.
+
+## Release verification
+
+```bash
+./scripts/release_check.sh
+./scripts/release_check.sh --with-runtime
+```
+
+The second command adds destructive-to-test-data-only real runtime E2E checks
+against the explicitly configured `127.0.0.1/ai_workspace_test` database.
+Before tagging a synchronized release, use `--require-clean` after committing
+and pushing.
+
+## Documentation
+
+- [Local development](docs/LOCAL_DEVELOPMENT.md)
+- [Remote access](docs/REMOTE_ACCESS.md)
+- [Desktop](docs/DESKTOP.md)
+- [Mobile](docs/MOBILE.md)
+- [Deployment](docs/DEPLOYMENT.md)
+- [Security](docs/SECURITY.md)
+- [Backup](docs/BACKUP.md) and [recovery](docs/RECOVERY.md)
+- [Operations](docs/OPERATIONS.md)
+- [Troubleshooting](docs/TROUBLESHOOTING.md)
+- [Backend AI architecture](backend/docs/local_ai.md)

@@ -403,11 +403,23 @@ describe("ApiClient", () => {
 
   it("accepts only a secret-free HTTP origin as the configured base URL", () => {
     expect(normalizeApiBaseUrl(undefined)).toBe("http://127.0.0.1:8000");
+    expect(
+      normalizeApiBaseUrl(undefined, "https://work-station.example.ts.net"),
+    ).toBe("https://work-station.example.ts.net");
+    expect(normalizeApiBaseUrl(undefined, "http://localhost:3000")).toBe(
+      "http://127.0.0.1:8000",
+    );
+    expect(normalizeApiBaseUrl(undefined, "http://localhost:8000")).toBe(
+      "http://localhost:8000",
+    );
     expect(normalizeApiBaseUrl("http://localhost:8000/")).toBe(
       "http://localhost:8000",
     );
     expect(() => normalizeApiBaseUrl("http://user:pass@localhost:8000")).toThrow();
     expect(() => normalizeApiBaseUrl("http://localhost:8000/api")).toThrow();
+    expect(() => normalizeApiBaseUrl("http://192.0.2.1:8000")).toThrow(
+      "must use HTTPS",
+    );
   });
 
   it("uploads one file with bearer, idempotency, and progress without setting multipart content type", async () => {

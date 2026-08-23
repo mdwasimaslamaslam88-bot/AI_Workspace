@@ -26,6 +26,8 @@ from app.middleware.application_error_boundary import (
 )
 from app.middleware.request_body_limit import RequestBodyLimitMiddleware
 from app.middleware.request_id import RequestIDMiddleware
+from app.middleware.edge_rate_limit import EdgeRateLimitMiddleware
+from app.middleware.security_headers import SecurityHeadersMiddleware
 from app.models.user import User
 
 
@@ -709,12 +711,14 @@ def test_invalid_bearer_preserves_uniform_401_without_unexpected_log(caplog):
     session.commit.assert_not_awaited()
 
 
-def test_production_middleware_order_is_request_id_then_cors_then_boundaries():
+def test_production_middleware_order_preserves_security_and_error_boundaries():
     middleware_types = [entry.cls for entry in production_app.user_middleware]
 
     assert middleware_types == [
+        SecurityHeadersMiddleware,
         RequestIDMiddleware,
         CORSMiddleware,
+        EdgeRateLimitMiddleware,
         RequestBodyLimitMiddleware,
         ApplicationErrorBoundaryMiddleware,
     ]

@@ -354,6 +354,38 @@ export interface ProductCapabilityPage {
   items: ProductCapability[];
 }
 
+export type DiagnosticStatus = "ready" | "unavailable" | "unconfigured";
+export type DiagnosticServiceId =
+  | "backend"
+  | "database"
+  | "redis"
+  | "ollama"
+  | "vision"
+  | "image_runtime"
+  | "speech_to_text"
+  | "text_to_speech"
+  | "storage"
+  | "remote_gateway"
+  | "gpu";
+
+export interface ServiceDiagnostic {
+  id: DiagnosticServiceId;
+  status: DiagnosticStatus;
+}
+
+export interface GpuDiagnostic {
+  model: string;
+  vram_bytes: number;
+  hardware_class: HardwareClass;
+  status: "ready";
+}
+
+export interface SystemDiagnostics {
+  mode: "local" | "remote";
+  services: ServiceDiagnostic[];
+  gpus: GpuDiagnostic[];
+}
+
 export interface ConversationSummary {
   id: UUID;
   title: string | null;
@@ -530,6 +562,20 @@ const productCapabilityReasons = [
   "local_image_edit_runtime_and_model_required",
   "local_voice_runtime_and_models_required",
 ] as const;
+const diagnosticStatuses = ["ready", "unavailable", "unconfigured"] as const;
+const diagnosticServiceIds = [
+  "backend",
+  "database",
+  "redis",
+  "ollama",
+  "vision",
+  "image_runtime",
+  "speech_to_text",
+  "text_to_speech",
+  "storage",
+  "remote_gateway",
+  "gpu",
+] as const;
 
 export function parseCurrentUser(value: unknown): CurrentUser {
   const item = record(value);
@@ -616,6 +662,55 @@ export function parseProductCapabilityPage(
     return invalidResponse();
   }
   return { items };
+}
+
+export function parseSystemDiagnostics(value: unknown): SystemDiagnostics {
+  const snapshot = record(value);
+  if (
+    !Array.isArray(snapshot.services) ||
+    snapshot.services.length !== diagnosticServiceIds.length ||
+    !Array.isArray(snapshot.gpus) ||
+    snapshot.gpus.length > 16
+  ) {
+    return invalidResponse();
+  }
+  const services = snapshot.services.map((rawService) => {
+    const service = record(rawService);
+    return {
+      id: enumField(service.id, diagnosticServiceIds),
+      status: enumField(service.status, diagnosticStatuses),
+    };
+  });
+  if (
+    new Set(services.map((service) => service.id)).size !==
+    diagnosticServiceIds.length
+  ) {
+    return invalidResponse();
+  }
+  const gpus = snapshot.gpus.map((rawGpu) => {
+    const gpu = record(rawGpu);
+    const model = stringField(gpu.model);
+    const vramBytes = integerOrNull(gpu.vram_bytes);
+    if (
+      model.length < 1 ||
+      model.length > 96 ||
+      vramBytes === null ||
+      vramBytes < 1
+    ) {
+      return invalidResponse();
+    }
+    return {
+      model,
+      vram_bytes: vramBytes,
+      hardware_class: enumField(gpu.hardware_class, hardwareClasses),
+      status: enumField(gpu.status, ["ready"] as const),
+    };
+  });
+  return {
+    mode: enumField(snapshot.mode, ["local", "remote"] as const),
+    services,
+    gpus,
+  };
 }
 
 export function parseConversation(value: unknown): ConversationSummary {

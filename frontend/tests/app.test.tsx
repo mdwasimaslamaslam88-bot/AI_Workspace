@@ -12,6 +12,7 @@ import {
   model,
   productCapabilities,
   rawSecret,
+  systemDiagnostics,
   token,
   user,
   visionModel,
@@ -54,6 +55,9 @@ function installWorkspaceFetch(options: {
     }
     if (url.pathname === "/api/v1/ai/capabilities") {
       return jsonResponse({ items: productCapabilities });
+    }
+    if (url.pathname === "/api/v1/diagnostics") {
+      return jsonResponse(systemDiagnostics);
     }
     if (url.pathname === "/api/v1/workflows") {
       return jsonResponse({ items: [] });
@@ -214,7 +218,9 @@ describe("App integration", () => {
     await screen.findByRole("button", { name: /Local chat/ });
     expect(
       workspace.calls.filter((call) =>
-        call.url.pathname === "/api/v1/ai/capabilities",
+        ["/api/v1/ai/capabilities", "/api/v1/diagnostics"].includes(
+          call.url.pathname,
+        ),
       ),
     ).toHaveLength(0);
 
@@ -225,6 +231,7 @@ describe("App integration", () => {
     ).toBeVisible();
     expect(screen.getByText("7 of 11 capabilities available now.")).toBeVisible();
     expect(screen.getByText(/bounded loopback image adapter/)).toBeVisible();
+    expect(screen.getByText("Connection mode: LOCAL")).toBeVisible();
     await waitFor(() =>
       expect(
         workspace.calls.filter((call) =>
@@ -232,6 +239,9 @@ describe("App integration", () => {
         ),
       ).toHaveLength(1),
     );
+    expect(
+      workspace.calls.filter((call) => call.url.pathname === "/api/v1/diagnostics"),
+    ).toHaveLength(1);
 
     await userEvent.click(screen.getByRole("button", { name: "Manage memory" }));
     expect(

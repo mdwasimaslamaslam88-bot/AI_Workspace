@@ -6,6 +6,7 @@ from app.api.v1.ai import router as ai_router
 from app.api.v1.assets import router as assets_router
 from app.api.v1.conversations import router as conversations_router
 from app.api.v1.documents import router as documents_router
+from app.api.v1.diagnostics import router as diagnostics_router
 from app.api.v1.health import router as health_router
 from app.api.v1.images import router as images_router
 from app.api.v1.memories import router as memories_router
@@ -24,6 +25,7 @@ router.include_router(memories_router)
 router.include_router(tools_router)
 router.include_router(workflows_router)
 router.include_router(documents_router)
+router.include_router(diagnostics_router)
 router.include_router(assets_router)
 router.include_router(conversations_router)
 router.include_router(ai_router)

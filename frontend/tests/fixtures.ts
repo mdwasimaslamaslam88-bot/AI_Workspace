@@ -4,6 +4,7 @@ import type {
   LocalModel,
   Message,
   ProductCapability,
+  SystemDiagnostics,
 } from "../src/api/contracts";
 
 export const token = "frontend-test-bearer-token";
@@ -78,6 +79,34 @@ productCapabilities.push(
     blocking_reasons: ["local_voice_runtime_and_models_required"],
   },
 );
+
+export const systemDiagnostics: SystemDiagnostics = {
+  mode: "local",
+  services: [
+    "backend",
+    "database",
+    "redis",
+    "ollama",
+    "vision",
+    "image_runtime",
+    "speech_to_text",
+    "text_to_speech",
+    "storage",
+    "remote_gateway",
+    "gpu",
+  ].map((id) => ({
+    id: id as SystemDiagnostics["services"][number]["id"],
+    status: id === "remote_gateway" ? "unconfigured" : "ready",
+  })),
+  gpus: [
+    {
+      model: "Test GPU",
+      vram_bytes: 12 * 1024 ** 3,
+      hardware_class: "gpu_8_to_15gb",
+      status: "ready",
+    },
+  ],
+};
 
 export const conversation: ConversationSummary = {
   id: "22222222-2222-4222-8222-222222222222",

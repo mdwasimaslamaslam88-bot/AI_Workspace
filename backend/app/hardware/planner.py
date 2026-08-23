@@ -27,6 +27,7 @@ class HardwareClass(StrEnum):
 class HardwareInventory:
     total_ram_bytes: int
     gpu_vram_bytes: tuple[int, ...] = ()
+    gpu_names: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if (
@@ -40,6 +41,16 @@ class HardwareInventory:
             for value in self.gpu_vram_bytes
         ):
             raise ValueError("GPU VRAM values must be positive integers")
+        if self.gpu_names and len(self.gpu_names) != len(self.gpu_vram_bytes):
+            raise ValueError("GPU names must match detected GPU capacity entries")
+        if any(
+            not name
+            or name != name.strip()
+            or len(name) > 96
+            or any(ord(character) < 0x20 for character in name)
+            for name in self.gpu_names
+        ):
+            raise ValueError("GPU names must be bounded printable identifiers")
 
     @property
     def largest_gpu_vram_bytes(self) -> int:
@@ -79,12 +90,12 @@ def _total_ram_bytes() -> int:
     return total if total > 0 else GIBIBYTE
 
 
-def _nvidia_gpu_vram_bytes() -> tuple[int, ...]:
+def _nvidia_gpu_details() -> tuple[tuple[str, int], ...]:
     try:
         completed = subprocess.run(
             [
                 "nvidia-smi",
-                "--query-gpu=memory.total",
+                "--query-gpu=name,memory.total",
                 "--format=csv,noheader,nounits",
             ],
             check=True,
@@ -95,24 +106,35 @@ def _nvidia_gpu_vram_bytes() -> tuple[int, ...]:
     except (FileNotFoundError, subprocess.SubprocessError, OSError):
         return ()
 
-    values: list[int] = []
+    values: list[tuple[str, int]] = []
     for line in completed.stdout.splitlines():
-        normalized = line.strip()
-        if not normalized.isdecimal():
+        name, separator, memory = line.partition(",")
+        normalized_name = name.strip()
+        normalized_memory = memory.strip()
+        if (
+            separator != ","
+            or not normalized_name
+            or len(normalized_name) > 96
+            or any(ord(character) < 0x20 for character in normalized_name)
+            or not normalized_memory.isdecimal()
+        ):
             return ()
-        mebibytes = int(normalized)
+        mebibytes = int(normalized_memory)
         if mebibytes < 1:
             return ()
-        values.append(mebibytes * 1024**2)
+        values.append((normalized_name, mebibytes * 1024**2))
     return tuple(values)
 
 
 def detect_hardware() -> HardwareInventory:
-    """Detect bounded capacity without exposing device identifiers."""
+    """Detect bounded capacity and a printable GPU model label."""
+
+    gpu_details = _nvidia_gpu_details()
 
     return HardwareInventory(
         total_ram_bytes=_total_ram_bytes(),
-        gpu_vram_bytes=_nvidia_gpu_vram_bytes(),
+        gpu_vram_bytes=tuple(vram_bytes for _name, vram_bytes in gpu_details),
+        gpu_names=tuple(name for name, _vram_bytes in gpu_details),
     )
 
 

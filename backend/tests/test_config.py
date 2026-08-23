@@ -89,6 +89,39 @@ def test_settings_preserve_application_defaults():
     assert settings.GENERATION_MAX_DURATION_SECONDS == 180.0
     assert settings.REQUEST_MAX_BODY_BYTES == 262_144
     assert settings.USER_PROVISIONING_TOKEN_DIGEST is None
+    assert settings.WORK_STATION_WEB_ROOT is None
+    assert settings.REMOTE_GATEWAY_MODE == "local"
+    assert settings.EDGE_AUTH_FAILURE_LIMIT == 120
+    assert settings.EDGE_PROVISIONING_LIMIT == 10
+    assert settings.EDGE_RATE_LIMIT_WINDOW_SECONDS == 60
+
+
+@pytest.mark.parametrize(
+    "origin",
+    [
+        "*",
+        "http://192.0.2.1:3000",
+        "https://user:password@example.test",
+        "https://example.test/path",
+    ],
+)
+def test_cors_origins_reject_wildcards_credentials_paths_and_remote_http(origin):
+    with pytest.raises(ValidationError):
+        Settings(_env_file=None, BACKEND_CORS_ORIGINS=[origin])
+
+
+def test_cors_origins_allow_loopback_http_and_remote_https():
+    configured = Settings(
+        _env_file=None,
+        BACKEND_CORS_ORIGINS=[
+            "http://127.0.0.1:3000",
+            "https://work-station.example.ts.net",
+        ],
+    )
+    assert configured.BACKEND_CORS_ORIGINS == [
+        "http://127.0.0.1:3000",
+        "https://work-station.example.ts.net",
+    ]
 
 
 @pytest.mark.parametrize(

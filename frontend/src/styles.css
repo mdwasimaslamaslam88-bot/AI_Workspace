@@ -491,6 +491,16 @@ textarea {
   color: var(--danger);
 }
 
+.capability-status-ready {
+  border-color: rgba(118, 230, 192, 0.45);
+  color: var(--accent);
+}
+
+.capability-status-unconfigured {
+  color: var(--muted);
+  background: var(--panel-soft);
+}
+
 .capability-blockers {
   display: grid;
   gap: 0.35rem;

@@ -3,6 +3,7 @@ from app.hardware.planner import (
     HardwareInventory,
     HardwarePlanner,
     detect_hardware,
+    hardware_class_for_vram,
 )
 
 __all__ = [
@@ -10,4 +11,5 @@ __all__ = [
     "HardwareInventory",
     "HardwarePlanner",
     "detect_hardware",
+    "hardware_class_for_vram",
 ]

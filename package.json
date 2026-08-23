@@ -12,6 +12,9 @@
     "test:web": "npm run test --workspace @work-station/web",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
-    "build:web": "npm run build --workspace @work-station/web"
+    "build:web": "npm run build --workspace @work-station/web",
+    "check": "./scripts/release_check.sh",
+    "security-audit": "./scripts/security_audit.sh",
+    "package:desktop": "./scripts/desktop_check.sh"
   }
 }

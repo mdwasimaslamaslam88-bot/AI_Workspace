@@ -2,6 +2,7 @@ import ipaddress
 import re
 from pathlib import Path
 from typing import Any, Literal
+from urllib.parse import urlsplit
 
 from pydantic import (
     AnyHttpUrl,
@@ -55,6 +56,9 @@ _SOURCE_DECODED_STRICT_INTEGER_FIELDS = frozenset(
         "TTS_MAX_ACTIVE_PER_PROCESS",
         "COMFYUI_MAX_ACTIVE_PER_PROCESS",
         "REQUEST_MAX_BODY_BYTES",
+        "EDGE_AUTH_FAILURE_LIMIT",
+        "EDGE_PROVISIONING_LIMIT",
+        "EDGE_RATE_LIMIT_WINDOW_SECONDS",
         "DATABASE_POOL_SIZE",
         "DATABASE_MAX_OVERFLOW",
     }
@@ -117,6 +121,8 @@ class Settings(BaseSettings):
     REDIS_URL: RedisDsn | None = None
     OLLAMA_BASE_URL: AnyHttpUrl | None = None
     ASSET_STORAGE_ROOT: Path | None = None
+    WORK_STATION_WEB_ROOT: Path | None = None
+    REMOTE_GATEWAY_MODE: Literal["local", "tailscale"] = "local"
     COMFYUI_BASE_URL: AnyHttpUrl | None = None
     COMFYUI_CHECKPOINT: Path | None = None
     COMFYUI_INPUT_ROOT: Path | None = None
@@ -336,6 +342,24 @@ class Settings(BaseSettings):
         ge=1,
         le=MAX_REQUEST_BODY_BYTES,
     )
+    EDGE_AUTH_FAILURE_LIMIT: int = Field(
+        default=120,
+        strict=True,
+        ge=10,
+        le=1_000,
+    )
+    EDGE_PROVISIONING_LIMIT: int = Field(
+        default=10,
+        strict=True,
+        ge=1,
+        le=60,
+    )
+    EDGE_RATE_LIMIT_WINDOW_SECONDS: int = Field(
+        default=60,
+        strict=True,
+        ge=10,
+        le=600,
+    )
 
     @field_validator(
         "DATABASE_URL",
@@ -344,6 +368,7 @@ class Settings(BaseSettings):
         "OLLAMA_BASE_URL",
         "OLLAMA_EMBEDDING_MODEL",
         "ASSET_STORAGE_ROOT",
+        "WORK_STATION_WEB_ROOT",
         "COMFYUI_BASE_URL",
         "COMFYUI_CHECKPOINT",
         "COMFYUI_INPUT_ROOT",
@@ -373,6 +398,40 @@ class Settings(BaseSettings):
             raise ValueError("PostgreSQL URLs must use the postgresql+asyncpg:// scheme")
         return value
 
+    @field_validator("BACKEND_CORS_ORIGINS")
+    @classmethod
+    def require_exact_secure_cors_origins(cls, value):
+        normalized: list[str] = []
+        for origin in value:
+            if not isinstance(origin, str) or origin != origin.strip():
+                raise ValueError("CORS origins must be exact nonblank strings")
+            parsed = urlsplit(origin)
+            if (
+                parsed.scheme not in {"http", "https"}
+                or parsed.username is not None
+                or parsed.password is not None
+                or parsed.path not in {"", "/"}
+                or parsed.query
+                or parsed.fragment
+                or parsed.hostname is None
+                or origin == "*"
+            ):
+                raise ValueError("CORS origins must be credential-free HTTP origins")
+            host = parsed.hostname
+            is_loopback = host == "localhost"
+            if not is_loopback:
+                try:
+                    is_loopback = ipaddress.ip_address(host).is_loopback
+                except ValueError:
+                    is_loopback = False
+            if parsed.scheme == "http" and not is_loopback:
+                raise ValueError("non-loopback CORS origins must use HTTPS")
+            exact_origin = f"{parsed.scheme}://{parsed.netloc}"
+            if exact_origin in normalized:
+                raise ValueError("CORS origins must be unique")
+            normalized.append(exact_origin)
+        return normalized
+
     @field_validator("ASSET_STORAGE_ROOT")
     @classmethod
     def require_private_absolute_asset_storage_root(cls, value):
@@ -388,6 +447,16 @@ class Settings(BaseSettings):
                 "ASSET_STORAGE_ROOT must be outside the project source tree"
             )
         return candidate
+
+    @field_validator("WORK_STATION_WEB_ROOT")
+    @classmethod
+    def require_absolute_web_root(cls, value):
+        if value is None:
+            return None
+        candidate = Path(value)
+        if not candidate.is_absolute():
+            raise ValueError("WORK_STATION_WEB_ROOT must be an absolute path")
+        return candidate.resolve(strict=False)
 
     @field_validator(
         "STT_MODEL_ROOT",

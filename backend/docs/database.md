@@ -123,10 +123,12 @@ the existing `(conversation_id, sequence_number)` index.
 The default `python -m pytest -q` run remains database-free. Real PostgreSQL
 tests require both `RUN_DATABASE_INTEGRATION_TESTS=true` and a
 `TEST_DATABASE_URL` targeting `127.0.0.1/ai_workspace_test`. The harness
-rejects any other host or database and never falls back to `DATABASE_URL`.
+rejects any other host or database, requires a separately configured
+`DATABASE_URL`, and refuses when the application and test database identities
+match.
 
-To load the existing `.env` for one test process while blanking
-`DATABASE_URL` from that process, run:
+To load the existing `.env` for one test process after verifying strict
+application/test separation, run:
 
 ```bash
 python tests/db/run_postgres_integration.py

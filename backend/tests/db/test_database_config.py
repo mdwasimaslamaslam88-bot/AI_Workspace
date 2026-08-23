@@ -12,6 +12,9 @@ from tests.db.conftest import (
     _is_explicitly_enabled,
     _validated_test_database_url,
 )
+from tests.db.run_postgres_integration import (
+    _require_separate_application_and_test_databases,
+)
 
 
 def _selected_integration_config() -> Mock:
@@ -123,6 +126,31 @@ def test_approved_test_database_is_accepted():
 
     assert _validated_test_database_url(configured) == str(
         configured.TEST_DATABASE_URL
+    )
+
+
+def test_postgres_runner_refuses_same_database_even_with_different_users():
+    with pytest.raises(RuntimeError, match="refuses"):
+        _require_separate_application_and_test_databases(
+            {
+                "DATABASE_URL": (
+                    "postgresql+asyncpg://app@127.0.0.1/ai_workspace_test"
+                ),
+                "TEST_DATABASE_URL": (
+                    "postgresql+asyncpg://tester@127.0.0.1/ai_workspace_test"
+                ),
+            }
+        )
+
+
+def test_postgres_runner_accepts_separate_application_database():
+    _require_separate_application_and_test_databases(
+        {
+            "DATABASE_URL": "postgresql+asyncpg://app@127.0.0.1/ai_workspace",
+            "TEST_DATABASE_URL": (
+                "postgresql+asyncpg://tester@127.0.0.1/ai_workspace_test"
+            ),
+        }
     )
 
 

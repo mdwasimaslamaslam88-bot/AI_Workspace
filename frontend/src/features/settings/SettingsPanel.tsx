@@ -4,11 +4,13 @@ import type {
   ProductCapability,
   ProductCapabilityId,
   ProductCapabilityReason,
+  SystemDiagnostics,
 } from "../../api/contracts";
 
 interface SettingsPanelProps {
   onClose: () => void;
   onLoad: (signal?: AbortSignal) => Promise<ProductCapability[]>;
+  onLoadDiagnostics: (signal?: AbortSignal) => Promise<SystemDiagnostics>;
   onManageMemory: () => void;
 }
 
@@ -43,12 +45,28 @@ const BLOCKER_COPY: Record<ProductCapabilityReason, string> = {
     "Install bounded audio decoding plus implemented local speech-to-text and text-to-speech adapters and models.",
 };
 
+const SERVICE_LABELS: Record<SystemDiagnostics["services"][number]["id"], string> = {
+  backend: "Backend",
+  database: "Database",
+  redis: "Redis",
+  ollama: "Ollama",
+  vision: "Vision",
+  image_runtime: "Image runtime",
+  speech_to_text: "Speech to text",
+  text_to_speech: "Text to speech",
+  storage: "Private storage",
+  remote_gateway: "Remote gateway",
+  gpu: "GPU",
+};
+
 export function SettingsPanel({
   onClose,
   onLoad,
+  onLoadDiagnostics,
   onManageMemory,
 }: SettingsPanelProps) {
   const [capabilities, setCapabilities] = useState<ProductCapability[]>([]);
+  const [diagnostics, setDiagnostics] = useState<SystemDiagnostics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const controller = useRef<AbortController | null>(null);
@@ -60,8 +78,14 @@ export function SettingsPanel({
     setLoading(true);
     setError(null);
     try {
-      const items = await onLoad(current.signal);
-      if (!current.signal.aborted) setCapabilities(items);
+      const [items, diagnosticSnapshot] = await Promise.all([
+        onLoad(current.signal),
+        onLoadDiagnostics(current.signal),
+      ]);
+      if (!current.signal.aborted) {
+        setCapabilities(items);
+        setDiagnostics(diagnosticSnapshot);
+      }
     } catch {
       if (!current.signal.aborted) {
         setError("Capability diagnostics could not be loaded.");
@@ -69,7 +93,7 @@ export function SettingsPanel({
     } finally {
       if (!current.signal.aborted) setLoading(false);
     }
-  }, [onLoad]);
+  }, [onLoad, onLoadDiagnostics]);
 
   useEffect(() => {
     void load();
@@ -156,6 +180,42 @@ export function SettingsPanel({
               </li>
             ))}
           </ul>
+        )}
+      </section>
+
+      <section aria-labelledby="diagnostics-title" className="settings-section">
+        <div className="settings-section-heading">
+          <div>
+            <h3 id="diagnostics-title">Private system diagnostics</h3>
+            {diagnostics !== null && (
+              <p className="field-help">
+                Connection mode: {diagnostics.mode.toUpperCase()}
+              </p>
+            )}
+          </div>
+        </div>
+        {diagnostics !== null && (
+          <>
+            <ul className="capability-list" aria-label="Private service status">
+              {diagnostics.services.map((service) => (
+                <li key={service.id}>
+                  <div className="capability-heading">
+                    <strong>{SERVICE_LABELS[service.id]}</strong>
+                    <span
+                      className={`capability-status capability-status-${service.status}`}
+                    >
+                      {service.status}
+                    </span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+            {diagnostics.gpus.map((gpu) => (
+              <p className="field-help" key={`${gpu.model}-${gpu.vram_bytes}`}>
+                {gpu.model} · {Math.round(gpu.vram_bytes / 1024 ** 3)} GiB · {gpu.status}
+              </p>
+            ))}
+          </>
         )}
       </section>
 
