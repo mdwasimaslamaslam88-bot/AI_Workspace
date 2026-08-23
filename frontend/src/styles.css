@@ -17,6 +17,8 @@
   --muted: #9ba9ba;
   --accent: #68efc8;
   --accent-dark: #0a4b43;
+  --accent-contrast: #06271f;
+  --accent-hover: #a0f1d6;
   --danger: #ffb4ab;
   --danger-bg: #3c1e22;
   --focus: #a8f3da;
@@ -34,6 +36,8 @@
   --muted: #52657a;
   --accent: #087a68;
   --accent-dark: #b8f1e4;
+  --accent-contrast: #ffffff;
+  --accent-hover: #066757;
   --danger: #9e302b;
   --danger-bg: #fee9e7;
   --focus: #006b5b;
@@ -186,12 +190,12 @@ textarea {
 }
 
 .button-primary {
-  color: #06271f;
+  color: var(--accent-contrast);
   background: var(--accent);
 }
 
 .button-primary:hover:not(:disabled) {
-  background: #a0f1d6;
+  background: var(--accent-hover);
 }
 
 .button-secondary {
@@ -242,7 +246,7 @@ textarea {
   width: min(100%, 30rem);
   border: 1px solid var(--line);
   border-radius: 1.2rem;
-  background: rgba(16, 23, 32, 0.94);
+  background: var(--card);
   padding: clamp(1.5rem, 5vw, 2.5rem);
   box-shadow: 0 1.5rem 5rem rgba(0, 0, 0, 0.3);
 }

@@ -38,12 +38,19 @@ cd backend
 .venv/bin/python -m compileall -q app scripts tests
 cd ..
 npm run test:web
+npm run test:a11y --workspace @work-station/web
 npm run test --workspace @work-station/mobile
 npm run typecheck
 npm run lint
 npm run build:web
 npm run build:static --workspace @work-station/mobile
 ```
+
+The accessibility command runs axe WCAG A/AA structural checks over the owner
+connection, conversation/chat/model workspace, and Settings surfaces. The same
+test is included in the full web suite. Color contrast is verified against the
+fixed theme CSS variables with WCAG relative-luminance calculations; axe's
+pixel-layout contrast rule is disabled because jsdom has no rendering engine.
 
 The PostgreSQL runner refuses any host except `127.0.0.1` and any database name
 except `ai_workspace_test`. It also refuses to run unless `DATABASE_URL` points
