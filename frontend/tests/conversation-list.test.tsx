@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -15,6 +15,8 @@ const baseProps = {
   error: null,
   onCreate: vi.fn(),
   onSelect: vi.fn(),
+  onRename: vi.fn(async () => undefined),
+  onDelete: vi.fn(async () => undefined),
   onReload: vi.fn(),
   onLoadMore: vi.fn(),
   onLogout: vi.fn(),
@@ -82,5 +84,43 @@ describe("ConversationList", () => {
     );
     await userEvent.click(screen.getByRole("button", { name: "Retry" }));
     expect(onReload).toHaveBeenCalledOnce();
+  });
+
+  it("searches loaded chats and exposes confirmed rename and delete actions", async () => {
+    const second = {
+      ...conversation,
+      id: "44444444-4444-4444-8444-444444444444",
+      title: "Hardware plan",
+    };
+    const onRename = vi.fn(async () => undefined);
+    const onDelete = vi.fn(async () => undefined);
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
+    render(
+      <ConversationList
+        {...baseProps}
+        conversations={[conversation, second]}
+        onRename={onRename}
+        onDelete={onDelete}
+      />,
+    );
+
+    await userEvent.type(
+      screen.getByRole("searchbox", { name: "Search loaded chats" }),
+      "hardware",
+    );
+    expect(screen.queryByRole("button", { name: /Local chat/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Hardware plan/ })).toBeVisible();
+
+    const hardware = screen.getByRole("group", { name: "Hardware plan" });
+    await userEvent.click(within(hardware).getByRole("button", { name: "Rename conversation" }));
+    const title = screen.getByRole("textbox", { name: "Conversation title" });
+    await userEvent.clear(title);
+    await userEvent.type(title, "GPU roadmap");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    expect(onRename).toHaveBeenCalledWith(second.id, "GPU roadmap");
+
+    await userEvent.click(within(hardware).getByRole("button", { name: "Delete conversation" }));
+    expect(confirm).toHaveBeenCalledOnce();
+    expect(onDelete).toHaveBeenCalledWith(second.id);
   });
 });

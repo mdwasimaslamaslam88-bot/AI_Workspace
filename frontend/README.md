@@ -50,7 +50,11 @@ platform storage operation succeeds; reconnect other owner devices afterward.
 The local client supports:
 
 - current-user validation and capability-aware local model selection;
-- real backend Conversation/message pagination, generation, and cancellation;
+- real backend Conversation/message pagination, loaded-chat search, rename,
+  confirmed deletion, generation, response retry, and cancellation;
+- safe CommonMark/GFM response presentation with code blocks, tables, exact
+  message copy, literal raw HTML, no rendered remote images, and no active
+  model-authored links;
 - owned attachment upload/download/deletion, vision images, and safe local
   TXT/CSV/PDF/DOCX document indexing;
 - cited document retrieval in generated responses;

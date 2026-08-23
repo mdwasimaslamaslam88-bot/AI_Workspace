@@ -124,4 +124,43 @@ describe("mobile API client", () => {
       token_type: "bearer",
     });
   });
+
+  it("renames and deletes through the owner-scoped conversation route", async () => {
+    const conversation = {
+      id: "22222222-2222-4222-8222-222222222222",
+      title: "Mobile chat",
+      created_at: "2026-01-01T00:00:00Z",
+      updated_at: "2026-01-02T00:00:00Z",
+    };
+    const calls: Array<{ url: string; method: string; body: unknown }> = [];
+    const fetchMock = vi.fn(
+      async (input: URL | RequestInfo, init?: RequestInit) => {
+        expect(new Headers(init?.headers).get("Authorization")).toBe(
+          "Bearer mobile-session",
+        );
+        calls.push({
+          url: input.toString(),
+          method: init?.method ?? "GET",
+          body: init?.body ? JSON.parse(String(init.body)) : undefined,
+        });
+        return init?.method === "DELETE"
+          ? new Response(null, { status: 204 })
+          : new Response(JSON.stringify(conversation), { status: 200 });
+      },
+    );
+    const client = new MobileApiClient("mobile-session", {
+      baseUrl: "https://work-station.example.ts.net",
+      fetchImplementation: fetchMock,
+    });
+
+    await expect(
+      client.renameConversation(conversation.id, { title: "Mobile chat" }),
+    ).resolves.toEqual(conversation);
+    await expect(client.deleteConversation(conversation.id)).resolves.toBeUndefined();
+    expect(calls.map(({ method, body }) => ({ method, body }))).toEqual([
+      { method: "PATCH", body: { title: "Mobile chat" } },
+      { method: "DELETE", body: undefined },
+    ]);
+    expect(calls.every(({ url }) => url.endsWith(`/api/v1/conversations/${conversation.id}`))).toBe(true);
+  });
 });

@@ -11,6 +11,7 @@ import * as ImagePicker from "expo-image-picker";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Image,
   KeyboardAvoidingView,
@@ -128,6 +129,8 @@ export default function ChatScreen() {
   const [models, setModels] = useState<LocalModel[]>([]);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [selected, setSelected] = useState<ConversationSummary | null>(null);
+  const [conversationQuery, setConversationQuery] = useState("");
+  const [conversationTitle, setConversationTitle] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
   const [prompt, setPrompt] = useState("");
@@ -138,10 +141,18 @@ export default function ChatScreen() {
   const generation = useRef<AbortController | null>(null);
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const recorderState = useAudioRecorderState(recorder);
+  const visibleConversations = useMemo(() => {
+    const query = conversationQuery.trim().toLocaleLowerCase();
+    if (query.length === 0) return conversations;
+    return conversations.filter((conversation) =>
+      (conversation.title ?? "Conversation").toLocaleLowerCase().includes(query),
+    );
+  }, [conversationQuery, conversations]);
 
   const loadMessages = useCallback(async (conversation: ConversationSummary) => {
     if (client === null) return;
     setSelected(conversation);
+    setConversationTitle(conversation.title ?? "");
     setNotice(null);
     try {
       setMessages((await client.listMessages(conversation.id)).items);
@@ -284,6 +295,7 @@ export default function ChatScreen() {
         );
         conversation = created;
         setSelected(created);
+        setConversationTitle(created.title ?? "");
         setConversations((current) => [created, ...current]);
         setMessages([created.initial_message]);
         await connectedClient.generate(created.id, { model_id: selectedModel }, controller.signal);
@@ -306,6 +318,60 @@ export default function ChatScreen() {
     }
   }
 
+  async function renameSelected() {
+    if (selected === null || busy) return;
+    setBusy(true);
+    setNotice(null);
+    try {
+      const normalized = conversationTitle.trim();
+      const renamed = await connectedClient.renameConversation(selected.id, {
+        title: normalized.length === 0 ? null : normalized,
+      });
+      setSelected(renamed);
+      setConversationTitle(renamed.title ?? "");
+      setConversations((current) =>
+        current.map((conversation) =>
+          conversation.id === renamed.id ? renamed : conversation,
+        ),
+      );
+    } catch (cause) {
+      setNotice(safeError(cause));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function confirmDeleteSelected() {
+    if (selected === null || busy) return;
+    const conversation = selected;
+    Alert.alert(
+      "Delete conversation?",
+      "Its private history and owned attachments will be removed.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => {
+            setBusy(true);
+            setNotice(null);
+            void connectedClient.deleteConversation(conversation.id)
+              .then(() => {
+                setConversations((current) =>
+                  current.filter((item) => item.id !== conversation.id),
+                );
+                setSelected(null);
+                setConversationTitle("");
+                setMessages([]);
+              })
+              .catch((cause) => setNotice(safeError(cause)))
+              .finally(() => setBusy(false));
+          },
+        },
+      ],
+    );
+  }
+
   return (
     <SafeAreaView edges={["left", "right"]} style={styles.safe}>
       <View style={styles.connectionRow}>
@@ -315,11 +381,19 @@ export default function ChatScreen() {
           <Text style={styles.link}>Refresh</Text>
         </Pressable>
       </View>
+      <TextInput
+        accessibilityLabel="Search loaded chats"
+        value={conversationQuery}
+        onChangeText={setConversationQuery}
+        placeholder="Search loaded chats"
+        placeholderTextColor={colors.subtle}
+        style={styles.searchInput}
+      />
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
-        <Pressable style={styles.newChip} onPress={() => { setSelected(null); setMessages([]); }}>
+        <Pressable style={styles.newChip} onPress={() => { setSelected(null); setConversationTitle(""); setMessages([]); }}>
           <Text style={styles.primaryButtonText}>＋ New chat</Text>
         </Pressable>
-        {conversations.map((conversation) => (
+        {visibleConversations.map((conversation) => (
           <Pressable
             key={conversation.id}
             style={[styles.chip, selected?.id === conversation.id && styles.chipSelected]}
@@ -329,6 +403,35 @@ export default function ChatScreen() {
           </Pressable>
         ))}
       </ScrollView>
+      {selected !== null && (
+        <View style={styles.conversationManager}>
+          <TextInput
+            accessibilityLabel="Conversation title"
+            maxLength={255}
+            value={conversationTitle}
+            onChangeText={setConversationTitle}
+            placeholder="Conversation title"
+            placeholderTextColor={colors.subtle}
+            style={styles.titleInput}
+          />
+          <Pressable
+            accessibilityRole="button"
+            disabled={busy}
+            style={styles.manageButton}
+            onPress={() => void renameSelected()}
+          >
+            <Text style={styles.link}>Save title</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            disabled={busy}
+            style={styles.manageButton}
+            onPress={confirmDeleteSelected}
+          >
+            <Text style={styles.recording}>Delete</Text>
+          </Pressable>
+        </View>
+      )}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.modelRow}>
         {models.filter(modelCanChat).map((model) => (
           <Pressable
@@ -425,6 +528,7 @@ function createStyles(colors: WorkStationColors) {
   connectionRow: { minHeight: 42, flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 14, borderBottomColor: colors.line, borderBottomWidth: 1 },
   connectedDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.accent },
   connectionText: { flex: 1, color: colors.accent, fontSize: 12, fontWeight: "800" },
+  searchInput: { minHeight: 44, marginHorizontal: 12, marginTop: 8, color: colors.text, backgroundColor: colors.raised, borderColor: colors.line, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12 },
   link: { color: colors.accent, fontWeight: "800", paddingVertical: 8, paddingHorizontal: 4 },
   recording: { color: colors.danger, fontWeight: "900", paddingVertical: 8, paddingHorizontal: 4 },
   chipRow: { minHeight: 52, alignItems: "center", gap: 8, paddingHorizontal: 12 },
@@ -435,6 +539,9 @@ function createStyles(colors: WorkStationColors) {
   modelRow: { minHeight: 44, alignItems: "center", gap: 7, paddingHorizontal: 12, borderBottomColor: colors.line, borderBottomWidth: 1 },
   modelChip: { borderColor: colors.line, borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 },
   modelSelected: { borderColor: colors.accent, backgroundColor: colors.accentSoft },
+  conversationManager: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingBottom: 8, borderBottomColor: colors.line, borderBottomWidth: 1 },
+  titleInput: { flex: 1, minHeight: 42, color: colors.text, backgroundColor: colors.raised, borderColor: colors.line, borderWidth: 1, borderRadius: 10, paddingHorizontal: 10 },
+  manageButton: { minHeight: 42, justifyContent: "center" },
   messageList: { flex: 1 },
   messageContent: { padding: 14, gap: 12, flexGrow: 1 },
   empty: { color: colors.muted, textAlign: "center", marginTop: 80, lineHeight: 22 },

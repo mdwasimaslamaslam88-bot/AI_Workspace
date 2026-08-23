@@ -432,6 +432,10 @@ export interface ConversationCreateRequest {
   attachment_ids?: UUID[];
 }
 
+export interface ConversationRenameRequest {
+  title: string | null;
+}
+
 export interface ConversationCreateResponse extends ConversationSummary {
   initial_message: Message;
 }

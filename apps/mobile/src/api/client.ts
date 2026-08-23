@@ -4,6 +4,7 @@ import {
   type ConversationCreateRequest,
   type ConversationCreateResponse,
   type ConversationPage,
+  type ConversationRenameRequest,
   type ConversationSummary,
   type ConversationTextGenerationRequest,
   type ConversationTextGenerationResponse,
@@ -121,7 +122,7 @@ export class MobileApiClient {
   async #request<T>(
     path: string,
     decoder: Decoder<T>,
-    options: { method?: "GET" | "POST" | "DELETE"; body?: unknown; signal?: AbortSignal } = {},
+    options: { method?: "GET" | "POST" | "PATCH" | "DELETE"; body?: unknown; signal?: AbortSignal } = {},
   ): Promise<T> {
     let response: Response;
     try {
@@ -180,6 +181,26 @@ export class MobileApiClient {
 
   getConversation(id: string, signal?: AbortSignal): Promise<ConversationSummary> {
     return this.#request(`api/v1/conversations/${encodeURIComponent(id)}`, parseConversation, { signal });
+  }
+
+  renameConversation(
+    id: string,
+    request: ConversationRenameRequest,
+    signal?: AbortSignal,
+  ): Promise<ConversationSummary> {
+    return this.#request(
+      `api/v1/conversations/${encodeURIComponent(id)}`,
+      parseConversation,
+      { method: "PATCH", body: request, signal },
+    );
+  }
+
+  async deleteConversation(id: string, signal?: AbortSignal): Promise<void> {
+    await this.#request(
+      `api/v1/conversations/${encodeURIComponent(id)}`,
+      () => undefined,
+      { method: "DELETE", signal },
+    );
   }
 
   createConversation(

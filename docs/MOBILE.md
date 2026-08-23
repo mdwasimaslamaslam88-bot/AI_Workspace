@@ -6,7 +6,8 @@ logic to the backend.
 
 Implemented client contracts include secure session restore/logout, connection
 recovery on network and app resume, conversation creation and text generation,
-owned file/image/camera uploads, microphone recording and speech recognition,
+loaded-chat search, owner-scoped rename and confirmed deletion, owned
+file/image/camera uploads, microphone recording and speech recognition,
 audio playback, generic local notification architecture, deep links, and safe
 error redaction. SecureStore maps to Keychain/Keystore-backed device storage.
 The UI follows the device light/dark preference, and the private settings view

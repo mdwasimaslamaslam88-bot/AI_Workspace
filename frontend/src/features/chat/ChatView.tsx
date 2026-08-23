@@ -19,6 +19,7 @@ import type {
   MessageAttachment,
 } from "../../api/contracts";
 import { isDocumentMediaType, isVisionImageMediaType } from "../../app/collections";
+import { MessageContent } from "./MessageContent";
 
 export interface SafeNotice {
   message: string;
@@ -1136,7 +1137,7 @@ export function ChatView({
                   {formatTimestamp(message.created_at)}
                 </time>
               </div>
-              <p>{message.content}</p>
+              <MessageContent content={message.content} role={message.role} />
               {message.role === "assistant" && voiceOutputAvailable && (
                 <div className="voice-output-controls">
                   <button

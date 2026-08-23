@@ -58,6 +58,38 @@ describe("ChatView", () => {
     expect(merged).toHaveLength(2);
   });
 
+  it("renders safe GFM and copies the exact message without activating model links", async () => {
+    const content = [
+      "## Result",
+      "",
+      "- first item",
+      "- [reference](https://example.test/private)",
+      "",
+      "```ts",
+      "const answer = 42;",
+      "```",
+    ].join("\n");
+    const writeText = vi.fn(async () => undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+    const { container } = render(
+      <ChatView
+        {...baseProps}
+        messages={[message(2, "assistant", content)]}
+      />,
+    );
+
+    expect(screen.getByRole("heading", { name: "Result" })).toBeVisible();
+    expect(screen.getByText("first item")).toBeVisible();
+    expect(screen.getByText("const answer = 42;")).toBeVisible();
+    expect(container.querySelector("a")).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Copy assistant message" }));
+    expect(writeText).toHaveBeenCalledWith(content);
+    expect(screen.getByRole("button", { name: "Copy assistant message" })).toHaveTextContent("Copied");
+  });
+
   it("loads another bounded history page", async () => {
     const onLoadMoreMessages = vi.fn();
     render(

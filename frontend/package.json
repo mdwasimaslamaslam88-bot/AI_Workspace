@@ -12,10 +12,12 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@work-station/shared": "0.1.0",
     "@tauri-apps/api": "^2.8.0",
+    "@work-station/shared": "0.1.0",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

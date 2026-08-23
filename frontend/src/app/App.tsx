@@ -428,6 +428,44 @@ export function App() {
     [client, generating],
   );
 
+  const renameConversation = useCallback(
+    async (conversationId: string, title: string | null): Promise<void> => {
+      if (client === null) {
+        throw new ApiError("authentication", "Authentication failed.");
+      }
+      const renamed = await client.renameConversation(conversationId, { title });
+      setConversations((current) =>
+        current.map((conversation) =>
+          conversation.id === renamed.id ? renamed : conversation,
+        ),
+      );
+      setSelectedConversation((current) =>
+        current?.id === renamed.id ? renamed : current,
+      );
+    },
+    [client],
+  );
+
+  const deleteConversation = useCallback(
+    async (conversationId: string): Promise<void> => {
+      if (client === null) {
+        throw new ApiError("authentication", "Authentication failed.");
+      }
+      await client.deleteConversation(conversationId);
+      setConversations((current) =>
+        current.filter((conversation) => conversation.id !== conversationId),
+      );
+      if (selectedConversation?.id === conversationId) {
+        setSelectedConversation(null);
+        setMessages([]);
+        setMessageCursor(null);
+        setCreatingNew(true);
+        setChatNotice(null);
+      }
+    },
+    [client, selectedConversation?.id],
+  );
+
   const refreshMessageSnapshot = useCallback(
     async (conversationId: string, maximumPages = 2): Promise<boolean> => {
       if (client === null) return false;
@@ -1061,6 +1099,8 @@ export function App() {
           setChatNotice(null);
         }}
         onSelect={(conversation) => void selectConversation(conversation)}
+        onRename={renameConversation}
+        onDelete={deleteConversation}
         onReload={() => void reloadConversations()}
         onLoadMore={() => void loadMoreConversations()}
         onLogout={resetWorkspace}

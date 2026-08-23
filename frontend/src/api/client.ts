@@ -6,6 +6,7 @@ import {
   type ConversationCreateResponse,
   type ConversationCursor,
   type ConversationPage,
+  type ConversationRenameRequest,
   type ConversationSummary,
   type ConversationTextGenerationRequest,
   type ConversationTextGenerationResponse,
@@ -195,7 +196,7 @@ interface ApiClientOptions {
 }
 
 interface RequestOptions<T> {
-  method?: "GET" | "POST" | "PUT" | "DELETE";
+  method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   body?: unknown;
   headers?: Record<string, string>;
   signal?: AbortSignal;
@@ -321,6 +322,47 @@ export class ApiClient {
       return options.decode(await response.json());
     } catch (error) {
       if (error instanceof ApiError) throw error;
+      throw new ApiError(
+        "unexpected",
+        "The backend returned an invalid response.",
+        { status: response.status, requestId },
+      );
+    }
+  }
+
+  async #requestNoContent(
+    path: string,
+    options: { method: "DELETE"; signal?: AbortSignal },
+  ): Promise<void> {
+    const url = new URL(path, `${this.#baseUrl}/`);
+    const headers = new Headers({
+      Accept: "application/json",
+      Authorization: `Bearer ${this.#token}`,
+    });
+    let response: Response;
+    try {
+      response = await this.#fetch.call(globalThis, url, {
+        method: options.method,
+        headers,
+        signal: options.signal,
+      });
+    } catch (error) {
+      if (
+        options.signal?.aborted === true ||
+        (error instanceof DOMException && error.name === "AbortError")
+      ) {
+        throw new ApiError("cancelled", "Request cancelled.");
+      }
+      throw new ApiError("network", "Could not reach the local backend.");
+    }
+
+    const requestId = response.headers.get("X-Request-ID");
+    if (!response.ok) {
+      const code = await readSafeErrorCode(response);
+      if (response.status === 401) this.#onUnauthorized?.();
+      throw errorForStatus(response.status, requestId, code);
+    }
+    if (response.status !== 204) {
       throw new ApiError(
         "unexpected",
         "The backend returned an invalid response.",
@@ -525,6 +567,27 @@ export class ApiClient {
     return this.#request(
       `api/v1/conversations/${encodeURIComponent(conversationId)}`,
       { signal, decode: parseConversation },
+    );
+  }
+
+  renameConversation(
+    conversationId: string,
+    request: ConversationRenameRequest,
+    signal?: AbortSignal,
+  ): Promise<ConversationSummary> {
+    return this.#request(
+      `api/v1/conversations/${encodeURIComponent(conversationId)}`,
+      { method: "PATCH", body: request, signal, decode: parseConversation },
+    );
+  }
+
+  deleteConversation(
+    conversationId: string,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    return this.#requestNoContent(
+      `api/v1/conversations/${encodeURIComponent(conversationId)}`,
+      { method: "DELETE", signal },
     );
   }
 

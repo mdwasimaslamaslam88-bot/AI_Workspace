@@ -57,6 +57,11 @@ come from a fixed server registry. Model output cannot select an arbitrary
 shell command, URL, code evaluation target, or filesystem path. Clients have no
 native shell/process/filesystem permission.
 
+Web response Markdown is rendered as React elements without raw HTML. Raw tags
+remain literal text, Markdown images are dropped, and model-authored links are
+non-active text so a response cannot trigger browser network access. Copy is an
+explicit owner action and copies only the selected persisted message.
+
 ## Audit commands
 
 ```bash

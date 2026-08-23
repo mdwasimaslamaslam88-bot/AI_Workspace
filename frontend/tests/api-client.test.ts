@@ -148,6 +148,43 @@ describe("ApiClient", () => {
     });
   });
 
+  it("renames and deletes only the encoded owned conversation route", async () => {
+    const calls: Array<{ url: string; method: string; body: unknown }> = [];
+    const fetchImplementation = vi.fn(
+      async (input: URL | RequestInfo, init?: RequestInit) => {
+        calls.push({
+          url: input.toString(),
+          method: init?.method ?? "GET",
+          body: init?.body ? JSON.parse(String(init.body)) : undefined,
+        });
+        return init?.method === "DELETE"
+          ? new Response(null, { status: 204 })
+          : jsonResponse({ ...conversation, title: "Renamed" });
+      },
+    );
+    const client = new ApiClient(token, {
+      fetchImplementation: fetchImplementation as typeof fetch,
+    });
+
+    await expect(
+      client.renameConversation(conversation.id, { title: "Renamed" }),
+    ).resolves.toMatchObject({ title: "Renamed" });
+    await expect(client.deleteConversation(conversation.id)).resolves.toBeUndefined();
+
+    expect(calls).toEqual([
+      {
+        url: `http://127.0.0.1:8000/api/v1/conversations/${conversation.id}`,
+        method: "PATCH",
+        body: { title: "Renamed" },
+      },
+      {
+        url: `http://127.0.0.1:8000/api/v1/conversations/${conversation.id}`,
+        method: "DELETE",
+        body: undefined,
+      },
+    ]);
+  });
+
   it("uses bounded voice contracts and keeps text and credentials out of URLs", async () => {
     const modelId = "piper:" + "b".repeat(24);
     const assetId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
