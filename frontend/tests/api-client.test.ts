@@ -55,6 +55,20 @@ class FakeXmlHttpRequest {
 }
 
 describe("ApiClient", () => {
+  it("invokes fetch with the browser global receiver", async () => {
+    const receiverSensitiveFetch = function (this: unknown): Promise<Response> {
+      if (this !== globalThis) {
+        return Promise.reject(new TypeError("Invalid fetch receiver"));
+      }
+      return Promise.resolve(jsonResponse(user));
+    } as typeof fetch;
+    const client = new ApiClient(token, {
+      fetchImplementation: receiverSensitiveFetch,
+    });
+
+    await expect(client.getCurrentUser()).resolves.toEqual(user);
+  });
+
   it("sends the bearer only in Authorization and preserves the request shape", async () => {
     const fetchImplementation = vi.fn(async (input: URL | RequestInfo, init?: RequestInit) => {
       const url = input.toString();

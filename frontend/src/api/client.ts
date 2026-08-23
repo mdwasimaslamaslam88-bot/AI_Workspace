@@ -253,7 +253,7 @@ export class ApiClient {
 
     let response: Response;
     try {
-      response = await this.#fetch(url, {
+      response = await this.#fetch.call(globalThis, url, {
         method: options.method ?? "GET",
         headers,
         body:
