@@ -3,6 +3,7 @@ import {
   type AccessTokenRotation,
   type ConversationCreateRequest,
   type ConversationCreateResponse,
+  type ConversationCursor,
   type ConversationForkRequest,
   type ConversationPage,
   type ConversationRenameRequest,
@@ -400,9 +401,17 @@ export class MobileApiClient {
   }
 
   listConversations(
-    options: { includeArchived?: boolean; signal?: AbortSignal } = {},
+    options: {
+      cursor?: ConversationCursor;
+      includeArchived?: boolean;
+      signal?: AbortSignal;
+    } = {},
   ): Promise<ConversationPage> {
     const query = new URLSearchParams({ limit: "50" });
+    if (options.cursor !== undefined) {
+      query.set("cursor_updated_at", options.cursor.updated_at);
+      query.set("cursor_id", options.cursor.id);
+    }
     if (options.includeArchived !== undefined) {
       query.set("include_archived", String(options.includeArchived));
     }

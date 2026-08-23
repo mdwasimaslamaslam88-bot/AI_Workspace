@@ -370,6 +370,53 @@ describe("mobile API client", () => {
     ).resolves.toEqual({ items: [summary], next_cursor: null });
   });
 
+  it("continues normal and private conversation pages with server cursors", async () => {
+    const cursor = { updated_at: timestamp, id: conversationId };
+    const calls: Array<{ url: URL; method: string; body: unknown }> = [];
+    const fetchMock = vi.fn(
+      async (input: URL | RequestInfo, init?: RequestInit) => {
+        calls.push({
+          url: new URL(input.toString()),
+          method: init?.method ?? "GET",
+          body: init?.body ? JSON.parse(String(init.body)) : undefined,
+        });
+        return new Response(JSON.stringify({ items: [], next_cursor: null }));
+      },
+    );
+    const client = new MobileApiClient("mobile-session", {
+      baseUrl: "https://work-station.example.ts.net",
+      fetchImplementation: fetchMock,
+    });
+
+    await client.listConversations({ cursor, includeArchived: true });
+    await client.searchConversations({
+      query: "private history",
+      limit: 50,
+      cursor_updated_at: cursor.updated_at,
+      cursor_id: cursor.id,
+      include_archived: true,
+    });
+
+    expect(calls[0]?.method).toBe("GET");
+    expect(calls[0]?.url.pathname).toBe("/api/v1/conversations");
+    expect(Object.fromEntries(calls[0]?.url.searchParams ?? [])).toEqual({
+      limit: "50",
+      cursor_updated_at: timestamp,
+      cursor_id: conversationId,
+      include_archived: "true",
+    });
+    expect(calls[1]?.method).toBe("POST");
+    expect(calls[1]?.url.pathname).toBe("/api/v1/conversations/search");
+    expect(calls[1]?.url.search).toBe("");
+    expect(calls[1]?.body).toEqual({
+      query: "private history",
+      limit: 50,
+      cursor_updated_at: timestamp,
+      cursor_id: conversationId,
+      include_archived: true,
+    });
+  });
+
   it("uses owner-scoped memory, tool, and workflow contracts", async () => {
     const memory = {
       id: "44444444-4444-4444-8444-444444444444",

@@ -1,4 +1,4 @@
-import type { Asset, ConversationStateUpdateRequest, ConversationSummary, LocalModel, Message } from "@work-station/shared";
+import type { Asset, ConversationCursor, ConversationStateUpdateRequest, ConversationSummary, LocalModel, Message } from "@work-station/shared";
 import {
   AudioModule,
   RecordingPresets,
@@ -38,6 +38,15 @@ function safeError(cause: unknown): string {
 
 function modelCanChat(model: LocalModel): boolean {
   return model.runnable_now && model.capabilities.includes("text_generation");
+}
+
+function mergeConversationSummaries(
+  current: ConversationSummary[],
+  incoming: ConversationSummary[],
+): ConversationSummary[] {
+  const merged = new Map(current.map((conversation) => [conversation.id, conversation]));
+  for (const conversation of incoming) merged.set(conversation.id, conversation);
+  return [...merged.values()];
 }
 
 function useThemedStyles() {
@@ -127,6 +136,8 @@ export default function ChatScreen() {
   const { state, client } = useWorkStation();
   const [models, setModels] = useState<LocalModel[]>([]);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
+  const [conversationCursor, setConversationCursor] = useState<ConversationCursor | null>(null);
+  const [loadingMoreConversations, setLoadingMoreConversations] = useState(false);
   const [selected, setSelected] = useState<ConversationSummary | null>(null);
   const [conversationQuery, setConversationQuery] = useState("");
   const [conversationSearch, setConversationSearch] = useState("");
@@ -142,6 +153,7 @@ export default function ChatScreen() {
   const [generating, setGenerating] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const generation = useRef<AbortController | null>(null);
+  const conversationPageRequest = useRef<AbortController | null>(null);
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const recorderState = useAudioRecorderState(recorder);
   const visibleConversations = [...conversations].sort((left, right) =>
@@ -158,37 +170,59 @@ export default function ChatScreen() {
   }, [conversationQuery]);
 
   const listConversationPage = useCallback(
-    (activeClient: MobileApiClient) =>
+    (
+      activeClient: MobileApiClient,
+      cursor: ConversationCursor | null = null,
+      signal?: AbortSignal,
+    ) =>
       conversationSearch
         ? activeClient.searchConversations({
             query: conversationSearch,
             limit: 50,
             include_archived: showArchived,
-          })
-        : activeClient.listConversations({ includeArchived: showArchived }),
+            ...(cursor === null
+              ? {}
+              : {
+                  cursor_updated_at: cursor.updated_at,
+                  cursor_id: cursor.id,
+                }),
+          }, signal)
+        : activeClient.listConversations({
+            includeArchived: showArchived,
+            ...(cursor === null ? {} : { cursor }),
+            signal,
+          }),
     [conversationSearch, showArchived],
   );
 
-  const loadMessages = useCallback(async (conversation: ConversationSummary) => {
+  const loadMessages = useCallback(async (
+    conversation: ConversationSummary,
+    signal?: AbortSignal,
+  ) => {
     if (client === null) return;
     setSelected(conversation);
     setConversationTitle(conversation.title ?? "");
     setNotice(null);
     try {
-      setMessages((await client.listMessages(conversation.id)).items);
+      setMessages((await client.listMessages(conversation.id, signal)).items);
     } catch (cause) {
+      if (cause instanceof MobileApiError && cause.kind === "cancelled") return;
       setNotice(safeError(cause));
     }
   }, [client]);
 
   const loadWorkspace = useCallback(async () => {
     if (client === null) return;
+    conversationPageRequest.current?.abort();
+    const controller = new AbortController();
+    conversationPageRequest.current = controller;
+    setLoadingMoreConversations(false);
     setBusy(true);
     setNotice(null);
     try {
       const [modelPage, conversationPage] = await Promise.all([
-        client.listModels(),
-        listConversationPage(client),
+        client.listModels(controller.signal),
+        listConversationPage(client, null, controller.signal),
       ]);
       const available = modelPage.items.filter(modelCanChat);
       setModels(modelPage.items);
@@ -198,21 +232,60 @@ export default function ChatScreen() {
           : available[0]?.model_id ?? null,
       );
       setConversations(conversationPage.items);
+      setConversationCursor(conversationPage.next_cursor);
       if (selected === null && conversationPage.items[0]) {
-        await loadMessages(conversationPage.items[0]);
+        await loadMessages(conversationPage.items[0], controller.signal);
       }
     } catch (cause) {
+      if (cause instanceof MobileApiError && cause.kind === "cancelled") return;
       setNotice(safeError(cause));
     } finally {
-      setBusy(false);
+      if (conversationPageRequest.current === controller) {
+        conversationPageRequest.current = null;
+        setBusy(false);
+      }
     }
   }, [client, listConversationPage, loadMessages, selected]);
+
+  const loadMoreConversations = useCallback(async () => {
+    if (
+      client === null ||
+      conversationCursor === null ||
+      loadingMoreConversations ||
+      busy
+    ) return;
+    conversationPageRequest.current?.abort();
+    const controller = new AbortController();
+    conversationPageRequest.current = controller;
+    setLoadingMoreConversations(true);
+    setNotice(null);
+    try {
+      const page = await listConversationPage(
+        client,
+        conversationCursor,
+        controller.signal,
+      );
+      setConversations((current) => mergeConversationSummaries(current, page.items));
+      setConversationCursor(page.next_cursor);
+    } catch (cause) {
+      if (cause instanceof MobileApiError && cause.kind === "cancelled") return;
+      setNotice(safeError(cause));
+    } finally {
+      if (conversationPageRequest.current === controller) {
+        conversationPageRequest.current = null;
+        setLoadingMoreConversations(false);
+      }
+    }
+  }, [busy, client, conversationCursor, listConversationPage, loadingMoreConversations]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
       if (state === "connected") void loadWorkspace();
     }, 0);
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(timer);
+      conversationPageRequest.current?.abort();
+    };
   }, [loadWorkspace, state]);
 
   if (state !== "connected" || client === null) return <ConnectScreen />;
@@ -327,7 +400,9 @@ export default function ChatScreen() {
         );
       }
       setMessages((await connectedClient.listMessages(conversation.id)).items);
-      setConversations((await listConversationPage(connectedClient)).items);
+      const conversationPage = await listConversationPage(connectedClient);
+      setConversations(conversationPage.items);
+      setConversationCursor(conversationPage.next_cursor);
     } catch (cause) {
       setNotice(safeError(cause));
       if (selected !== null) await loadMessages(selected);
@@ -355,7 +430,9 @@ export default function ChatScreen() {
         ),
       );
       if (conversationSearch) {
-        setConversations((await listConversationPage(connectedClient)).items);
+        const conversationPage = await listConversationPage(connectedClient);
+        setConversations(conversationPage.items);
+        setConversationCursor(conversationPage.next_cursor);
       }
     } catch (cause) {
       setNotice(safeError(cause));
@@ -417,9 +494,9 @@ export default function ChatScreen() {
         controller.signal,
       );
       setMessages((await connectedClient.listMessages(fork.id, controller.signal)).items);
-      setConversations(
-        (await listConversationPage(connectedClient)).items,
-      );
+      const conversationPage = await listConversationPage(connectedClient);
+      setConversations(conversationPage.items);
+      setConversationCursor(conversationPage.next_cursor);
     } catch (cause) {
       setNotice(safeError(cause));
     } finally {
@@ -522,6 +599,18 @@ export default function ChatScreen() {
             </Text>
           </Pressable>
         ))}
+        {conversationCursor !== null && (
+          <Pressable
+            accessibilityRole="button"
+            disabled={loadingMoreConversations || busy}
+            style={styles.chip}
+            onPress={() => void loadMoreConversations()}
+          >
+            <Text style={styles.chipText}>
+              {loadingMoreConversations ? "Loading…" : "More chats"}
+            </Text>
+          </Pressable>
+        )}
       </ScrollView>
       {selected !== null && (
         <View style={styles.conversationManager}>
