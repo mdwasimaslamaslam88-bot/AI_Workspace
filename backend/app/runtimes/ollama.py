@@ -915,8 +915,14 @@ def _scale_class(parameter_count: int | None) -> ModelScaleClass | None:
         return ModelScaleClass.SEVENTY_B
     if 90 < billions < 200:
         return ModelScaleClass.HUNDRED_B_PLUS
-    if billions >= 200:
+    if 200 <= billions < 500:
         return ModelScaleClass.TWO_HUNDRED_B_PLUS
+    if 500 <= billions < 1000:
+        return ModelScaleClass.FIVE_HUNDRED_B_PLUS
+    if 1000 <= billions < 2000:
+        return ModelScaleClass.ONE_THOUSAND_B_PLUS
+    if billions >= 2000:
+        return ModelScaleClass.TWO_THOUSAND_B
     return None
 
 

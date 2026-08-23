@@ -145,7 +145,9 @@ async def test_catalog_marks_oversized_model_unrunnable_and_supplies_fallback():
     models = await catalog.list_models()
     by_name = {model.display_name: model for model in models}
     assert by_name["Small local model"].runnable_now
+    assert not by_name["Small local model"].future_capable
     assert not by_name["Oversized local model"].runnable_now
+    assert by_name["Oversized local model"].future_capable
     assert (
         by_name["Oversized local model"].fallback_model_id
         == by_name["Small local model"].model_id

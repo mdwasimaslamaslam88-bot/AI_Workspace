@@ -34,6 +34,7 @@ class LocalModelResponse(BaseModel):
     required_ram_bytes: int | None
     installed: bool
     runnable_now: bool
+    future_capable: bool
     hardware_class: HardwareClass | None
     fallback_model_id: str | None
 

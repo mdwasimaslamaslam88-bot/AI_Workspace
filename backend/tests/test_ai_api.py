@@ -381,6 +381,7 @@ def test_authenticated_model_listing_returns_exact_safe_normalized_metadata(
         "required_ram_bytes",
         "installed",
         "runnable_now",
+        "future_capable",
         "hardware_class",
         "fallback_model_id",
     }
@@ -405,6 +406,7 @@ def test_authenticated_model_listing_returns_exact_safe_normalized_metadata(
         "required_ram_bytes": 56_000_000_000,
         "installed": True,
         "runnable_now": True,
+        "future_capable": False,
         "hardware_class": None,
         "fallback_model_id": None,
     }

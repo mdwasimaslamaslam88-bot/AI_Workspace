@@ -158,6 +158,9 @@ export default function SettingsScreen() {
                 <Text style={styles.muted}>
                   {model.installed ? "Installed" : "Not installed"} · {model.runtime_id} · {model.modality}
                 </Text>
+                {model.future_capable && (
+                  <Text style={styles.muted}>Future-capable after a hardware upgrade</Text>
+                )}
                 <Text style={styles.muted}>
                   {modelScaleLabel(model.scale_class)} · {modelContextLabel(model.context_window)}
                 </Text>

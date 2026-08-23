@@ -30,6 +30,23 @@ WORK_STATION_ANDROID_SDK_ROOT=/absolute/path/to/android-sdk \
   ./scripts/mobile_check.sh --require-native-android
 ```
 
+After the clean release commit is pushed and the manual Windows workflow has
+produced its verified artifact, assemble every available owner distribution in
+one atomic release folder:
+
+```bash
+WORK_STATION_ANDROID_SDK_ROOT=/absolute/path/to/android-sdk \
+WORK_STATION_PLAYWRIGHT_BROWSERS_PATH=~/AI_Workspace_Runtimes/playwright \
+  ./scripts/package_release.sh \
+  --windows-artifact-dir /absolute/path/to/Work_Station_Windows
+```
+
+The command reruns the complete backend, PostgreSQL, browser, AI-runtime,
+frontend, desktop, mobile, service, gateway, security, and artifact gates. It
+refuses dirty/diverged Git state and existing output, then publishes only
+verified packages, checksums, `release-manifest.json`, and `README.txt` to
+`~/Desktop/Work_Station_Releases`.
+
 Set `WORK_STATION_WEB_ROOT` to the absolute `frontend/dist` directory. The
 backend fails at startup if it does not contain a compiled `index.html`.
 
@@ -74,9 +91,10 @@ healthy. No service file binds the API or an AI runtime to a public interface.
 ## Platform packages
 
 - Web/PWA: `frontend/dist`
-- Linux desktop: Tauri Debian package under `apps/desktop/src-tauri/target`
-- Windows/macOS: build on the corresponding operating system
-- Android/iOS: use the configured EAS profiles with owner-controlled signing
+- Linux desktop: Tauri AppImage and Debian package under `apps/desktop/src-tauri/target`
+- Windows: real NSIS and standalone PE artifacts from the Windows workflow
+- Android: ARM64 owner-sideload APK from `mobile_check.sh --output-apk`
+- macOS/iOS store distribution: target host and owner-controlled signing
 
 Never copy `.env`, token files, private keys, database dumps, or asset backups
 into a client package.

@@ -3319,6 +3319,7 @@ async def test_authenticated_local_model_listing_is_database_read_only(
                     "required_ram_bytes": None,
                     "installed": True,
                     "runnable_now": True,
+                    "future_capable": False,
                     "hardware_class": None,
                     "fallback_model_id": None,
                 }

@@ -1,0 +1,68 @@
+name: Windows release artifact
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: work-station-windows-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - name: Check out release source
+        uses: actions/checkout@v6
+
+      - name: Configure Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install JavaScript dependencies
+        run: npm ci
+
+      - name: Configure stable Rust
+        shell: pwsh
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+          $cargoRoot = Join-Path $env:USERPROFILE ".cargo"
+          "RUSTFLAGS=--remap-path-prefix=$env:GITHUB_WORKSPACE=workspace --remap-path-prefix=$cargoRoot=cargo-registry" |
+            Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Validate shared and web clients
+        run: |
+          npm run typecheck --workspace @work-station/shared
+          npm run test --workspace @work-station/web
+          npm run typecheck --workspace @work-station/web
+          npm run lint --workspace @work-station/web
+          npm run build --workspace @work-station/web
+
+      - name: Validate desktop source
+        shell: pwsh
+        run: |
+          npm run typecheck --workspace @work-station/desktop
+          Push-Location apps/desktop/src-tauri
+          cargo test --locked
+          Pop-Location
+
+      - name: Build real Windows NSIS package
+        run: npm run build --workspace @work-station/desktop
+
+      - name: Inspect and smoke-test Windows artifacts
+        shell: pwsh
+        run: ./scripts/validate_windows_artifact.ps1 -OutputDirectory release-windows
+
+      - name: Upload verified Windows executables
+        uses: actions/upload-artifact@v7
+        with:
+          name: Work_Station_Windows
+          path: release-windows/
+          if-no-files-found: error
+          retention-days: 14

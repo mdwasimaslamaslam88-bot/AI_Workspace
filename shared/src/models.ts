@@ -13,6 +13,9 @@ const SCALE_LABELS: Record<ModelScaleClass, string> = {
   "70b": "70B",
   "100b_plus": "100B+",
   "200b_plus": "200B+",
+  "500b_plus": "500B+",
+  "1000b_plus": "1000B+",
+  "2000b": "2000B",
   "moe_very_large": "MoE / very large",
 };
 

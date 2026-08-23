@@ -222,6 +222,8 @@ def _model_list_response_json_size(
         size = _checked_add(size, 4 if item.installed else 5, maximum)
         size = _checked_add(size, len(b',"runnable_now":'), maximum)
         size = _checked_add(size, 4 if item.runnable_now else 5, maximum)
+        size = _checked_add(size, len(b',"future_capable":'), maximum)
+        size = _checked_add(size, 4 if item.future_capable else 5, maximum)
         size = _checked_add(size, len(b',"hardware_class":'), maximum)
         if item.hardware_class is None:
             size = _checked_add(size, 4, maximum)
@@ -458,6 +460,7 @@ async def list_local_models(
                 required_ram_bytes=model.required_ram_bytes,
                 installed=model.installed,
                 runnable_now=model.runnable_now,
+                future_capable=model.future_capable,
                 hardware_class=model.hardware_class,
                 fallback_model_id=model.fallback_model_id,
             )

@@ -8,15 +8,26 @@ with_runtime=false
 require_clean=false
 require_native_android=false
 require_desktop_launch=false
+android_output_apk=""
 
-for argument in "$@"; do
-  case "${argument}" in
+while [[ "$#" -gt 0 ]]; do
+  case "$1" in
     --with-runtime) with_runtime=true ;;
     --require-clean) require_clean=true ;;
     --require-native-android) require_native_android=true ;;
     --require-desktop-launch) require_desktop_launch=true ;;
-    *) echo "Unknown release option: ${argument}" >&2; exit 2 ;;
+    --android-output-apk)
+      if [[ "$#" -lt 2 ]]; then
+        echo "--android-output-apk requires an absolute path." >&2
+        exit 2
+      fi
+      android_output_apk="$2"
+      require_native_android=true
+      shift
+      ;;
+    *) echo "Unknown release option: $1" >&2; exit 2 ;;
   esac
+  shift
 done
 
 cd "${repository_root}"
@@ -47,6 +58,9 @@ npm run build:web
 mobile_arguments=()
 if [[ "${require_native_android}" == true ]]; then
   mobile_arguments+=(--require-native-android)
+fi
+if [[ -n "${android_output_apk}" ]]; then
+  mobile_arguments+=(--output-apk "${android_output_apk}")
 fi
 "${script_directory}/mobile_check.sh" "${mobile_arguments[@]}"
 desktop_arguments=()

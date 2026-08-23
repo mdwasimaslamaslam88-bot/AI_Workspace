@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.workstation.personalai</id>
+  <name>WORK STATION</name>
+  <summary>Private owner-only Personal AI workstation</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>LicenseRef-proprietary</project_license>
+  <developer id="io.github.mdwasimaslamaslam88-bot">
+    <name>WORK STATION</name>
+  </developer>
+  <description>
+    <p>
+      WORK STATION is a private desktop client for an owner's local-first
+      Personal AI backend.
+    </p>
+  </description>
+  <url type="homepage">https://github.com/mdwasimaslamaslam88-bot/AI_Workspace</url>
+  <launchable type="desktop-id">WORK STATION.desktop</launchable>
+  <categories>
+    <category>Office</category>
+    <category>Utility</category>
+  </categories>
+  <provides>
+    <binary>work-station-desktop</binary>
+  </provides>
+  <content_rating type="oars-1.1" />
+</component>

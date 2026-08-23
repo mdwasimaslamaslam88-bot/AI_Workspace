@@ -49,6 +49,9 @@ class ModelScaleClass(StrEnum):
     SEVENTY_B = "70b"
     HUNDRED_B_PLUS = "100b_plus"
     TWO_HUNDRED_B_PLUS = "200b_plus"
+    FIVE_HUNDRED_B_PLUS = "500b_plus"
+    ONE_THOUSAND_B_PLUS = "1000b_plus"
+    TWO_THOUSAND_B = "2000b"
     MOE_VERY_LARGE = "moe_very_large"
 
 
@@ -187,6 +190,7 @@ class ModelDescriptor:
     required_ram_bytes: int | None = None
     installed: bool = True
     runnable_now: bool = True
+    future_capable: bool = False
     hardware_class: HardwareClass | None = None
     fallback_model_id: str | None = None
     supports_multi_gpu: bool = False
@@ -221,6 +225,8 @@ class ModelDescriptor:
         )
         if not isinstance(self.runnable_now, bool):
             raise TypeError("model runnable_now must be a boolean")
+        if not isinstance(self.future_capable, bool):
+            raise TypeError("model future_capable must be a boolean")
         if self.hardware_class is not None and not isinstance(
             self.hardware_class, HardwareClass
         ):
@@ -537,6 +543,12 @@ class ModelCatalog:
                     and model.availability is ModelAvailability.AVAILABLE
                 )
             )
+            future_capable = (
+                not runnable_now
+                and model.availability is ModelAvailability.AVAILABLE
+                and model.required_vram_bytes is not None
+                and model.required_ram_bytes is not None
+            )
             resolved.append(
                 ResolvedModel(
                     descriptor=ModelDescriptor(
@@ -556,6 +568,7 @@ class ModelCatalog:
                         required_ram_bytes=model.required_ram_bytes,
                         installed=model.installed,
                         runnable_now=runnable_now,
+                        future_capable=future_capable,
                         supports_multi_gpu=model.supports_multi_gpu,
                         hardware_class=(
                             self.hardware_planner.required_hardware_class(

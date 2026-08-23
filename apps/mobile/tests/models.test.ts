@@ -24,6 +24,7 @@ const model: LocalModel = {
   required_ram_bytes: 32 * 1024 ** 3,
   installed: true,
   runnable_now: false,
+  future_capable: true,
   hardware_class: "gpu_24_to_47gb",
   fallback_model_id: null,
 };
@@ -37,6 +38,9 @@ describe("shared model presentation", () => {
     );
     expect(modelReadiness({ ...model, runnable_now: true })).toBe("ready");
     expect(modelScaleLabel(model.scale_class)).toBe("30B–34B");
+    expect(modelScaleLabel("500b_plus")).toBe("500B+");
+    expect(modelScaleLabel("1000b_plus")).toBe("1000B+");
+    expect(modelScaleLabel("2000b")).toBe("2000B");
     expect(modelContextLabel(model.context_window)).toBe("32,768 token context");
     expect(modelHardwareLabel(model.hardware_class)).toBe("GPU 24–47 GiB");
   });

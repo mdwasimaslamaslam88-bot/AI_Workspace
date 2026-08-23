@@ -184,8 +184,10 @@ continues in reverse acquisition order even when an earlier closer fails.
 Readiness remains a request-time status probe; lifespan ownership does not add
 an Ollama startup probe or change the existing availability policy.
 
-Scale classes cover 7B/8B, 14B, 30B–34B, 70B, 100B+, 200B+, and MoE/very-large
-models as runtime-neutral metadata, not application routing branches. Each
+Scale classes cover 7B/8B, 14B, 30B–34B, 70B, 100B+, 200B+, 500B+, 1000B+,
+2000B, and MoE/very-large models as runtime-neutral metadata, not application
+routing branches. Models with known requirements that exceed detected hardware
+are marked future-capable but remain unrunnable. Each
 application start detects total RAM and per-GPU VRAM capacity without retaining
 device identifiers. The planner reserves operating-system/display headroom,
 fails closed when requirements are unknown, marks oversized installed models

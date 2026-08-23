@@ -99,6 +99,7 @@ export function ModelSelector({
                   </div>
                   <div className="model-facts">
                     <span>{model.installed ? "Installed" : "Not installed"}</span>
+                    {model.future_capable && <span>Future-capable</span>}
                     <span>{model.runtime_id}</span>
                     <span>{model.modality}</span>
                     <span>{modelScaleLabel(model.scale_class)}</span>

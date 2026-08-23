@@ -33,6 +33,7 @@ export const model: LocalModel = {
   required_ram_bytes: 8_000_000_000,
   installed: true,
   runnable_now: true,
+  future_capable: false,
   hardware_class: "gpu_8_to_15gb",
   fallback_model_id: null,
 };

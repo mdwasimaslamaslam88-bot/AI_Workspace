@@ -26,6 +26,7 @@
     "package": "./scripts/desktop_check.sh",
     "package:desktop": "./scripts/desktop_check.sh",
     "package:mobile": "./scripts/mobile_check.sh --require-native-android",
+    "package:release": "./scripts/package_release.sh",
     "e2e": "./scripts/postgres_integration_check.sh --runtime-only --with-browser",
     "release": "./scripts/release_check.sh --with-runtime --require-clean"
   },

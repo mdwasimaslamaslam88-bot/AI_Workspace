@@ -37,6 +37,25 @@ LOCAL_MODEL_ALLOWLIST = (LOCAL_MODEL_REFERENCE,)
 DUPLICATE_MODEL_REFERENCE = "/private/runtime/duplicate:14b"
 
 
+@pytest.mark.parametrize(
+    ("parameter_count", "expected"),
+    [
+        (499_999_999_999, "200b_plus"),
+        (500_000_000_000, "500b_plus"),
+        (999_999_999_999, "500b_plus"),
+        (1_000_000_000_000, "1000b_plus"),
+        (1_999_999_999_999, "1000b_plus"),
+        (2_000_000_000_000, "2000b"),
+        (3_000_000_000_000, "2000b"),
+    ],
+)
+def test_ollama_scale_class_preserves_future_model_tracks(
+    parameter_count,
+    expected,
+):
+    assert ollama_runtime_module._scale_class(parameter_count).value == expected
+
+
 class _CatalogRecordingStream(httpx.AsyncByteStream):
     def __init__(
         self,

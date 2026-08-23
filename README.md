@@ -21,8 +21,8 @@ clients never infer availability or download models automatically.
 | Surface | Implementation | Session storage | Current distribution |
 | --- | --- | --- | --- |
 | Web/PWA | `frontend` | browser session storage | production Vite build |
-| Desktop | `apps/desktop` (Tauri 2) | OS credential vault | Linux `.deb`; Windows/macOS projects prepared |
-| Mobile | `apps/mobile` (Expo SDK 57) | Keychain/Keystore via SecureStore | Android/iOS project and release profiles |
+| Desktop | `apps/desktop` (Tauri 2) | OS credential vault | Linux AppImage/`.deb`; Windows NSIS workflow; macOS project prepared |
+| Mobile | `apps/mobile` (Expo SDK 57) | Keychain/Keystore via SecureStore | Android ARM64 owner-sideload APK; iOS release profile |
 | Shared client | `shared` | none | workspace TypeScript package |
 
 The backend and all AI runtimes remain loopback-only. Worldwide access uses one
@@ -68,6 +68,7 @@ npm run security-audit
 npm run check
 npm run e2e
 npm run release
+npm run package:release -- --windows-artifact-dir /absolute/path/to/Work_Station_Windows
 ```
 
 `check` is the complete static/local release gate; `e2e` starts a user-owned,
@@ -85,6 +86,14 @@ of allowing a platform-independent skip.
 On an inspectable X11 session, `check` also launches the packaged Linux desktop
 window without capturing screen content. Use `npm run check:desktop:launch` to
 require that gate.
+
+`package:release` is the final distribution command. It requires a clean,
+synchronized release commit and a downloaded artifact from the repository's
+manual **Windows release artifact** workflow. It reruns the runtime-enabled
+gate, retains a validated ARM64 Android APK, copies the validated Linux and
+Windows packages, generates SHA-256 checksums plus a machine-readable manifest,
+and atomically publishes `~/Desktop/Work_Station_Releases`. It refuses to
+overwrite an existing release directory.
 
 Install the pinned browser runtime once into the private runtime root before
 using `check:browser`, `e2e`, or the full runtime release gate:

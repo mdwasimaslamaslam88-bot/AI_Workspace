@@ -67,8 +67,9 @@ runtimes may intentionally be off until requested.
 ## Desktop build
 
 Run `./scripts/desktop_check.sh`. On Linux it uses system WebKit/GTK packages or
-the documented user-owned sysroot. Windows installers must be built on Windows;
-macOS bundles/signing must be built on macOS.
+the documented user-owned sysroot plus the pinned AppImage runtime described in
+[DESKTOP.md](DESKTOP.md). Real Windows installers are produced by the manual
+Windows workflow; macOS bundles/signing must be built on macOS.
 
 ## Mobile build
 

@@ -102,6 +102,23 @@ native validation cannot silently rewrite the managed Expo source. Set
 needed. This is a native compilation/configuration gate, not a signed release
 artifact and not a substitute for the owner-controlled EAS credentials below.
 
+To retain an actual ARM64 package for private owner sideloading, provide a new
+absolute output path:
+
+```bash
+WORK_STATION_ANDROID_SDK_ROOT=/absolute/path/to/android-sdk \
+  ./scripts/mobile_check.sh \
+  --output-apk /absolute/output/Work_Station_Android.apk
+```
+
+This builds the optimized release variant, runs Android release lint, verifies
+package name/version/label, ZIP integrity, alignment, and signature, removes
+native compiler-root strings without changing ELF offsets, re-aligns and
+re-signs the package, and scans its unpacked content for operator material,
+private keys, and build-machine paths. The APK uses Android's standard debug
+certificate and is suitable only for owner sideloading; it is not a Play Store
+release. No backend credential is embedded.
+
 ## Release builds
 
 `apps/mobile/eas.json` defines development, preview, and production profiles.
@@ -111,8 +128,9 @@ Incoming links are reduced to fixed owner-safe routes only: chat, settings, or
 the private Studio umbrella. Query parameters, fragments, credentials, nested
 paths, tokens, and object identifiers are rejected and fall back to Chats.
 
-Native signed packages require an Expo/EAS account plus owner-controlled Google
-Play and Apple Developer credentials. iOS simulator/signing also requires
+Store-distributed Android packages require owner-controlled release signing;
+iOS device/TestFlight packages require an Expo/EAS or native signing setup plus
+owner-controlled Apple Developer credentials. iOS simulator/signing also requires
 macOS/Xcode. Those external accounts are intentionally absent from source and
 cannot be fabricated. Follow the current Expo build documentation at
 <https://docs.expo.dev/build/introduction/>.

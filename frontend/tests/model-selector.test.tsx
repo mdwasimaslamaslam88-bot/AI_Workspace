@@ -154,6 +154,7 @@ describe("ModelSelector", () => {
       scale_class: "70b",
       installed: false,
       runnable_now: false,
+      future_capable: true,
       hardware_class: "gpu_80gb_plus",
     };
     const insufficient: LocalModel = {
@@ -163,6 +164,7 @@ describe("ModelSelector", () => {
       parameter_class: "34B",
       scale_class: "30b_34b",
       runnable_now: false,
+      future_capable: true,
       hardware_class: "gpu_24_to_47gb",
     };
 
@@ -193,5 +195,6 @@ describe("ModelSelector", () => {
     expect(screen.getByText("Future 70B")).toBeVisible();
     expect(screen.getByText("Not installed", { selector: ".model-readiness" })).toBeVisible();
     expect(screen.getByText("Insufficient hardware")).toBeVisible();
+    expect(screen.getAllByText("Future-capable")).toHaveLength(2);
   });
 });

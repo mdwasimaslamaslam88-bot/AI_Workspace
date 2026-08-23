@@ -267,6 +267,9 @@ export type ModelScaleClass =
   | "70b"
   | "100b_plus"
   | "200b_plus"
+  | "500b_plus"
+  | "1000b_plus"
+  | "2000b"
   | "moe_very_large";
 export type HardwareClass =
   | "cpu_only"
@@ -343,6 +346,7 @@ export interface LocalModel {
   required_ram_bytes: number | null;
   installed: boolean;
   runnable_now: boolean;
+  future_capable: boolean;
   hardware_class: HardwareClass | null;
   fallback_model_id: string | null;
 }
@@ -580,6 +584,9 @@ const modelScaleClasses = [
   "70b",
   "100b_plus",
   "200b_plus",
+  "500b_plus",
+  "1000b_plus",
+  "2000b",
   "moe_very_large",
 ] as const;
 const hardwareClasses = [
@@ -702,6 +709,7 @@ export function parseModel(value: unknown): LocalModel {
     required_ram_bytes: integerOrNull(item.required_ram_bytes),
     installed: booleanField(item.installed),
     runnable_now: booleanField(item.runnable_now),
+    future_capable: booleanField(item.future_capable),
     hardware_class:
       item.hardware_class === null
         ? null
