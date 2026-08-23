@@ -51,6 +51,9 @@ npm run build:static --workspace @work-station/mobile
 `apps/mobile/eas.json` defines development, preview, and production profiles.
 Android application ID and iOS bundle ID are both
 `com.workstation.personalai`; the deep-link scheme is `work-station`.
+Incoming links are reduced to fixed owner-safe routes only: chat, settings, or
+the private Studio umbrella. Query parameters, fragments, credentials, nested
+paths, tokens, and object identifiers are rejected and fall back to Chats.
 
 Native signed packages require an Expo/EAS account plus owner-controlled Google
 Play and Apple Developer credentials. iOS simulator/signing also requires

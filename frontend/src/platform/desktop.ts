@@ -1,3 +1,8 @@
+import {
+  parsePrivateDeepLink,
+  type PrivateDeepLinkTarget,
+} from "@work-station/shared";
+
 type TauriCore = typeof import("@tauri-apps/api/core");
 
 const PRIVATE_TASK_NOTIFICATION = {
@@ -66,4 +71,25 @@ export async function notifyDesktopTaskFinished(succeeded: boolean): Promise<boo
       : PRIVATE_TASK_NOTIFICATION.failure,
   );
   return true;
+}
+
+export async function listenForDesktopDeepLinks(
+  onOpen: (target: PrivateDeepLinkTarget) => void,
+): Promise<() => void> {
+  if (!isDesktopRuntime()) return () => undefined;
+  const deepLinks = await import("@tauri-apps/plugin-deep-link");
+  const dispatch = (urls: string[]) => {
+    for (const value of urls) {
+      const target = parsePrivateDeepLink(value);
+      if (target !== null) onOpen(target);
+    }
+  };
+  const unlisten = await deepLinks.onOpenUrl(dispatch);
+  try {
+    dispatch((await deepLinks.getCurrent()) ?? []);
+    return unlisten;
+  } catch (error) {
+    unlisten();
+    throw error;
+  }
 }

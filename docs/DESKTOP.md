@@ -18,6 +18,11 @@ does not contain AI or authorization logic.
   workflow completion/failure alerts contain only fixed generic text
 - owner-configurable sign-in startup through Settings; the native plugin owns
   the platform startup entry and no credential is placed in startup arguments
+- allowlisted `work-station://chat`, `work-station://settings`,
+  `work-station://studio`, `work-station://memory`, `work-station://tools`, and
+  `work-station://workflows` navigation (Studio opens the bounded tools panel);
+  links containing parameters, credentials, fragments, or object identifiers
+  are ignored
 - explicit owner session naming, issuance, revocation, and token rotation
   through Settings; the replacement remains in the OS credential vault and
   invalidates only the prior token for this desktop session

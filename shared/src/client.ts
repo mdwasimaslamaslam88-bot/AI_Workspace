@@ -1,5 +1,58 @@
 export type ClientPlatform = "web" | "desktop" | "android" | "ios";
 
+export type PrivateDeepLinkTarget =
+  | "chat"
+  | "settings"
+  | "studio"
+  | "memory"
+  | "tools"
+  | "workflows";
+
+const PRIVATE_DEEP_LINK_TARGETS = new Set<PrivateDeepLinkTarget>([
+  "chat",
+  "settings",
+  "studio",
+  "memory",
+  "tools",
+  "workflows",
+]);
+
+export function parsePrivateDeepLink(value: string): PrivateDeepLinkTarget | null {
+  if (
+    typeof value !== "string" ||
+    value.length < 1 ||
+    value.length > 256 ||
+    value !== value.trim()
+  ) {
+    return null;
+  }
+  try {
+    const link = new URL(value);
+    if (
+      link.protocol !== "work-station:" ||
+      link.username !== "" ||
+      link.password !== "" ||
+      link.port !== "" ||
+      link.search !== "" ||
+      link.hash !== ""
+    ) {
+      return null;
+    }
+    const target = link.hostname === ""
+      ? link.pathname.startsWith("/")
+        ? link.pathname.slice(1)
+        : link.pathname
+      : link.pathname === "" || link.pathname === "/"
+        ? link.hostname
+        : "";
+    return PRIVATE_DEEP_LINK_TARGETS.has(target as PrivateDeepLinkTarget)
+      ? target as PrivateDeepLinkTarget
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 export type ConnectionState =
   | "connecting"
   | "connected"

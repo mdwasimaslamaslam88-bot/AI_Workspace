@@ -10,12 +10,20 @@ const notifications = vi.hoisted(() => ({
   requestPermission: vi.fn(async () => "granted" as NotificationPermission),
   sendNotification: vi.fn(),
 }));
+const deepLinks = vi.hoisted(() => ({
+  getCurrent: vi.fn<() => Promise<string[] | null>>(async () => null),
+  onOpenUrl: vi.fn<
+    (handler: (urls: string[]) => void) => Promise<() => void>
+  >(async () => () => undefined),
+}));
 
 vi.mock("@tauri-apps/plugin-autostart", () => autostart);
 vi.mock("@tauri-apps/plugin-notification", () => notifications);
+vi.mock("@tauri-apps/plugin-deep-link", () => deepLinks);
 
 import {
   notifyDesktopTaskFinished,
+  listenForDesktopDeepLinks,
   readDesktopAutostartEnabled,
   readDesktopNotificationPermission,
   requestDesktopNotificationPermission,
@@ -87,5 +95,33 @@ describe("desktop native preferences", () => {
     expect(autostart.isEnabled).not.toHaveBeenCalled();
     expect(notifications.isPermissionGranted).not.toHaveBeenCalled();
     expect(notifications.sendNotification).not.toHaveBeenCalled();
+  });
+
+  it("dispatches only allowlisted initial and running-instance links", async () => {
+    const unlisten = vi.fn<() => void>(() => undefined);
+    let runningHandler: ((urls: string[]) => void) | undefined;
+    deepLinks.onOpenUrl.mockImplementationOnce(async (handler: (urls: string[]) => void) => {
+      runningHandler = handler;
+      return unlisten;
+    });
+    deepLinks.getCurrent.mockResolvedValueOnce([
+      "work-station://settings",
+      "work-station://chat?unexpected=value",
+    ]);
+    const opened = vi.fn();
+
+    const dispose = await listenForDesktopDeepLinks(opened);
+    expect(opened).toHaveBeenCalledOnce();
+    expect(opened).toHaveBeenCalledWith("settings");
+
+    runningHandler?.([
+      "work-station://workflows",
+      "https://example.invalid/private",
+    ]);
+    expect(opened).toHaveBeenNthCalledWith(2, "workflows");
+    expect(opened).toHaveBeenCalledTimes(2);
+
+    dispose();
+    expect(unlisten).toHaveBeenCalledOnce();
   });
 });

@@ -1,12 +1,29 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+type TestDeepLinkTarget =
+  | "chat"
+  | "settings"
+  | "studio"
+  | "memory"
+  | "tools"
+  | "workflows";
+
 const desktopNotification = vi.hoisted(() => vi.fn(async () => false));
+const desktopDeepLinks = vi.hoisted(() =>
+  vi.fn<
+    (onOpen: (target: TestDeepLinkTarget) => void) => Promise<() => void>
+  >(async () => () => undefined),
+);
 
 vi.mock("../src/platform/desktop", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../src/platform/desktop")>();
-  return { ...actual, notifyDesktopTaskFinished: desktopNotification };
+  return {
+    ...actual,
+    listenForDesktopDeepLinks: desktopDeepLinks,
+    notifyDesktopTaskFinished: desktopNotification,
+  };
 });
 
 import { App } from "../src/app/App";
@@ -363,6 +380,26 @@ describe("App integration", () => {
     expect(
       await screen.findByRole("heading", { name: "What your AI remembers" }),
     ).toBeVisible();
+  });
+
+  it("routes allowlisted native sections only after owner authentication", async () => {
+    writeSessionToken(token);
+    installWorkspaceFetch();
+    render(<App />);
+
+    await screen.findByRole("button", { name: /Local chat/ });
+    await waitFor(() => expect(desktopDeepLinks).toHaveBeenCalledOnce());
+    const open = desktopDeepLinks.mock.calls[0]?.[0];
+    expect(open).toBeDefined();
+
+    act(() => open?.("settings"));
+    expect(
+      await screen.findByRole("heading", { name: "Settings & diagnostics" }),
+    ).toBeVisible();
+    act(() => open?.("chat"));
+    expect(
+      screen.queryByRole("heading", { name: "Settings & diagnostics" }),
+    ).not.toBeInTheDocument();
   });
 
   it("propagates public vision capability from discovered model metadata", async () => {

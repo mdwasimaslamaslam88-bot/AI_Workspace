@@ -48,7 +48,10 @@ import { ModelSelector } from "../features/models/ModelSelector";
 import { SettingsPanel } from "../features/settings/SettingsPanel";
 import { ToolPanel } from "../features/tools/ToolPanel";
 import { WorkflowPanel } from "../features/workflows/WorkflowPanel";
-import { notifyDesktopTaskFinished } from "../platform/desktop";
+import {
+  listenForDesktopDeepLinks,
+  notifyDesktopTaskFinished,
+} from "../platform/desktop";
 import {
   applyAppearancePreference,
   type AppearancePreference,
@@ -1213,6 +1216,28 @@ export function App() {
 
   const selectedModel =
     models.find((candidate) => candidate.model_id === selectedModelId) ?? null;
+
+  useEffect(() => {
+    if (authenticationStatus !== "authenticated") return;
+    let active = true;
+    let unlisten: (() => void) | undefined;
+    void listenForDesktopDeepLinks((target) => {
+      if (!active) return;
+      setSettingsOpen(target === "settings");
+      setMemoryOpen(target === "memory");
+      setToolsOpen(target === "tools" || target === "studio");
+      setWorkflowsOpen(target === "workflows");
+    })
+      .then((dispose) => {
+        if (active) unlisten = dispose;
+        else dispose();
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+      unlisten?.();
+    };
+  }, [authenticationStatus]);
 
   if (authenticationStatus === "checking") {
     return (
