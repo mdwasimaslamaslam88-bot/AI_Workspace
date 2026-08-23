@@ -24,6 +24,12 @@ settings screen blocks capture while mounted, uses a protected app-switcher
 preview, and clears the one-time credential whenever the app leaves the
 foreground.
 
+All native press targets declare an explicit accessibility role, selection and
+checked state are announced where applicable, destructive actions have clear
+labels, and compact chat/Studio controls retain at least a 44-point touch
+target. A static TypeScript-AST regression test prevents unlabeled Pressable
+controls from entering the mobile client.
+
 The Studio tab uses the existing owner-scoped backend APIs for explicit memory,
 allowlisted tool execution, bounded workflow creation/start/cancel/status,
 image generation/editing, and text-to-speech. It does not duplicate AI or

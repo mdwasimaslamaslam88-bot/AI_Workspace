@@ -114,10 +114,11 @@ export default function SettingsScreen() {
             Mode: {process.env.EXPO_PUBLIC_API_BASE_URL?.startsWith("https://") ? "REMOTE" : "LOCAL"}
           </Text>
           {user !== null && <Text style={styles.muted}>Owner session active</Text>}
-          <Pressable style={styles.secondaryButton} onPress={() => void retry()}>
+          <Pressable accessibilityRole="button" style={styles.secondaryButton} onPress={() => void retry()}>
             <Text style={styles.buttonText}>Refresh connection</Text>
           </Pressable>
           <Pressable
+            accessibilityRole="button"
             disabled={sessionBusy}
             style={styles.secondaryButton}
             onPress={() => {
@@ -189,6 +190,7 @@ export default function SettingsScreen() {
             onChangeText={setCurrentSessionLabel}
           />
           <Pressable
+            accessibilityRole="button"
             disabled={sessionBusy}
             style={styles.secondaryButton}
             onPress={() => {
@@ -216,6 +218,7 @@ export default function SettingsScreen() {
             onChangeText={setNewSessionLabel}
           />
           <Pressable
+            accessibilityRole="button"
             disabled={sessionBusy}
             style={styles.secondaryButton}
             onPress={() => {
@@ -244,7 +247,7 @@ export default function SettingsScreen() {
                 This one-time view is screen-capture protected and clears when the app leaves the foreground.
               </Text>
               <Text selectable style={styles.token}>{issuedSession.access_token}</Text>
-              <Pressable style={styles.secondaryButton} onPress={() => setIssuedSession(null)}>
+              <Pressable accessibilityRole="button" style={styles.secondaryButton} onPress={() => setIssuedSession(null)}>
                 <Text style={styles.buttonText}>I saved it</Text>
               </Pressable>
             </View>
@@ -261,6 +264,7 @@ export default function SettingsScreen() {
               </View>
               {!accessSession.is_current && (
                 <Pressable
+                  accessibilityRole="button"
                   accessibilityLabel={`Revoke ${accessSession.label ?? "unnamed device"}`}
                   disabled={sessionBusy}
                   style={styles.revokeButton}
@@ -322,7 +326,7 @@ export default function SettingsScreen() {
             </>
           )}
           {notice !== null && <Text accessibilityRole="alert" style={styles.error}>{notice}</Text>}
-          <Pressable style={styles.secondaryButton} onPress={() => void load()}>
+          <Pressable accessibilityRole="button" style={styles.secondaryButton} onPress={() => void load()}>
             <Text style={styles.buttonText}>Refresh diagnostics</Text>
           </Pressable>
         </View>
@@ -334,6 +338,7 @@ export default function SettingsScreen() {
             Completion alerts omit prompts, responses, conversation names, and filenames by default.
           </Text>
           <Pressable
+            accessibilityRole="button"
             style={styles.secondaryButton}
             onPress={() => void requestPrivateNotificationPermission().then((granted) =>
               setNotice(granted ? "Notifications enabled." : "Notification permission was not granted."),
@@ -353,7 +358,7 @@ export default function SettingsScreen() {
           </Text>
         </View>
 
-        <Pressable style={styles.logoutButton} onPress={() => void logout()}>
+        <Pressable accessibilityRole="button" style={styles.logoutButton} onPress={() => void logout()}>
           <Text style={styles.logoutText}>Log out on this device</Text>
         </Pressable>
       </ScrollView>

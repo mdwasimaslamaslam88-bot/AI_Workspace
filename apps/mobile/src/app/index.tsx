@@ -670,6 +670,8 @@ export default function ChatScreen() {
       </Pressable>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
         <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Start a new chat"
           disabled={busy}
           style={styles.newChip}
           onPress={() => {
@@ -684,6 +686,9 @@ export default function ChatScreen() {
         </Pressable>
         {visibleConversations.map((conversation) => (
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Open ${conversation.title ?? "conversation"}`}
+            accessibilityState={{ selected: selected?.id === conversation.id }}
             key={conversation.id}
             disabled={busy}
             style={[styles.chip, selected?.id === conversation.id && styles.chipSelected]}
@@ -906,10 +911,10 @@ export default function ChatScreen() {
       )}
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={92}>
         <View style={styles.composerTools}>
-          <Pressable accessibilityRole="button" onPress={() => void chooseDocument()}><Text style={styles.link}>File</Text></Pressable>
-          <Pressable accessibilityRole="button" onPress={() => void chooseImage(false)}><Text style={styles.link}>Photo</Text></Pressable>
-          <Pressable accessibilityRole="button" onPress={() => void chooseImage(true)}><Text style={styles.link}>Camera</Text></Pressable>
-          <Pressable accessibilityRole="button" onPress={() => void toggleVoice()}>
+          <Pressable accessibilityRole="button" style={styles.composerTool} onPress={() => void chooseDocument()}><Text style={styles.link}>File</Text></Pressable>
+          <Pressable accessibilityRole="button" style={styles.composerTool} onPress={() => void chooseImage(false)}><Text style={styles.link}>Photo</Text></Pressable>
+          <Pressable accessibilityRole="button" style={styles.composerTool} onPress={() => void chooseImage(true)}><Text style={styles.link}>Camera</Text></Pressable>
+          <Pressable accessibilityRole="button" style={styles.composerTool} onPress={() => void toggleVoice()}>
             <Text style={recorderState.isRecording ? styles.recording : styles.link}>
               {recorderState.isRecording ? "Stop recording" : "Voice"}
             </Text>
@@ -926,7 +931,12 @@ export default function ChatScreen() {
             style={styles.composerInput}
           />
           {busy && generating ? (
-            <Pressable style={styles.cancelButton} onPress={() => generation.current?.abort()}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Stop generation"
+              style={styles.cancelButton}
+              onPress={() => generation.current?.abort()}
+            >
               <Text style={styles.buttonText}>Stop</Text>
             </Pressable>
           ) : (
@@ -969,20 +979,20 @@ function createStyles(colors: WorkStationColors) {
   archiveToggle: { minHeight: 44, alignSelf: "flex-start", justifyContent: "center", marginLeft: 12 },
   link: { color: colors.accent, fontWeight: "800", paddingVertical: 8, paddingHorizontal: 4 },
   recording: { color: colors.danger, fontWeight: "900", paddingVertical: 8, paddingHorizontal: 4 },
-  messageAction: { color: colors.accent, fontWeight: "800", paddingVertical: 8 },
+  messageAction: { minHeight: 44, color: colors.accent, fontWeight: "800", paddingVertical: 12 },
   messageActions: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
   inlineEditor: { gap: 6, marginTop: 8 },
   chipRow: { minHeight: 52, alignItems: "center", gap: 8, paddingHorizontal: 12 },
-  chip: { maxWidth: 170, borderColor: colors.line, borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8 },
+  chip: { minHeight: 44, maxWidth: 170, justifyContent: "center", borderColor: colors.line, borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8 },
   chipSelected: { backgroundColor: colors.soft, borderColor: colors.accent },
-  newChip: { borderRadius: 999, backgroundColor: colors.accent, paddingHorizontal: 12, paddingVertical: 9 },
+  newChip: { minHeight: 44, justifyContent: "center", borderRadius: 999, backgroundColor: colors.accent, paddingHorizontal: 12, paddingVertical: 9 },
   chipText: { color: colors.text, fontSize: 12, fontWeight: "700" },
   modelRow: { minHeight: 44, alignItems: "center", gap: 7, paddingHorizontal: 12, borderBottomColor: colors.line, borderBottomWidth: 1 },
-  modelChip: { borderColor: colors.line, borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 },
+  modelChip: { minHeight: 44, justifyContent: "center", borderColor: colors.line, borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 },
   modelSelected: { borderColor: colors.accent, backgroundColor: colors.accentSoft },
   conversationManager: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingBottom: 8, borderBottomColor: colors.line, borderBottomWidth: 1 },
-  titleInput: { flex: 1, minHeight: 42, color: colors.text, backgroundColor: colors.raised, borderColor: colors.line, borderWidth: 1, borderRadius: 10, paddingHorizontal: 10 },
-  manageButton: { minHeight: 42, justifyContent: "center" },
+  titleInput: { flex: 1, minHeight: 44, color: colors.text, backgroundColor: colors.raised, borderColor: colors.line, borderWidth: 1, borderRadius: 10, paddingHorizontal: 10 },
+  manageButton: { minHeight: 44, justifyContent: "center" },
   messageList: { flex: 1 },
   messageContent: { padding: 14, gap: 12, flexGrow: 1 },
   empty: { color: colors.muted, textAlign: "center", marginTop: 80, lineHeight: 22 },
@@ -1002,6 +1012,7 @@ function createStyles(colors: WorkStationColors) {
   attachmentRow: { gap: 6, paddingHorizontal: 12, paddingVertical: 6 },
   attachmentChip: { color: colors.accent, backgroundColor: colors.soft, borderRadius: 8, padding: 7, fontSize: 11 },
   composerTools: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 12 },
+  composerTool: { minHeight: 44, justifyContent: "center" },
   composer: { flexDirection: "row", alignItems: "flex-end", gap: 8, padding: 12, borderTopColor: colors.line, borderTopWidth: 1, backgroundColor: colors.panel },
   composerInput: { flex: 1, minHeight: 48, maxHeight: 130, color: colors.text, backgroundColor: colors.raised, borderColor: colors.line, borderWidth: 1, borderRadius: 14, padding: 12 },
   sendButton: { minWidth: 68, minHeight: 48, justifyContent: "center", alignItems: "center", backgroundColor: colors.accent, borderRadius: 12 },

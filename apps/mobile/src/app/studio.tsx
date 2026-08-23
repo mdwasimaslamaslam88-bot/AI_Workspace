@@ -434,7 +434,7 @@ export default function StudioScreen() {
           <View style={styles.progress} accessibilityLiveRegion="polite">
             <ActivityIndicator color={colors.accent} />
             <Text style={styles.muted}>{busyAction}…</Text>
-            <Pressable accessibilityRole="button" onPress={() => activeRequest.current?.abort()}>
+            <Pressable accessibilityRole="button" style={styles.touchAction} onPress={() => activeRequest.current?.abort()}>
               <Text style={styles.danger}>Cancel</Text>
             </Pressable>
           </View>
@@ -493,7 +493,7 @@ export default function StudioScreen() {
                 <Text style={styles.itemLabel}>{memory.category.replaceAll("_", " ")}</Text>
                 <Text selectable style={styles.itemText}>{memory.content}</Text>
               </View>
-              <Pressable accessibilityRole="button" onPress={() => void forgetMemory(memory.id)}>
+              <Pressable accessibilityRole="button" style={styles.touchAction} onPress={() => void forgetMemory(memory.id)}>
                 <Text style={styles.danger}>Forget</Text>
               </Pressable>
             </View>
@@ -579,16 +579,16 @@ export default function StudioScreen() {
                 <Text style={styles.detail}>{workflow.status} · {workflow.step_count} step(s)</Text>
               </View>
               {workflow.status === "pending" && (
-                <Pressable accessibilityRole="button" onPress={() => void startWorkflow(workflow.id)}>
+                <Pressable accessibilityRole="button" style={styles.touchAction} onPress={() => void startWorkflow(workflow.id)}>
                   <Text style={styles.link}>Start</Text>
                 </Pressable>
               )}
               {workflow.status === "running" && (
-                <Pressable accessibilityRole="button" onPress={() => void cancelWorkflow(workflow.id)}>
+                <Pressable accessibilityRole="button" style={styles.touchAction} onPress={() => void cancelWorkflow(workflow.id)}>
                   <Text style={styles.danger}>Cancel</Text>
                 </Pressable>
               )}
-              <Pressable accessibilityRole="button" onPress={() => void refreshWorkflow(workflow.id)}>
+              <Pressable accessibilityRole="button" style={styles.touchAction} onPress={() => void refreshWorkflow(workflow.id)}>
                 <Text style={styles.link}>Check</Text>
               </Pressable>
             </View>
@@ -733,7 +733,7 @@ function createStyles(colors: WorkStationColors) {
     danger: { color: colors.danger, fontWeight: "900", paddingHorizontal: 4, paddingVertical: 10 },
     link: { color: colors.accent, fontWeight: "900", paddingHorizontal: 4, paddingVertical: 10 },
     chipRow: { gap: 7, paddingVertical: 2 },
-    chip: { minHeight: 40, justifyContent: "center", borderColor: colors.line, borderWidth: 1, borderRadius: 999, paddingHorizontal: 12 },
+    chip: { minHeight: 44, justifyContent: "center", borderColor: colors.line, borderWidth: 1, borderRadius: 999, paddingHorizontal: 12 },
     selectedChip: { borderColor: colors.accent, backgroundColor: colors.accentSoft },
     chipText: { color: colors.text, fontSize: 12, fontWeight: "700", textTransform: "capitalize" },
     input: { minHeight: 48, color: colors.text, borderColor: colors.line, borderWidth: 1, borderRadius: 11, backgroundColor: colors.background, paddingHorizontal: 12 },
@@ -745,6 +745,7 @@ function createStyles(colors: WorkStationColors) {
     buttonText: { color: colors.text, fontWeight: "800" },
     disabled: { opacity: 0.45 },
     buttonRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+    touchAction: { minHeight: 44, justifyContent: "center" },
     listItem: { flexDirection: "row", alignItems: "center", gap: 10, borderTopColor: colors.line, borderTopWidth: 1, paddingTop: 10 },
     itemLabel: { color: colors.accent, fontSize: 11, fontWeight: "900", textTransform: "uppercase" },
     itemText: { color: colors.text, lineHeight: 20 },
