@@ -36,11 +36,6 @@ def user_api(monkeypatch):
     service.provision_with_access_token = provision
     service_factory = Mock(return_value=service)
     monkeypatch.setattr(users_module, "UserService", service_factory)
-    monkeypatch.setattr(
-        users_module.settings,
-        "USER_PROVISIONING_TOKEN_DIGEST",
-        _PROVISIONING_DIGEST,
-    )
 
     async def override_db_session():
         yield session
@@ -48,6 +43,11 @@ def user_api(monkeypatch):
     app.dependency_overrides[get_db_session] = override_db_session
     try:
         with TestClient(app, raise_server_exceptions=False) as client:
+            monkeypatch.setattr(
+                users_module.settings,
+                "USER_PROVISIONING_TOKEN_DIGEST",
+                _PROVISIONING_DIGEST,
+            )
             yield (
                 client,
                 session,
@@ -786,11 +786,6 @@ def test_unauthorized_create_stops_before_database_dependency(monkeypatch):
     database_dependency_started = Mock()
     service_factory = Mock()
     monkeypatch.setattr(users_module, "UserService", service_factory)
-    monkeypatch.setattr(
-        users_module.settings,
-        "USER_PROVISIONING_TOKEN_DIGEST",
-        _PROVISIONING_DIGEST,
-    )
 
     async def override_db_session():
         database_dependency_started()
@@ -799,6 +794,11 @@ def test_unauthorized_create_stops_before_database_dependency(monkeypatch):
     app.dependency_overrides[get_db_session] = override_db_session
     try:
         with TestClient(app, raise_server_exceptions=False) as client:
+            monkeypatch.setattr(
+                users_module.settings,
+                "USER_PROVISIONING_TOKEN_DIGEST",
+                _PROVISIONING_DIGEST,
+            )
             response = client.post("/api/v1/users")
     finally:
         app.dependency_overrides.pop(get_db_session, None)

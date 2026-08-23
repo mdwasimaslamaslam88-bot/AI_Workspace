@@ -11,7 +11,7 @@ from app.clients.comfyui import close_comfyui, create_comfyui_client
 from app.clients.ollama import close_ollama, create_ollama_client
 from app.clients.postgres import create_postgres_engine, dispose_postgres
 from app.clients.redis import close_redis, create_redis_client
-from app.core.config import settings
+from app.core.config import Settings, settings
 from app.db.session import create_session_factory
 from app.hardware import detect_hardware
 from app.hardware.planner import GIBIBYTE
@@ -134,8 +134,19 @@ def _speech_runtimes():
     )
 
 
+def _require_user_provisioning_database(configured: Settings) -> None:
+    if (
+        configured.USER_PROVISIONING_TOKEN_DIGEST is not None
+        and configured.DATABASE_URL is None
+    ):
+        raise RuntimeError(
+            "DATABASE_URL must be configured when user provisioning is enabled"
+        )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    _require_user_provisioning_database(settings)
     async with AsyncExitStack() as resource_stack:
         hardware_inventory = await asyncio.to_thread(detect_hardware)
         app.state.hardware_inventory = hardware_inventory

@@ -32,6 +32,13 @@ lowercase hexadecimal SHA-256 digest of a separate 43-character URL-safe opaque
 token. Omission or a blank value disables provisioning; plaintext provisioning
 credentials must not be placed in configuration or logs.
 
+Enabling provisioning also requires a configured `DATABASE_URL` whose schema
+has been upgraded to the current Alembic head. The application rejects startup
+with a fixed credential-free configuration error when provisioning is enabled
+without that database, rather than accepting authorized requests that cannot
+persist a user. `TEST_DATABASE_URL` is never selected implicitly for application
+traffic.
+
 Call `POST /api/v1/users` with the operator credential in its dedicated header:
 
 ```http

@@ -29,6 +29,12 @@ session and never commit. Service, unit-of-work, or other application
 transaction logic owns successful transactions and must explicitly call
 `await session.commit()`.
 
+When `USER_PROVISIONING_TOKEN_DIGEST` is configured, `DATABASE_URL` is required.
+Lifespan rejects that otherwise unusable combination before acquiring any
+runtime resource. This does not run migrations or fall back to
+`TEST_DATABASE_URL`; operators must explicitly configure a migrated application
+database.
+
 After an authenticated `GET /api/v1/ai/models` request completes its read-only
 User lookup, the endpoint rolls back that same request-scoped session before
 starting catalog discovery. Ending the authentication transaction returns its

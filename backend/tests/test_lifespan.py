@@ -9,6 +9,41 @@ import app.core.lifespan as lifespan_module
 
 
 @pytest.mark.asyncio
+async def test_lifespan_rejects_provisioning_without_database_before_acquisition(
+    monkeypatch,
+):
+    app = FastAPI()
+    detect_hardware = Mock()
+    create_postgres_engine = Mock()
+    provisioning_digest = "a" * 64
+    monkeypatch.setattr(
+        lifespan_module.settings,
+        "USER_PROVISIONING_TOKEN_DIGEST",
+        provisioning_digest,
+    )
+    monkeypatch.setattr(lifespan_module.settings, "DATABASE_URL", None)
+    monkeypatch.setattr(lifespan_module, "detect_hardware", detect_hardware)
+    monkeypatch.setattr(
+        lifespan_module,
+        "create_postgres_engine",
+        create_postgres_engine,
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match=(
+            "DATABASE_URL must be configured when user provisioning is enabled"
+        ),
+    ) as caught:
+        async with lifespan_module.lifespan(app):
+            pytest.fail("lifespan must reject unusable provisioning configuration")
+
+    assert provisioning_digest not in str(caught.value)
+    detect_hardware.assert_not_called()
+    create_postgres_engine.assert_not_called()
+
+
+@pytest.mark.asyncio
 async def test_lifespan_exposes_unconfigured_database_factory(monkeypatch):
     app = FastAPI()
     create_session_factory = Mock(return_value=None)
