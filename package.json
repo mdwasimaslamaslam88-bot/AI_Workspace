@@ -18,6 +18,8 @@
     "check": "./scripts/release_check.sh",
     "check:mobile": "./scripts/mobile_check.sh",
     "check:mobile:native": "./scripts/mobile_check.sh --require-native-android",
+    "check:desktop": "./scripts/desktop_check.sh",
+    "check:desktop:launch": "./scripts/desktop_check.sh --require-launch",
     "security-audit": "./scripts/security_audit.sh",
     "package": "./scripts/desktop_check.sh",
     "package:desktop": "./scripts/desktop_check.sh",

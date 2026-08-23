@@ -45,6 +45,7 @@ npm run lint
 npm run build:web
 npm run build:static --workspace @work-station/mobile
 ./scripts/mobile_check.sh
+./scripts/desktop_check.sh
 ```
 
 Set `WORK_STATION_ANDROID_SDK_ROOT` and add

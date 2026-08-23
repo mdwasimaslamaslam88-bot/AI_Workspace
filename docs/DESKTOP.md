@@ -41,11 +41,16 @@ supported when system development packages cannot be installed.
 
 ```bash
 ./scripts/desktop_check.sh
+npm run check:desktop:launch
 ```
 
 The validated package is written below
 `apps/desktop/src-tauri/target/release/bundle/deb`. Installation of the package
-is a separate owner action.
+is a separate owner action. When an X11 session and `xwininfo` are available,
+the default check also starts the production executable, confirms the expected
+native WORK STATION window without taking a screenshot, and terminates only the
+process it started. `check:desktop:launch` makes that smoke mandatory; use
+`--skip-launch` on a deliberately headless packaging host.
 
 ## Private remote build
 

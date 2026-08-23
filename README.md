@@ -61,6 +61,7 @@ npm test
 npm run build
 npm run package
 npm run check:mobile
+npm run check:desktop
 npm run security-audit
 npm run check
 npm run e2e
@@ -75,6 +76,9 @@ synchronized `HEAD == main == origin/main`. Its equivalent direct form is
 When an Android SDK root is configured, `check` also runs a disposable native
 Android compile. Use `npm run check:mobile:native` to require that gate instead
 of allowing a platform-independent skip.
+On an inspectable X11 session, `check` also launches the packaged Linux desktop
+window without capturing screen content. Use `npm run check:desktop:launch` to
+require that gate.
 
 ## Documentation
 

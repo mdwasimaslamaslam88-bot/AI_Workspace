@@ -13,6 +13,7 @@ backend/.venv/bin/pip install -r backend/requirements.txt
 npm run build:web
 npm run build:static --workspace @work-station/mobile
 ./scripts/desktop_check.sh
+npm run check:desktop:launch
 ```
 
 On an Android build workstation, validate the managed native project without

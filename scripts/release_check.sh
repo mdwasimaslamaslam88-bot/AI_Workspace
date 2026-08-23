@@ -7,12 +7,14 @@ backend_python="${repository_root}/backend/.venv/bin/python"
 with_runtime=false
 require_clean=false
 require_native_android=false
+require_desktop_launch=false
 
 for argument in "$@"; do
   case "${argument}" in
     --with-runtime) with_runtime=true ;;
     --require-clean) require_clean=true ;;
     --require-native-android) require_native_android=true ;;
+    --require-desktop-launch) require_desktop_launch=true ;;
     *) echo "Unknown release option: ${argument}" >&2; exit 2 ;;
   esac
 done
@@ -48,7 +50,11 @@ if [[ "${require_native_android}" == true ]]; then
   mobile_arguments+=(--require-native-android)
 fi
 "${script_directory}/mobile_check.sh" "${mobile_arguments[@]}"
-"${script_directory}/desktop_check.sh"
+desktop_arguments=()
+if [[ "${require_desktop_launch}" == true ]]; then
+  desktop_arguments+=(--require-launch)
+fi
+"${script_directory}/desktop_check.sh" "${desktop_arguments[@]}"
 
 "${script_directory}/verify_service_units.sh"
 "${script_directory}/test_remote_gateway_check.sh"
