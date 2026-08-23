@@ -6,7 +6,7 @@ logic to the backend.
 
 Implemented client contracts include secure session restore/logout, connection
 recovery on network and app resume, conversation creation and text generation,
-keyset-paginated conversation history, bounded owner-wide title/message search,
+keyset-paginated conversation and message history, bounded owner-wide title/message search,
 owner-scoped pin/archive/restore/rename, immutable duplicate/edit-resend/regenerate
 branches, confirmed deletion, owner-scoped RAG source labels/excerpts, owned
 file/image/camera uploads, microphone recording and speech recognition,

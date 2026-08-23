@@ -370,7 +370,7 @@ describe("mobile API client", () => {
     ).resolves.toEqual({ items: [summary], next_cursor: null });
   });
 
-  it("continues normal and private conversation pages with server cursors", async () => {
+  it("continues conversation, search, and message pages with server cursors", async () => {
     const cursor = { updated_at: timestamp, id: conversationId };
     const calls: Array<{ url: URL; method: string; body: unknown }> = [];
     const fetchMock = vi.fn(
@@ -396,6 +396,7 @@ describe("mobile API client", () => {
       cursor_id: cursor.id,
       include_archived: true,
     });
+    await client.listMessagesPage(conversationId, { cursor: 100, limit: 50 });
 
     expect(calls[0]?.method).toBe("GET");
     expect(calls[0]?.url.pathname).toBe("/api/v1/conversations");
@@ -414,6 +415,14 @@ describe("mobile API client", () => {
       cursor_updated_at: timestamp,
       cursor_id: conversationId,
       include_archived: true,
+    });
+    expect(calls[2]?.method).toBe("GET");
+    expect(calls[2]?.url.pathname).toBe(
+      `/api/v1/conversations/${conversationId}/messages`,
+    );
+    expect(Object.fromEntries(calls[2]?.url.searchParams ?? [])).toEqual({
+      limit: "50",
+      cursor: "100",
     });
   });
 

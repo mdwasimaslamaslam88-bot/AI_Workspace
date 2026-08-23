@@ -50,6 +50,14 @@ function mergeConversationSummaries(
   return [...merged.values()];
 }
 
+function mergeMessages(current: Message[], incoming: Message[]): Message[] {
+  const merged = new Map(current.map((message) => [message.id, message]));
+  for (const message of incoming) merged.set(message.id, message);
+  return [...merged.values()].sort(
+    (left, right) => left.sequence_number - right.sequence_number,
+  );
+}
+
 function useThemedStyles() {
   const scheme = useColorScheme();
   return useMemo(() => {
@@ -145,6 +153,8 @@ export default function ChatScreen() {
   const [showArchived, setShowArchived] = useState(false);
   const [conversationTitle, setConversationTitle] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
+  const [messageCursor, setMessageCursor] = useState<number | null>(null);
+  const [loadingMoreMessages, setLoadingMoreMessages] = useState(false);
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
   const [prompt, setPrompt] = useState("");
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
@@ -155,6 +165,8 @@ export default function ChatScreen() {
   const [notice, setNotice] = useState<string | null>(null);
   const generation = useRef<AbortController | null>(null);
   const conversationPageRequest = useRef<AbortController | null>(null);
+  const messagePageRequest = useRef<AbortController | null>(null);
+  const selectedConversation = useRef<ConversationSummary | null>(null);
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const recorderState = useAudioRecorderState(recorder);
   const visibleConversations = [...conversations].sort((left, right) =>
@@ -201,16 +213,64 @@ export default function ChatScreen() {
     signal?: AbortSignal,
   ) => {
     if (client === null) return;
+    messagePageRequest.current?.abort();
+    const controller = new AbortController();
+    const abort = () => controller.abort();
+    if (signal?.aborted) controller.abort();
+    else signal?.addEventListener("abort", abort, { once: true });
+    messagePageRequest.current = controller;
+    selectedConversation.current = conversation;
     setSelected(conversation);
     setConversationTitle(conversation.title ?? "");
     setNotice(null);
     try {
-      setMessages((await client.listMessages(conversation.id, signal)).items);
+      const page = await client.listMessages(conversation.id, controller.signal);
+      if (messagePageRequest.current !== controller) return;
+      setMessages(page.items);
+      setMessageCursor(page.next_cursor);
     } catch (cause) {
       if (cause instanceof MobileApiError && cause.kind === "cancelled") return;
       setNotice(safeError(cause));
+    } finally {
+      signal?.removeEventListener("abort", abort);
+      if (messagePageRequest.current === controller) {
+        messagePageRequest.current = null;
+      }
     }
   }, [client]);
+
+  const loadMoreMessages = useCallback(async () => {
+    if (
+      client === null ||
+      selected === null ||
+      messageCursor === null ||
+      loadingMoreMessages ||
+      busy
+    ) return;
+    messagePageRequest.current?.abort();
+    const controller = new AbortController();
+    messagePageRequest.current = controller;
+    setLoadingMoreMessages(true);
+    setNotice(null);
+    try {
+      const page = await client.listMessagesPage(selected.id, {
+        cursor: messageCursor,
+        limit: 100,
+        signal: controller.signal,
+      });
+      if (messagePageRequest.current !== controller) return;
+      setMessages((current) => mergeMessages(current, page.items));
+      setMessageCursor(page.next_cursor);
+    } catch (cause) {
+      if (cause instanceof MobileApiError && cause.kind === "cancelled") return;
+      setNotice(safeError(cause));
+    } finally {
+      if (messagePageRequest.current === controller) {
+        messagePageRequest.current = null;
+        setLoadingMoreMessages(false);
+      }
+    }
+  }, [busy, client, loadingMoreMessages, messageCursor, selected]);
 
   const loadWorkspace = useCallback(async () => {
     if (client === null) return;
@@ -234,7 +294,7 @@ export default function ChatScreen() {
       );
       setConversations(conversationPage.items);
       setConversationCursor(conversationPage.next_cursor);
-      if (selected === null && conversationPage.items[0]) {
+      if (selectedConversation.current === null && conversationPage.items[0]) {
         await loadMessages(conversationPage.items[0], controller.signal);
       }
     } catch (cause) {
@@ -246,7 +306,7 @@ export default function ChatScreen() {
         setBusy(false);
       }
     }
-  }, [client, listConversationPage, loadMessages, selected]);
+  }, [client, listConversationPage, loadMessages]);
 
   const loadMoreConversations = useCallback(async () => {
     if (
@@ -288,6 +348,17 @@ export default function ChatScreen() {
       conversationPageRequest.current?.abort();
     };
   }, [loadWorkspace, state]);
+
+  useEffect(
+    () => () => {
+      messagePageRequest.current?.abort();
+    },
+    [],
+  );
+
+  useEffect(() => {
+    selectedConversation.current = selected;
+  }, [selected]);
 
   if (state !== "connected" || client === null) return <ConnectScreen />;
   const connectedClient = client;
@@ -392,6 +463,7 @@ export default function ChatScreen() {
         setConversationTitle(created.title ?? "");
         setConversations((current) => [created, ...current]);
         setMessages([created.initial_message]);
+        setMessageCursor(null);
         await connectedClient.generate(created.id, { model_id: selectedModel }, controller.signal);
       } else {
         await connectedClient.generate(
@@ -400,7 +472,9 @@ export default function ChatScreen() {
           controller.signal,
         );
       }
-      setMessages((await connectedClient.listMessages(conversation.id)).items);
+      const messagePage = await connectedClient.listMessages(conversation.id);
+      setMessages(messagePage.items);
+      setMessageCursor(messagePage.next_cursor);
       const conversationPage = await listConversationPage(connectedClient);
       setConversations(conversationPage.items);
       setConversationCursor(conversationPage.next_cursor);
@@ -452,6 +526,7 @@ export default function ChatScreen() {
       setSelected(fork);
       setConversationTitle(fork.title ?? "");
       setMessages(page.items);
+      setMessageCursor(page.next_cursor);
       setConversations((current) => [
         fork,
         ...current.filter((item) => item.id !== fork.id),
@@ -486,7 +561,9 @@ export default function ChatScreen() {
       );
       setSelected(fork);
       setConversationTitle(fork.title ?? "");
-      setMessages((await connectedClient.listMessages(fork.id, controller.signal)).items);
+      const forkPage = await connectedClient.listMessages(fork.id, controller.signal);
+      setMessages(forkPage.items);
+      setMessageCursor(forkPage.next_cursor);
       setEditingMessageId(null);
       setEditedMessageContent("");
       await connectedClient.generate(
@@ -494,7 +571,9 @@ export default function ChatScreen() {
         { model_id: selectedModel },
         controller.signal,
       );
-      setMessages((await connectedClient.listMessages(fork.id, controller.signal)).items);
+      const generatedPage = await connectedClient.listMessages(fork.id, controller.signal);
+      setMessages(generatedPage.items);
+      setMessageCursor(generatedPage.next_cursor);
       const conversationPage = await listConversationPage(connectedClient);
       setConversations(conversationPage.items);
       setConversationCursor(conversationPage.next_cursor);
@@ -518,6 +597,7 @@ export default function ChatScreen() {
         setSelected(null);
         setConversationTitle("");
         setMessages([]);
+        setMessageCursor(null);
       } else {
         setSelected(updated);
         setConversations((current) => current.map((item) => item.id === updated.id ? updated : item));
@@ -551,6 +631,7 @@ export default function ChatScreen() {
                 setSelected(null);
                 setConversationTitle("");
                 setMessages([]);
+                setMessageCursor(null);
               })
               .catch((cause) => setNotice(safeError(cause)))
               .finally(() => setBusy(false));
@@ -586,12 +667,23 @@ export default function ChatScreen() {
         <Text style={styles.link}>{showArchived ? "✓ " : ""}Show archived</Text>
       </Pressable>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
-        <Pressable style={styles.newChip} onPress={() => { setSelected(null); setConversationTitle(""); setMessages([]); }}>
+        <Pressable
+          disabled={busy}
+          style={styles.newChip}
+          onPress={() => {
+            messagePageRequest.current?.abort();
+            setSelected(null);
+            setConversationTitle("");
+            setMessages([]);
+            setMessageCursor(null);
+          }}
+        >
           <Text style={styles.primaryButtonText}>＋ New chat</Text>
         </Pressable>
         {visibleConversations.map((conversation) => (
           <Pressable
             key={conversation.id}
+            disabled={busy}
             style={[styles.chip, selected?.id === conversation.id && styles.chipSelected]}
             onPress={() => void loadMessages(conversation)}
           >
@@ -687,6 +779,18 @@ export default function ChatScreen() {
         data={messages}
         keyExtractor={(item) => String(item.id)}
         ListEmptyComponent={<Text style={styles.empty}>Start a private conversation with your Personal AI.</Text>}
+        ListFooterComponent={messageCursor === null ? null : (
+          <Pressable
+            accessibilityRole="button"
+            disabled={loadingMoreMessages || busy}
+            style={styles.loadMoreMessages}
+            onPress={() => void loadMoreMessages()}
+          >
+            <Text style={styles.link}>
+              {loadingMoreMessages ? "Loading…" : "Load more messages"}
+            </Text>
+          </Pressable>
+        )}
         renderItem={({ item, index }) => {
           const previousMessage = messages[index - 1];
           const editable = item.role === "user" && item.attachments.length === 0;
@@ -877,6 +981,7 @@ function createStyles(colors: WorkStationColors) {
   messageRole: { color: colors.muted, fontSize: 10, fontWeight: "900", textTransform: "uppercase", marginBottom: 5 },
   messageText: { color: colors.text, fontSize: 15, lineHeight: 22 },
   attachmentMeta: { color: colors.muted, fontSize: 11, marginTop: 8 },
+  loadMoreMessages: { minHeight: 48, alignItems: "center", justifyContent: "center" },
   citationList: { gap: 7, marginTop: 8, borderTopColor: colors.line, borderTopWidth: 1, paddingTop: 8 },
   citationHeading: { color: colors.text, fontSize: 12, fontWeight: "900" },
   citation: { gap: 3 },

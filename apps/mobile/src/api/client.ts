@@ -491,10 +491,19 @@ export class MobileApiClient {
   }
 
   listMessages(id: string, signal?: AbortSignal): Promise<MessagePage> {
+    return this.listMessagesPage(id, { signal });
+  }
+
+  listMessagesPage(
+    id: string,
+    options: { cursor?: number; limit?: number; signal?: AbortSignal } = {},
+  ): Promise<MessagePage> {
+    const query = new URLSearchParams({ limit: String(options.limit ?? 100) });
+    if (options.cursor !== undefined) query.set("cursor", String(options.cursor));
     return this.#request(
-      `api/v1/conversations/${encodeURIComponent(id)}/messages?limit=100`,
+      `api/v1/conversations/${encodeURIComponent(id)}/messages?${query.toString()}`,
       parseMessagePage,
-      { signal },
+      { signal: options.signal },
     );
   }
 
