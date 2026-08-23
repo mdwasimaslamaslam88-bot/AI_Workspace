@@ -75,6 +75,11 @@ operator/path leakage, desktop CSP scope, Python dependencies, and npm
 high/critical advisories. Manual review must still inspect authorization,
 transactions, upload parsing, lifecycle cleanup, and exact staged changes.
 
+Database integration and real runtime smoke runners fail before cleanup unless
+the protected application and disposable test URLs identify different
+databases. Runtime scripts then select only `127.0.0.1/ai_workspace_test` in
+their own process; a username change alone cannot bypass the identity check.
+
 ## Residual external risks
 
 Owner devices and the Tailscale account must use strong OS authentication and

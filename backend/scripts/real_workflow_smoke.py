@@ -9,11 +9,11 @@ from typing import Any
 
 from fastapi.testclient import TestClient
 from sqlalchemy import text
-from sqlalchemy.engine import make_url
 
 from app.clients.postgres import create_postgres_engine, dispose_postgres
 from app.core.config import settings
 from app.main import app
+from scripts.runtime_smoke_safety import select_disposable_runtime_database
 
 
 _MEMORY = "My private workflow marker is Quiet Juniper."
@@ -21,14 +21,7 @@ _TERMINAL = {"completed", "failed", "cancelled", "timed_out"}
 
 
 def _require_disposable_database() -> None:
-    if settings.DATABASE_URL is None and settings.TEST_DATABASE_URL is not None:
-        settings.DATABASE_URL = settings.TEST_DATABASE_URL
-    database_url = settings.DATABASE_URL
-    if database_url is None:
-        raise RuntimeError("DATABASE_URL must select the disposable test database")
-    parsed = make_url(str(database_url))
-    if parsed.host != "127.0.0.1" or parsed.database != "ai_workspace_test":
-        raise RuntimeError("workflow smoke is restricted to the disposable test DB")
+    select_disposable_runtime_database(settings)
 
 
 async def _clean_disposable_database() -> None:

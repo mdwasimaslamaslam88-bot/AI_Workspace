@@ -48,7 +48,9 @@ npm run build:static --workspace @work-station/mobile
 The PostgreSQL runner refuses any host except `127.0.0.1` and any database name
 except `ai_workspace_test`. It also refuses to run unless `DATABASE_URL` points
 to a different application database. Real runtime scripts apply the disposable
-test database restriction.
+test database restriction before cleanup: both URLs must exist, their
+host/port/database identities must differ, and only the approved loopback test
+URL is selected inside the smoke process.
 
 If both URLs currently identify `ai_workspace_test`, a PostgreSQL administrator
 must create a separate application database once. For example, substitute the

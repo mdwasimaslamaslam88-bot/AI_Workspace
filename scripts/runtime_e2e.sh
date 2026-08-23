@@ -7,13 +7,13 @@ backend_python="${repository_root}/backend/.venv/bin/python"
 
 cd "${repository_root}/backend"
 for smoke in \
-  real_vision_smoke.py \
-  real_rag_smoke.py \
-  real_memory_smoke.py \
-  real_image_smoke.py \
-  real_voice_smoke.py \
-  real_tools_smoke.py \
-  real_workflow_smoke.py; do
-  "${backend_python}" "scripts/${smoke}"
+  scripts.real_vision_smoke \
+  scripts.real_rag_smoke \
+  scripts.real_memory_smoke \
+  scripts.real_image_smoke \
+  scripts.real_voice_smoke \
+  scripts.real_tools_smoke \
+  scripts.real_workflow_smoke; do
+  "${backend_python}" -m "${smoke}"
 done
 echo "real runtime E2E: vision, RAG, memory, image, voice, tools, and workflows passed"
