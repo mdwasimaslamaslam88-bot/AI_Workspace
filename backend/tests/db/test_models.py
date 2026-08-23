@@ -3,6 +3,7 @@ from uuid import UUID
 import pytest
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     CheckConstraint,
     DateTime,
     Enum,
@@ -144,6 +145,8 @@ def test_conversation_columns_constraints_and_owner_foreign_key():
         "owner_id",
         "title",
         "next_message_sequence",
+        "is_pinned",
+        "is_archived",
         "created_at",
         "updated_at",
     }
@@ -166,6 +169,14 @@ def test_conversation_columns_constraints_and_owner_foreign_key():
     assert isinstance(next_sequence.type, BigInteger)
     assert next_sequence.nullable is False
     assert str(next_sequence.server_default.arg) == "1"
+
+    for state_column_name in ("is_pinned", "is_archived"):
+        state_column = table.c[state_column_name]
+        assert isinstance(state_column.type, Boolean)
+        assert state_column.nullable is False
+        assert state_column.default is not None
+        assert state_column.default.arg is False
+        assert state_column.server_default is None
 
     checks = _check_constraints(table)
     assert checks["ck_conversations_title_non_blank"] == (
@@ -195,6 +206,25 @@ def test_conversation_owner_pagination_index_has_expected_order():
     assert ddl == (
         "CREATE INDEX ix_conversations_owner_updated_at_id "
         "ON conversations (owner_id, updated_at DESC, id DESC)"
+    )
+
+    organization_index = next(
+        candidate
+        for candidate in table.indexes
+        if candidate.name == "ix_conversations_owner_archived_updated_at_id"
+    )
+    assert list(organization_index.columns.keys()) == [
+        "owner_id",
+        "is_archived",
+        "updated_at",
+        "id",
+    ]
+    organization_ddl = str(
+        CreateIndex(organization_index).compile(dialect=postgresql.dialect())
+    )
+    assert organization_ddl == (
+        "CREATE INDEX ix_conversations_owner_archived_updated_at_id "
+        "ON conversations (owner_id, is_archived, updated_at DESC, id DESC)"
     )
 
 

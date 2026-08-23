@@ -50,6 +50,8 @@ def conversation_api(monkeypatch):
         id=uuid4(),
         owner_id=current_user.id,
         title="  Exact title  ",
+        is_pinned=False,
+        is_archived=False,
         created_at=datetime(2026, 8, 11, 9, 0, tzinfo=timezone.utc),
         updated_at=datetime(2026, 8, 11, 9, 1, tzinfo=timezone.utc),
     )
@@ -74,6 +76,7 @@ def conversation_api(monkeypatch):
     create = AsyncMock(return_value=(conversation, initial_message))
     get_conversation = AsyncMock(return_value=conversation)
     rename_conversation = AsyncMock(return_value=conversation)
+    set_conversation_state = AsyncMock(return_value=conversation)
     delete_conversation = AsyncMock(return_value=True)
     list_conversations = AsyncMock(
         return_value=ConversationPage(items=(conversation,), next_cursor=None)
@@ -84,6 +87,7 @@ def conversation_api(monkeypatch):
         get_for_owner=get_conversation,
         list_for_owner=list_conversations,
         rename_for_owner=rename_conversation,
+        set_state_for_owner=set_conversation_state,
     )
     service_factory = Mock(return_value=service)
     monkeypatch.setattr(
@@ -131,6 +135,7 @@ def conversation_api(monkeypatch):
                 "delete_conversation": delete_conversation,
                 "get_conversation": get_conversation,
                 "rename_conversation": rename_conversation,
+                "set_conversation_state": set_conversation_state,
                 "list_conversations": list_conversations,
                 "message_service_factory": message_service_factory,
                 "append": append,
@@ -155,6 +160,8 @@ def test_list_conversations_returns_200_with_exact_safe_default_page(
             {
                 "id": str(conversation.id),
                 "title": "  Exact title  ",
+                "is_pinned": False,
+                "is_archived": False,
                 "created_at": "2026-08-11T09:00:00Z",
                 "updated_at": "2026-08-11T09:01:00Z",
             }
@@ -185,6 +192,8 @@ def test_list_conversations_reuses_composite_cursor_without_duplicates(
         id=UUID("ffffffff-ffff-ffff-ffff-ffffffffffff"),
         owner_id=api["current_user"].id,
         title="Newer",
+        is_pinned=False,
+        is_archived=False,
         created_at=datetime(2026, 8, 11, 9, 0, tzinfo=timezone.utc),
         updated_at=datetime(2026, 8, 11, 10, 0, tzinfo=timezone.utc),
     )
@@ -192,6 +201,8 @@ def test_list_conversations_reuses_composite_cursor_without_duplicates(
         id=UUID("11111111-1111-1111-1111-111111111111"),
         owner_id=api["current_user"].id,
         title="Older",
+        is_pinned=False,
+        is_archived=False,
         created_at=datetime(2026, 8, 10, 9, 0, tzinfo=timezone.utc),
         updated_at=datetime(2026, 8, 10, 10, 0, tzinfo=timezone.utc),
     )
@@ -238,6 +249,24 @@ def test_list_conversations_reuses_composite_cursor_without_duplicates(
     )
 
 
+def test_list_conversations_can_explicitly_include_archived(conversation_api):
+    api = conversation_api
+
+    response = api["client"].get(
+        "/api/v1/conversations",
+        params={"include_archived": "true"},
+    )
+
+    assert response.status_code == 200
+    api["list_conversations"].assert_awaited_once_with(
+        api["current_user"].id,
+        ConversationPagination(
+            limit=DEFAULT_CONVERSATION_PAGE_SIZE,
+            include_archived=True,
+        ),
+    )
+
+
 def test_list_conversations_preserves_equal_timestamp_uuid_descending_order(
     conversation_api,
 ):
@@ -247,6 +276,8 @@ def test_list_conversations_preserves_equal_timestamp_uuid_descending_order(
         id=UUID("ffffffff-ffff-ffff-ffff-ffffffffffff"),
         owner_id=api["current_user"].id,
         title="Higher UUID",
+        is_pinned=False,
+        is_archived=False,
         created_at=shared_updated_at,
         updated_at=shared_updated_at,
     )
@@ -254,6 +285,8 @@ def test_list_conversations_preserves_equal_timestamp_uuid_descending_order(
         id=UUID("11111111-1111-1111-1111-111111111111"),
         owner_id=api["current_user"].id,
         title="Lower UUID",
+        is_pinned=False,
+        is_archived=False,
         created_at=shared_updated_at,
         updated_at=shared_updated_at,
     )
@@ -282,6 +315,8 @@ def test_list_conversations_uses_each_current_user_and_returns_empty_new_user(
         id=uuid4(),
         owner_id=second_user_id,
         title="Second owner",
+        is_pinned=False,
+        is_archived=False,
         created_at=datetime(2026, 8, 11, 11, 0, tzinfo=timezone.utc),
         updated_at=datetime(2026, 8, 11, 11, 0, tzinfo=timezone.utc),
     )
@@ -503,10 +538,19 @@ def test_get_conversation_returns_exact_safe_owned_response(
     assert response.json() == {
         "id": str(api["conversation"].id),
         "title": expected_title,
+        "is_pinned": False,
+        "is_archived": False,
         "created_at": "2026-08-11T09:00:00Z",
         "updated_at": "2026-08-11T09:01:00Z",
     }
-    assert set(response.json()) == {"id", "title", "created_at", "updated_at"}
+    assert set(response.json()) == {
+        "id",
+        "title",
+        "is_pinned",
+        "is_archived",
+        "created_at",
+        "updated_at",
+    }
     response_text = response.text.lower()
     assert "owner_id" not in response_text
     assert "next_message_sequence" not in response_text
@@ -684,10 +728,19 @@ def test_rename_conversation_returns_exact_safe_owned_response(
     assert response.json() == {
         "id": str(api["conversation"].id),
         "title": title,
+        "is_pinned": False,
+        "is_archived": False,
         "created_at": "2026-08-11T09:00:00Z",
         "updated_at": "2026-08-11T09:01:00Z",
     }
-    assert set(response.json()) == {"id", "title", "created_at", "updated_at"}
+    assert set(response.json()) == {
+        "id",
+        "title",
+        "is_pinned",
+        "is_archived",
+        "created_at",
+        "updated_at",
+    }
     response_text = response.text.lower()
     assert "owner_id" not in response_text
     assert "next_message_sequence" not in response_text
@@ -704,6 +757,77 @@ def test_rename_conversation_returns_exact_safe_owned_response(
     api["session"].refresh.assert_not_awaited()
     api["session"].commit.assert_not_awaited()
     api["session"].rollback.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    ("body", "expected_pinned", "expected_archived"),
+    [
+        ({"is_pinned": True}, True, False),
+        ({"is_archived": True}, False, True),
+        ({"is_pinned": False, "is_archived": False}, False, False),
+    ],
+)
+def test_update_conversation_state_is_owner_scoped_and_exact(
+    conversation_api,
+    body,
+    expected_pinned,
+    expected_archived,
+):
+    api = conversation_api
+    api["conversation"].is_pinned = expected_pinned
+    api["conversation"].is_archived = expected_archived
+
+    response = api["client"].patch(
+        f"/api/v1/conversations/{api['conversation'].id}/state",
+        json=body,
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "id": str(api["conversation"].id),
+        "title": api["conversation"].title,
+        "is_pinned": expected_pinned,
+        "is_archived": expected_archived,
+        "created_at": "2026-08-11T09:00:00Z",
+        "updated_at": "2026-08-11T09:01:00Z",
+    }
+    api["set_conversation_state"].assert_awaited_once_with(
+        api["current_user"].id,
+        api["conversation"].id,
+        is_pinned=body.get("is_pinned"),
+        is_archived=body.get("is_archived"),
+    )
+
+
+@pytest.mark.parametrize("body", [{}, {"is_pinned": None}, {"owner_id": "private"}])
+def test_update_conversation_state_rejects_invalid_body_before_service(
+    conversation_api,
+    body,
+):
+    api = conversation_api
+
+    response = api["client"].patch(
+        f"/api/v1/conversations/{api['conversation'].id}/state",
+        json=body,
+    )
+
+    assert response.status_code == 422
+    api["set_conversation_state"].assert_not_awaited()
+
+
+def test_update_conversation_state_returns_owner_scoped_404(conversation_api):
+    api = conversation_api
+    api["set_conversation_state"].return_value = None
+
+    response = api["client"].patch(
+        f"/api/v1/conversations/{uuid4()}/state",
+        json={"is_archived": True},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["error"]["message"] == "Conversation not found"
+    assert "owner_id" not in response.text
+    assert "credential" not in response.text
 
 
 @pytest.mark.parametrize("identity_field", ["owner_id", "user_id"])
@@ -1134,6 +1258,8 @@ def test_create_conversation_returns_201_with_exact_safe_response(conversation_a
     assert response.json() == {
         "id": str(conversation.id),
         "title": "  Exact title  ",
+        "is_pinned": False,
+        "is_archived": False,
         "created_at": "2026-08-11T09:00:00Z",
         "updated_at": "2026-08-11T09:01:00Z",
         "initial_message": {
@@ -1210,6 +1336,8 @@ def test_create_conversation_persists_exact_optional_system_prompt(
     assert set(payload) == {
         "id",
         "title",
+        "is_pinned",
+        "is_archived",
         "created_at",
         "updated_at",
         "initial_message",

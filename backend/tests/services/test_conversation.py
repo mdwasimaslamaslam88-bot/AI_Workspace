@@ -445,6 +445,50 @@ async def test_successful_rename_orders_execute_commit():
 
 
 @pytest.mark.asyncio
+async def test_successful_state_update_orders_execute_commit():
+    events: list[str] = []
+    updated = Conversation(id=uuid4(), owner_id=uuid4(), title="Organized")
+    session = _service_session(scalar=updated)
+    result = session.execute.return_value
+
+    async def execute(_statement):
+        events.append("execute")
+        return result
+
+    async def commit():
+        events.append("commit")
+
+    session.execute.side_effect = execute
+    session.commit.side_effect = commit
+
+    conversation = await ConversationService(session).set_state_for_owner(
+        updated.owner_id,
+        updated.id,
+        is_pinned=True,
+    )
+
+    assert conversation is updated
+    assert events == ["execute", "commit"]
+    session.commit.assert_awaited_once_with()
+    session.rollback.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_missing_state_update_rolls_back_without_commit():
+    session = _service_session(scalar=None)
+
+    conversation = await ConversationService(session).set_state_for_owner(
+        uuid4(),
+        uuid4(),
+        is_archived=True,
+    )
+
+    assert conversation is None
+    session.rollback.assert_awaited_once_with()
+    session.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_successful_delete_orders_execute_commit():
     events: list[str] = []
     conversation_id = uuid4()

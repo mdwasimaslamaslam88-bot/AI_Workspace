@@ -96,6 +96,39 @@ describe("ApiClient", () => {
     expect(fetchImplementation).toHaveBeenCalledOnce();
   });
 
+  it("lists archived conversations only when requested and updates owner state", async () => {
+    const calls: Array<{ url: string; method: string; body: unknown }> = [];
+    const fetchImplementation = vi.fn(async (input: URL | RequestInfo, init?: RequestInit) => {
+      calls.push({
+        url: input.toString(),
+        method: init?.method ?? "GET",
+        body: init?.body ? JSON.parse(String(init.body)) : undefined,
+      });
+      return input.toString().includes("include_archived")
+        ? jsonResponse({ items: [conversation], next_cursor: null })
+        : jsonResponse({ ...conversation, is_pinned: true });
+    });
+    const client = new ApiClient(token, {
+      fetchImplementation: fetchImplementation as typeof fetch,
+    });
+
+    await client.listConversations({ includeArchived: true });
+    await client.updateConversationState(conversation.id, { is_pinned: true });
+
+    expect(calls).toEqual([
+      {
+        url: "http://127.0.0.1:8000/api/v1/conversations?include_archived=true",
+        method: "GET",
+        body: undefined,
+      },
+      {
+        url: `http://127.0.0.1:8000/api/v1/conversations/${conversation.id}/state`,
+        method: "PATCH",
+        body: { is_pinned: true },
+      },
+    ]);
+  });
+
   it("uses the exact create, message, and generation contracts", async () => {
     const calls: Array<{ url: string; body: unknown }> = [];
     const fetchImplementation = vi.fn(async (input: URL | RequestInfo, init?: RequestInit) => {

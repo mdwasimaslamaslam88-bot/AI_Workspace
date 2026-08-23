@@ -352,6 +352,16 @@ textarea {
   padding: 0.68rem 0.75rem;
 }
 
+.conversation-archive-toggle {
+  display: flex;
+  min-height: 2.75rem;
+  align-items: center;
+  gap: 0.55rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
 .conversation-list,
 .message-list {
   margin: 0;

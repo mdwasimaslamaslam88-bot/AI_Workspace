@@ -1,4 +1,4 @@
-import type { Asset, ConversationSummary, LocalModel, Message } from "@work-station/shared";
+import type { Asset, ConversationStateUpdateRequest, ConversationSummary, LocalModel, Message } from "@work-station/shared";
 import {
   AudioModule,
   RecordingPresets,
@@ -130,6 +130,7 @@ export default function ChatScreen() {
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [selected, setSelected] = useState<ConversationSummary | null>(null);
   const [conversationQuery, setConversationQuery] = useState("");
+  const [showArchived, setShowArchived] = useState(false);
   const [conversationTitle, setConversationTitle] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
@@ -143,9 +144,14 @@ export default function ChatScreen() {
   const recorderState = useAudioRecorderState(recorder);
   const visibleConversations = useMemo(() => {
     const query = conversationQuery.trim().toLocaleLowerCase();
-    if (query.length === 0) return conversations;
-    return conversations.filter((conversation) =>
-      (conversation.title ?? "Conversation").toLocaleLowerCase().includes(query),
+    const filtered = query.length === 0
+      ? conversations
+      : conversations.filter((conversation) =>
+          (conversation.title ?? "Conversation").toLocaleLowerCase().includes(query),
+        );
+    return [...filtered].sort((left, right) =>
+      Number(left.is_archived) - Number(right.is_archived) ||
+      Number(right.is_pinned) - Number(left.is_pinned),
     );
   }, [conversationQuery, conversations]);
 
@@ -168,7 +174,7 @@ export default function ChatScreen() {
     try {
       const [modelPage, conversationPage] = await Promise.all([
         client.listModels(),
-        client.listConversations(),
+        client.listConversations({ includeArchived: showArchived }),
       ]);
       const available = modelPage.items.filter(modelCanChat);
       setModels(modelPage.items);
@@ -186,7 +192,7 @@ export default function ChatScreen() {
     } finally {
       setBusy(false);
     }
-  }, [client, loadMessages, selected]);
+  }, [client, loadMessages, selected, showArchived]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -307,7 +313,7 @@ export default function ChatScreen() {
         );
       }
       setMessages((await connectedClient.listMessages(conversation.id)).items);
-      setConversations((await connectedClient.listConversations()).items);
+      setConversations((await connectedClient.listConversations({ includeArchived: showArchived })).items);
     } catch (cause) {
       setNotice(safeError(cause));
       if (selected !== null) await loadMessages(selected);
@@ -334,6 +340,28 @@ export default function ChatScreen() {
           conversation.id === renamed.id ? renamed : conversation,
         ),
       );
+    } catch (cause) {
+      setNotice(safeError(cause));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function updateSelectedState(stateUpdate: ConversationStateUpdateRequest) {
+    if (selected === null || busy) return;
+    setBusy(true);
+    setNotice(null);
+    try {
+      const updated = await connectedClient.updateConversationState(selected.id, stateUpdate);
+      if (updated.is_archived && !showArchived) {
+        setConversations((current) => current.filter((item) => item.id !== updated.id));
+        setSelected(null);
+        setConversationTitle("");
+        setMessages([]);
+      } else {
+        setSelected(updated);
+        setConversations((current) => current.map((item) => item.id === updated.id ? updated : item));
+      }
     } catch (cause) {
       setNotice(safeError(cause));
     } finally {
@@ -389,6 +417,14 @@ export default function ChatScreen() {
         placeholderTextColor={colors.subtle}
         style={styles.searchInput}
       />
+      <Pressable
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked: showArchived }}
+        style={styles.archiveToggle}
+        onPress={() => setShowArchived((current) => !current)}
+      >
+        <Text style={styles.link}>{showArchived ? "✓ " : ""}Show archived</Text>
+      </Pressable>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
         <Pressable style={styles.newChip} onPress={() => { setSelected(null); setConversationTitle(""); setMessages([]); }}>
           <Text style={styles.primaryButtonText}>＋ New chat</Text>
@@ -399,7 +435,9 @@ export default function ChatScreen() {
             style={[styles.chip, selected?.id === conversation.id && styles.chipSelected]}
             onPress={() => void loadMessages(conversation)}
           >
-            <Text numberOfLines={1} style={styles.chipText}>{conversation.title ?? "Conversation"}</Text>
+            <Text numberOfLines={1} style={styles.chipText}>
+              {conversation.is_pinned ? "★ " : ""}{conversation.title ?? "Conversation"}{conversation.is_archived ? " · archived" : ""}
+            </Text>
           </Pressable>
         ))}
       </ScrollView>
@@ -421,6 +459,24 @@ export default function ChatScreen() {
             onPress={() => void renameSelected()}
           >
             <Text style={styles.link}>Save title</Text>
+          </Pressable>
+          {!selected.is_archived && (
+            <Pressable
+              accessibilityRole="button"
+              disabled={busy}
+              style={styles.manageButton}
+              onPress={() => void updateSelectedState({ is_pinned: !selected.is_pinned })}
+            >
+              <Text style={styles.link}>{selected.is_pinned ? "Unpin" : "Pin"}</Text>
+            </Pressable>
+          )}
+          <Pressable
+            accessibilityRole="button"
+            disabled={busy}
+            style={styles.manageButton}
+            onPress={() => void updateSelectedState({ is_archived: !selected.is_archived })}
+          >
+            <Text style={styles.link}>{selected.is_archived ? "Restore" : "Archive"}</Text>
           </Pressable>
           <Pressable
             accessibilityRole="button"
@@ -529,6 +585,7 @@ function createStyles(colors: WorkStationColors) {
   connectedDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.accent },
   connectionText: { flex: 1, color: colors.accent, fontSize: 12, fontWeight: "800" },
   searchInput: { minHeight: 44, marginHorizontal: 12, marginTop: 8, color: colors.text, backgroundColor: colors.raised, borderColor: colors.line, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12 },
+  archiveToggle: { minHeight: 44, alignSelf: "flex-start", justifyContent: "center", marginLeft: 12 },
   link: { color: colors.accent, fontWeight: "800", paddingVertical: 8, paddingHorizontal: 4 },
   recording: { color: colors.danger, fontWeight: "900", paddingVertical: 8, paddingHorizontal: 4 },
   chipRow: { minHeight: 52, alignItems: "center", gap: 8, paddingHorizontal: 12 },
@@ -539,7 +596,7 @@ function createStyles(colors: WorkStationColors) {
   modelRow: { minHeight: 44, alignItems: "center", gap: 7, paddingHorizontal: 12, borderBottomColor: colors.line, borderBottomWidth: 1 },
   modelChip: { borderColor: colors.line, borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 },
   modelSelected: { borderColor: colors.accent, backgroundColor: colors.accentSoft },
-  conversationManager: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingBottom: 8, borderBottomColor: colors.line, borderBottomWidth: 1 },
+  conversationManager: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingBottom: 8, borderBottomColor: colors.line, borderBottomWidth: 1 },
   titleInput: { flex: 1, minHeight: 42, color: colors.text, backgroundColor: colors.raised, borderColor: colors.line, borderWidth: 1, borderRadius: 10, paddingHorizontal: 10 },
   manageButton: { minHeight: 42, justifyContent: "center" },
   messageList: { flex: 1 },

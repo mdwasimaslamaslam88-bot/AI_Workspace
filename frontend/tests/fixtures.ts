@@ -111,6 +111,8 @@ export const systemDiagnostics: SystemDiagnostics = {
 export const conversation: ConversationSummary = {
   id: "22222222-2222-4222-8222-222222222222",
   title: "Local chat",
+  is_pinned: false,
+  is_archived: false,
   created_at: "2026-01-02T00:00:00Z",
   updated_at: "2026-01-02T00:00:00Z",
 };

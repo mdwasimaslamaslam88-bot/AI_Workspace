@@ -5,6 +5,7 @@ import {
   type ConversationCreateResponse,
   type ConversationPage,
   type ConversationRenameRequest,
+  type ConversationStateUpdateRequest,
   type ConversationSummary,
   type ConversationTextGenerationRequest,
   type ConversationTextGenerationResponse,
@@ -344,8 +345,16 @@ export class MobileApiClient {
     );
   }
 
-  listConversations(signal?: AbortSignal): Promise<ConversationPage> {
-    return this.#request("api/v1/conversations?limit=50", parseConversationPage, { signal });
+  listConversations(
+    options: { includeArchived?: boolean; signal?: AbortSignal } = {},
+  ): Promise<ConversationPage> {
+    const query = new URLSearchParams({ limit: "50" });
+    if (options.includeArchived !== undefined) {
+      query.set("include_archived", String(options.includeArchived));
+    }
+    return this.#request(`api/v1/conversations?${query.toString()}`, parseConversationPage, {
+      signal: options.signal,
+    });
   }
 
   getConversation(id: string, signal?: AbortSignal): Promise<ConversationSummary> {
@@ -359,6 +368,18 @@ export class MobileApiClient {
   ): Promise<ConversationSummary> {
     return this.#request(
       `api/v1/conversations/${encodeURIComponent(id)}`,
+      parseConversation,
+      { method: "PATCH", body: request, signal },
+    );
+  }
+
+  updateConversationState(
+    id: string,
+    request: ConversationStateUpdateRequest,
+    signal?: AbortSignal,
+  ): Promise<ConversationSummary> {
+    return this.#request(
+      `api/v1/conversations/${encodeURIComponent(id)}/state`,
       parseConversation,
       { method: "PATCH", body: request, signal },
     );

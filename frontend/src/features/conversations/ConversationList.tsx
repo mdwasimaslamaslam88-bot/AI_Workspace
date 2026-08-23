@@ -1,5 +1,6 @@
 import type {
   ConversationCursor,
+  ConversationStateUpdateRequest,
   ConversationSummary,
 } from "../../api/contracts";
 import { useMemo, useState } from "react";
@@ -12,11 +13,17 @@ interface ConversationListProps {
   loading: boolean;
   loadingMore: boolean;
   error: string | null;
+  showArchived: boolean;
   disabled?: boolean;
   onCreate: () => void;
   onSelect: (conversation: ConversationSummary) => void;
   onRename: (conversationId: string, title: string | null) => Promise<void>;
+  onUpdateState: (
+    conversationId: string,
+    state: ConversationStateUpdateRequest,
+  ) => Promise<void>;
   onDelete: (conversationId: string) => Promise<void>;
+  onShowArchivedChange: (value: boolean) => void;
   onReload: () => void;
   onLoadMore: () => void;
   onLogout: () => void;
@@ -41,11 +48,14 @@ export function ConversationList({
   loading,
   loadingMore,
   error,
+  showArchived,
   disabled = false,
   onCreate,
   onSelect,
   onRename,
+  onUpdateState,
   onDelete,
+  onShowArchivedChange,
   onReload,
   onLoadMore,
   onLogout,
@@ -57,9 +67,14 @@ export function ConversationList({
   const [mutationError, setMutationError] = useState<string | null>(null);
   const visibleConversations = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase();
-    if (normalized.length === 0) return conversations;
-    return conversations.filter((conversation) =>
-      conversationName(conversation).toLocaleLowerCase().includes(normalized),
+    const filtered = normalized.length === 0
+      ? conversations
+      : conversations.filter((conversation) =>
+          conversationName(conversation).toLocaleLowerCase().includes(normalized),
+        );
+    return [...filtered].sort((left, right) =>
+      Number(left.is_archived) - Number(right.is_archived) ||
+      Number(right.is_pinned) - Number(left.is_pinned),
     );
   }, [conversations, query]);
 
@@ -89,6 +104,21 @@ export function ConversationList({
       if (editingId === conversation.id) setEditingId(null);
     } catch {
       setMutationError("The conversation could not be deleted.");
+    } finally {
+      setMutationId(null);
+    }
+  }
+
+  async function updateState(
+    conversation: ConversationSummary,
+    state: ConversationStateUpdateRequest,
+  ) {
+    setMutationId(conversation.id);
+    setMutationError(null);
+    try {
+      await onUpdateState(conversation.id, state);
+    } catch {
+      setMutationError("The conversation organization could not be updated.");
     } finally {
       setMutationId(null);
     }
@@ -124,6 +154,14 @@ export function ConversationList({
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Search conversations"
         />
+      </label>
+      <label className="conversation-archive-toggle">
+        <input
+          type="checkbox"
+          checked={showArchived}
+          onChange={(event) => onShowArchivedChange(event.target.checked)}
+        />
+        <span>Show archived</span>
       </label>
 
       <nav className="conversation-nav" aria-label="Conversations">
@@ -189,10 +227,34 @@ export function ConversationList({
                     disabled={disabled || mutationId !== null}
                   >
                     <strong>{conversationName(conversation)}</strong>
-                    <span>{formatUpdatedAt(conversation.updated_at)}</span>
+                    <span>
+                      {conversation.is_pinned ? "Pinned · " : ""}
+                      {conversation.is_archived ? "Archived · " : ""}
+                      {formatUpdatedAt(conversation.updated_at)}
+                    </span>
                   </button>
                 )}
                 <div className="conversation-actions">
+                  {!conversation.is_archived && (
+                    <button
+                      type="button"
+                      className="button button-quiet"
+                      aria-label={conversation.is_pinned ? "Unpin conversation" : "Pin conversation"}
+                      disabled={disabled || mutationId !== null}
+                      onClick={() => void updateState(conversation, { is_pinned: !conversation.is_pinned })}
+                    >
+                      {conversation.is_pinned ? "Unpin" : "Pin"}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="button button-quiet"
+                    aria-label={conversation.is_archived ? "Restore conversation" : "Archive conversation"}
+                    disabled={disabled || mutationId !== null}
+                    onClick={() => void updateState(conversation, { is_archived: !conversation.is_archived })}
+                  >
+                    {conversation.is_archived ? "Restore" : "Archive"}
+                  </button>
                   <button
                     type="button"
                     className="button button-quiet"

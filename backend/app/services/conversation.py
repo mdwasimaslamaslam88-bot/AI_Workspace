@@ -130,6 +130,30 @@ class ConversationService:
             await self.session.rollback()
             raise
 
+    async def set_state_for_owner(
+        self,
+        owner_id: UUID,
+        conversation_id: UUID,
+        *,
+        is_pinned: bool | None = None,
+        is_archived: bool | None = None,
+    ) -> Conversation | None:
+        try:
+            conversation = await self.repository.set_state_for_owner(
+                owner_id,
+                conversation_id,
+                is_pinned=is_pinned,
+                is_archived=is_archived,
+            )
+            if conversation is None:
+                await self.session.rollback()
+                return None
+            await self.session.commit()
+            return conversation
+        except BaseException:
+            await self.session.rollback()
+            raise
+
     async def delete_for_owner(
         self,
         owner_id: UUID,

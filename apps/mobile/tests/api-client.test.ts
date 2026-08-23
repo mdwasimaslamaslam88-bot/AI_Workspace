@@ -179,10 +179,12 @@ describe("mobile API client", () => {
     });
   });
 
-  it("renames and deletes through the owner-scoped conversation route", async () => {
+  it("renames, organizes, and deletes through owner-scoped conversation routes", async () => {
     const conversation = {
       id: "22222222-2222-4222-8222-222222222222",
       title: "Mobile chat",
+      is_pinned: false,
+      is_archived: false,
       created_at: "2026-01-01T00:00:00Z",
       updated_at: "2026-01-02T00:00:00Z",
     };
@@ -210,12 +212,20 @@ describe("mobile API client", () => {
     await expect(
       client.renameConversation(conversation.id, { title: "Mobile chat" }),
     ).resolves.toEqual(conversation);
+    await expect(
+      client.updateConversationState(conversation.id, { is_pinned: true }),
+    ).resolves.toEqual(conversation);
     await expect(client.deleteConversation(conversation.id)).resolves.toBeUndefined();
     expect(calls.map(({ method, body }) => ({ method, body }))).toEqual([
       { method: "PATCH", body: { title: "Mobile chat" } },
+      { method: "PATCH", body: { is_pinned: true } },
       { method: "DELETE", body: undefined },
     ]);
-    expect(calls.every(({ url }) => url.endsWith(`/api/v1/conversations/${conversation.id}`))).toBe(true);
+    expect(calls.map(({ url }) => new URL(url).pathname)).toEqual([
+      `/api/v1/conversations/${conversation.id}`,
+      `/api/v1/conversations/${conversation.id}/state`,
+      `/api/v1/conversations/${conversation.id}`,
+    ]);
   });
 
   it("uses owner-scoped memory, tool, and workflow contracts", async () => {

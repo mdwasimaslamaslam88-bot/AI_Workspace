@@ -40,9 +40,24 @@ class ConversationRename(BaseModel):
     title: str | None = Field(max_length=255, pattern=r"\S")
 
 
+class ConversationStateUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    is_pinned: bool | None = None
+    is_archived: bool | None = None
+
+    @model_validator(mode="after")
+    def require_state_field(self):
+        if self.is_pinned is None and self.is_archived is None:
+            raise ValueError("at least one conversation state field is required")
+        return self
+
+
 class ConversationCreateResponse(BaseModel):
     id: UUID
     title: str | None
+    is_pinned: bool
+    is_archived: bool
     created_at: datetime
     updated_at: datetime
     initial_message: MessageResponse
@@ -58,6 +73,7 @@ class ConversationListQuery(BaseModel):
     )
     cursor_updated_at: AwareDatetime | None = None
     cursor_id: UUID | None = None
+    include_archived: bool = False
 
     @model_validator(mode="after")
     def validate_composite_cursor(self):
@@ -74,6 +90,8 @@ class ConversationSummaryResponse(BaseModel):
 
     id: UUID
     title: str | None
+    is_pinned: bool
+    is_archived: bool
     created_at: datetime
     updated_at: datetime
 

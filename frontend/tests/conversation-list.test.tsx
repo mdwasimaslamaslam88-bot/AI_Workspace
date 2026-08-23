@@ -13,10 +13,13 @@ const baseProps = {
   loading: false,
   loadingMore: false,
   error: null,
+  showArchived: false,
   onCreate: vi.fn(),
   onSelect: vi.fn(),
   onRename: vi.fn(async () => undefined),
+  onUpdateState: vi.fn(async () => undefined),
   onDelete: vi.fn(async () => undefined),
+  onShowArchivedChange: vi.fn(),
   onReload: vi.fn(),
   onLoadMore: vi.fn(),
   onLogout: vi.fn(),
@@ -122,5 +125,43 @@ describe("ConversationList", () => {
     await userEvent.click(within(hardware).getByRole("button", { name: "Delete conversation" }));
     expect(confirm).toHaveBeenCalledOnce();
     expect(onDelete).toHaveBeenCalledWith(second.id);
+  });
+
+  it("sorts pinned chats and exposes owner pin, archive, and restore actions", async () => {
+    const pinned = {
+      ...conversation,
+      id: "55555555-5555-4555-8555-555555555555",
+      title: "Pinned plan",
+      is_pinned: true,
+    };
+    const archived = {
+      ...conversation,
+      id: "66666666-6666-4666-8666-666666666666",
+      title: "Archived plan",
+      is_archived: true,
+    };
+    const onUpdateState = vi.fn(async () => undefined);
+    const onShowArchivedChange = vi.fn();
+    render(
+      <ConversationList
+        {...baseProps}
+        conversations={[conversation, archived, pinned]}
+        showArchived
+        onUpdateState={onUpdateState}
+        onShowArchivedChange={onShowArchivedChange}
+      />,
+    );
+
+    const items = screen.getAllByRole("listitem");
+    expect(within(items[0]!).getByText("Pinned plan")).toBeVisible();
+    expect(within(items[2]!).getByText("Archived plan")).toBeVisible();
+    await userEvent.click(screen.getByRole("checkbox", { name: "Show archived" }));
+    expect(onShowArchivedChange).toHaveBeenCalledWith(false);
+    await userEvent.click(screen.getByRole("button", { name: "Unpin conversation" }));
+    await userEvent.click(screen.getAllByRole("button", { name: "Archive conversation" })[0]!);
+    await userEvent.click(screen.getByRole("button", { name: "Restore conversation" }));
+    expect(onUpdateState).toHaveBeenCalledWith(pinned.id, { is_pinned: false });
+    expect(onUpdateState).toHaveBeenCalledWith(expect.any(String), { is_archived: true });
+    expect(onUpdateState).toHaveBeenCalledWith(archived.id, { is_archived: false });
   });
 });

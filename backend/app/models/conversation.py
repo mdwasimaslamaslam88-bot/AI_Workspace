@@ -6,6 +6,7 @@ from uuid import UUID, uuid4
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     CheckConstraint,
     DateTime,
     ForeignKey,
@@ -58,6 +59,16 @@ class Conversation(Base):
         server_default=func.now(),
         onupdate=func.now(),
     )
+    is_pinned: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+    )
+    is_archived: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+    )
 
     owner: Mapped[User] = relationship(
         back_populates="conversations",
@@ -75,6 +86,13 @@ class Conversation(Base):
 Index(
     "ix_conversations_owner_updated_at_id",
     Conversation.owner_id,
+    Conversation.updated_at.desc(),
+    Conversation.id.desc(),
+)
+Index(
+    "ix_conversations_owner_archived_updated_at_id",
+    Conversation.owner_id,
+    Conversation.is_archived,
     Conversation.updated_at.desc(),
     Conversation.id.desc(),
 )

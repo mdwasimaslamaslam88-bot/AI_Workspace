@@ -7,6 +7,7 @@ import {
   type ConversationCursor,
   type ConversationPage,
   type ConversationRenameRequest,
+  type ConversationStateUpdateRequest,
   type ConversationSummary,
   type ConversationTextGenerationRequest,
   type ConversationTextGenerationResponse,
@@ -532,6 +533,7 @@ export class ApiClient {
     options: {
       limit?: number;
       cursor?: ConversationCursor;
+      includeArchived?: boolean;
       signal?: AbortSignal;
     } = {},
   ): Promise<ConversationPage> {
@@ -540,6 +542,9 @@ export class ApiClient {
     if (options.cursor !== undefined) {
       query.set("cursor_updated_at", options.cursor.updated_at);
       query.set("cursor_id", options.cursor.id);
+    }
+    if (options.includeArchived !== undefined) {
+      query.set("include_archived", String(options.includeArchived));
     }
     const suffix = query.size === 0 ? "" : `?${query.toString()}`;
     return this.#request(`api/v1/conversations${suffix}`, {
@@ -577,6 +582,17 @@ export class ApiClient {
   ): Promise<ConversationSummary> {
     return this.#request(
       `api/v1/conversations/${encodeURIComponent(conversationId)}`,
+      { method: "PATCH", body: request, signal, decode: parseConversation },
+    );
+  }
+
+  updateConversationState(
+    conversationId: string,
+    request: ConversationStateUpdateRequest,
+    signal?: AbortSignal,
+  ): Promise<ConversationSummary> {
+    return this.#request(
+      `api/v1/conversations/${encodeURIComponent(conversationId)}/state`,
       { method: "PATCH", body: request, signal, decode: parseConversation },
     );
   }

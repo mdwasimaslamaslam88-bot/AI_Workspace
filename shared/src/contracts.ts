@@ -394,6 +394,8 @@ export interface SystemDiagnostics {
 export interface ConversationSummary {
   id: UUID;
   title: string | null;
+  is_pinned: boolean;
+  is_archived: boolean;
   created_at: Timestamp;
   updated_at: Timestamp;
 }
@@ -435,6 +437,10 @@ export interface ConversationCreateRequest {
 export interface ConversationRenameRequest {
   title: string | null;
 }
+
+export type ConversationStateUpdateRequest =
+  | { is_pinned: boolean; is_archived?: boolean }
+  | { is_pinned?: boolean; is_archived: boolean };
 
 export interface ConversationCreateResponse extends ConversationSummary {
   initial_message: Message;
@@ -737,6 +743,8 @@ export function parseConversation(value: unknown): ConversationSummary {
   return {
     id: stringField(item.id),
     title: nullableString(item.title),
+    is_pinned: booleanField(item.is_pinned),
+    is_archived: booleanField(item.is_archived),
     created_at: stringField(item.created_at),
     updated_at: stringField(item.updated_at),
   };

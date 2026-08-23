@@ -6,6 +6,7 @@ import type {
   ConversationCreateRequest,
   ConversationCursor,
   ConversationSummary,
+  ConversationStateUpdateRequest,
   CurrentUser,
   IndexedDocument,
   LocalModel,
@@ -87,6 +88,8 @@ function conversationFromCreate(
   return {
     id: conversation.id,
     title: conversation.title,
+    is_pinned: conversation.is_pinned,
+    is_archived: conversation.is_archived,
     created_at: conversation.created_at,
     updated_at: conversation.updated_at,
   };
@@ -136,6 +139,7 @@ export function App() {
   const [conversationsLoading, setConversationsLoading] = useState(false);
   const [conversationsLoadingMore, setConversationsLoadingMore] = useState(false);
   const [conversationsError, setConversationsError] = useState<string | null>(null);
+  const [showArchivedConversations, setShowArchivedConversations] = useState(false);
 
   const [selectedConversation, setSelectedConversation] =
     useState<ConversationSummary | null>(null);
@@ -174,6 +178,7 @@ export function App() {
     setModels([]);
     setSelectedModelId(null);
     setConversations([]);
+    setShowArchivedConversations(false);
     setConversationCursor(null);
     setSelectedConversation(null);
     setMessages([]);
@@ -357,6 +362,7 @@ export function App() {
     try {
       const response = await client.listConversations({
         limit: 50,
+        includeArchived: showArchivedConversations,
         signal: controller.signal,
       });
       setConversations(response.items);
@@ -367,7 +373,7 @@ export function App() {
     } finally {
       if (!controller.signal.aborted) setConversationsLoading(false);
     }
-  }, [client]);
+  }, [client, showArchivedConversations]);
 
   useEffect(() => {
     if (authenticationStatus !== "authenticated" || client === null) return;
@@ -383,6 +389,7 @@ export function App() {
       const response = await client.listConversations({
         limit: 50,
         cursor: conversationCursor,
+        includeArchived: showArchivedConversations,
       });
       setConversations((current) =>
         mergeConversations(current, response.items),
@@ -393,7 +400,7 @@ export function App() {
     } finally {
       setConversationsLoadingMore(false);
     }
-  }, [client, conversationCursor]);
+  }, [client, conversationCursor, showArchivedConversations]);
 
   const selectConversation = useCallback(
     async (summary: ConversationSummary) => {
@@ -464,6 +471,36 @@ export function App() {
       }
     },
     [client, selectedConversation?.id],
+  );
+
+  const updateConversationState = useCallback(
+    async (
+      conversationId: string,
+      state: ConversationStateUpdateRequest,
+    ): Promise<void> => {
+      if (client === null) {
+        throw new ApiError("authentication", "Authentication failed.");
+      }
+      const updated = await client.updateConversationState(conversationId, state);
+      const hiddenByArchive = updated.is_archived && !showArchivedConversations;
+      setConversations((current) => hiddenByArchive
+        ? current.filter((conversation) => conversation.id !== updated.id)
+        : current.map((conversation) =>
+            conversation.id === updated.id ? updated : conversation,
+          ),
+      );
+      setSelectedConversation((current) => {
+        if (current?.id !== updated.id) return current;
+        return hiddenByArchive ? null : updated;
+      });
+      if (hiddenByArchive && selectedConversation?.id === updated.id) {
+        setMessages([]);
+        setMessageCursor(null);
+        setCreatingNew(true);
+        setChatNotice(null);
+      }
+    },
+    [client, selectedConversation?.id, showArchivedConversations],
   );
 
   const refreshMessageSnapshot = useCallback(
@@ -1093,6 +1130,7 @@ export function App() {
         loading={conversationsLoading}
         loadingMore={conversationsLoadingMore}
         error={conversationsError}
+        showArchived={showArchivedConversations}
         disabled={generating || creatingConversation}
         onCreate={() => {
           setCreatingNew(true);
@@ -1100,7 +1138,9 @@ export function App() {
         }}
         onSelect={(conversation) => void selectConversation(conversation)}
         onRename={renameConversation}
+        onUpdateState={updateConversationState}
         onDelete={deleteConversation}
+        onShowArchivedChange={setShowArchivedConversations}
         onReload={() => void reloadConversations()}
         onLoadMore={() => void loadMoreConversations()}
         onLogout={resetWorkspace}

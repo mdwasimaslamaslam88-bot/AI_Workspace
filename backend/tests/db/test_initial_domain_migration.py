@@ -238,6 +238,19 @@ def _table_signature(table: sa.Table) -> tuple:
     return columns, constraints, indexes
 
 
+def _conversation_signature_before_organization(table: sa.Table) -> tuple:
+    columns, constraints, indexes = _table_signature(table)
+    return (
+        tuple(
+            column
+            for column in columns
+            if column[0] not in {"is_pinned", "is_archived"}
+        ),
+        constraints,
+        tuple(index for index in indexes if "owner_archived" not in index),
+    )
+
+
 def test_initial_revision_is_the_root_revision():
     operations = RecordingOperations()
     revision = _load_revision(operations)
@@ -270,9 +283,13 @@ def test_initial_revision_preserves_original_domain_schema():
         "messages",
     }
     assert set(operations.metadata.tables) == original_tables
-    assert _table_signature(operations.metadata.tables["conversations"]) == (
-        _table_signature(Base.metadata.tables["conversations"])
+    initial_conversation_signature = _table_signature(
+        operations.metadata.tables["conversations"]
     )
+    current_conversation_signature = _conversation_signature_before_organization(
+        Base.metadata.tables["conversations"]
+    )
+    assert initial_conversation_signature == current_conversation_signature
     initial_message_signature = _table_signature(
         operations.metadata.tables["messages"]
     )

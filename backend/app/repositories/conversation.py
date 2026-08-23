@@ -33,6 +33,7 @@ class ConversationCursor:
 class ConversationPagination:
     limit: int = DEFAULT_CONVERSATION_PAGE_SIZE
     cursor: ConversationCursor | None = None
+    include_archived: bool = False
 
     def __post_init__(self) -> None:
         if isinstance(self.limit, bool) or not isinstance(self.limit, int):
@@ -45,6 +46,8 @@ class ConversationPagination:
             self.cursor, ConversationCursor
         ):
             raise TypeError("pagination cursor must be a ConversationCursor")
+        if not isinstance(self.include_archived, bool):
+            raise TypeError("include_archived must be a boolean")
 
 
 @dataclass(frozen=True, slots=True)
@@ -83,6 +86,8 @@ class ConversationRepository(BaseRepository):
             raise TypeError("pagination must be a ConversationPagination")
 
         statement = select(Conversation).where(Conversation.owner_id == owner_id)
+        if not pagination.include_archived:
+            statement = statement.where(Conversation.is_archived.is_(False))
         if pagination.cursor is not None:
             statement = statement.where(
                 tuple_(Conversation.updated_at, Conversation.id)
@@ -138,6 +143,37 @@ class ConversationRepository(BaseRepository):
                 Conversation.id == conversation_id,
             )
             .values(title=title)
+            .returning(Conversation)
+        )
+        result = await self.session.execute(statement)
+        return result.scalar_one_or_none()
+
+    async def set_state_for_owner(
+        self,
+        owner_id: UUID,
+        conversation_id: UUID,
+        *,
+        is_pinned: bool | None = None,
+        is_archived: bool | None = None,
+    ) -> Conversation | None:
+        values: dict[str, bool] = {}
+        if is_pinned is not None:
+            if not isinstance(is_pinned, bool):
+                raise TypeError("is_pinned must be a boolean")
+            values["is_pinned"] = is_pinned
+        if is_archived is not None:
+            if not isinstance(is_archived, bool):
+                raise TypeError("is_archived must be a boolean")
+            values["is_archived"] = is_archived
+        if not values:
+            raise ValueError("at least one conversation state field is required")
+        statement = (
+            update(Conversation)
+            .where(
+                Conversation.owner_id == owner_id,
+                Conversation.id == conversation_id,
+            )
+            .values(**values)
             .returning(Conversation)
         )
         result = await self.session.execute(statement)

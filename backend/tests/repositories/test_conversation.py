@@ -106,6 +106,7 @@ async def test_first_page_is_owner_scoped_bounded_and_deterministically_ordered(
     assert isinstance(statement, Select)
     compiled, sql = _compile(statement)
     assert "where conversations.owner_id =" in sql
+    assert "conversations.is_archived is false" in sql
     assert (
         "order by conversations.updated_at desc, conversations.id desc" in sql
     )
@@ -179,6 +180,28 @@ def test_pagination_rejects_non_integer_limits(limit):
         ConversationPagination(limit=limit)
 
 
+def test_pagination_rejects_non_boolean_archive_filter():
+    with pytest.raises(TypeError, match="include_archived"):
+        ConversationPagination(include_archived=1)
+
+
+@pytest.mark.asyncio
+async def test_archived_inclusion_is_explicit_and_owner_scoped():
+    owner_id = uuid4()
+    session = _session_with_result()
+
+    await ConversationRepository(session).list_for_owner(
+        owner_id,
+        ConversationPagination(include_archived=True),
+    )
+
+    statement = session.execute.await_args.args[0]
+    compiled, sql = _compile(statement)
+    assert "where conversations.owner_id =" in sql
+    assert "conversations.is_archived is false" not in sql
+    assert owner_id in compiled.params.values()
+
+
 def test_cursor_rejects_malformed_values():
     with pytest.raises(ValueError, match="timezone-aware"):
         ConversationCursor(updated_at=datetime(2026, 8, 1), id=uuid4())
@@ -238,6 +261,51 @@ async def test_rename_is_owner_scoped_preserves_title_and_returns_entity():
     session.flush.assert_not_awaited()
     session.commit.assert_not_awaited()
     session.rollback.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_state_update_is_owner_scoped_and_returns_entity():
+    owner_id = uuid4()
+    conversation_id = uuid4()
+    updated = _conversation()
+    session = _session_with_result(scalar=updated)
+
+    conversation = await ConversationRepository(session).set_state_for_owner(
+        owner_id,
+        conversation_id,
+        is_pinned=True,
+        is_archived=False,
+    )
+
+    assert conversation is updated
+    statement = session.execute.await_args.args[0]
+    assert isinstance(statement, Update)
+    compiled, sql = _compile(statement)
+    assert "update conversations set updated_at=now(), is_pinned=" in sql
+    assert "is_archived=" in sql
+    assert "where conversations.owner_id =" in sql
+    assert "and conversations.id =" in sql
+    assert "returning conversations.id" in sql
+    assert owner_id in compiled.params.values()
+    assert conversation_id in compiled.params.values()
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [{}, {"is_pinned": 1}, {"is_archived": "yes"}],
+)
+@pytest.mark.asyncio
+async def test_state_update_rejects_missing_or_non_boolean_values(kwargs):
+    session = _session_with_result()
+
+    with pytest.raises((TypeError, ValueError)):
+        await ConversationRepository(session).set_state_for_owner(
+            uuid4(),
+            uuid4(),
+            **kwargs,
+        )
+
+    session.execute.assert_not_awaited()
 
 
 @pytest.mark.asyncio

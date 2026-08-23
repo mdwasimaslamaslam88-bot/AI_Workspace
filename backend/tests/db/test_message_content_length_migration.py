@@ -2,6 +2,7 @@ import app.models  # noqa: F401  # Populate the model registry.
 from app.db.base import Base
 from tests.db.test_initial_domain_migration import (
     RecordingOperations,
+    _conversation_signature_before_organization,
     _load_revision,
     _revision_path,
     _table_signature,
@@ -51,6 +52,10 @@ def test_upgrade_adds_only_the_bounded_message_content_check():
         if table_name == "users":
             assert set(migrated_signature[0]) == set(current_signature[0])
             assert migrated_signature[1:] == current_signature[1:]
+        elif table_name == "conversations":
+            assert migrated_signature == _conversation_signature_before_organization(
+                Base.metadata.tables[table_name]
+            )
         else:
             assert migrated_signature == current_signature
 

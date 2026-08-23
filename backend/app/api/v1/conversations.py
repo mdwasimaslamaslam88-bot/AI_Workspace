@@ -35,6 +35,7 @@ from app.schemas.conversation import (
     ConversationListQuery,
     ConversationPageResponse,
     ConversationRename,
+    ConversationStateUpdate,
     ConversationSummaryResponse,
 )
 from app.schemas.message import MessageCreate, MessagePageResponse, MessageResponse
@@ -89,6 +90,7 @@ async def list_conversations(
         current_user.id,
         ConversationPagination(
             limit=query.limit,
+            include_archived=query.include_archived,
             cursor=(
                 ConversationCursor(
                     updated_at=query.cursor_updated_at,
@@ -164,6 +166,8 @@ async def create_conversation(
     return ConversationCreateResponse(
         id=conversation.id,
         title=conversation.title,
+        is_pinned=conversation.is_pinned,
+        is_archived=conversation.is_archived,
         created_at=conversation.created_at,
         updated_at=conversation.updated_at,
         initial_message=MessageResponse.model_validate(initial_message),
@@ -189,6 +193,30 @@ async def get_conversation(
             detail="Conversation not found",
         )
 
+    return ConversationSummaryResponse.model_validate(conversation)
+
+
+@router.patch(
+    "/{conversation_id}/state",
+    response_model=ConversationSummaryResponse,
+)
+async def update_conversation_state(
+    conversation_id: UUID,
+    request: ConversationStateUpdate,
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> ConversationSummaryResponse:
+    conversation = await ConversationService(session).set_state_for_owner(
+        current_user.id,
+        conversation_id,
+        is_pinned=request.is_pinned,
+        is_archived=request.is_archived,
+    )
+    if conversation is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Conversation not found",
+        )
     return ConversationSummaryResponse.model_validate(conversation)
 
 

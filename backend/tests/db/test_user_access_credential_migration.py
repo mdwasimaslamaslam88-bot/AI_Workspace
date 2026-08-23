@@ -5,6 +5,7 @@ from app.db.base import Base
 from tests.db.test_initial_domain_migration import (
     RecordingOperations,
     _column_signature,
+    _conversation_signature_before_organization,
     _constraint_signature,
     _load_revision,
     _table_signature,
@@ -47,7 +48,9 @@ def test_upgrade_adds_only_nullable_unique_digest_and_matches_metadata():
     ]
     assert set(operations.metadata.tables) == {"users", "conversations", "messages"}
     assert _table_signature(operations.metadata.tables["conversations"]) == (
-        _table_signature(Base.metadata.tables["conversations"])
+        _conversation_signature_before_organization(
+            Base.metadata.tables["conversations"]
+        )
     )
     assert _table_signature(operations.metadata.tables["messages"]) == (
         initial_messages_signature
