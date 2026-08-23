@@ -6,14 +6,4 @@ repository_root="$(cd -- "${script_directory}/.." && pwd -P)"
 backend_python="${repository_root}/backend/.venv/bin/python"
 
 cd "${repository_root}/backend"
-for smoke in \
-  scripts.real_vision_smoke \
-  scripts.real_rag_smoke \
-  scripts.real_memory_smoke \
-  scripts.real_image_smoke \
-  scripts.real_voice_smoke \
-  scripts.real_tools_smoke \
-  scripts.real_workflow_smoke; do
-  "${backend_python}" -m "${smoke}"
-done
-echo "real runtime E2E: vision, RAG, memory, image, voice, tools, and workflows passed"
+exec "${backend_python}" -m scripts.run_runtime_e2e

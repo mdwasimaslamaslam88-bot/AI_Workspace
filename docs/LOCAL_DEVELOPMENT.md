@@ -33,10 +33,10 @@ credential-free origin. Non-loopback origins must use HTTPS.
 ```bash
 cd backend
 .venv/bin/python -m pytest -q
-.venv/bin/python tests/db/run_postgres_integration.py
 .venv/bin/alembic check
 .venv/bin/python -m compileall -q app scripts tests
 cd ..
+./scripts/postgres_integration_check.sh
 npm run test:web
 npm run test:a11y --workspace @work-station/web
 npm run test --workspace @work-station/mobile
@@ -59,34 +59,21 @@ test is included in the full web suite. Color contrast is verified against the
 fixed theme CSS variables with WCAG relative-luminance calculations; axe's
 pixel-layout contrast rule is disabled because jsdom has no rendering engine.
 
-The PostgreSQL runner refuses any host except `127.0.0.1` and any database name
-except `ai_workspace_test`. It also refuses to run unless `DATABASE_URL` points
-to a different application database. Real runtime scripts apply the disposable
-test database restriction before cleanup: both URLs must exist, their
-host/port/database identities must differ, and only the approved loopback test
-URL is selected inside the smoke process.
+The repository-level PostgreSQL gate uses the installed PostgreSQL server
+binaries to initialize a randomly named, mode-700 temporary cluster. It binds
+only a random `127.0.0.1` port, generates a transient SCRAM credential without
+printing or writing its plaintext to disk, creates only `ai_workspace_test`,
+runs the migration chain and integration suite, then stops and removes the
+entire cluster. The
+protected application URL is loaded before the child test URL is overridden,
+so interpolated local environments cannot redirect the gate to application
+data. Git state is compared before and after.
 
-If both URLs currently identify `ai_workspace_test`, a PostgreSQL administrator
-must create a separate application database once. For example, substitute the
-existing application role (never a password) in this administrator command:
-
-```bash
-sudo -u postgres createdb --owner=<application-role> ai_workspace
-```
-
-Then update only the protected backend `DATABASE_URL` to identify
-`127.0.0.1/ai_workspace`, keep `TEST_DATABASE_URL` on
-`127.0.0.1/ai_workspace_test`, and apply the application migrations:
-
-```bash
-cd backend
-.venv/bin/alembic upgrade head
-.venv/bin/alembic check
-```
-
-Do not work around the guard by pointing integration tests at the application
-database. Creating a database requires PostgreSQL administrator authority and
-is intentionally not attempted by the release script.
+The lower-level `backend/tests/db/run_postgres_integration.py` remains
+fail-closed for operators who intentionally use an already configured test
+database: it accepts only `127.0.0.1/ai_workspace_test` and requires an identity
+separate from `DATABASE_URL`. Never bypass that guard or point tests at the
+application database.
 
 ## Environment modes
 

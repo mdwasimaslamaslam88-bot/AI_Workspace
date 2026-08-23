@@ -6,6 +6,7 @@ import hashlib
 from io import BytesIO, StringIO
 import logging
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import threading
@@ -24,6 +25,26 @@ from scripts.runtime_smoke_safety import select_disposable_runtime_database
 _SPOKEN_TEXT = (
     "Testing local speech. The color is amber. The object is a lantern."
 )
+_TRANSCRIPT_CHECKPOINT_GROUPS = (
+    (frozenset({"testing", "local", "speech"}), 2),
+    (frozenset({"color", "amber"}), 1),
+    (frozenset({"object", "lantern"}), 1),
+)
+_MIN_TRANSCRIPT_CHECKPOINT_TERMS = 5
+
+
+def _contains_spoken_checkpoint(transcript: str) -> bool:
+    words = frozenset(re.findall(r"[a-z]+", transcript.lower()))
+    matched = set().union(
+        *(words.intersection(group) for group, _minimum in _TRANSCRIPT_CHECKPOINT_GROUPS)
+    )
+    return (
+        len(matched) >= _MIN_TRANSCRIPT_CHECKPOINT_TERMS
+        and all(
+            len(words.intersection(group)) >= minimum
+            for group, minimum in _TRANSCRIPT_CHECKPOINT_GROUPS
+        )
+    )
 
 
 class _GpuSampler:
@@ -300,7 +321,7 @@ def main() -> None:
                 gpu_sampler.stop()
             transcription.raise_for_status()
             transcript = transcription.json()["text"].lower()
-            if "amber" not in transcript or "lantern" not in transcript:
+            if not _contains_spoken_checkpoint(transcript):
                 raise RuntimeError(
                     "real CUDA transcription missed its spoken checkpoint"
                 )

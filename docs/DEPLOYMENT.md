@@ -10,6 +10,7 @@ ComfyUI and speech runtimes stay on-demand.
 ```bash
 npm ci
 backend/.venv/bin/pip install -r backend/requirements.txt
+./scripts/postgres_integration_check.sh
 npm run build:web
 npm run build:static --workspace @work-station/mobile
 ./scripts/desktop_check.sh

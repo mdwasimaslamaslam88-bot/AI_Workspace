@@ -62,15 +62,17 @@ npm run build
 npm run package
 npm run check:mobile
 npm run check:desktop
+npm run check:postgres
 npm run security-audit
 npm run check
 npm run e2e
 npm run release
 ```
 
-`check` is the complete static/local release gate; `e2e` runs the destructive-to-test-
-data-only real AI runtime smokes against the explicitly configured disposable
-database. `release` combines both and additionally requires a clean,
+`check` is the complete static/local release gate; `e2e` starts a user-owned,
+SCRAM-authenticated disposable PostgreSQL cluster on loopback and runs the real
+AI runtime smokes without touching the application database. `release`
+combines both and additionally requires a clean,
 synchronized `HEAD == main == origin/main`. Its equivalent direct form is
 `./scripts/release_check.sh --with-runtime --require-clean`.
 When an Android SDK root is configured, `check` also runs a disposable native

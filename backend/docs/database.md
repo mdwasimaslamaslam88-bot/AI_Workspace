@@ -127,8 +127,19 @@ rejects any other host or database, requires a separately configured
 `DATABASE_URL`, and refuses when the application and test database identities
 match.
 
-To load the existing `.env` for one test process after verifying strict
-application/test separation, run:
+The normal repository release gate creates its own user-owned, loopback-only
+PostgreSQL cluster with a transient SCRAM credential, then removes it after the
+suite:
+
+```bash
+./scripts/postgres_integration_check.sh
+```
+
+It loads the protected application configuration before substituting the child
+test URL, preserving strict separation even when local dotenv values are
+interpolated. To use an intentionally persistent configured test database
+instead, load the existing `.env` only after verifying strict separation and
+run from `backend`:
 
 ```bash
 python tests/db/run_postgres_integration.py

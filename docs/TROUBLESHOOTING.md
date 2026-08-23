@@ -40,7 +40,7 @@ reset`. Funnel is not supported for this owner-only deployment.
 PostgreSQL, Redis, and Ollama services without exposing their connection
 strings. Run `alembic current` and `alembic check` from `backend`.
 
-## PostgreSQL integration refuses the application database
+## Configured PostgreSQL integration refuses the application database
 
 The release gate requires two distinct loopback database identities:
 
@@ -49,11 +49,13 @@ The release gate requires two distinct loopback database identities:
 - `TEST_DATABASE_URL`: the disposable database named exactly
   `ai_workspace_test`
 
-If they identify the same database, stop rather than bypassing the guard. A
-PostgreSQL administrator must create/grant the application database, after
-which the owner updates the protected backend environment and runs `alembic
-upgrade head`. See [LOCAL_DEVELOPMENT.md](LOCAL_DEVELOPMENT.md) for the exact
-shape; never paste a database password into an issue or command transcript.
+If they identify the same database, stop rather than bypassing the lower-level
+configured runner. Use `./scripts/postgres_integration_check.sh` for the normal
+release path; it creates an isolated user-owned cluster and does not change
+either protected URL. An operator who deliberately maintains a persistent test
+database must provision a distinct application/test identity through the local
+PostgreSQL administrator. Never paste a database password into an issue or
+command transcript.
 
 ## AI runtime unavailable
 

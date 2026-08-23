@@ -95,10 +95,15 @@ operator/path leakage, desktop CSP scope, Python dependencies, and npm
 high/critical advisories. Manual review must still inspect authorization,
 transactions, upload parsing, lifecycle cleanup, and exact staged changes.
 
-Database integration and real runtime smoke runners fail before cleanup unless
-the protected application and disposable test URLs identify different
-databases. Runtime scripts then select only `127.0.0.1/ai_workspace_test` in
-their own process; a username change alone cannot bypass the identity check.
+Database integration and real runtime gates never migrate or truncate the
+application database. The normal release path initializes a randomly named,
+mode-700 PostgreSQL cluster in the system temporary directory, binds it only to
+a random loopback port, uses a transient SCRAM password that is neither printed
+nor written to disk in plaintext, and removes only that validated temporary
+root after shutdown.
+The protected application environment is loaded before the child test URL is
+substituted. The approved `127.0.0.1/ai_workspace_test` target and distinct
+application/test identity checks remain enforced inside the Python harness.
 
 ## Residual external risks
 

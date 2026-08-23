@@ -2,11 +2,13 @@ import os
 import sys
 from pathlib import Path
 
-from dotenv import load_dotenv
 from sqlalchemy.engine import make_url
 
-
 PROJECT_ROOT = Path(__file__).parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from scripts.disposable_database_environment import load_backend_environment  # noqa: E402
 
 
 def _database_identity(value: str) -> tuple[str | None, int, str | None]:
@@ -30,8 +32,7 @@ def _require_separate_application_and_test_databases(
 
 
 def main() -> None:
-    load_dotenv(PROJECT_ROOT / ".env", override=False)
-    environment = os.environ.copy()
+    environment = load_backend_environment(PROJECT_ROOT)
     _require_separate_application_and_test_databases(environment)
     command = [
         sys.executable,

@@ -36,7 +36,6 @@ done
   cd backend
   "${backend_python}" -m pytest -q
   .venv/bin/alembic check
-  "${backend_python}" tests/db/run_postgres_integration.py
   "${backend_python}" -m compileall -q app scripts tests
 )
 
@@ -63,7 +62,9 @@ bash -n scripts/*.sh
 
 "${script_directory}/security_audit.sh"
 if [[ "${with_runtime}" == true ]]; then
-  "${script_directory}/runtime_e2e.sh"
+  "${script_directory}/postgres_integration_check.sh" --with-runtime
+else
+  "${script_directory}/postgres_integration_check.sh"
 fi
 
 git diff --check
