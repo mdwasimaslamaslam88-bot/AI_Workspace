@@ -434,6 +434,14 @@ export interface ConversationPage {
   next_cursor: ConversationCursor | null;
 }
 
+export interface ConversationSearchRequest {
+  query: string;
+  limit?: number;
+  cursor_updated_at?: Timestamp;
+  cursor_id?: UUID;
+  include_archived?: boolean;
+}
+
 export interface Message {
   id: UUID;
   conversation_id: UUID;

@@ -175,6 +175,12 @@ function installWorkspaceFetch(options: {
     if (url.pathname === "/api/v1/conversations" && (init?.method ?? "GET") === "GET") {
       return jsonResponse({ items: [conversation], next_cursor: null });
     }
+    if (
+      url.pathname === "/api/v1/conversations/search" &&
+      init?.method === "POST"
+    ) {
+      return jsonResponse({ items: [conversation], next_cursor: null });
+    }
     if (url.pathname === `/api/v1/conversations/${conversation.id}`) {
       return jsonResponse(conversation);
     }
@@ -240,6 +246,37 @@ describe("App integration", () => {
     await userEvent.click(screen.getByRole("button", { name: "Logout" }));
     expect(readSessionToken()).toBeNull();
     expect(screen.getByRole("heading", { name: /Connect to your Personal AI/ })).toBeVisible();
+  });
+
+  it("debounces all-history search and keeps the private term out of the URL", async () => {
+    writeSessionToken(token);
+    const workspace = installWorkspaceFetch();
+    render(<App />);
+
+    await screen.findByRole("button", { name: /Local chat/ });
+    const privateQuery = "private accelerator notes";
+    await userEvent.type(
+      screen.getByRole("searchbox", { name: "Search all chats" }),
+      privateQuery,
+    );
+
+    await waitFor(() =>
+      expect(
+        workspace.calls.filter(
+          (call) => call.url.pathname === "/api/v1/conversations/search",
+        ),
+      ).toHaveLength(1),
+    );
+    const searchCall = workspace.calls.find(
+      (call) => call.url.pathname === "/api/v1/conversations/search",
+    );
+    expect(searchCall?.url.search).toBe("");
+    expect(searchCall?.init?.method).toBe("POST");
+    expect(JSON.parse(String(searchCall?.init?.body))).toEqual({
+      query: privateQuery,
+      limit: 50,
+      include_archived: false,
+    });
   });
 
 

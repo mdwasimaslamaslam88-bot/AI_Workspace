@@ -331,6 +331,45 @@ describe("mobile API client", () => {
     ]);
   });
 
+  it("searches all owner chats without putting private terms in the URL", async () => {
+    const privateQuery = "private mobile roadmap";
+    const summary = {
+      id: conversationId,
+      title: "Roadmap",
+      is_pinned: false,
+      is_archived: false,
+      created_at: timestamp,
+      updated_at: timestamp,
+    };
+    const fetchMock = vi.fn(
+      async (input: URL | RequestInfo, init?: RequestInit) => {
+        expect(input.toString()).toBe(
+          "https://work-station.example.ts.net/api/v1/conversations/search",
+        );
+        expect(input.toString()).not.toContain(privateQuery);
+        expect(init?.method).toBe("POST");
+        expect(new Headers(init?.headers).get("Authorization")).toBe(
+          "Bearer mobile-session",
+        );
+        expect(JSON.parse(String(init?.body))).toEqual({
+          query: privateQuery,
+          limit: 50,
+        });
+        return new Response(
+          JSON.stringify({ items: [summary], next_cursor: null }),
+        );
+      },
+    );
+    const client = new MobileApiClient("mobile-session", {
+      baseUrl: "https://work-station.example.ts.net",
+      fetchImplementation: fetchMock,
+    });
+
+    await expect(
+      client.searchConversations({ query: privateQuery, limit: 50 }),
+    ).resolves.toEqual({ items: [summary], next_cursor: null });
+  });
+
   it("uses owner-scoped memory, tool, and workflow contracts", async () => {
     const memory = {
       id: "44444444-4444-4444-8444-444444444444",

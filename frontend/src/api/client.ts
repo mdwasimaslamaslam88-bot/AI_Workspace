@@ -8,6 +8,7 @@ import {
   type ConversationForkRequest,
   type ConversationPage,
   type ConversationRenameRequest,
+  type ConversationSearchRequest,
   type ConversationStateUpdateRequest,
   type ConversationSummary,
   type ConversationTextGenerationRequest,
@@ -603,6 +604,18 @@ export class ApiClient {
     const suffix = query.size === 0 ? "" : `?${query.toString()}`;
     return this.#request(`api/v1/conversations${suffix}`, {
       signal: options.signal,
+      decode: parseConversationPage,
+    });
+  }
+
+  searchConversations(
+    request: ConversationSearchRequest,
+    signal?: AbortSignal,
+  ): Promise<ConversationPage> {
+    return this.#request("api/v1/conversations/search", {
+      method: "POST",
+      body: request,
+      signal,
       decode: parseConversationPage,
     });
   }

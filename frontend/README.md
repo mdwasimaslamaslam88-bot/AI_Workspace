@@ -52,8 +52,8 @@ never included in the session list.
 The local client supports:
 
 - current-user validation and capability-aware local model selection;
-- real backend Conversation/message pagination, loaded-chat search, rename,
-  confirmed deletion, generation, response retry, and cancellation;
+- real backend conversation/message pagination, private owner-wide search,
+  rename, confirmed deletion, generation, response retry, and cancellation;
 - safe CommonMark/GFM response presentation with code blocks, tables, exact
   message copy, literal raw HTML, no rendered remote images, and no active
   model-authored links;

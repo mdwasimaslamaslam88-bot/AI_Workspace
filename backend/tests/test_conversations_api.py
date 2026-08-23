@@ -283,6 +283,66 @@ def test_list_conversations_can_explicitly_include_archived(conversation_api):
     )
 
 
+def test_search_conversations_uses_private_bounded_body_and_no_store(
+    conversation_api,
+):
+    api = conversation_api
+    cursor = ConversationCursor(
+        updated_at=api["conversation"].updated_at,
+        id=api["conversation"].id,
+    )
+    api["list_conversations"].return_value = ConversationPage(
+        items=(api["conversation"],),
+        next_cursor=cursor,
+    )
+
+    response = api["client"].post(
+        "/api/v1/conversations/search",
+        json={
+            "query": "  private GPU plan  ",
+            "limit": 10,
+            "include_archived": True,
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.request.url.query == b""
+    assert response.headers["Cache-Control"] == "private, no-store"
+    assert response.json()["items"][0]["id"] == str(api["conversation"].id)
+    api["list_conversations"].assert_awaited_once_with(
+        api["current_user"].id,
+        ConversationPagination(
+            limit=10,
+            include_archived=True,
+            search="private GPU plan",
+        ),
+    )
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"query": ""},
+        {"query": "   "},
+        {"query": "x" * 501},
+        {"query": "valid", "limit": MAX_CONVERSATION_PAGE_SIZE + 1},
+        {"query": "valid", "cursor_id": str(uuid4())},
+        {"query": "valid", "unexpected": True},
+    ],
+)
+def test_search_conversations_rejects_unbounded_or_malformed_body(
+    conversation_api,
+    payload,
+):
+    response = conversation_api["client"].post(
+        "/api/v1/conversations/search",
+        json=payload,
+    )
+
+    assert response.status_code == 422
+    conversation_api["list_conversations"].assert_not_awaited()
+
+
 def test_list_conversations_preserves_equal_timestamp_uuid_descending_order(
     conversation_api,
 ):

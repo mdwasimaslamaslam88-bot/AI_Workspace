@@ -1057,6 +1057,60 @@ async def test_conversation_owner_scoped_crud_and_keyset_pagination(
 
 
 @pytest.mark.asyncio
+async def test_conversation_search_matches_owned_titles_and_messages_only(
+    test_database_engine: AsyncEngine,
+):
+    async with AsyncSession(test_database_engine, expire_on_commit=False) as session:
+        owner = await UserService(session).create(User())
+        other_owner = await UserService(session).create(User())
+        service = ConversationService(session)
+        title_match, _ = await service.create_with_initial_message_for_owner(
+            owner.id,
+            "Private GPU roadmap",
+            MessageRole.USER,
+            "ordinary content",
+        )
+        message_match, _ = await service.create_with_initial_message_for_owner(
+            owner.id,
+            "Notes",
+            MessageRole.USER,
+            "The accelerator codename is Moonstone.",
+        )
+        literal_match, _ = await service.create_with_initial_message_for_owner(
+            owner.id,
+            "Literal marker",
+            MessageRole.USER,
+            "Progress reached 95%_complete.",
+        )
+        foreign_match, _ = await service.create_with_initial_message_for_owner(
+            other_owner.id,
+            "Private GPU foreign",
+            MessageRole.USER,
+            "Moonstone belongs to another owner.",
+        )
+
+        title_page = await service.list_for_owner(
+            owner.id,
+            ConversationPagination(search="gpu roadmap"),
+        )
+        message_page = await service.list_for_owner(
+            owner.id,
+            ConversationPagination(search="moonstone"),
+        )
+        literal_page = await service.list_for_owner(
+            owner.id,
+            ConversationPagination(search="95%_complete"),
+        )
+
+        assert {item.id for item in title_page.items} == {title_match.id}
+        assert {item.id for item in message_page.items} == {message_match.id}
+        assert {item.id for item in literal_page.items} == {literal_match.id}
+        assert foreign_match.id not in {
+            item.id for item in title_page.items + message_page.items
+        }
+
+
+@pytest.mark.asyncio
 async def test_message_ordered_pagination_and_owner_isolation(
     test_database_engine: AsyncEngine,
 ):

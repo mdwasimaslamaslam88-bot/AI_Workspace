@@ -14,6 +14,7 @@ interface ConversationListProps {
   loadingMore: boolean;
   error: string | null;
   showArchived: boolean;
+  searchQuery: string;
   disabled?: boolean;
   onCreate: () => void;
   onSelect: (conversation: ConversationSummary) => void;
@@ -25,6 +26,7 @@ interface ConversationListProps {
   onDuplicate?: (conversationId: string) => Promise<void>;
   onDelete: (conversationId: string) => Promise<void>;
   onShowArchivedChange: (value: boolean) => void;
+  onSearchQueryChange: (value: string) => void;
   onReload: () => void;
   onLoadMore: () => void;
   onLogout: () => void;
@@ -50,6 +52,7 @@ export function ConversationList({
   loadingMore,
   error,
   showArchived,
+  searchQuery,
   disabled = false,
   onCreate,
   onSelect,
@@ -58,27 +61,21 @@ export function ConversationList({
   onDuplicate,
   onDelete,
   onShowArchivedChange,
+  onSearchQueryChange,
   onReload,
   onLoadMore,
   onLogout,
 }: ConversationListProps) {
-  const [query, setQuery] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftTitle, setDraftTitle] = useState("");
   const [mutationId, setMutationId] = useState<string | null>(null);
   const [mutationError, setMutationError] = useState<string | null>(null);
   const visibleConversations = useMemo(() => {
-    const normalized = query.trim().toLocaleLowerCase();
-    const filtered = normalized.length === 0
-      ? conversations
-      : conversations.filter((conversation) =>
-          conversationName(conversation).toLocaleLowerCase().includes(normalized),
-        );
-    return [...filtered].sort((left, right) =>
+    return [...conversations].sort((left, right) =>
       Number(left.is_archived) - Number(right.is_archived) ||
       Number(right.is_pinned) - Number(left.is_pinned),
     );
-  }, [conversations, query]);
+  }, [conversations]);
 
   async function saveRename(conversationId: string) {
     const normalized = draftTitle.trim();
@@ -162,11 +159,11 @@ export function ConversationList({
       </button>
 
       <label className="conversation-search">
-        <span>Search loaded chats</span>
+        <span>Search all chats</span>
         <input
           type="search"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
+          value={searchQuery}
+          onChange={(event) => onSearchQueryChange(event.target.value)}
           placeholder="Search conversations"
         />
       </label>
@@ -187,11 +184,12 @@ export function ConversationList({
             <button className="button button-quiet" onClick={onReload}>Retry</button>
           </div>
         )}
-        {!loading && error === null && conversations.length === 0 && (
-          <p className="empty-copy">No conversations yet.</p>
-        )}
-        {!loading && error === null && conversations.length > 0 && visibleConversations.length === 0 && (
-          <p className="empty-copy">No loaded conversations match that search.</p>
+        {!loading && error === null && visibleConversations.length === 0 && (
+          <p className="empty-copy">
+            {searchQuery.trim()
+              ? "No conversations match that search."
+              : "No conversations yet."}
+          </p>
         )}
         {mutationError !== null && (
           <p className="notice notice-error" role="alert">{mutationError}</p>

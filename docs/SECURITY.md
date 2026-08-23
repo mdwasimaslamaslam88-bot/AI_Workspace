@@ -39,6 +39,11 @@ Tokens are never placed in URLs, source, bundles, notification previews, or
 application logs. Tailscale identity headers are not a substitute for bearer
 authorization.
 
+Conversation search uses an authenticated bounded `POST` body so private title
+or message search terms do not enter request URLs, browser history, or proxy
+access logs. Results contain only owner-scoped conversation summaries; message
+excerpts are not returned.
+
 ## Edge controls
 
 - exact CORS origin list; non-loopback entries require HTTPS

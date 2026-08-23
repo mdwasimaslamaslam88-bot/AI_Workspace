@@ -2,7 +2,7 @@ import asyncio
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai.catalog import ModelRuntimeUnavailableError
@@ -36,6 +36,7 @@ from app.schemas.conversation import (
     ConversationListQuery,
     ConversationPageResponse,
     ConversationRename,
+    ConversationSearchRequest,
     ConversationStateUpdate,
     ConversationSummaryResponse,
 )
@@ -112,6 +113,49 @@ async def list_conversations(
             ),
         ),
     )
+    return ConversationPageResponse(
+        items=[
+            ConversationSummaryResponse.model_validate(conversation)
+            for conversation in page.items
+        ],
+        next_cursor=(
+            ConversationCursorResponse(
+                updated_at=page.next_cursor.updated_at,
+                id=page.next_cursor.id,
+            )
+            if page.next_cursor is not None
+            else None
+        ),
+    )
+
+
+@router.post("/search", response_model=ConversationPageResponse)
+async def search_conversations(
+    search_request: ConversationSearchRequest,
+    response: Response,
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> ConversationPageResponse:
+    page = await ConversationService(session).list_for_owner(
+        current_user.id,
+        ConversationPagination(
+            limit=search_request.limit,
+            include_archived=search_request.include_archived,
+            search=search_request.query,
+            cursor=(
+                ConversationCursor(
+                    updated_at=search_request.cursor_updated_at,
+                    id=search_request.cursor_id,
+                )
+                if (
+                    search_request.cursor_updated_at is not None
+                    and search_request.cursor_id is not None
+                )
+                else None
+            ),
+        ),
+    )
+    response.headers["Cache-Control"] = "private, no-store"
     return ConversationPageResponse(
         items=[
             ConversationSummaryResponse.model_validate(conversation)

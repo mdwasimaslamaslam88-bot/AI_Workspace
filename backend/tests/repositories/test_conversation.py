@@ -202,6 +202,42 @@ async def test_archived_inclusion_is_explicit_and_owner_scoped():
     assert owner_id in compiled.params.values()
 
 
+@pytest.mark.asyncio
+async def test_search_is_owner_scoped_bounded_and_matches_title_or_message():
+    owner_id = uuid4()
+    matched = _conversation()
+    session = _session_with_result(rows=(matched,))
+
+    page = await ConversationRepository(session).list_for_owner(
+        owner_id,
+        ConversationPagination(limit=10, search=r"GPU%_\Plan"),
+    )
+
+    assert page.items == (matched,)
+    statement = session.execute.await_args.args[0]
+    compiled, sql = _compile(statement)
+    assert "where conversations.owner_id =" in sql
+    assert "conversations.is_archived is false" in sql
+    assert "lower(conversations.title) like" in sql
+    assert "exists (select messages.id" in sql
+    assert "messages.conversation_id = conversations.id" in sql
+    assert "lower(messages.content) like" in sql
+    assert compiled.params["conversation_search_pattern"] == r"%gpu\%\_\\plan%"
+    assert compiled.params["fetch_limit"] == 11
+    assert owner_id in compiled.params.values()
+
+
+@pytest.mark.parametrize("search", ["", "   ", "x" * 501])
+def test_search_rejects_empty_or_oversized_values(search):
+    with pytest.raises(ValueError, match="conversation search"):
+        ConversationPagination(search=search)
+
+
+def test_search_rejects_non_string_values():
+    with pytest.raises(TypeError, match="conversation search"):
+        ConversationPagination(search=1)
+
+
 def test_cursor_rejects_malformed_values():
     with pytest.raises(ValueError, match="timezone-aware"):
         ConversationCursor(updated_at=datetime(2026, 8, 1), id=uuid4())

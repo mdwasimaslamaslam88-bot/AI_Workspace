@@ -26,8 +26,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import type { MobileUpload } from "@/api/client";
-import { MobileApiError } from "@/api/client";
+import { MobileApiError, type MobileApiClient, type MobileUpload } from "@/api/client";
 import { useWorkStation } from "@/context/work-station";
 import { workStationColors, type WorkStationColors } from "@/theme/colors";
 
@@ -130,6 +129,7 @@ export default function ChatScreen() {
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [selected, setSelected] = useState<ConversationSummary | null>(null);
   const [conversationQuery, setConversationQuery] = useState("");
+  const [conversationSearch, setConversationSearch] = useState("");
   const [showArchived, setShowArchived] = useState(false);
   const [conversationTitle, setConversationTitle] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
@@ -144,18 +144,30 @@ export default function ChatScreen() {
   const generation = useRef<AbortController | null>(null);
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const recorderState = useAudioRecorderState(recorder);
-  const visibleConversations = useMemo(() => {
-    const query = conversationQuery.trim().toLocaleLowerCase();
-    const filtered = query.length === 0
-      ? conversations
-      : conversations.filter((conversation) =>
-          (conversation.title ?? "Conversation").toLocaleLowerCase().includes(query),
-        );
-    return [...filtered].sort((left, right) =>
-      Number(left.is_archived) - Number(right.is_archived) ||
-      Number(right.is_pinned) - Number(left.is_pinned),
+  const visibleConversations = [...conversations].sort((left, right) =>
+    Number(left.is_archived) - Number(right.is_archived) ||
+    Number(right.is_pinned) - Number(left.is_pinned),
+  );
+
+  useEffect(() => {
+    const timer = setTimeout(
+      () => setConversationSearch(conversationQuery.trim()),
+      300,
     );
-  }, [conversationQuery, conversations]);
+    return () => clearTimeout(timer);
+  }, [conversationQuery]);
+
+  const listConversationPage = useCallback(
+    (activeClient: MobileApiClient) =>
+      conversationSearch
+        ? activeClient.searchConversations({
+            query: conversationSearch,
+            limit: 50,
+            include_archived: showArchived,
+          })
+        : activeClient.listConversations({ includeArchived: showArchived }),
+    [conversationSearch, showArchived],
+  );
 
   const loadMessages = useCallback(async (conversation: ConversationSummary) => {
     if (client === null) return;
@@ -176,7 +188,7 @@ export default function ChatScreen() {
     try {
       const [modelPage, conversationPage] = await Promise.all([
         client.listModels(),
-        client.listConversations({ includeArchived: showArchived }),
+        listConversationPage(client),
       ]);
       const available = modelPage.items.filter(modelCanChat);
       setModels(modelPage.items);
@@ -194,7 +206,7 @@ export default function ChatScreen() {
     } finally {
       setBusy(false);
     }
-  }, [client, loadMessages, selected, showArchived]);
+  }, [client, listConversationPage, loadMessages, selected]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -315,7 +327,7 @@ export default function ChatScreen() {
         );
       }
       setMessages((await connectedClient.listMessages(conversation.id)).items);
-      setConversations((await connectedClient.listConversations({ includeArchived: showArchived })).items);
+      setConversations((await listConversationPage(connectedClient)).items);
     } catch (cause) {
       setNotice(safeError(cause));
       if (selected !== null) await loadMessages(selected);
@@ -342,6 +354,9 @@ export default function ChatScreen() {
           conversation.id === renamed.id ? renamed : conversation,
         ),
       );
+      if (conversationSearch) {
+        setConversations((await listConversationPage(connectedClient)).items);
+      }
     } catch (cause) {
       setNotice(safeError(cause));
     } finally {
@@ -403,7 +418,7 @@ export default function ChatScreen() {
       );
       setMessages((await connectedClient.listMessages(fork.id, controller.signal)).items);
       setConversations(
-        (await connectedClient.listConversations({ includeArchived: showArchived })).items,
+        (await listConversationPage(connectedClient)).items,
       );
     } catch (cause) {
       setNotice(safeError(cause));
@@ -477,10 +492,10 @@ export default function ChatScreen() {
         </Pressable>
       </View>
       <TextInput
-        accessibilityLabel="Search loaded chats"
+        accessibilityLabel="Search all chats"
         value={conversationQuery}
         onChangeText={setConversationQuery}
-        placeholder="Search loaded chats"
+        placeholder="Search all chats"
         placeholderTextColor={colors.subtle}
         style={styles.searchInput}
       />

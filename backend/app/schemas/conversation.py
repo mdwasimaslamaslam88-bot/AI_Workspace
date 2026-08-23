@@ -111,6 +111,34 @@ class ConversationListQuery(BaseModel):
         return self
 
 
+class ConversationSearchRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    query: str = Field(min_length=1, max_length=500, pattern=r"\S")
+    limit: int = Field(
+        default=DEFAULT_CONVERSATION_PAGE_SIZE,
+        ge=1,
+        le=MAX_CONVERSATION_PAGE_SIZE,
+    )
+    cursor_updated_at: AwareDatetime | None = None
+    cursor_id: UUID | None = None
+    include_archived: bool = False
+
+    @field_validator("query")
+    @classmethod
+    def normalize_query(cls, value: str) -> str:
+        return value.strip()
+
+    @model_validator(mode="after")
+    def validate_composite_cursor(self):
+        if (self.cursor_updated_at is None) != (self.cursor_id is None):
+            raise PydanticCustomError(
+                "composite_cursor",
+                "cursor_updated_at and cursor_id must be provided together",
+            )
+        return self
+
+
 class ConversationSummaryResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

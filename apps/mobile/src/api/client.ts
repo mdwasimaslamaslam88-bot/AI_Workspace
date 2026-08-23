@@ -6,6 +6,7 @@ import {
   type ConversationForkRequest,
   type ConversationPage,
   type ConversationRenameRequest,
+  type ConversationSearchRequest,
   type ConversationStateUpdateRequest,
   type ConversationSummary,
   type ConversationTextGenerationRequest,
@@ -408,6 +409,17 @@ export class MobileApiClient {
     return this.#request(`api/v1/conversations?${query.toString()}`, parseConversationPage, {
       signal: options.signal,
     });
+  }
+
+  searchConversations(
+    request: ConversationSearchRequest,
+    signal?: AbortSignal,
+  ): Promise<ConversationPage> {
+    return this.#request(
+      "api/v1/conversations/search",
+      parseConversationPage,
+      { method: "POST", body: request, signal },
+    );
   }
 
   getConversation(id: string, signal?: AbortSignal): Promise<ConversationSummary> {

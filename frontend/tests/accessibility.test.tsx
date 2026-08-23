@@ -69,6 +69,7 @@ describe("critical surface accessibility", () => {
           loadingMore={false}
           error={null}
           showArchived={false}
+          searchQuery=""
           onCreate={vi.fn()}
           onSelect={vi.fn()}
           onRename={vi.fn(async () => undefined)}
@@ -76,6 +77,7 @@ describe("critical surface accessibility", () => {
           onDuplicate={vi.fn(async () => undefined)}
           onDelete={vi.fn(async () => undefined)}
           onShowArchivedChange={vi.fn()}
+          onSearchQueryChange={vi.fn()}
           onReload={vi.fn()}
           onLoadMore={vi.fn()}
           onLogout={vi.fn()}

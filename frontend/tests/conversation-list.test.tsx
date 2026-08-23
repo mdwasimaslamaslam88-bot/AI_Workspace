@@ -14,6 +14,7 @@ const baseProps = {
   loadingMore: false,
   error: null,
   showArchived: false,
+  searchQuery: "",
   onCreate: vi.fn(),
   onSelect: vi.fn(),
   onRename: vi.fn(async () => undefined),
@@ -21,6 +22,7 @@ const baseProps = {
   onDuplicate: vi.fn(async () => undefined),
   onDelete: vi.fn(async () => undefined),
   onShowArchivedChange: vi.fn(),
+  onSearchQueryChange: vi.fn(),
   onReload: vi.fn(),
   onLoadMore: vi.fn(),
   onLogout: vi.fn(),
@@ -90,7 +92,7 @@ describe("ConversationList", () => {
     expect(onReload).toHaveBeenCalledOnce();
   });
 
-  it("searches loaded chats and exposes confirmed rename and delete actions", async () => {
+  it("controls server search and exposes confirmed rename and delete actions", async () => {
     const second = {
       ...conversation,
       id: "44444444-4444-4444-8444-444444444444",
@@ -98,19 +100,32 @@ describe("ConversationList", () => {
     };
     const onRename = vi.fn(async () => undefined);
     const onDelete = vi.fn(async () => undefined);
+    const onSearchQueryChange = vi.fn();
     const confirm = vi.spyOn(window, "confirm").mockReturnValue(true);
-    render(
+    const { rerender } = render(
       <ConversationList
         {...baseProps}
         conversations={[conversation, second]}
         onRename={onRename}
         onDelete={onDelete}
+        onSearchQueryChange={onSearchQueryChange}
       />,
     );
 
     await userEvent.type(
-      screen.getByRole("searchbox", { name: "Search loaded chats" }),
+      screen.getByRole("searchbox", { name: "Search all chats" }),
       "hardware",
+    );
+    expect(onSearchQueryChange).toHaveBeenCalled();
+    rerender(
+      <ConversationList
+        {...baseProps}
+        conversations={[second]}
+        searchQuery="hardware"
+        onRename={onRename}
+        onDelete={onDelete}
+        onSearchQueryChange={onSearchQueryChange}
+      />,
     );
     expect(screen.queryByRole("button", { name: /Local chat/ })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Hardware plan/ })).toBeVisible();

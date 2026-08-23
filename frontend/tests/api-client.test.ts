@@ -129,6 +129,39 @@ describe("ApiClient", () => {
     ]);
   });
 
+  it("keeps private conversation search terms in an authenticated POST body", async () => {
+    const privateQuery = "private accelerator roadmap";
+    const fetchImplementation = vi.fn(
+      async (input: URL | RequestInfo, init?: RequestInit) => {
+        expect(input.toString()).toBe(
+          "http://127.0.0.1:8000/api/v1/conversations/search",
+        );
+        expect(input.toString()).not.toContain(privateQuery);
+        expect(init?.method).toBe("POST");
+        expect(new Headers(init?.headers).get("Authorization")).toBe(
+          `Bearer ${token}`,
+        );
+        expect(JSON.parse(String(init?.body))).toEqual({
+          query: privateQuery,
+          limit: 50,
+          include_archived: true,
+        });
+        return jsonResponse({ items: [conversation], next_cursor: null });
+      },
+    );
+    const client = new ApiClient(token, {
+      fetchImplementation: fetchImplementation as typeof fetch,
+    });
+
+    await expect(
+      client.searchConversations({
+        query: privateQuery,
+        limit: 50,
+        include_archived: true,
+      }),
+    ).resolves.toEqual({ items: [conversation], next_cursor: null });
+  });
+
   it("uses the exact create, message, and generation contracts", async () => {
     const calls: Array<{ url: string; body: unknown }> = [];
     const fetchImplementation = vi.fn(async (input: URL | RequestInfo, init?: RequestInit) => {

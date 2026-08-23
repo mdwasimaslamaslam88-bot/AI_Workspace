@@ -144,6 +144,8 @@ export function App() {
   const [conversationsLoadingMore, setConversationsLoadingMore] = useState(false);
   const [conversationsError, setConversationsError] = useState<string | null>(null);
   const [showArchivedConversations, setShowArchivedConversations] = useState(false);
+  const [conversationSearchInput, setConversationSearchInput] = useState("");
+  const [conversationSearch, setConversationSearch] = useState("");
 
   const [selectedConversation, setSelectedConversation] =
     useState<ConversationSummary | null>(null);
@@ -183,6 +185,8 @@ export function App() {
     setSelectedModelId(null);
     setConversations([]);
     setShowArchivedConversations(false);
+    setConversationSearchInput("");
+    setConversationSearch("");
     setConversationCursor(null);
     setSelectedConversation(null);
     setMessages([]);
@@ -195,6 +199,14 @@ export function App() {
     setSettingsOpen(false);
     setAuthenticationStatus("anonymous");
   }, []);
+
+  useEffect(() => {
+    const timer = window.setTimeout(
+      () => setConversationSearch(conversationSearchInput.trim()),
+      300,
+    );
+    return () => window.clearTimeout(timer);
+  }, [conversationSearchInput]);
 
   const createClient = useCallback(
     (token: string) =>
@@ -364,11 +376,20 @@ export function App() {
     setConversationsLoading(true);
     setConversationsError(null);
     try {
-      const response = await client.listConversations({
-        limit: 50,
-        includeArchived: showArchivedConversations,
-        signal: controller.signal,
-      });
+      const response = conversationSearch
+        ? await client.searchConversations(
+            {
+              query: conversationSearch,
+              limit: 50,
+              include_archived: showArchivedConversations,
+            },
+            controller.signal,
+          )
+        : await client.listConversations({
+            limit: 50,
+            includeArchived: showArchivedConversations,
+            signal: controller.signal,
+          });
       setConversations(response.items);
       setConversationCursor(response.next_cursor);
     } catch (error) {
@@ -377,7 +398,7 @@ export function App() {
     } finally {
       if (!controller.signal.aborted) setConversationsLoading(false);
     }
-  }, [client, showArchivedConversations]);
+  }, [client, conversationSearch, showArchivedConversations]);
 
   useEffect(() => {
     if (authenticationStatus !== "authenticated" || client === null) return;
@@ -390,11 +411,19 @@ export function App() {
     setConversationsLoadingMore(true);
     setConversationsError(null);
     try {
-      const response = await client.listConversations({
-        limit: 50,
-        cursor: conversationCursor,
-        includeArchived: showArchivedConversations,
-      });
+      const response = conversationSearch
+        ? await client.searchConversations({
+            query: conversationSearch,
+            limit: 50,
+            cursor_updated_at: conversationCursor.updated_at,
+            cursor_id: conversationCursor.id,
+            include_archived: showArchivedConversations,
+          })
+        : await client.listConversations({
+            limit: 50,
+            cursor: conversationCursor,
+            includeArchived: showArchivedConversations,
+          });
       setConversations((current) =>
         mergeConversations(current, response.items),
       );
@@ -404,7 +433,12 @@ export function App() {
     } finally {
       setConversationsLoadingMore(false);
     }
-  }, [client, conversationCursor, showArchivedConversations]);
+  }, [
+    client,
+    conversationCursor,
+    conversationSearch,
+    showArchivedConversations,
+  ]);
 
   const selectConversation = useCallback(
     async (summary: ConversationSummary) => {
@@ -453,8 +487,9 @@ export function App() {
       setSelectedConversation((current) =>
         current?.id === renamed.id ? renamed : current,
       );
+      if (conversationSearch) await reloadConversations();
     },
-    [client],
+    [client, conversationSearch, reloadConversations],
   );
 
   const deleteConversation = useCallback(
@@ -1281,6 +1316,7 @@ export function App() {
         loadingMore={conversationsLoadingMore}
         error={conversationsError}
         showArchived={showArchivedConversations}
+        searchQuery={conversationSearchInput}
         disabled={generating || creatingConversation}
         onCreate={() => {
           setCreatingNew(true);
@@ -1292,6 +1328,7 @@ export function App() {
         onDuplicate={duplicateConversation}
         onDelete={deleteConversation}
         onShowArchivedChange={setShowArchivedConversations}
+        onSearchQueryChange={setConversationSearchInput}
         onReload={() => void reloadConversations()}
         onLoadMore={() => void loadMoreConversations()}
         onLogout={() => void logoutCurrentSession()}

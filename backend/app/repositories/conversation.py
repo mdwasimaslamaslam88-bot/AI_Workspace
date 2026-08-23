@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import Integer, bindparam, delete, func, select, tuple_, update
+from sqlalchemy import Integer, bindparam, delete, func, or_, select, tuple_, update
 
 from app.models.asset import Asset
 from app.models.conversation import Conversation
@@ -34,6 +34,7 @@ class ConversationPagination:
     limit: int = DEFAULT_CONVERSATION_PAGE_SIZE
     cursor: ConversationCursor | None = None
     include_archived: bool = False
+    search: str | None = None
 
     def __post_init__(self) -> None:
         if isinstance(self.limit, bool) or not isinstance(self.limit, int):
@@ -48,6 +49,11 @@ class ConversationPagination:
             raise TypeError("pagination cursor must be a ConversationCursor")
         if not isinstance(self.include_archived, bool):
             raise TypeError("include_archived must be a boolean")
+        if self.search is not None:
+            if not isinstance(self.search, str):
+                raise TypeError("conversation search must be a string")
+            if not self.search.strip() or len(self.search) > 500:
+                raise ValueError("conversation search is outside its bound")
 
 
 @dataclass(frozen=True, slots=True)
@@ -88,6 +94,34 @@ class ConversationRepository(BaseRepository):
         statement = select(Conversation).where(Conversation.owner_id == owner_id)
         if not pagination.include_archived:
             statement = statement.where(Conversation.is_archived.is_(False))
+        if pagination.search is not None:
+            escaped_search = (
+                pagination.search.strip().lower()
+                .replace("\\", "\\\\")
+                .replace("%", "\\%")
+                .replace("_", "\\_")
+            )
+            search_pattern = bindparam(
+                "conversation_search_pattern",
+                f"%{escaped_search}%",
+            )
+            message_match = (
+                select(Message.id)
+                .where(
+                    Message.conversation_id == Conversation.id,
+                    func.lower(Message.content).like(search_pattern, escape="\\"),
+                )
+                .exists()
+            )
+            statement = statement.where(
+                or_(
+                    func.lower(Conversation.title).like(
+                        search_pattern,
+                        escape="\\",
+                    ),
+                    message_match,
+                )
+            )
         if pagination.cursor is not None:
             statement = statement.where(
                 tuple_(Conversation.updated_at, Conversation.id)
