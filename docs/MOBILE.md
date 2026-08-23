@@ -8,10 +8,13 @@ Implemented client contracts include secure session restore/logout, connection
 recovery on network and app resume, conversation creation and text generation,
 keyset-paginated conversation and message history, bounded owner-wide title/message search,
 owner-scoped pin/archive/restore/rename, immutable duplicate/edit-resend/regenerate
-branches, confirmed deletion, owner-scoped RAG source labels/excerpts, owned
-file/image/camera uploads, microphone recording and speech recognition,
-authenticated image and audio playback, generic local notification architecture,
-deep links, and safe error redaction. SecureStore maps to
+branches, confirmed deletion, native Markdown/code presentation, explicit
+clipboard copy, owner-scoped RAG source labels/excerpts, owned file/image/camera
+uploads, microphone recording and speech recognition, and on-demand authenticated
+image and audio playback directly in chat. Model-provided links and HTML remain
+inert text, so rendering cannot initiate navigation or network access. Generic
+local notification architecture, deep links, and safe error redaction are also
+included. SecureStore maps to
 Keychain/Keystore-backed device storage. The UI follows the device light/dark
 preference, and the private settings view includes redacted runtime diagnostics
 plus an authoritative hardware-aware model catalog, per-device session naming,
@@ -26,6 +29,11 @@ in the request header, written only to the app cache for display/playback, and
 removed when the Studio screen closes. Credentials are never placed in media
 URLs, filenames, notifications, or source. All upload and generation
 idempotency headers are backend-compatible UUIDs.
+
+Chat media uses the same authenticated download route. The bearer stays in the
+request header, never enters a media URL, and image/audio bytes are written only
+to a randomized app-cache file after the owner explicitly chooses to load them.
+The cache entry is removed when the rendered attachment leaves the screen.
 
 ## Local development
 

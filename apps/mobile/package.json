@@ -3,11 +3,12 @@
   "main": "expo-router/entry",
   "version": "0.1.0",
   "dependencies": {
-    "@work-station/shared": "0.1.0",
     "@expo/ui": "~57.0.12",
     "@react-native-community/netinfo": "12.0.1",
+    "@work-station/shared": "0.1.0",
     "expo": "~57.0.15",
     "expo-audio": "~57.0.4",
+    "expo-clipboard": "~57.0.1",
     "expo-constants": "~57.0.13",
     "expo-device": "~57.0.1",
     "expo-document-picker": "~57.0.1",

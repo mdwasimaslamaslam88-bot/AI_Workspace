@@ -28,6 +28,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { MobileApiError, type MobileApiClient, type MobileUpload } from "@/api/client";
 import { citationLocation, citationSourceLabel } from "@/chat/citations";
+import { MobileMessageAttachment } from "@/chat/message-attachment";
+import { MobileMessageContent } from "@/chat/message-content";
 import { useWorkStation } from "@/context/work-station";
 import { workStationColors, type WorkStationColors } from "@/theme/colors";
 
@@ -801,9 +803,18 @@ export default function ChatScreen() {
           return (
             <View style={[styles.message, item.role === "user" ? styles.userMessage : styles.assistantMessage]}>
               <Text style={styles.messageRole}>{item.role}</Text>
-              <Text selectable style={styles.messageText}>{item.content}</Text>
+              <MobileMessageContent content={item.content} />
               {item.attachments.length > 0 && (
-                <Text style={styles.attachmentMeta}>{item.attachments.length} private attachment(s)</Text>
+                <View style={styles.persistedAttachments}>
+                  <Text style={styles.attachmentMeta}>{item.attachments.length} private attachment(s)</Text>
+                  {item.attachments.map((attachment) => (
+                    <MobileMessageAttachment
+                      attachment={attachment}
+                      client={connectedClient}
+                      key={attachment.id}
+                    />
+                  ))}
+                </View>
               )}
               {item.citations.length > 0 && (
                 <View style={styles.citationList}>
@@ -979,7 +990,7 @@ function createStyles(colors: WorkStationColors) {
   userMessage: { alignSelf: "flex-end", backgroundColor: colors.accentSoft, borderColor: colors.accentBorder },
   assistantMessage: { alignSelf: "flex-start", backgroundColor: colors.raised, borderColor: colors.line },
   messageRole: { color: colors.muted, fontSize: 10, fontWeight: "900", textTransform: "uppercase", marginBottom: 5 },
-  messageText: { color: colors.text, fontSize: 15, lineHeight: 22 },
+  persistedAttachments: { gap: 8 },
   attachmentMeta: { color: colors.muted, fontSize: 11, marginTop: 8 },
   loadMoreMessages: { minHeight: 48, alignItems: "center", justifyContent: "center" },
   citationList: { gap: 7, marginTop: 8, borderTopColor: colors.line, borderTopWidth: 1, paddingTop: 8 },
