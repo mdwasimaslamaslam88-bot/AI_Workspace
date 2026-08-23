@@ -1,0 +1,20 @@
+[Unit]
+Description=Verify WORK STATION private remote gateway
+After=work-station-backend.service
+
+[Service]
+Type=oneshot
+ExecCondition=/usr/bin/test -x /usr/bin/tailscale
+ExecStart=@REPOSITORY_ROOT@/scripts/check_remote_gateway.sh
+NoNewPrivileges=yes
+PrivateDevices=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+RestrictAddressFamilies=AF_UNIX
+UMask=0077

@@ -32,8 +32,7 @@ Do not use ORM metadata creation in deployment. Alembic is authoritative.
 
 ```bash
 ./scripts/install_user_services.sh
-systemctl --user enable --now work-station-backend.service \
-  work-station-health.timer
+systemctl --user enable --now work-station.target
 loginctl enable-linger "$USER"
 ```
 
@@ -41,7 +40,9 @@ The installer validates the compiled app and backend environment before
 creating user units. It does not start services automatically. The backend
 service binds `127.0.0.1:8000`, trusts proxy headers only from loopback, uses a
 restrictive umask, has restart/time/resource bounds, and writes only to the
-private data root.
+private data root. The target also enables a readiness timer for PostgreSQL,
+Redis, and Ollama plus a remote-gateway timer that is skipped until the standard
+`/usr/bin/tailscale` client is installed.
 
 `loginctl enable-linger` may require local administrator policy and is therefore
 an explicit owner action.

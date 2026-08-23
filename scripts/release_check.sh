@@ -45,6 +45,7 @@ npm run build:static --workspace @work-station/mobile
 "${script_directory}/desktop_check.sh"
 
 "${script_directory}/verify_service_units.sh"
+"${script_directory}/test_remote_gateway_check.sh"
 bash -n scripts/*.sh
 "${backend_python}" scripts/backup_tool.py --help >/dev/null
 

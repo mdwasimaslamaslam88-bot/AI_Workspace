@@ -14,9 +14,15 @@
 ```bash
 systemctl --user status work-station-backend.service
 systemctl --user status work-station-health.timer
-curl --fail --silent http://127.0.0.1:8000/api/v1/health/live
+systemctl --user status work-station-remote-health.timer
+curl --fail --silent http://127.0.0.1:8000/api/v1/health/ready
 ./scripts/check_remote_gateway.sh
 ```
+
+`work-station-health.timer` checks full backend readiness, including the local
+database, Redis, and Ollama. `work-station-remote-health.timer` validates the
+tailnet-only HTTPS proxy and rejects a wrong backend target or any detectable
+Funnel configuration; it is conditionally skipped while Tailscale is absent.
 
 The authenticated Settings view provides fixed `ready`, `unavailable`, or
 `unconfigured` states for backend, PostgreSQL, Redis, Ollama, vision, image,

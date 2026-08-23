@@ -1,0 +1,12 @@
+[Unit]
+Description=Periodically verify WORK STATION private remote gateway
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=5min
+RandomizedDelaySec=30s
+Persistent=true
+Unit=work-station-remote-health.service
+
+[Install]
+WantedBy=timers.target

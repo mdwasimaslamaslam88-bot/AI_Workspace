@@ -55,8 +55,7 @@ without the owner's Tailscale account authorization.
 
    ```bash
    ./scripts/install_user_services.sh
-   systemctl --user enable --now work-station-backend.service \
-     work-station-health.timer
+   systemctl --user enable --now work-station.target
    ./scripts/configure_tailscale_serve.sh
    ```
 
