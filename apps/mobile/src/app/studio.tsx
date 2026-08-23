@@ -29,6 +29,11 @@ import { cachePrivateMedia, type CachedPrivateMedia } from "@/media/private-cach
 import { notifyTaskFinished } from "@/notifications/private-notifications";
 import { parseBoundedJsonObject } from "@/studio/input";
 import { workStationColors, type WorkStationColors } from "@/theme/colors";
+import {
+  isWorkflowTerminal,
+  pollWorkflowUntilTerminal,
+  WorkflowPollingTimeoutError,
+} from "@/workflows/monitor";
 
 const memoryCategories: MemoryCategory[] = [
   "preference",
@@ -38,6 +43,7 @@ const memoryCategories: MemoryCategory[] = [
 ];
 
 function safeError(cause: unknown): string {
+  if (cause instanceof WorkflowPollingTimeoutError) return cause.message;
   return cause instanceof MobileApiError
     ? cause.message
     : "The private operation could not be completed.";
@@ -84,6 +90,7 @@ export default function StudioScreen() {
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const activeRequest = useRef<AbortController | null>(null);
+  const workflowMonitors = useRef(new Map<string, AbortController>());
   const imageCache = useRef<CachedPrivateMedia | null>(null);
   const audioCache = useRef<CachedPrivateMedia | null>(null);
   const player = useAudioPlayer(null);
@@ -98,6 +105,34 @@ export default function StudioScreen() {
     [models],
   );
   const selectedTool = tools.find((tool) => tool.name === toolName) ?? null;
+
+  const updateWorkflow = useCallback((workflow: Workflow) => {
+    setWorkflows((current) =>
+      current.map((item) => item.id === workflow.id ? workflow : item),
+    );
+  }, []);
+
+  const monitorWorkflow = useCallback((workflowId: string) => {
+    if (client === null || workflowMonitors.current.has(workflowId)) return;
+    const controller = new AbortController();
+    workflowMonitors.current.set(workflowId, controller);
+    void pollWorkflowUntilTerminal(
+      workflowId,
+      controller.signal,
+      (id, signal) => client.getWorkflow(id, signal),
+      updateWorkflow,
+    ).then((terminal) => {
+      if (terminal !== null) {
+        void notifyTaskFinished(terminal.status === "completed").catch(() => undefined);
+      }
+    }).catch((cause) => {
+      if (controller.signal.aborted) return;
+      setNotice(safeError(cause));
+      void notifyTaskFinished(false).catch(() => undefined);
+    }).finally(() => {
+      workflowMonitors.current.delete(workflowId);
+    });
+  }, [client, updateWorkflow]);
 
   const load = useCallback(async () => {
     if (client === null || state !== "connected") return;
@@ -130,6 +165,9 @@ export default function StudioScreen() {
       );
       setLastExecution(executionPage.items[0] ?? null);
       setWorkflows(workflowPage.items);
+      for (const workflow of workflowPage.items) {
+        if (workflow.status === "running") monitorWorkflow(workflow.id);
+      }
       const nextImageModels = capabilityModels(modelPage.items, "image_generation");
       const nextVoiceModels = capabilityModels(modelPage.items, "speech_synthesis");
       setImageModelId((current) =>
@@ -147,7 +185,7 @@ export default function StudioScreen() {
     } finally {
       setBusyAction(null);
     }
-  }, [client, state]);
+  }, [client, monitorWorkflow, state]);
 
   useEffect(() => {
     const timer = setTimeout(() => void load(), 0);
@@ -156,6 +194,8 @@ export default function StudioScreen() {
 
   useEffect(() => () => {
     activeRequest.current?.abort();
+    for (const controller of workflowMonitors.current.values()) controller.abort();
+    workflowMonitors.current.clear();
     imageCache.current?.remove();
     audioCache.current?.remove();
   }, []);
@@ -163,7 +203,7 @@ export default function StudioScreen() {
   async function perform(
     label: string,
     operation: (signal: AbortSignal) => Promise<void>,
-    notify = false,
+    notify: boolean | "failure_only" = false,
   ) {
     if (busyAction !== null) return;
     const controller = new AbortController();
@@ -172,10 +212,10 @@ export default function StudioScreen() {
     setNotice(null);
     try {
       await operation(controller.signal);
-      if (notify) await notifyTaskFinished(true).catch(() => undefined);
+      if (notify === true) await notifyTaskFinished(true).catch(() => undefined);
     } catch (cause) {
       setNotice(safeError(cause));
-      if (notify && !(cause instanceof MobileApiError && cause.kind === "cancelled")) {
+      if (notify !== false && !(cause instanceof MobileApiError && cause.kind === "cancelled")) {
         await notifyTaskFinished(false).catch(() => undefined);
       }
     } finally {
@@ -280,18 +320,20 @@ export default function StudioScreen() {
   async function startWorkflow(workflowId: string) {
     await perform("Starting workflow", async (signal) => {
       const workflow = await connectedClient.startWorkflow(workflowId, signal);
-      setWorkflows((current) =>
-        current.map((item) => item.id === workflow.id ? workflow : item),
-      );
-    }, true);
+      updateWorkflow(workflow);
+      if (isWorkflowTerminal(workflow.status)) {
+        await notifyTaskFinished(workflow.status === "completed").catch(() => undefined);
+      } else {
+        monitorWorkflow(workflow.id);
+      }
+    }, "failure_only");
   }
 
   async function cancelWorkflow(workflowId: string) {
     await perform("Cancelling workflow", async (signal) => {
       const workflow = await connectedClient.cancelWorkflow(workflowId, signal);
-      setWorkflows((current) =>
-        current.map((item) => item.id === workflow.id ? workflow : item),
-      );
+      workflowMonitors.current.get(workflowId)?.abort();
+      updateWorkflow(workflow);
     });
   }
 

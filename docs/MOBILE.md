@@ -30,6 +30,13 @@ removed when the Studio screen closes. Credentials are never placed in media
 URLs, filenames, notifications, or source. All upload and generation
 idempotency headers are backend-compatible UUIDs.
 
+Workflow notifications are emitted only after authenticated polling observes a
+server-authoritative terminal status. Polling is bounded beyond the backend's
+60-second workflow deadline, resumes for running work when the Studio reloads,
+and stops without inventing a result when the owner cancels or leaves the
+screen. Failed, timed-out, or unexpectedly interrupted monitoring uses the same
+generic, content-free attention notification.
+
 Chat media uses the same authenticated download route. The bearer stays in the
 request header, never enters a media URL, and image/audio bytes are written only
 to a randomized app-cache file after the owner explicitly chooses to load them.

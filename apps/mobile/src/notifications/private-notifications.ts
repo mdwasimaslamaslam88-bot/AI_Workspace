@@ -6,15 +6,19 @@ export async function requestPrivateNotificationPermission(): Promise<boolean> {
   return (await Notifications.requestPermissionsAsync()).granted;
 }
 
+export function privateTaskNotificationContent(succeeded: boolean) {
+  return {
+    title: succeeded ? "WORK STATION task finished" : "WORK STATION task needs attention",
+    body: "Open WORK STATION to review the private result.",
+    data: { route: "/" },
+  } as const;
+}
+
 export async function notifyTaskFinished(succeeded: boolean): Promise<void> {
   // Notification previews intentionally contain no prompts, model output,
   // conversation names, filenames, or other private content.
   await Notifications.scheduleNotificationAsync({
-    content: {
-      title: succeeded ? "WORK STATION task finished" : "WORK STATION task needs attention",
-      body: "Open WORK STATION to review the private result.",
-      data: { route: "/" },
-    },
+    content: privateTaskNotificationContent(succeeded),
     trigger: null,
   });
 }
