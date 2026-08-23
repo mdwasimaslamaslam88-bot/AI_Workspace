@@ -37,6 +37,7 @@ cd backend
 .venv/bin/python -m compileall -q app scripts tests
 cd ..
 ./scripts/postgres_integration_check.sh
+npm run check:browser
 npm run test:web
 npm run test:a11y --workspace @work-station/web
 npm run test --workspace @work-station/mobile
@@ -74,6 +75,34 @@ fail-closed for operators who intentionally use an already configured test
 database: it accepts only `127.0.0.1/ai_workspace_test` and requires an identity
 separate from `DATABASE_URL`. Never bypass that guard or point tests at the
 application database.
+
+## Real browser validation
+
+The browser gate reuses the same disposable PostgreSQL boundary and starts a
+compiled PWA plus backend on a random loopback origin. It creates a transient
+test provisioning credential in memory, provisions only the disposable owner,
+drives the password-masked bearer connection screen, verifies `/users/me`,
+creates a conversation, obtains two non-empty real local-model responses, and
+logs out. Screenshots, video, and traces are not captured. Backend/build logs
+and private assets stay inside the mode-700 temporary root and are removed with
+the database cluster.
+
+Install Playwright's pinned Chromium build outside the source tree once:
+
+```bash
+install -d -m 700 ~/AI_Workspace_Runtimes/playwright
+PLAYWRIGHT_BROWSERS_PATH=~/AI_Workspace_Runtimes/playwright \
+  npx playwright install chromium
+```
+
+Then run either the focused gate or the complete real E2E sequence:
+
+```bash
+WORK_STATION_PLAYWRIGHT_BROWSERS_PATH=~/AI_Workspace_Runtimes/playwright \
+  npm run check:browser
+WORK_STATION_PLAYWRIGHT_BROWSERS_PATH=~/AI_Workspace_Runtimes/playwright \
+  npm run e2e
+```
 
 ## Environment modes
 

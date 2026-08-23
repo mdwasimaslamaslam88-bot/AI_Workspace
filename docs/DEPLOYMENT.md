@@ -10,7 +10,12 @@ ComfyUI and speech runtimes stay on-demand.
 ```bash
 npm ci
 backend/.venv/bin/pip install -r backend/requirements.txt
+install -d -m 700 ~/AI_Workspace_Runtimes/playwright
+PLAYWRIGHT_BROWSERS_PATH=~/AI_Workspace_Runtimes/playwright \
+  npx playwright install chromium
 ./scripts/postgres_integration_check.sh
+WORK_STATION_PLAYWRIGHT_BROWSERS_PATH=~/AI_Workspace_Runtimes/playwright \
+  npm run check:browser
 npm run build:web
 npm run build:static --workspace @work-station/mobile
 ./scripts/desktop_check.sh

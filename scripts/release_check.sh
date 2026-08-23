@@ -62,7 +62,7 @@ bash -n scripts/*.sh
 
 "${script_directory}/security_audit.sh"
 if [[ "${with_runtime}" == true ]]; then
-  "${script_directory}/postgres_integration_check.sh" --with-runtime
+  "${script_directory}/postgres_integration_check.sh" --with-runtime --with-browser
 else
   "${script_directory}/postgres_integration_check.sh"
 fi

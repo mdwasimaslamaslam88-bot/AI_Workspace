@@ -6,25 +6,31 @@ repository_root="$(cd -- "${script_directory}/.." && pwd -P)"
 backend_python="${repository_root}/backend/.venv/bin/python"
 run_integration=true
 run_runtime=false
+run_browser=false
+e2e_backend_pid=""
 
 usage() {
   cat <<'EOF'
-Usage: ./scripts/postgres_integration_check.sh [--with-runtime|--runtime-only]
+Usage: ./scripts/postgres_integration_check.sh [OPTIONS]
 
 Starts a user-owned, loopback-only PostgreSQL cluster in a random temporary
 directory, creates only the approved ai_workspace_test database, runs the real
-integration suite, and removes the cluster. Runtime-only mode migrates the same
-disposable database and runs the bounded real AI smokes.
+integration suite, and removes the cluster. Browser and runtime modes migrate
+the same disposable database before exercising real clients and runtimes.
 
-  --with-runtime  Run PostgreSQL integration and real runtime E2E.
-  --runtime-only  Run only migrated real runtime E2E.
+  --with-runtime  Add real AI runtime E2E.
+  --with-browser  Add real compiled-PWA browser E2E.
+  --runtime-only  Skip integration and run real AI runtime E2E.
+  --browser-only  Skip integration and run real browser E2E.
 EOF
 }
 
 for argument in "$@"; do
   case "${argument}" in
     --with-runtime) run_runtime=true ;;
+    --with-browser) run_browser=true ;;
     --runtime-only) run_integration=false; run_runtime=true ;;
+    --browser-only) run_integration=false; run_browser=true ;;
     --help|-h) usage; exit 0 ;;
     *) echo "Unknown PostgreSQL check option: ${argument}" >&2; usage >&2; exit 2 ;;
   esac
@@ -52,7 +58,16 @@ cluster_socket="${cluster_root}/socket"
 cluster_log="${cluster_root}/postgres.log"
 cluster_started=false
 
+stop_e2e_backend() {
+  if [[ -n "${e2e_backend_pid}" ]] && kill -0 "${e2e_backend_pid}" 2>/dev/null; then
+    kill -TERM "${e2e_backend_pid}" 2>/dev/null || true
+    wait "${e2e_backend_pid}" 2>/dev/null || true
+  fi
+  e2e_backend_pid=""
+}
+
 cleanup_cluster() {
+  stop_e2e_backend
   if [[ "${cluster_started}" == true && -x "${postgres_bindir}/pg_ctl" && -d "${cluster_data}" ]]; then
     "${postgres_bindir}/pg_ctl" -D "${cluster_data}" -m fast -w stop \
       >/dev/null 2>&1 || true
@@ -68,6 +83,16 @@ cleanup_cluster() {
   fi
 }
 trap cleanup_cluster EXIT
+
+choose_loopback_port() {
+  "${backend_python}" - <<'PY'
+import socket
+
+with socket.socket() as candidate:
+    candidate.bind(("127.0.0.1", 0))
+    print(candidate.getsockname()[1])
+PY
+}
 
 mkdir -m 700 "${cluster_socket}"
 cluster_password="$("${backend_python}" - <<'PY'
@@ -86,14 +111,7 @@ PY
   --no-locale \
   >/dev/null
 
-cluster_port="$("${backend_python}" - <<'PY'
-import socket
-
-with socket.socket() as candidate:
-    candidate.bind(("127.0.0.1", 0))
-    print(candidate.getsockname()[1])
-PY
-)"
+cluster_port="$(choose_loopback_port)"
 [[ "${cluster_port}" =~ ^[0-9]+$ ]]
 
 if ! "${postgres_bindir}/pg_ctl" \
@@ -124,13 +142,111 @@ if [[ "${run_integration}" == true ]]; then
   )
 fi
 
-if [[ "${run_runtime}" == true ]]; then
+if [[ "${run_runtime}" == true || "${run_browser}" == true ]]; then
   (
     export RUN_DATABASE_INTEGRATION_TESTS=true
     export TEST_DATABASE_URL="${ephemeral_url}"
     cd backend
     .venv/bin/alembic upgrade head
   )
+fi
+
+if [[ "${run_browser}" == true ]]; then
+  playwright_browsers_path="${WORK_STATION_PLAYWRIGHT_BROWSERS_PATH:-${repository_root}/../../AI_Workspace_Runtimes/playwright}"
+  if [[ "${playwright_browsers_path}" != /* || ! -d "${playwright_browsers_path}" ]]; then
+    echo "The private Playwright browser runtime directory is unavailable." >&2
+    echo "Set WORK_STATION_PLAYWRIGHT_BROWSERS_PATH to an existing absolute directory." >&2
+    exit 1
+  fi
+  playwright_browsers_path="$(cd -- "${playwright_browsers_path}" && pwd -P)"
+  if ! PLAYWRIGHT_BROWSERS_PATH="${playwright_browsers_path}" node --input-type=module - <<'JS'
+import { existsSync } from "node:fs";
+import { chromium } from "playwright";
+
+process.exit(existsSync(chromium.executablePath()) ? 0 : 1);
+JS
+  then
+    echo "The pinned Playwright Chromium runtime is unavailable." >&2
+    echo "Install it with PLAYWRIGHT_BROWSERS_PATH set to the private runtime directory." >&2
+    exit 1
+  fi
+
+  api_port="$(choose_loopback_port)"
+  [[ "${api_port}" =~ ^[0-9]+$ ]]
+  api_origin="http://127.0.0.1:${api_port}"
+  web_root="${cluster_root}/web"
+  asset_root="${cluster_root}/assets"
+  backend_log="${cluster_root}/backend.log"
+  mkdir -m 700 "${web_root}" "${asset_root}"
+
+  if ! (
+    cd frontend
+    VITE_API_BASE_URL="${api_origin}" ../node_modules/.bin/vite build \
+      --outDir "${web_root}" \
+      --emptyOutDir \
+      --logLevel error
+  ) >"${cluster_root}/vite.log" 2>&1; then
+    echo "The isolated browser PWA build failed." >&2
+    exit 1
+  fi
+
+  e2e_provisioning_token="$("${backend_python}" - <<'PY'
+import secrets
+
+print(secrets.token_urlsafe(32))
+PY
+)"
+  e2e_provisioning_digest="$(
+    printf '%s' "${e2e_provisioning_token}" | "${backend_python}" -c \
+      'import hashlib, sys; print(hashlib.sha256(sys.stdin.buffer.read()).hexdigest())'
+  )"
+
+  (
+    export APP_TITLE="WORK STATION"
+    export ASSET_STORAGE_ROOT="${asset_root}"
+    export BACKEND_CORS_ORIGINS="[\"${api_origin}\"]"
+    export DATABASE_SSL_MODE=disable
+    export DATABASE_URL="${ephemeral_url}"
+    export REMOTE_GATEWAY_MODE=local
+    export USER_PROVISIONING_TOKEN_DIGEST="${e2e_provisioning_digest}"
+    export WORK_STATION_WEB_ROOT="${web_root}"
+    cd backend
+    exec .venv/bin/python -m uvicorn app.main:app \
+      --host 127.0.0.1 \
+      --port "${api_port}" \
+      --no-access-log \
+      --log-level warning
+  ) >"${backend_log}" 2>&1 &
+  e2e_backend_pid=$!
+
+  backend_ready=false
+  for _attempt in $(seq 1 120); do
+    if ! kill -0 "${e2e_backend_pid}" 2>/dev/null; then
+      break
+    fi
+    if curl --fail --silent --show-error \
+      "${api_origin}/api/v1/health/live" >/dev/null 2>&1; then
+      backend_ready=true
+      break
+    fi
+    sleep 0.25
+  done
+  if [[ "${backend_ready}" != true ]]; then
+    echo "The isolated browser backend did not become ready." >&2
+    exit 1
+  fi
+
+  printf '%s' "${e2e_provisioning_token}" | (
+    export PLAYWRIGHT_BROWSERS_PATH="${playwright_browsers_path}"
+    export WORK_STATION_E2E_API_ORIGIN="${api_origin}"
+    export WORK_STATION_E2E_WEB_ORIGIN="${api_origin}"
+    exec node scripts/browser_e2e.mjs
+  )
+  e2e_provisioning_token=""
+  stop_e2e_backend
+fi
+
+if [[ "${run_runtime}" == true ]]; then
   (
     export WORK_STATION_EPHEMERAL_TEST_DATABASE_URL="${ephemeral_url}"
     exec "${script_directory}/runtime_e2e.sh"
@@ -143,8 +259,16 @@ if [[ "${after_status}" != "${before_status}" ]]; then
   exit 1
 fi
 
-if [[ "${run_integration}" == true && "${run_runtime}" == true ]]; then
+if [[ "${run_integration}" == true && "${run_browser}" == true && "${run_runtime}" == true ]]; then
+  echo "ephemeral PostgreSQL validation: integration, browser/PWA E2E, and runtime E2E passed"
+elif [[ "${run_integration}" == true && "${run_browser}" == true ]]; then
+  echo "ephemeral PostgreSQL validation: integration and browser/PWA E2E passed"
+elif [[ "${run_integration}" == true && "${run_runtime}" == true ]]; then
   echo "ephemeral PostgreSQL validation: integration and runtime E2E passed"
+elif [[ "${run_browser}" == true && "${run_runtime}" == true ]]; then
+  echo "ephemeral PostgreSQL validation: browser/PWA and runtime E2E passed"
+elif [[ "${run_browser}" == true ]]; then
+  echo "ephemeral PostgreSQL validation: browser/PWA E2E passed"
 elif [[ "${run_runtime}" == true ]]; then
   echo "ephemeral PostgreSQL validation: runtime E2E passed"
 else

@@ -105,6 +105,17 @@ The protected application environment is loaded before the child test URL is
 substituted. The approved `127.0.0.1/ai_workspace_test` target and distinct
 application/test identity checks remain enforced inside the Python harness.
 
+The real-browser gate uses an independent random provisioning credential whose
+SHA-256 digest is supplied only to its disposable backend. The plaintext value
+and returned bearer remain in process memory; the provisioning value reaches
+the browser runner through an anonymous pipe rather than arguments or its
+environment. Neither value enters URLs, logs, screenshots, traces, video,
+source, or the application database. The
+browser asserts that the bearer is absent from page text, local storage, and
+resource URLs; it also inspects Cache Storage to prove no `/api/` response was
+persisted. Logout revokes the temporary device session before the browser and
+database are removed.
+
 ## Residual external risks
 
 Owner devices and the Tailscale account must use strong OS authentication and

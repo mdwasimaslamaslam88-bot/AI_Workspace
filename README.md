@@ -63,6 +63,7 @@ npm run package
 npm run check:mobile
 npm run check:desktop
 npm run check:postgres
+npm run check:browser
 npm run security-audit
 npm run check
 npm run e2e
@@ -71,7 +72,10 @@ npm run release
 
 `check` is the complete static/local release gate; `e2e` starts a user-owned,
 SCRAM-authenticated disposable PostgreSQL cluster on loopback and runs the real
-AI runtime smokes without touching the application database. `release`
+compiled-PWA browser flow plus AI runtime smokes without touching the application
+database. The browser flow proves service-worker control, bearer connection,
+current-user resolution, conversation creation, real chat, private-cache
+isolation, and logout without retaining credentials or test data. `release`
 combines both and additionally requires a clean,
 synchronized `HEAD == main == origin/main`. Its equivalent direct form is
 `./scripts/release_check.sh --with-runtime --require-clean`.
@@ -81,6 +85,17 @@ of allowing a platform-independent skip.
 On an inspectable X11 session, `check` also launches the packaged Linux desktop
 window without capturing screen content. Use `npm run check:desktop:launch` to
 require that gate.
+
+Install the pinned browser runtime once into the private runtime root before
+using `check:browser`, `e2e`, or the full runtime release gate:
+
+```bash
+install -d -m 700 ~/AI_Workspace_Runtimes/playwright
+PLAYWRIGHT_BROWSERS_PATH=~/AI_Workspace_Runtimes/playwright \
+  npx playwright install chromium
+WORK_STATION_PLAYWRIGHT_BROWSERS_PATH=~/AI_Workspace_Runtimes/playwright \
+  npm run check:browser
+```
 
 ## Documentation
 
