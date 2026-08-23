@@ -19,7 +19,10 @@ Keychain/Keystore-backed device storage. The UI follows the device light/dark
 preference, and the private settings view includes redacted runtime diagnostics
 plus an authoritative hardware-aware model catalog, per-device session naming,
 issuance, revocation, logout, and bearer rotation. Newly issued credentials
-remain transient until the owner saves them on the intended device.
+remain transient until the owner saves them on the intended device. The owner
+settings screen blocks capture while mounted, uses a protected app-switcher
+preview, and clears the one-time credential whenever the app leaves the
+foreground.
 
 The Studio tab uses the existing owner-scoped backend APIs for explicit memory,
 allowlisted tool execution, bounded workflow creation/start/cancel/status,

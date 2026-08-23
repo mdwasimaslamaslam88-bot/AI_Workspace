@@ -14,6 +14,8 @@ import {
 } from "@work-station/shared";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  AppState,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -23,7 +25,9 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import * as ScreenCapture from "expo-screen-capture";
 
+import { shouldClearTransientSession } from "@/auth/transient-session";
 import { useWorkStation } from "@/context/work-station";
 import { requestPrivateNotificationPermission } from "@/notifications/private-notifications";
 import { workStationColors, type WorkStationColors } from "@/theme/colors";
@@ -44,6 +48,7 @@ const SECTIONS = [
 ];
 
 export default function SettingsScreen() {
+  ScreenCapture.usePreventScreenCapture("work-station-owner-settings");
   const scheme = useColorScheme();
   const styles = useMemo(() => createStyles(workStationColors(scheme)), [scheme]);
   const { state, client, user, logout, retry, rotateSession } = useWorkStation();
@@ -83,6 +88,21 @@ export default function SettingsScreen() {
     const timer = setTimeout(() => void load(), 0);
     return () => clearTimeout(timer);
   }, [load]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (visibility) => {
+      if (shouldClearTransientSession(visibility)) setIssuedSession(null);
+    });
+    if (Platform.OS === "ios") {
+      void ScreenCapture.enableAppSwitcherProtectionAsync(1).catch(() => undefined);
+    }
+    return () => {
+      subscription.remove();
+      if (Platform.OS === "ios") {
+        void ScreenCapture.disableAppSwitcherProtectionAsync().catch(() => undefined);
+      }
+    };
+  }, []);
 
   return (
     <SafeAreaView edges={["left", "right"]} style={styles.safe}>
@@ -219,6 +239,9 @@ export default function SettingsScreen() {
             <View style={styles.issuedSession}>
               <Text style={styles.capabilityName}>
                 Copy this token now. It will not be shown again.
+              </Text>
+              <Text style={styles.safety}>
+                This one-time view is screen-capture protected and clears when the app leaves the foreground.
               </Text>
               <Text selectable style={styles.token}>{issuedSession.access_token}</Text>
               <Pressable style={styles.secondaryButton} onPress={() => setIssuedSession(null)}>
