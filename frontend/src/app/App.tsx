@@ -29,12 +29,15 @@ import {
 } from "./collections";
 import {
   clearModelPreference,
-  clearSessionToken,
   readModelPreference,
-  readSessionToken,
   writeModelPreference,
-  writeSessionToken,
 } from "../auth/session";
+import {
+  clearPersistedSessionToken,
+  readPersistedSessionToken,
+  SessionPersistenceError,
+  writePersistedSessionToken,
+} from "../auth/persistence";
 import { ConnectView, ReconnectView } from "../features/auth/ConnectView";
 import { ChatView, type SafeNotice } from "../features/chat/ChatView";
 import { ConversationList } from "../features/conversations/ConversationList";
@@ -153,7 +156,9 @@ export function App() {
     conversationsAbort.current?.abort();
     messagesAbort.current?.abort();
     generationAbort.current?.abort();
-    clearSessionToken();
+    void clearPersistedSessionToken().catch(() => {
+      setConnectError("Secure session storage could not be cleared.");
+    });
     setClient(null);
     setCurrentUser(null);
     setModels([]);
@@ -181,7 +186,14 @@ export function App() {
   );
 
   const restoreStoredSession = useCallback(async () => {
-    const token = readSessionToken();
+    let token: string | null;
+    try {
+      token = await readPersistedSessionToken();
+    } catch {
+      setConnectError("Secure session storage is unavailable.");
+      setAuthenticationStatus("anonymous");
+      return;
+    }
     if (token === null) {
       setAuthenticationStatus("anonymous");
       return;
@@ -207,7 +219,7 @@ export function App() {
         return;
       }
       if (error instanceof ApiError && error.kind === "authentication") {
-        clearSessionToken();
+        await clearPersistedSessionToken().catch(() => undefined);
         setConnectError("Your saved session is no longer valid.");
         setAuthenticationStatus("anonymous");
         return;
@@ -263,15 +275,17 @@ export function App() {
       authAbort.current = controller;
       try {
         const user = await connectionClient.getCurrentUser(controller.signal);
-        writeSessionToken(token);
+        await writePersistedSessionToken(token);
         setClient(connectionClient);
         setCurrentUser(user);
         setAuthenticationStatus("authenticated");
       } catch (error) {
         if (error instanceof ApiError && error.kind === "cancelled") return;
-        clearSessionToken();
+        await clearPersistedSessionToken().catch(() => undefined);
         setConnectError(
-          error instanceof ApiError && error.kind === "authentication"
+          error instanceof SessionPersistenceError
+            ? error.message
+            : error instanceof ApiError && error.kind === "authentication"
             ? "Authentication failed."
             : "Could not connect to the local backend.",
         );

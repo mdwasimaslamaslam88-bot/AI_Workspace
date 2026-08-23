@@ -1,0 +1,16 @@
+{
+  "name": "@work-station/desktop",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "tauri": "tauri",
+    "dev": "tauri dev",
+    "typecheck": "node scripts/validate-config.mjs",
+    "build": "tauri build",
+    "build:binary": "tauri build --no-bundle"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.8.4"
+  }
+}

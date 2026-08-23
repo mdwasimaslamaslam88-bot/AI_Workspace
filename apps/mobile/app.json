@@ -1,0 +1,69 @@
+{
+  "expo": {
+    "name": "WORK STATION",
+    "slug": "work-station",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/work-station/app-icon.png",
+    "scheme": "work-station",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "bundleIdentifier": "com.workstation.personalai",
+      "supportsTablet": true,
+      "config": {
+        "usesNonExemptEncryption": false
+      },
+      "infoPlist": {
+        "NSCameraUsageDescription": "WORK STATION uses the camera only when you choose to attach an image.",
+        "NSMicrophoneUsageDescription": "WORK STATION uses the microphone only while you record a voice prompt.",
+        "NSPhotoLibraryUsageDescription": "WORK STATION accesses photos only when you choose an image attachment."
+      }
+    },
+    "android": {
+      "package": "com.workstation.personalai",
+      "adaptiveIcon": {
+        "backgroundColor": "#040C1F",
+        "foregroundImage": "./assets/work-station/adaptive-icon.png"
+      },
+      "permissions": ["CAMERA", "RECORD_AUDIO"],
+      "predictiveBackGestureEnabled": true
+    },
+    "web": { "output": "static", "favicon": "./assets/work-station/app-icon.png" },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-secure-store",
+        { "faceIDPermission": "Allow WORK STATION to unlock your private session." }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "WORK STATION accesses photos only when you choose an image attachment.",
+          "cameraPermission": "WORK STATION uses the camera only when you choose to attach an image.",
+          "microphonePermission": false
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/work-station/notification-icon.png",
+          "color": "#68EFC8"
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#040C1F",
+          "image": "./assets/work-station/splash-icon.png",
+          "imageWidth": 160
+        }
+      ],
+      "expo-secure-store",
+      "expo-audio"
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    }
+  }
+}
