@@ -9,11 +9,27 @@ import {
   type ConversationTextGenerationRequest,
   type ConversationTextGenerationResponse,
   type CurrentUser,
+  type ImageEditingRequest,
+  type ImageGenerationRequest,
+  type ImageOperation,
   type LocalModelPage,
+  type MemoryCreateRequest,
+  type MemoryPage,
+  type MemorySetting,
   type MessagePage,
+  type PersonalMemory,
   type ProductCapabilityPage,
   type SystemDiagnostics,
+  type ToolDescriptorPage,
+  type ToolExecution,
+  type ToolExecutionPage,
+  type ToolExecutionRequest,
+  type VoiceSynthesis,
+  type VoiceSynthesisRequest,
   type VoiceTranscription,
+  type Workflow,
+  type WorkflowCreateRequest,
+  type WorkflowPage,
   parseAsset,
   parseAccessTokenRotation,
   parseConversation,
@@ -21,11 +37,21 @@ import {
   parseConversationPage,
   parseCurrentUser,
   parseGenerationResponse,
+  parseImageOperation,
+  parseMemoryPage,
+  parseMemorySetting,
   parseMessagePage,
   parseModelPage,
+  parsePersonalMemory,
   parseProductCapabilityPage,
   parseSystemDiagnostics,
+  parseToolDescriptorPage,
+  parseToolExecution,
+  parseToolExecutionPage,
+  parseVoiceSynthesis,
   parseVoiceTranscription,
+  parseWorkflow,
+  parseWorkflowPage,
 } from "@work-station/shared";
 
 export type MobileApiErrorKind =
@@ -53,6 +79,32 @@ export interface MobileUpload {
   uri: string;
   name: string;
   mimeType: string;
+}
+
+export interface PrivateAssetContent {
+  bytes: Uint8Array;
+  mediaType: string;
+}
+
+const MAX_MOBILE_MEDIA_BYTES = 64 * 1024 * 1024;
+const mediaTypePattern = /^[a-z0-9][a-z0-9!#$&^_.+-]*\/[a-z0-9][a-z0-9!#$&^_.+-]*$/;
+
+export function createIdempotencyKey(): string {
+  if (typeof globalThis.crypto?.randomUUID === "function") {
+    return globalThis.crypto.randomUUID();
+  }
+  const bytes = new Uint8Array(16);
+  if (typeof globalThis.crypto?.getRandomValues === "function") {
+    globalThis.crypto.getRandomValues(bytes);
+  } else {
+    for (let index = 0; index < bytes.length; index += 1) {
+      bytes[index] = Math.floor(Math.random() * 256);
+    }
+  }
+  bytes[6] = ((bytes[6] ?? 0) & 0x0f) | 0x40;
+  bytes[8] = ((bytes[8] ?? 0) & 0x3f) | 0x80;
+  const hex = Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
 export function normalizeMobileApiBaseUrl(value: string | undefined): string {
@@ -122,7 +174,12 @@ export class MobileApiClient {
   async #request<T>(
     path: string,
     decoder: Decoder<T>,
-    options: { method?: "GET" | "POST" | "PATCH" | "DELETE"; body?: unknown; signal?: AbortSignal } = {},
+    options: {
+      method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+      body?: unknown;
+      headers?: Record<string, string>;
+      signal?: AbortSignal;
+    } = {},
   ): Promise<T> {
     let response: Response;
     try {
@@ -132,6 +189,7 @@ export class MobileApiClient {
           Accept: "application/json",
           Authorization: `Bearer ${this.#token}`,
           ...(options.body === undefined ? {} : { "Content-Type": "application/json" }),
+          ...options.headers,
         },
         body: options.body === undefined ? undefined : JSON.stringify(options.body),
         signal: options.signal,
@@ -165,6 +223,117 @@ export class MobileApiClient {
 
   getSystemDiagnostics(signal?: AbortSignal): Promise<SystemDiagnostics> {
     return this.#request("api/v1/diagnostics", parseSystemDiagnostics, { signal });
+  }
+
+  listMemories(
+    options: { includeDeleted?: boolean; signal?: AbortSignal } = {},
+  ): Promise<MemoryPage> {
+    const query = new URLSearchParams();
+    if (options.includeDeleted !== undefined) {
+      query.set("include_deleted", String(options.includeDeleted));
+    }
+    const suffix = query.size === 0 ? "" : `?${query.toString()}`;
+    return this.#request(`api/v1/memories${suffix}`, parseMemoryPage, {
+      signal: options.signal,
+    });
+  }
+
+  createMemory(request: MemoryCreateRequest, signal?: AbortSignal): Promise<PersonalMemory> {
+    return this.#request("api/v1/memories", parsePersonalMemory, {
+      method: "POST",
+      body: request,
+      signal,
+    });
+  }
+
+  forgetMemory(memoryId: string, signal?: AbortSignal): Promise<PersonalMemory> {
+    return this.#request(
+      `api/v1/memories/${encodeURIComponent(memoryId)}`,
+      parsePersonalMemory,
+      { method: "DELETE", signal },
+    );
+  }
+
+  getMemorySetting(signal?: AbortSignal): Promise<MemorySetting> {
+    return this.#request("api/v1/memories/settings", parseMemorySetting, { signal });
+  }
+
+  updateMemorySetting(enabled: boolean, signal?: AbortSignal): Promise<MemorySetting> {
+    return this.#request("api/v1/memories/settings", parseMemorySetting, {
+      method: "PUT",
+      body: { enabled },
+      signal,
+    });
+  }
+
+  listTools(signal?: AbortSignal): Promise<ToolDescriptorPage> {
+    return this.#request("api/v1/tools", parseToolDescriptorPage, { signal });
+  }
+
+  listToolExecutions(
+    options: { limit?: number; signal?: AbortSignal } = {},
+  ): Promise<ToolExecutionPage> {
+    const query = new URLSearchParams();
+    if (options.limit !== undefined) query.set("limit", String(options.limit));
+    const suffix = query.size === 0 ? "" : `?${query.toString()}`;
+    return this.#request(`api/v1/tools/executions${suffix}`, parseToolExecutionPage, {
+      signal: options.signal,
+    });
+  }
+
+  executeTool(
+    toolName: string,
+    request: ToolExecutionRequest,
+    signal?: AbortSignal,
+  ): Promise<ToolExecution> {
+    return this.#request(
+      `api/v1/tools/${encodeURIComponent(toolName)}/executions`,
+      parseToolExecution,
+      { method: "POST", body: request, signal },
+    );
+  }
+
+  listWorkflows(
+    options: { limit?: number; signal?: AbortSignal } = {},
+  ): Promise<WorkflowPage> {
+    const query = new URLSearchParams();
+    if (options.limit !== undefined) query.set("limit", String(options.limit));
+    const suffix = query.size === 0 ? "" : `?${query.toString()}`;
+    return this.#request(`api/v1/workflows${suffix}`, parseWorkflowPage, {
+      signal: options.signal,
+    });
+  }
+
+  createWorkflow(request: WorkflowCreateRequest, signal?: AbortSignal): Promise<Workflow> {
+    return this.#request("api/v1/workflows", parseWorkflow, {
+      method: "POST",
+      body: request,
+      signal,
+    });
+  }
+
+  getWorkflow(workflowId: string, signal?: AbortSignal): Promise<Workflow> {
+    return this.#request(
+      `api/v1/workflows/${encodeURIComponent(workflowId)}`,
+      parseWorkflow,
+      { signal },
+    );
+  }
+
+  startWorkflow(workflowId: string, signal?: AbortSignal): Promise<Workflow> {
+    return this.#request(
+      `api/v1/workflows/${encodeURIComponent(workflowId)}/start`,
+      parseWorkflow,
+      { method: "POST", signal },
+    );
+  }
+
+  cancelWorkflow(workflowId: string, signal?: AbortSignal): Promise<Workflow> {
+    return this.#request(
+      `api/v1/workflows/${encodeURIComponent(workflowId)}`,
+      parseWorkflow,
+      { method: "DELETE", signal },
+    );
   }
 
   rotateAccessToken(signal?: AbortSignal): Promise<AccessTokenRotation> {
@@ -244,7 +413,7 @@ export class MobileApiClient {
         headers: {
           Accept: "application/json",
           Authorization: `Bearer ${this.#token}`,
-          "Idempotency-Key": `mobile-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          "Idempotency-Key": createIdempotencyKey(),
         },
         body: form,
         signal,
@@ -270,6 +439,80 @@ export class MobileApiClient {
       body: { asset_id: assetId, model_id: modelId },
       signal,
     });
+  }
+
+  synthesizeVoice(
+    request: VoiceSynthesisRequest,
+    signal?: AbortSignal,
+  ): Promise<VoiceSynthesis> {
+    return this.#request("api/v1/voice/syntheses", parseVoiceSynthesis, {
+      method: "POST",
+      body: request,
+      headers: { "Idempotency-Key": createIdempotencyKey() },
+      signal,
+    });
+  }
+
+  generateImage(
+    request: ImageGenerationRequest,
+    signal?: AbortSignal,
+  ): Promise<ImageOperation> {
+    return this.#request("api/v1/images/generations", parseImageOperation, {
+      method: "POST",
+      body: request,
+      headers: { "Idempotency-Key": createIdempotencyKey() },
+      signal,
+    });
+  }
+
+  editImage(request: ImageEditingRequest, signal?: AbortSignal): Promise<ImageOperation> {
+    return this.#request("api/v1/images/edits", parseImageOperation, {
+      method: "POST",
+      body: request,
+      headers: { "Idempotency-Key": createIdempotencyKey() },
+      signal,
+    });
+  }
+
+  async downloadAsset(assetId: string, signal?: AbortSignal): Promise<PrivateAssetContent> {
+    let response: Response;
+    try {
+      response = await this.#fetch(
+        new URL(`api/v1/assets/${encodeURIComponent(assetId)}/content`, `${this.#baseUrl}/`),
+        {
+          headers: {
+            Accept: "application/octet-stream",
+            Authorization: `Bearer ${this.#token}`,
+          },
+          signal,
+        },
+      );
+    } catch (error) {
+      if (signal?.aborted || (error instanceof Error && error.name === "AbortError")) {
+        throw new MobileApiError("cancelled", "Request cancelled.");
+      }
+      throw new MobileApiError("network", "Could not load the private media.");
+    }
+    const requestId = response.headers.get("X-Request-ID");
+    if (!response.ok) throw statusError(response.status, requestId);
+    const mediaType = response.headers.get("X-Asset-Media-Type");
+    const declaredLength = Number(response.headers.get("Content-Length"));
+    if (
+      mediaType === null ||
+      !mediaTypePattern.test(mediaType) ||
+      (Number.isFinite(declaredLength) && declaredLength > MAX_MOBILE_MEDIA_BYTES)
+    ) {
+      throw new MobileApiError("validation", "The private media cannot be opened safely.", response.status, requestId);
+    }
+    try {
+      const bytes = new Uint8Array(await response.arrayBuffer());
+      if (bytes.byteLength === 0 || bytes.byteLength > MAX_MOBILE_MEDIA_BYTES) {
+        throw new Error("invalid media size");
+      }
+      return { bytes, mediaType };
+    } catch {
+      throw new MobileApiError("server", "The backend returned invalid private media.", response.status, requestId);
+    }
   }
 
   async deleteAsset(assetId: string, signal?: AbortSignal): Promise<void> {

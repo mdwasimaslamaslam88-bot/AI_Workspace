@@ -8,10 +8,20 @@ Implemented client contracts include secure session restore/logout, connection
 recovery on network and app resume, conversation creation and text generation,
 loaded-chat search, owner-scoped rename and confirmed deletion, owned
 file/image/camera uploads, microphone recording and speech recognition,
-audio playback, generic local notification architecture, deep links, and safe
-error redaction. SecureStore maps to Keychain/Keystore-backed device storage.
-The UI follows the device light/dark preference, and the private settings view
-includes redacted runtime diagnostics plus explicit global bearer rotation.
+authenticated image and audio playback, generic local notification architecture,
+deep links, and safe error redaction. SecureStore maps to
+Keychain/Keystore-backed device storage. The UI follows the device light/dark
+preference, and the private settings view includes redacted runtime diagnostics
+plus explicit global bearer rotation.
+
+The Studio tab uses the existing owner-scoped backend APIs for explicit memory,
+allowlisted tool execution, bounded workflow creation/start/cancel/status,
+image generation/editing, and text-to-speech. It does not duplicate AI or
+authorization logic. Generated media is downloaded with the bearer credential
+in the request header, written only to the app cache for display/playback, and
+removed when the Studio screen closes. Credentials are never placed in media
+URLs, filenames, notifications, or source. All upload and generation
+idempotency headers are backend-compatible UUIDs.
 
 ## Local development
 
