@@ -74,11 +74,15 @@ npm run test --workspace @work-station/mobile
 npm run typecheck --workspace @work-station/mobile
 npm run lint --workspace @work-station/mobile
 npm run build:static --workspace @work-station/mobile
+npx expo-doctor
 ```
 
 The static build command produces independent Android and iOS JavaScript
 bundles on any supported development host. It does not claim a signed native
-device package; those target-host/account requirements remain below.
+device package; those target-host/account requirements remain below. The
+offline typecheck/config validator also requires exactly one installed and
+locked React runtime matching Expo's compatibility map. Expo Doctor adds its
+online application-schema check when the Expo API is reachable.
 
 ## Release builds
 

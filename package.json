@@ -21,5 +21,9 @@
     "package:desktop": "./scripts/desktop_check.sh",
     "e2e": "./scripts/runtime_e2e.sh",
     "release": "./scripts/release_check.sh --with-runtime --require-clean"
+  },
+  "devDependencies": {
+    "react": "19.2.3",
+    "react-dom": "19.2.3"
   }
 }
