@@ -503,6 +503,19 @@ export function App() {
     [client, selectedConversation?.id, showArchivedConversations],
   );
 
+  const duplicateConversation = useCallback(
+    async (conversationId: string): Promise<void> => {
+      if (client === null) {
+        throw new ApiError("authentication", "Authentication failed.");
+      }
+      const fork = await client.forkConversation(conversationId);
+      setConversations((current) => mergeConversations([fork], current));
+      await reloadConversations();
+      await selectConversation(fork);
+    },
+    [client, reloadConversations, selectConversation],
+  );
+
   const refreshMessageSnapshot = useCallback(
     async (conversationId: string, maximumPages = 2): Promise<boolean> => {
       if (client === null) return false;
@@ -644,6 +657,43 @@ export function App() {
       }
     },
     [client, reloadConversations, runGeneration, selectedModelId],
+  );
+
+  const branchAndGenerate = useCallback(
+    async (userMessage: Message, replacementContent?: string): Promise<void> => {
+      if (client === null || selectedModelId === null || generating) return;
+      setCreatingConversation(true);
+      setChatNotice(null);
+      let fork: ConversationSummary;
+      try {
+        const createdFork = await client.forkConversation(
+          userMessage.conversation_id,
+          {
+            through_sequence_number: userMessage.sequence_number,
+            ...(replacementContent === undefined
+              ? {}
+              : { replacement_content: replacementContent }),
+          },
+        );
+        fork = createdFork;
+        const page = await client.listMessages(createdFork.id, { limit: 100 });
+        setSelectedConversation(createdFork);
+        setCreatingNew(false);
+        setMessages(page.items);
+        setMessageCursor(page.next_cursor);
+        setConversations((current) =>
+          mergeConversations([createdFork], current),
+        );
+        await reloadConversations();
+      } catch (error) {
+        setChatNotice(safeNotice(error));
+        throw error;
+      } finally {
+        setCreatingConversation(false);
+      }
+      await runGeneration(fork.id);
+    },
+    [client, generating, reloadConversations, runGeneration, selectedModelId],
   );
 
   const uploadAttachment = useCallback(
@@ -1139,6 +1189,7 @@ export function App() {
         onSelect={(conversation) => void selectConversation(conversation)}
         onRename={renameConversation}
         onUpdateState={updateConversationState}
+        onDuplicate={duplicateConversation}
         onDelete={deleteConversation}
         onShowArchivedChange={setShowArchivedConversations}
         onReload={() => void reloadConversations()}
@@ -1290,6 +1341,10 @@ export function App() {
               ? Promise.resolve()
               : runGeneration(selectedConversation.id, message, attachmentIds)
           }
+          onEditAndResend={(message, content) =>
+            branchAndGenerate(message, content)
+          }
+          onRegenerate={(message) => branchAndGenerate(message)}
           onCancelGeneration={() => generationAbort.current?.abort()}
           onLoadMoreMessages={() => void loadMoreMessages()}
           onReloadMessages={() => void reloadSelectedMessages()}

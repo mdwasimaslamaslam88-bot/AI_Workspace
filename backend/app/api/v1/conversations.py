@@ -32,6 +32,7 @@ from app.schemas.conversation import (
     ConversationCreate,
     ConversationCreateResponse,
     ConversationCursorResponse,
+    ConversationForkRequest,
     ConversationListQuery,
     ConversationPageResponse,
     ConversationRename,
@@ -40,6 +41,13 @@ from app.schemas.conversation import (
 )
 from app.schemas.message import MessageCreate, MessagePageResponse, MessageResponse
 from app.services.conversation import ConversationService
+from app.services.conversation_fork import (
+    ConversationForkInvalidError,
+    ConversationForkNotFoundError,
+    ConversationForkService,
+    ConversationForkStorageError,
+    ConversationForkTooLargeError,
+)
 from app.services.generation_admission import GenerationAdmissionRejectedError
 from app.services.message import (
     MessageAppendConflictError,
@@ -217,6 +225,54 @@ async def update_conversation_state(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Conversation not found",
         )
+    return ConversationSummaryResponse.model_validate(conversation)
+
+
+@router.post(
+    "/{conversation_id}/fork",
+    response_model=ConversationSummaryResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def fork_conversation(
+    conversation_id: UUID,
+    fork_request: ConversationForkRequest,
+    request: Request,
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> ConversationSummaryResponse:
+    storage = getattr(request.app.state, "asset_storage", None)
+    if storage is None:
+        raise RuntimeError("Private asset storage is not configured")
+    try:
+        conversation = await ConversationForkService(
+            session,
+            storage,
+        ).fork_for_owner(
+            current_user.id,
+            conversation_id,
+            through_sequence_number=fork_request.through_sequence_number,
+            replacement_content=fork_request.replacement_content,
+        )
+    except ConversationForkNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Conversation not found",
+        ) from None
+    except ConversationForkInvalidError:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Conversation could not be branched",
+        ) from None
+    except ConversationForkTooLargeError:
+        raise HTTPException(
+            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
+            detail="Conversation is too large to duplicate",
+        ) from None
+    except ConversationForkStorageError:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Private asset storage unavailable",
+        ) from None
     return ConversationSummaryResponse.model_validate(conversation)
 
 

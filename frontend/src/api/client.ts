@@ -5,6 +5,7 @@ import {
   type ConversationCreateRequest,
   type ConversationCreateResponse,
   type ConversationCursor,
+  type ConversationForkRequest,
   type ConversationPage,
   type ConversationRenameRequest,
   type ConversationStateUpdateRequest,
@@ -594,6 +595,17 @@ export class ApiClient {
     return this.#request(
       `api/v1/conversations/${encodeURIComponent(conversationId)}/state`,
       { method: "PATCH", body: request, signal, decode: parseConversation },
+    );
+  }
+
+  forkConversation(
+    conversationId: string,
+    request: ConversationForkRequest = {},
+    signal?: AbortSignal,
+  ): Promise<ConversationSummary> {
+    return this.#request(
+      `api/v1/conversations/${encodeURIComponent(conversationId)}/fork`,
+      { method: "POST", body: request, signal, decode: parseConversation },
     );
   }
 

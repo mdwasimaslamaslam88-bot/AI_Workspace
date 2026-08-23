@@ -51,6 +51,11 @@ Uploads are size/type bounded, stored under server-generated identities, and
 downloaded only through authenticated owner checks. Filesystem paths never
 appear in responses. Private media uses `no-store`, safe MIME metadata,
 `nosniff`, attachment disposition, and bounded/non-supported range behavior.
+Conversation duplicate and edit/resend/regenerate actions create immutable,
+owner-scoped forks. The server locks a bounded source snapshot, copies active
+asset bytes under fresh generated identities with SHA-256 verification,
+preserves owner-scoped citations, commits once, and removes copied files if the
+transaction fails. Clients never alias or rewrite an existing message history.
 
 Tool names, arguments, permissions, timeouts, result size, and workflow depth
 come from a fixed server registry. Model output cannot select an arbitrary

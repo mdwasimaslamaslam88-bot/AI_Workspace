@@ -81,6 +81,8 @@ interface ChatViewProps extends AttachmentActions {
   onCreateConversation: (request: ConversationCreateRequest) => Promise<void>;
   onCancelNew: () => void;
   onGenerate: (userMessage?: string, attachmentIds?: string[]) => Promise<void>;
+  onEditAndResend?: (message: Message, content: string) => Promise<void>;
+  onRegenerate?: (lastUserMessage: Message) => Promise<void>;
   onCancelGeneration: () => void;
   onLoadMoreMessages: () => void;
   onReloadMessages: () => void;
@@ -618,6 +620,8 @@ export function ChatView({
   onCreateConversation,
   onCancelNew,
   onGenerate,
+  onEditAndResend,
+  onRegenerate,
   onCancelGeneration,
   onLoadMoreMessages,
   onReloadMessages,
@@ -635,6 +639,8 @@ export function ChatView({
   onEditImage,
 }: ChatViewProps) {
   const [draft, setDraft] = useState("");
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editedMessageContent, setEditedMessageContent] = useState("");
   const [attachmentNotice, setAttachmentNotice] = useState<string | null>(null);
   const [voiceNotice, setVoiceNotice] = useState<string | null>(null);
   const [recording, setRecording] = useState(false);
@@ -652,6 +658,11 @@ export function ChatView({
     asset: Asset;
     url: string;
   } | null>(null);
+
+  useEffect(() => {
+    setEditingMessageId(null);
+    setEditedMessageContent("");
+  }, [conversation?.id]);
   const objectUrls = useRef(new Set<string>());
   const contentControllers = useRef(new Set<AbortController>());
   const recorder = useRef<MediaRecorder | null>(null);
@@ -1129,7 +1140,18 @@ export function ChatView({
           <p className="empty-copy">This conversation has no messages.</p>
         )}
         <ol className="message-list">
-          {messages.map((message) => (
+          {messages.map((message, messageIndex) => {
+            const previousMessage = messages[messageIndex - 1];
+            const canBranchTextMessage =
+              onEditAndResend !== undefined &&
+              message.role === "user" &&
+              message.attachments.length === 0;
+            const canRegenerateAssistant =
+              onRegenerate !== undefined &&
+              message.role === "assistant" &&
+              previousMessage?.role === "user" &&
+              previousMessage.attachments.length === 0;
+            return (
             <li className={`message message-${message.role}`} key={message.id}>
               <div className="message-meta">
                 <strong>{message.role}</strong>
@@ -1138,6 +1160,82 @@ export function ChatView({
                 </time>
               </div>
               <MessageContent content={message.content} role={message.role} />
+              {canBranchTextMessage && editingMessageId !== message.id && (
+                <button
+                  type="button"
+                  className="button button-quiet message-branch-action"
+                  disabled={generating || creatingConversation}
+                  onClick={() => {
+                    setEditingMessageId(message.id);
+                    setEditedMessageContent(message.content);
+                  }}
+                >
+                  Edit and resend in a branch
+                </button>
+              )}
+              {canBranchTextMessage && editingMessageId === message.id && (
+                <form
+                  className="message-edit-form"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    const normalized = editedMessageContent.trim();
+                    if (normalized.length === 0) return;
+                    void onEditAndResend!(message, editedMessageContent)
+                      .then(() => {
+                        setEditingMessageId(null);
+                        setEditedMessageContent("");
+                      })
+                      .catch(() => undefined);
+                  }}
+                >
+                  <label htmlFor={`edit-message-${message.id}`}>
+                    Edit user message for a new immutable branch
+                  </label>
+                  <textarea
+                    id={`edit-message-${message.id}`}
+                    rows={3}
+                    maxLength={100000}
+                    value={editedMessageContent}
+                    onChange={(event) => setEditedMessageContent(event.target.value)}
+                    disabled={generating || creatingConversation}
+                  />
+                  <div className="composer-actions">
+                    <button
+                      className="button button-primary"
+                      disabled={
+                        generating ||
+                        creatingConversation ||
+                        editedMessageContent.trim().length === 0
+                      }
+                    >
+                      Send edited branch
+                    </button>
+                    <button
+                      type="button"
+                      className="button button-quiet"
+                      disabled={generating || creatingConversation}
+                      onClick={() => {
+                        setEditingMessageId(null);
+                        setEditedMessageContent("");
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              )}
+              {canRegenerateAssistant && (
+                <button
+                  type="button"
+                  className="button button-quiet message-branch-action"
+                  disabled={generating || creatingConversation || !canGenerate}
+                  onClick={() => {
+                    void onRegenerate!(previousMessage!).catch(() => undefined);
+                  }}
+                >
+                  Regenerate in a branch
+                </button>
+              )}
               {message.role === "assistant" && voiceOutputAvailable && (
                 <div className="voice-output-controls">
                   <button
@@ -1295,7 +1393,8 @@ export function ChatView({
                 </section>
               )}
             </li>
-          ))}
+            );
+          })}
         </ol>
         {nextCursor !== null && (
           <button

@@ -135,6 +135,8 @@ export default function ChatScreen() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
   const [prompt, setPrompt] = useState("");
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editedMessageContent, setEditedMessageContent] = useState("");
   const [attachments, setAttachments] = useState<Asset[]>([]);
   const [busy, setBusy] = useState(false);
   const [generating, setGenerating] = useState(false);
@@ -347,6 +349,71 @@ export default function ChatScreen() {
     }
   }
 
+  async function duplicateSelected() {
+    if (selected === null || busy) return;
+    setBusy(true);
+    setNotice(null);
+    try {
+      const fork = await connectedClient.forkConversation(selected.id);
+      const page = await connectedClient.listMessages(fork.id);
+      setSelected(fork);
+      setConversationTitle(fork.title ?? "");
+      setMessages(page.items);
+      setConversations((current) => [
+        fork,
+        ...current.filter((item) => item.id !== fork.id),
+      ]);
+    } catch (cause) {
+      setNotice(safeError(cause));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function branchAndGenerate(
+    userMessage: Message,
+    replacementContent?: string,
+  ) {
+    if (busy || selectedModel === null || userMessage.attachments.length > 0) return;
+    const controller = new AbortController();
+    generation.current = controller;
+    setBusy(true);
+    setGenerating(true);
+    setNotice(null);
+    try {
+      const fork = await connectedClient.forkConversation(
+        userMessage.conversation_id,
+        {
+          through_sequence_number: userMessage.sequence_number,
+          ...(replacementContent === undefined
+            ? {}
+            : { replacement_content: replacementContent }),
+        },
+        controller.signal,
+      );
+      setSelected(fork);
+      setConversationTitle(fork.title ?? "");
+      setMessages((await connectedClient.listMessages(fork.id, controller.signal)).items);
+      setEditingMessageId(null);
+      setEditedMessageContent("");
+      await connectedClient.generate(
+        fork.id,
+        { model_id: selectedModel },
+        controller.signal,
+      );
+      setMessages((await connectedClient.listMessages(fork.id, controller.signal)).items);
+      setConversations(
+        (await connectedClient.listConversations({ includeArchived: showArchived })).items,
+      );
+    } catch (cause) {
+      setNotice(safeError(cause));
+    } finally {
+      generation.current = null;
+      setGenerating(false);
+      setBusy(false);
+    }
+  }
+
   async function updateSelectedState(stateUpdate: ConversationStateUpdateRequest) {
     if (selected === null || busy) return;
     setBusy(true);
@@ -482,6 +549,14 @@ export default function ChatScreen() {
             accessibilityRole="button"
             disabled={busy}
             style={styles.manageButton}
+            onPress={() => void duplicateSelected()}
+          >
+            <Text style={styles.link}>Duplicate</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            disabled={busy}
+            style={styles.manageButton}
             onPress={confirmDeleteSelected}
           >
             <Text style={styles.recording}>Delete</Text>
@@ -507,15 +582,75 @@ export default function ChatScreen() {
         data={messages}
         keyExtractor={(item) => String(item.id)}
         ListEmptyComponent={<Text style={styles.empty}>Start a private conversation with your Personal AI.</Text>}
-        renderItem={({ item }) => (
-          <View style={[styles.message, item.role === "user" ? styles.userMessage : styles.assistantMessage]}>
-            <Text style={styles.messageRole}>{item.role}</Text>
-            <Text selectable style={styles.messageText}>{item.content}</Text>
-            {item.attachments.length > 0 && (
-              <Text style={styles.attachmentMeta}>{item.attachments.length} private attachment(s)</Text>
-            )}
-          </View>
-        )}
+        renderItem={({ item, index }) => {
+          const previousMessage = messages[index - 1];
+          const editable = item.role === "user" && item.attachments.length === 0;
+          const regeneratable =
+            item.role === "assistant" &&
+            previousMessage?.role === "user" &&
+            previousMessage.attachments.length === 0;
+          return (
+            <View style={[styles.message, item.role === "user" ? styles.userMessage : styles.assistantMessage]}>
+              <Text style={styles.messageRole}>{item.role}</Text>
+              <Text selectable style={styles.messageText}>{item.content}</Text>
+              {item.attachments.length > 0 && (
+                <Text style={styles.attachmentMeta}>{item.attachments.length} private attachment(s)</Text>
+              )}
+              {editable && editingMessageId !== item.id && (
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={busy}
+                  onPress={() => {
+                    setEditingMessageId(item.id);
+                    setEditedMessageContent(item.content);
+                  }}
+                >
+                  <Text style={styles.messageAction}>Edit and resend in branch</Text>
+                </Pressable>
+              )}
+              {editable && editingMessageId === item.id && (
+                <View style={styles.inlineEditor}>
+                  <TextInput
+                    accessibilityLabel="Edit user message for a new immutable branch"
+                    multiline
+                    maxLength={100000}
+                    value={editedMessageContent}
+                    onChangeText={setEditedMessageContent}
+                    style={styles.composerInput}
+                  />
+                  <View style={styles.messageActions}>
+                    <Pressable
+                      accessibilityRole="button"
+                      disabled={busy || editedMessageContent.trim().length === 0}
+                      onPress={() => void branchAndGenerate(item, editedMessageContent)}
+                    >
+                      <Text style={styles.messageAction}>Send edited branch</Text>
+                    </Pressable>
+                    <Pressable
+                      accessibilityRole="button"
+                      disabled={busy}
+                      onPress={() => {
+                        setEditingMessageId(null);
+                        setEditedMessageContent("");
+                      }}
+                    >
+                      <Text style={styles.messageAction}>Cancel</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              )}
+              {regeneratable && (
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={busy || selectedModel === null}
+                  onPress={() => void branchAndGenerate(previousMessage)}
+                >
+                  <Text style={styles.messageAction}>Regenerate in branch</Text>
+                </Pressable>
+              )}
+            </View>
+          );
+        }}
       />
       {notice !== null && <Text accessibilityRole="alert" style={styles.errorBanner}>{notice}</Text>}
       {attachments.length > 0 && (
@@ -588,6 +723,9 @@ function createStyles(colors: WorkStationColors) {
   archiveToggle: { minHeight: 44, alignSelf: "flex-start", justifyContent: "center", marginLeft: 12 },
   link: { color: colors.accent, fontWeight: "800", paddingVertical: 8, paddingHorizontal: 4 },
   recording: { color: colors.danger, fontWeight: "900", paddingVertical: 8, paddingHorizontal: 4 },
+  messageAction: { color: colors.accent, fontWeight: "800", paddingVertical: 8 },
+  messageActions: { flexDirection: "row", flexWrap: "wrap", gap: 12 },
+  inlineEditor: { gap: 6, marginTop: 8 },
   chipRow: { minHeight: 52, alignItems: "center", gap: 8, paddingHorizontal: 12 },
   chip: { maxWidth: 170, borderColor: colors.line, borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8 },
   chipSelected: { backgroundColor: colors.soft, borderColor: colors.accent },

@@ -3,6 +3,7 @@ import {
   type AccessTokenRotation,
   type ConversationCreateRequest,
   type ConversationCreateResponse,
+  type ConversationForkRequest,
   type ConversationPage,
   type ConversationRenameRequest,
   type ConversationStateUpdateRequest,
@@ -382,6 +383,18 @@ export class MobileApiClient {
       `api/v1/conversations/${encodeURIComponent(id)}/state`,
       parseConversation,
       { method: "PATCH", body: request, signal },
+    );
+  }
+
+  forkConversation(
+    id: string,
+    request: ConversationForkRequest = {},
+    signal?: AbortSignal,
+  ): Promise<ConversationSummary> {
+    return this.#request(
+      `api/v1/conversations/${encodeURIComponent(id)}/fork`,
+      parseConversation,
+      { method: "POST", body: request, signal },
     );
   }
 

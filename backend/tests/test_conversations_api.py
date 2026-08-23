@@ -35,6 +35,12 @@ from app.repositories.message import (
     MessagePagination,
 )
 from app.services.generation_admission import GenerationAdmissionRejectedError
+from app.services.conversation_fork import (
+    ConversationForkInvalidError,
+    ConversationForkNotFoundError,
+    ConversationForkStorageError,
+    ConversationForkTooLargeError,
+)
 from app.services.message import MessageAppendConflictError
 
 
@@ -77,6 +83,7 @@ def conversation_api(monkeypatch):
     get_conversation = AsyncMock(return_value=conversation)
     rename_conversation = AsyncMock(return_value=conversation)
     set_conversation_state = AsyncMock(return_value=conversation)
+    fork_conversation = AsyncMock(return_value=conversation)
     delete_conversation = AsyncMock(return_value=True)
     list_conversations = AsyncMock(
         return_value=ConversationPage(items=(conversation,), next_cursor=None)
@@ -94,6 +101,13 @@ def conversation_api(monkeypatch):
         conversations_module,
         "ConversationService",
         service_factory,
+    )
+    fork_service = Mock(fork_for_owner=fork_conversation)
+    fork_service_factory = Mock(return_value=fork_service)
+    monkeypatch.setattr(
+        conversations_module,
+        "ConversationForkService",
+        fork_service_factory,
     )
     append = AsyncMock(return_value=appended_message)
     list_messages = AsyncMock(
@@ -136,6 +150,8 @@ def conversation_api(monkeypatch):
                 "get_conversation": get_conversation,
                 "rename_conversation": rename_conversation,
                 "set_conversation_state": set_conversation_state,
+                "fork_service_factory": fork_service_factory,
+                "fork_conversation": fork_conversation,
                 "list_conversations": list_conversations,
                 "message_service_factory": message_service_factory,
                 "append": append,
@@ -828,6 +844,231 @@ def test_update_conversation_state_returns_owner_scoped_404(conversation_api):
     assert response.json()["error"]["message"] == "Conversation not found"
     assert "owner_id" not in response.text
     assert "credential" not in response.text
+
+
+def test_fork_conversation_returns_exact_owner_scoped_copy(conversation_api):
+    api = conversation_api
+    app.state.asset_storage = Mock(name="private_asset_storage")
+    api["conversation"].title = "Private history (copy)"
+    api["conversation"].is_pinned = False
+    api["conversation"].is_archived = False
+
+    response = api["client"].post(
+        f"/api/v1/conversations/{api['conversation'].id}/fork",
+        json={},
+    )
+
+    assert response.status_code == 201
+    assert response.json() == {
+        "id": str(api["conversation"].id),
+        "title": "Private history (copy)",
+        "is_pinned": False,
+        "is_archived": False,
+        "created_at": "2026-08-11T09:00:00Z",
+        "updated_at": "2026-08-11T09:01:00Z",
+    }
+    api["fork_service_factory"].assert_called_once_with(
+        api["session"],
+        app.state.asset_storage,
+    )
+    api["fork_conversation"].assert_awaited_once_with(
+        api["current_user"].id,
+        api["conversation"].id,
+        through_sequence_number=None,
+        replacement_content=None,
+    )
+    response_text = response.text.lower()
+    assert "owner_id" not in response_text
+    assert "storage_key" not in response_text
+    assert "filesystem" not in response_text
+    assert "token" not in response_text
+
+
+def test_fork_conversation_accepts_bounded_user_replacement(conversation_api):
+    api = conversation_api
+    app.state.asset_storage = Mock(name="private_asset_storage")
+
+    response = api["client"].post(
+        f"/api/v1/conversations/{api['conversation'].id}/fork",
+        json={
+            "through_sequence_number": 7,
+            "replacement_content": "  edited exactly  ",
+        },
+    )
+
+    assert response.status_code == 201
+    api["fork_conversation"].assert_awaited_once_with(
+        api["current_user"].id,
+        api["conversation"].id,
+        through_sequence_number=7,
+        replacement_content="  edited exactly  ",
+    )
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"through_sequence_number": 0},
+        {"through_sequence_number": True},
+        {"replacement_content": "missing branch"},
+        {"through_sequence_number": 1, "replacement_content": "   "},
+        {"through_sequence_number": 1, "owner_id": "client-controlled"},
+    ],
+)
+def test_fork_conversation_rejects_invalid_body_before_service(
+    conversation_api,
+    body,
+):
+    api = conversation_api
+
+    response = api["client"].post(
+        f"/api/v1/conversations/{api['conversation'].id}/fork",
+        json=body,
+    )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+    api["fork_service_factory"].assert_not_called()
+    api["fork_conversation"].assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    ("error", "expected_status", "expected_message"),
+    [
+        (
+            ConversationForkNotFoundError("private owner detail"),
+            404,
+            "Conversation not found",
+        ),
+        (
+            ConversationForkInvalidError("private history detail"),
+            409,
+            "Conversation could not be branched",
+        ),
+        (
+            ConversationForkTooLargeError("private size detail"),
+            413,
+            "Conversation is too large to duplicate",
+        ),
+        (
+            ConversationForkStorageError("private path detail"),
+            503,
+            "Private asset storage unavailable",
+        ),
+    ],
+)
+def test_fork_conversation_redacts_safe_expected_failures(
+    conversation_api,
+    error,
+    expected_status,
+    expected_message,
+):
+    api = conversation_api
+    app.state.asset_storage = Mock(name="private_asset_storage")
+    api["fork_conversation"].side_effect = error
+
+    response = api["client"].post(
+        f"/api/v1/conversations/{uuid4()}/fork",
+        json={},
+    )
+
+    assert response.status_code == expected_status
+    assert response.json()["error"] == {
+        "code": "HTTP_ERROR",
+        "message": expected_message,
+    }
+    assert str(error) not in response.text
+    assert "owner" not in response.json()["error"]["message"].lower()
+    assert "path" not in response.json()["error"]["message"].lower()
+
+
+@pytest.mark.parametrize(
+    "authorization",
+    [None, "Bearer short", f"Bearer {'U' * 43}"],
+)
+def test_fork_conversation_requires_uniform_bearer_authentication(
+    monkeypatch,
+    authorization,
+):
+    session = AsyncMock(spec=AsyncSession)
+    get_by_digest = AsyncMock(return_value=None)
+    authentication_service = Mock(get_by_access_token_digest=get_by_digest)
+    authentication_service_factory = Mock(return_value=authentication_service)
+    fork_service_factory = Mock()
+    monkeypatch.setattr(
+        authentication_module,
+        "UserService",
+        authentication_service_factory,
+    )
+    monkeypatch.setattr(
+        conversations_module,
+        "ConversationForkService",
+        fork_service_factory,
+    )
+
+    async def override_db_session():
+        yield session
+
+    app.dependency_overrides[get_db_session] = override_db_session
+    headers = {} if authorization is None else {"Authorization": authorization}
+    try:
+        with TestClient(app, raise_server_exceptions=False) as client:
+            response = client.post(
+                f"/api/v1/conversations/{uuid4()}/fork",
+                json={},
+                headers=headers,
+            )
+    finally:
+        app.dependency_overrides.pop(get_db_session, None)
+
+    assert response.status_code == 401
+    assert response.headers["WWW-Authenticate"] == "Bearer"
+    assert response.json()["error"] == {
+        "code": "HTTP_ERROR",
+        "message": "Invalid authentication credentials",
+    }
+    if authorization is not None:
+        assert authorization not in response.text
+    fork_service_factory.assert_not_called()
+    session.commit.assert_not_awaited()
+    if authorization == f"Bearer {'U' * 43}":
+        authentication_service_factory.assert_called_once_with(session)
+        get_by_digest.assert_awaited_once_with(digest_access_token("U" * 43))
+    else:
+        authentication_service_factory.assert_not_called()
+        get_by_digest.assert_not_awaited()
+
+
+def test_fork_conversation_unexpected_failure_redacts_content_and_storage_detail(
+    conversation_api,
+    caplog,
+):
+    api = conversation_api
+    app.state.asset_storage = Mock(name="private_asset_storage")
+    private_content = "private edited content marker"
+    api["fork_conversation"].side_effect = RuntimeError(
+        "private filesystem storage marker"
+    )
+
+    response = api["client"].post(
+        f"/api/v1/conversations/{api['conversation'].id}/fork",
+        json={
+            "through_sequence_number": 1,
+            "replacement_content": private_content,
+        },
+    )
+
+    assert response.status_code == 500
+    assert response.json()["error"] == {
+        "code": "INTERNAL_SERVER_ERROR",
+        "message": "An unexpected error occurred.",
+    }
+    assert private_content not in response.text
+    assert "filesystem" not in response.text
+    assert "storage marker" not in response.text
+    captured_logs = caplog.text
+    assert private_content not in captured_logs
+    assert "private filesystem storage marker" not in captured_logs
 
 
 @pytest.mark.parametrize("identity_field", ["owner_id", "user_id"])

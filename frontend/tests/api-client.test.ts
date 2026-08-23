@@ -218,6 +218,38 @@ describe("ApiClient", () => {
     ]);
   });
 
+  it("creates immutable owner branches without putting message content in URLs", async () => {
+    const editedContent = "  private edited prompt  ";
+    const fetchImplementation = vi.fn(
+      async (input: URL | RequestInfo, init?: RequestInit) => {
+        const url = input.toString();
+        expect(url).toBe(
+          `http://127.0.0.1:8000/api/v1/conversations/${conversation.id}/fork`,
+        );
+        expect(url).not.toContain(editedContent.trim());
+        expect(new Headers(init?.headers).get("Authorization")).toBe(
+          `Bearer ${token}`,
+        );
+        expect(init?.method).toBe("POST");
+        expect(JSON.parse(String(init?.body))).toEqual({
+          through_sequence_number: 3,
+          replacement_content: editedContent,
+        });
+        return jsonResponse({ ...conversation, title: "Local chat (copy)" }, 201);
+      },
+    );
+    const client = new ApiClient(token, {
+      fetchImplementation: fetchImplementation as typeof fetch,
+    });
+
+    await expect(
+      client.forkConversation(conversation.id, {
+        through_sequence_number: 3,
+        replacement_content: editedContent,
+      }),
+    ).resolves.toMatchObject({ title: "Local chat (copy)" });
+  });
+
   it("uses bounded voice contracts and keeps text and credentials out of URLs", async () => {
     const modelId = "piper:" + "b".repeat(24);
     const assetId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";

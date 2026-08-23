@@ -1068,6 +1068,23 @@ textarea {
   margin: 1rem auto 0;
 }
 
+.message-branch-action {
+  margin-top: 0.7rem;
+}
+
+.message-edit-form {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 0.8rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--line);
+}
+
+.message-edit-form textarea {
+  width: 100%;
+  resize: vertical;
+}
+
 .composer {
   display: grid;
   gap: 0.6rem;

@@ -18,6 +18,7 @@ const baseProps = {
   onSelect: vi.fn(),
   onRename: vi.fn(async () => undefined),
   onUpdateState: vi.fn(async () => undefined),
+  onDuplicate: vi.fn(async () => undefined),
   onDelete: vi.fn(async () => undefined),
   onShowArchivedChange: vi.fn(),
   onReload: vi.fn(),
@@ -125,6 +126,23 @@ describe("ConversationList", () => {
     await userEvent.click(within(hardware).getByRole("button", { name: "Delete conversation" }));
     expect(confirm).toHaveBeenCalledOnce();
     expect(onDelete).toHaveBeenCalledWith(second.id);
+  });
+
+  it("duplicates through the owner-scoped immutable fork action", async () => {
+    const onDuplicate = vi.fn(async () => undefined);
+    render(
+      <ConversationList
+        {...baseProps}
+        conversations={[conversation]}
+        onDuplicate={onDuplicate}
+      />,
+    );
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Duplicate conversation" }),
+    );
+    expect(onDuplicate).toHaveBeenCalledOnce();
+    expect(onDuplicate).toHaveBeenCalledWith(conversation.id);
   });
 
   it("sorts pinned chats and exposes owner pin, archive, and restore actions", async () => {

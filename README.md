@@ -9,8 +9,9 @@ AI, authorization, storage, and workflow logic stay on the workstation.
 The existing local platform provides text chat, vision, document intelligence
 and RAG, explicit long-term memory, image generation/editing, speech-to-text,
 text-to-speech, bounded tools/workflows, private assets, and hardware-aware
-model admission. Conversation pin/archive state is owner-scoped and shared
-across clients. Availability shown by a client always comes from the backend.
+model admission. Conversation pin/archive state and immutable duplicate,
+edit/resend, and regenerate branches are owner-scoped and shared across
+clients. Availability shown by a client always comes from the backend.
 
 ## Product surfaces
 

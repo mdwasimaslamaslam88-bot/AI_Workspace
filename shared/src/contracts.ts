@@ -442,6 +442,11 @@ export type ConversationStateUpdateRequest =
   | { is_pinned: boolean; is_archived?: boolean }
   | { is_pinned?: boolean; is_archived: boolean };
 
+export interface ConversationForkRequest {
+  through_sequence_number?: number;
+  replacement_content?: string;
+}
+
 export interface ConversationCreateResponse extends ConversationSummary {
   initial_message: Message;
 }

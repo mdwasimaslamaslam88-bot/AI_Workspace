@@ -98,6 +98,46 @@ describe("mobile API client", () => {
     expect(calledUrl).not.toContain(secret);
   });
 
+  it("forks owner history through a body-only branch contract", async () => {
+    const editedContent = "private mobile edit";
+    const fork = {
+      id: conversationId,
+      title: "Mobile copy",
+      is_pinned: false,
+      is_archived: false,
+      created_at: timestamp,
+      updated_at: timestamp,
+    };
+    const fetchMock = vi.fn(
+      async (input: URL | RequestInfo, init?: RequestInit) => {
+        const url = input.toString();
+        expect(url).toBe(
+          `https://work-station.example.ts.net/api/v1/conversations/${conversationId}/fork`,
+        );
+        expect(url).not.toContain(editedContent);
+        expect(new Headers(init?.headers).get("Authorization")).toBe(
+          "Bearer mobile-session",
+        );
+        expect(JSON.parse(String(init?.body))).toEqual({
+          through_sequence_number: 1,
+          replacement_content: editedContent,
+        });
+        return new Response(JSON.stringify(fork), { status: 201 });
+      },
+    );
+    const client = new MobileApiClient("mobile-session", {
+      baseUrl: "https://work-station.example.ts.net",
+      fetchImplementation: fetchMock,
+    });
+
+    await expect(
+      client.forkConversation(conversationId, {
+        through_sequence_number: 1,
+        replacement_content: editedContent,
+      }),
+    ).resolves.toEqual(fork);
+  });
+
   it("redacts backend error bodies and keeps only safe status metadata", async () => {
     const fetchMock = vi.fn(async () =>
       new Response(

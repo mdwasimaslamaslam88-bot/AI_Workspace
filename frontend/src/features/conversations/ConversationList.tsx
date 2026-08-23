@@ -22,6 +22,7 @@ interface ConversationListProps {
     conversationId: string,
     state: ConversationStateUpdateRequest,
   ) => Promise<void>;
+  onDuplicate?: (conversationId: string) => Promise<void>;
   onDelete: (conversationId: string) => Promise<void>;
   onShowArchivedChange: (value: boolean) => void;
   onReload: () => void;
@@ -54,6 +55,7 @@ export function ConversationList({
   onSelect,
   onRename,
   onUpdateState,
+  onDuplicate,
   onDelete,
   onShowArchivedChange,
   onReload,
@@ -119,6 +121,19 @@ export function ConversationList({
       await onUpdateState(conversation.id, state);
     } catch {
       setMutationError("The conversation organization could not be updated.");
+    } finally {
+      setMutationId(null);
+    }
+  }
+
+  async function duplicateConversation(conversationId: string) {
+    if (onDuplicate === undefined) return;
+    setMutationId(conversationId);
+    setMutationError(null);
+    try {
+      await onDuplicate(conversationId);
+    } catch {
+      setMutationError("The conversation could not be duplicated.");
     } finally {
       setMutationId(null);
     }
@@ -268,6 +283,17 @@ export function ConversationList({
                   >
                     Rename
                   </button>
+                  {onDuplicate !== undefined && (
+                    <button
+                      type="button"
+                      className="button button-quiet"
+                      aria-label="Duplicate conversation"
+                      disabled={disabled || mutationId !== null}
+                      onClick={() => void duplicateConversation(conversation.id)}
+                    >
+                      Duplicate
+                    </button>
+                  )}
                   <button
                     type="button"
                     className="button button-quiet danger-action"

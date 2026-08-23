@@ -6,7 +6,8 @@ logic to the backend.
 
 Implemented client contracts include secure session restore/logout, connection
 recovery on network and app resume, conversation creation and text generation,
-loaded-chat search, owner-scoped pin/archive/restore/rename and confirmed deletion, owned
+loaded-chat search, owner-scoped pin/archive/restore/rename, immutable
+duplicate/edit-resend/regenerate branches, confirmed deletion, owned
 file/image/camera uploads, microphone recording and speech recognition,
 authenticated image and audio playback, generic local notification architecture,
 deep links, and safe error redaction. SecureStore maps to

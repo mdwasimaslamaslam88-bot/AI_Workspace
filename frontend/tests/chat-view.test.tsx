@@ -36,6 +36,8 @@ const baseProps = {
   onCreateConversation: vi.fn(async () => undefined),
   onCancelNew: vi.fn(),
   onGenerate: vi.fn(async () => undefined),
+  onEditAndResend: vi.fn(async () => undefined),
+  onRegenerate: vi.fn(async () => undefined),
   onCancelGeneration: vi.fn(),
   onLoadMoreMessages: vi.fn(),
   onReloadMessages: vi.fn(),
@@ -101,6 +103,39 @@ describe("ChatView", () => {
     );
     await userEvent.click(screen.getByRole("button", { name: "Load more messages" }));
     expect(onLoadMoreMessages).toHaveBeenCalledOnce();
+  });
+
+  it("edits and regenerates by creating immutable text branches", async () => {
+    const userMessage = message(1, "user", "original prompt");
+    const assistantMessage = message(2, "assistant", "original answer");
+    const onEditAndResend = vi.fn(async () => undefined);
+    const onRegenerate = vi.fn(async () => undefined);
+    render(
+      <ChatView
+        {...baseProps}
+        messages={[userMessage, assistantMessage]}
+        onEditAndResend={onEditAndResend}
+        onRegenerate={onRegenerate}
+      />,
+    );
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Edit and resend in a branch" }),
+    );
+    const editor = screen.getByLabelText(
+      "Edit user message for a new immutable branch",
+    );
+    await userEvent.clear(editor);
+    await userEvent.type(editor, "edited prompt");
+    await userEvent.click(
+      screen.getByRole("button", { name: "Send edited branch" }),
+    );
+    expect(onEditAndResend).toHaveBeenCalledWith(userMessage, "edited prompt");
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Regenerate in a branch" }),
+    );
+    expect(onRegenerate).toHaveBeenCalledWith(userMessage);
   });
 
   it("submits an exact prompt and clears the composer", async () => {

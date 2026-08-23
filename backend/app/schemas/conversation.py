@@ -53,6 +53,32 @@ class ConversationStateUpdate(BaseModel):
         return self
 
 
+class ConversationForkRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    through_sequence_number: int | None = Field(
+        default=None,
+        ge=1,
+        strict=True,
+    )
+    replacement_content: str | None = Field(
+        default=None,
+        max_length=100_000,
+        pattern=r"\S",
+    )
+
+    @model_validator(mode="after")
+    def validate_replacement_branch(self):
+        if (
+            self.replacement_content is not None
+            and self.through_sequence_number is None
+        ):
+            raise ValueError(
+                "replacement_content requires through_sequence_number"
+            )
+        return self
+
+
 class ConversationCreateResponse(BaseModel):
     id: UUID
     title: str | None
