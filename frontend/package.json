@@ -1,5 +1,5 @@
 {
-  "name": "ai-workspace-frontend",
+  "name": "@work-station/web",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -12,6 +12,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@work-station/shared": "0.1.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },

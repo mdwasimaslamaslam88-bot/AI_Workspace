@@ -49,8 +49,8 @@ export function ConversationList({
     <aside className="sidebar" aria-label="Conversation navigation">
       <div className="sidebar-header">
         <div>
-          <p className="eyebrow">Personal AI</p>
-          <h1>AI Workspace</h1>
+          <p className="eyebrow">Private Personal AI</p>
+          <h1>WORK STATION</h1>
         </div>
         <button className="button button-quiet" onClick={onLogout}>Logout</button>
       </div>

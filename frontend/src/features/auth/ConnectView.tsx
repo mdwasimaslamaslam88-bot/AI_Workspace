@@ -25,8 +25,8 @@ export function ConnectView({
   return (
     <main className="connect-shell">
       <section className="connect-card" aria-labelledby="connect-title">
-        <div className="brand-mark" aria-hidden="true">AI</div>
-        <p className="eyebrow">Local-first workspace</p>
+        <img className="brand-icon" src="/icons/icon-192.png" alt="" />
+        <p className="eyebrow">WORK STATION</p>
         <h1 id="connect-title">Connect to your Personal AI</h1>
         <p className="muted">
           Enter an already-provisioned bearer token. It stays in this browser
@@ -55,6 +55,56 @@ export function ConnectView({
             {connecting ? "Connecting…" : "Connect"}
           </button>
         </form>
+      </section>
+    </main>
+  );
+}
+
+interface ReconnectViewProps {
+  online: boolean;
+  reconnecting: boolean;
+  error: string;
+  onRetry: () => void;
+  onUseDifferentToken: () => void;
+}
+
+export function ReconnectView({
+  online,
+  reconnecting,
+  error,
+  onRetry,
+  onUseDifferentToken,
+}: ReconnectViewProps) {
+  return (
+    <main className="connect-shell">
+      <section className="connect-card" aria-labelledby="reconnect-title">
+        <img className="brand-icon" src="/icons/icon-192.png" alt="" />
+        <p className="eyebrow">WORK STATION</p>
+        <h1 id="reconnect-title">
+          {online ? "Backend unavailable" : "You are offline"}
+        </h1>
+        <p className="muted">{error}</p>
+        <p className="connection-preserved" role="status">
+          Your saved session is preserved. No credential needs to be entered again.
+        </p>
+        <div className="reconnect-actions">
+          <button
+            type="button"
+            className="button button-primary"
+            onClick={onRetry}
+            disabled={reconnecting || !online}
+          >
+            {reconnecting ? "Reconnecting…" : "Retry connection"}
+          </button>
+          <button
+            type="button"
+            className="button button-quiet"
+            onClick={onUseDifferentToken}
+            disabled={reconnecting}
+          >
+            Use a different token
+          </button>
+        </div>
       </section>
     </main>
   );

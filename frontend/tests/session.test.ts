@@ -30,4 +30,20 @@ describe("browser session storage", () => {
     expect(() => writeSessionToken("")).toThrow("A bearer token is required.");
     expect(readSessionToken()).toBeNull();
   });
+
+  it("migrates an existing AI Workspace session without exposing or losing it", () => {
+    window.sessionStorage.setItem("ai-workspace.bearer-token", "legacy-token");
+    window.sessionStorage.setItem("ai-workspace.model-id", "legacy-model");
+
+    expect(readSessionToken()).toBe("legacy-token");
+    expect(readModelPreference()).toBe("legacy-model");
+    expect(window.sessionStorage.getItem("ai-workspace.bearer-token")).toBeNull();
+    expect(window.sessionStorage.getItem("work-station.bearer-token")).toBe(
+      "legacy-token",
+    );
+
+    clearSessionToken();
+    clearModelPreference();
+    expect(window.sessionStorage.length).toBe(0);
+  });
 });

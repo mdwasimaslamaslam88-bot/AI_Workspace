@@ -1,0 +1,17 @@
+{
+  "name": "work-station",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "shared",
+    "frontend",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:web": "npm run dev --workspace @work-station/web",
+    "test:web": "npm run test --workspace @work-station/web",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "build:web": "npm run build --workspace @work-station/web"
+  }
+}

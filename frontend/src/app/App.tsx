@@ -35,7 +35,7 @@ import {
   writeModelPreference,
   writeSessionToken,
 } from "../auth/session";
-import { ConnectView } from "../features/auth/ConnectView";
+import { ConnectView, ReconnectView } from "../features/auth/ConnectView";
 import { ChatView, type SafeNotice } from "../features/chat/ChatView";
 import { ConversationList } from "../features/conversations/ConversationList";
 import { MemoryPanel } from "../features/memory/MemoryPanel";
@@ -44,7 +44,11 @@ import { SettingsPanel } from "../features/settings/SettingsPanel";
 import { ToolPanel } from "../features/tools/ToolPanel";
 import { WorkflowPanel } from "../features/workflows/WorkflowPanel";
 
-type AuthenticationStatus = "checking" | "anonymous" | "authenticated";
+type AuthenticationStatus =
+  | "checking"
+  | "anonymous"
+  | "disconnected"
+  | "authenticated";
 
 function safeNotice(
   error: unknown,
@@ -102,6 +106,9 @@ export function App() {
     useState<AuthenticationStatus>("checking");
   const [connecting, setConnecting] = useState(false);
   const [connectError, setConnectError] = useState<string | null>(null);
+  const [online, setOnline] = useState(
+    () => typeof navigator === "undefined" || navigator.onLine,
+  );
   const [client, setClient] = useState<ApiClient | null>(null);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
 
@@ -137,6 +144,8 @@ export function App() {
   const conversationsAbort = useRef<AbortController | null>(null);
   const messagesAbort = useRef<AbortController | null>(null);
   const generationAbort = useRef<AbortController | null>(null);
+  const authenticationStatusRef = useRef<AuthenticationStatus>("checking");
+  const onlineRef = useRef(online);
 
   const resetWorkspace = useCallback(() => {
     authAbort.current?.abort();
@@ -171,42 +180,79 @@ export function App() {
     [resetWorkspace],
   );
 
-  useEffect(() => {
+  const restoreStoredSession = useCallback(async () => {
     const token = readSessionToken();
     if (token === null) {
       setAuthenticationStatus("anonymous");
       return;
     }
 
+    authAbort.current?.abort();
     const controller = new AbortController();
     authAbort.current = controller;
     const restoredClient = createClient(token);
-    void restoredClient
-      .getCurrentUser(controller.signal)
-      .then((user) => {
-        if (controller.signal.aborted) return;
-        setClient(restoredClient);
-        setCurrentUser(user);
-        setAuthenticationStatus("authenticated");
-      })
-      .catch((error: unknown) => {
-        if (
-          controller.signal.aborted &&
-          !(error instanceof ApiError && error.kind === "authentication")
-        ) {
-          return;
-        }
+    setConnecting(true);
+    setConnectError(null);
+    try {
+      const user = await restoredClient.getCurrentUser(controller.signal);
+      if (controller.signal.aborted) return;
+      setClient(restoredClient);
+      setCurrentUser(user);
+      setAuthenticationStatus("authenticated");
+    } catch (error) {
+      if (
+        controller.signal.aborted &&
+        !(error instanceof ApiError && error.kind === "authentication")
+      ) {
+        return;
+      }
+      if (error instanceof ApiError && error.kind === "authentication") {
         clearSessionToken();
-        setConnectError(
-          error instanceof ApiError && error.kind === "authentication"
-            ? "Your saved session is no longer valid."
-            : "The local backend could not be reached.",
-        );
+        setConnectError("Your saved session is no longer valid.");
         setAuthenticationStatus("anonymous");
-      });
-
-    return () => controller.abort();
+        return;
+      }
+      setClient(null);
+      setCurrentUser(null);
+      setConnectError(
+        onlineRef.current
+          ? "WORK STATION could not reach the configured backend."
+          : "Your network is offline. WORK STATION will keep this session ready.",
+      );
+      setAuthenticationStatus("disconnected");
+    } finally {
+      if (authAbort.current === controller) setConnecting(false);
+    }
   }, [createClient]);
+
+  useEffect(() => {
+    void restoreStoredSession();
+    return () => authAbort.current?.abort();
+  }, [restoreStoredSession]);
+
+  useEffect(() => {
+    authenticationStatusRef.current = authenticationStatus;
+  }, [authenticationStatus]);
+
+  useEffect(() => {
+    const handleOnline = () => {
+      onlineRef.current = true;
+      setOnline(true);
+      if (authenticationStatusRef.current === "disconnected") {
+        void restoreStoredSession();
+      }
+    };
+    const handleOffline = () => {
+      onlineRef.current = false;
+      setOnline(false);
+    };
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, [restoreStoredSession]);
 
   const connect = useCallback(
     async (token: string) => {
@@ -912,9 +958,21 @@ export function App() {
   if (authenticationStatus === "checking") {
     return (
       <main className="splash" aria-busy="true">
-        <div className="brand-mark" aria-hidden="true">AI</div>
+        <img className="brand-icon" src="/icons/icon-192.png" alt="" />
         <p role="status">Restoring local session…</p>
       </main>
+    );
+  }
+
+  if (authenticationStatus === "disconnected") {
+    return (
+      <ReconnectView
+        online={online}
+        reconnecting={connecting}
+        error={connectError ?? "The backend is temporarily unavailable."}
+        onRetry={() => void restoreStoredSession()}
+        onUseDifferentToken={resetWorkspace}
+      />
     );
   }
 
@@ -950,6 +1008,14 @@ export function App() {
       />
       <section className="workspace-main">
         <header className="workspace-toolbar">
+          <span
+            className={`connection-status ${online ? "connection-online" : "connection-offline"}`}
+            aria-label="Connection status"
+            aria-live="polite"
+          >
+            <span aria-hidden="true" />
+            {online ? "Connected" : "Offline"}
+          </span>
           <button
             type="button"
             className="button button-secondary"

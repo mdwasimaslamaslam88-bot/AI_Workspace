@@ -270,6 +270,32 @@ describe("App integration", () => {
     expect(document.body.textContent).not.toContain(rawSecret);
   });
 
+  it("preserves a saved session across an outage and reconnects without re-entry", async () => {
+    writeSessionToken(token);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new TypeError("network unavailable");
+      }),
+    );
+    render(<App />);
+
+    expect(
+      await screen.findByRole("heading", { name: "Backend unavailable" }),
+    ).toBeVisible();
+    expect(readSessionToken()).toBe(token);
+    expect(document.body.textContent).not.toContain(token);
+    expect(screen.getByRole("status")).toHaveTextContent("session is preserved");
+
+    installWorkspaceFetch();
+    await userEvent.click(screen.getByRole("button", { name: "Retry connection" }));
+
+    expect(await screen.findByText(user.id)).toBeVisible();
+    expect(await screen.findByRole("button", { name: /Local chat/ })).toBeVisible();
+    expect(readSessionToken()).toBe(token);
+    expect(document.body.textContent).not.toContain(token);
+  });
+
   it("sends an exact prompt, shows pending state, and renders persisted success", async () => {
     writeSessionToken(token);
     const workspace = installWorkspaceFetch();
