@@ -529,6 +529,66 @@ describe("ApiClient", () => {
     });
   });
 
+  it("manages bounded device sessions without sending credentials in URLs", async () => {
+    const issuedToken = "s".repeat(43);
+    const session = {
+      id: "7b914edf-a46b-470c-b3de-9c6109db3fc0",
+      label: "Phone",
+      created_at: "2026-08-20T09:00:00Z",
+      updated_at: "2026-08-21T09:00:00Z",
+      is_current: false,
+    };
+    const calls: Array<{ path: string; method: string; body: unknown }> = [];
+    const fetchImplementation = vi.fn(
+      async (input: URL | RequestInfo, init?: RequestInit) => {
+        const url = new URL(input.toString());
+        expect(url.toString()).not.toContain(token);
+        expect(url.toString()).not.toContain(issuedToken);
+        expect(new Headers(init?.headers).get("Authorization")).toBe(
+          `Bearer ${token}`,
+        );
+        calls.push({
+          path: url.pathname,
+          method: init?.method ?? "GET",
+          body: init?.body ? JSON.parse(String(init.body)) : undefined,
+        });
+        if (init?.method === "DELETE") return new Response(null, { status: 204 });
+        if (init?.method === "POST") {
+          return jsonResponse({
+            access_token: issuedToken,
+            token_type: "bearer",
+            session,
+          });
+        }
+        if (init?.method === "PATCH") return jsonResponse({ ...session, is_current: true });
+        return jsonResponse({ items: [session] });
+      },
+    );
+    const client = new ApiClient(token, {
+      fetchImplementation: fetchImplementation as typeof fetch,
+    });
+
+    await expect(client.listUserSessions()).resolves.toEqual({ items: [session] });
+    await expect(client.createUserSession({ label: "Phone" })).resolves.toEqual({
+      access_token: issuedToken,
+      token_type: "bearer",
+      session,
+    });
+    await expect(
+      client.renameCurrentUserSession({ label: "Browser" }),
+    ).resolves.toEqual({ ...session, is_current: true });
+    await client.revokeUserSession(session.id);
+    await client.revokeCurrentUserSession();
+
+    expect(calls).toEqual([
+      { path: "/api/v1/users/me/sessions", method: "GET", body: undefined },
+      { path: "/api/v1/users/me/sessions", method: "POST", body: { label: "Phone" } },
+      { path: "/api/v1/users/me/sessions/current", method: "PATCH", body: { label: "Browser" } },
+      { path: `/api/v1/users/me/sessions/${session.id}`, method: "DELETE", body: undefined },
+      { path: "/api/v1/users/me/sessions/current", method: "DELETE", body: undefined },
+    ]);
+  });
+
   it("accepts only a secret-free HTTP origin as the configured base URL", () => {
     expect(normalizeApiBaseUrl(undefined)).toBe("http://127.0.0.1:8000");
     expect(

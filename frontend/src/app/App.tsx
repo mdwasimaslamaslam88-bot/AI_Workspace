@@ -787,6 +787,63 @@ export function App() {
     [client, createClient],
   );
 
+  const loadUserSessions = useCallback(
+    async (signal?: AbortSignal) => {
+      if (client === null) {
+        throw new ApiError("authentication", "Authentication failed.");
+      }
+      return (await client.listUserSessions(signal)).items;
+    },
+    [client],
+  );
+
+  const createUserSession = useCallback(
+    (label: string | null) => {
+      if (client === null) {
+        return Promise.reject(
+          new ApiError("authentication", "Authentication failed."),
+        );
+      }
+      return client.createUserSession({ label });
+    },
+    [client],
+  );
+
+  const renameCurrentUserSession = useCallback(
+    (label: string | null) => {
+      if (client === null) {
+        return Promise.reject(
+          new ApiError("authentication", "Authentication failed."),
+        );
+      }
+      return client.renameCurrentUserSession({ label });
+    },
+    [client],
+  );
+
+  const revokeUserSession = useCallback(
+    (sessionId: string) => {
+      if (client === null) {
+        return Promise.reject(
+          new ApiError("authentication", "Authentication failed."),
+        );
+      }
+      return client.revokeUserSession(sessionId);
+    },
+    [client],
+  );
+
+  const logoutCurrentSession = useCallback(async (): Promise<void> => {
+    const currentClient = client;
+    try {
+      await currentClient?.revokeCurrentUserSession();
+    } catch {
+      // Local logout must still succeed if the backend is unavailable.
+    } finally {
+      resetWorkspace();
+    }
+  }, [client, resetWorkspace]);
+
   const createMemory = useCallback(
     (request: MemoryCreateRequest, signal?: AbortSignal): Promise<PersonalMemory> => {
       if (client === null) {
@@ -1194,7 +1251,7 @@ export function App() {
         onShowArchivedChange={setShowArchivedConversations}
         onReload={() => void reloadConversations()}
         onLoadMore={() => void loadMoreConversations()}
-        onLogout={resetWorkspace}
+        onLogout={() => void logoutCurrentSession()}
       />
       <section className="workspace-main">
         <header className="workspace-toolbar">
@@ -1278,10 +1335,14 @@ export function App() {
               onClose={() => setSettingsOpen(false)}
               onLoad={loadProductCapabilities}
               onLoadDiagnostics={loadSystemDiagnostics}
+              onLoadSessions={loadUserSessions}
               appearance={appearance}
               onAppearanceChange={setAppearance}
               onRotateSession={rotateSession}
-              onLogout={resetWorkspace}
+              onCreateSession={createUserSession}
+              onRenameCurrentSession={renameCurrentUserSession}
+              onRevokeSession={revokeUserSession}
+              onLogout={logoutCurrentSession}
               onManageMemory={() => {
                 setSettingsOpen(false);
                 setMemoryOpen(true);

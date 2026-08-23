@@ -140,12 +140,17 @@ export function WorkStationProvider({ children }: PropsWithChildren) {
 
   const logout = useCallback(async () => {
     activeRequest.current?.abort();
+    try {
+      await client?.revokeCurrentUserSession();
+    } catch {
+      // Local secure-session removal must remain available while offline.
+    }
     await clearSecureSession();
     setClient(null);
     setUser(null);
     setError(null);
     setState("authentication_required");
-  }, []);
+  }, [client]);
 
   const rotateSession = useCallback(async () => {
     if (client === null) throw new Error("An authenticated session is required.");

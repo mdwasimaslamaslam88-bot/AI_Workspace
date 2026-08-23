@@ -36,6 +36,7 @@ from app.models import (
     MessageAsset,
     MessageRole,
     User,
+    UserSession,
 )
 from app.models.message import (
     MAX_MESSAGE_CONTENT_CHARACTERS,
@@ -139,6 +140,7 @@ def _inspect_schema(connection) -> dict:
     return {
         "tables": set(inspector.get_table_names()),
         "conversation_foreign_keys": inspector.get_foreign_keys("conversations"),
+        "user_session_foreign_keys": inspector.get_foreign_keys("user_sessions"),
         "message_foreign_keys": inspector.get_foreign_keys("messages"),
         "asset_foreign_keys": inspector.get_foreign_keys("assets"),
         "message_asset_foreign_keys": inspector.get_foreign_keys("message_assets"),
@@ -151,6 +153,7 @@ def _inspect_schema(connection) -> dict:
         "workflow_foreign_keys": inspector.get_foreign_keys("workflows"),
         "workflow_step_foreign_keys": inspector.get_foreign_keys("workflow_steps"),
         "conversation_indexes": inspector.get_indexes("conversations"),
+        "user_session_indexes": inspector.get_indexes("user_sessions"),
         "asset_indexes": inspector.get_indexes("assets"),
         "document_indexes": inspector.get_indexes("documents"),
         "document_chunk_indexes": inspector.get_indexes("document_chunks"),
@@ -159,6 +162,7 @@ def _inspect_schema(connection) -> dict:
         "workflow_indexes": inspector.get_indexes("workflows"),
         "workflow_step_indexes": inspector.get_indexes("workflow_steps"),
         "conversation_checks": inspector.get_check_constraints("conversations"),
+        "user_session_checks": inspector.get_check_constraints("user_sessions"),
         "message_checks": inspector.get_check_constraints("messages"),
         "asset_checks": inspector.get_check_constraints("assets"),
         "message_asset_checks": inspector.get_check_constraints("message_assets"),
@@ -170,6 +174,7 @@ def _inspect_schema(connection) -> dict:
         "workflow_checks": inspector.get_check_constraints("workflows"),
         "workflow_step_checks": inspector.get_check_constraints("workflow_steps"),
         "user_uniques": inspector.get_unique_constraints("users"),
+        "user_session_uniques": inspector.get_unique_constraints("user_sessions"),
         "message_uniques": inspector.get_unique_constraints("messages"),
         "asset_uniques": inspector.get_unique_constraints("assets"),
         "message_asset_uniques": inspector.get_unique_constraints("message_assets"),
@@ -182,6 +187,7 @@ def _inspect_schema(connection) -> dict:
             table_name: inspector.get_columns(table_name)
             for table_name in (
                 "users",
+                "user_sessions",
                 "conversations",
                 "messages",
                 "assets",
@@ -240,6 +246,7 @@ async def test_migration_creates_exact_expected_postgresql_schema(
     assert snapshot["tables"] == {
         "alembic_version",
         "users",
+        "user_sessions",
         "conversations",
         "messages",
         "assets",
@@ -284,6 +291,17 @@ async def test_migration_creates_exact_expected_postgresql_schema(
     assert "desc" not in sorting.get("owner_id", ())
     assert "desc" in sorting["updated_at"]
     assert "desc" in sorting["id"]
+    archive_index = next(
+        item
+        for item in snapshot["conversation_indexes"]
+        if item["name"] == "ix_conversations_owner_archived_updated_at_id"
+    )
+    assert archive_index["column_names"] == [
+        "owner_id",
+        "is_archived",
+        "updated_at",
+        "id",
+    ]
 
     conversation_checks = _checks_by_name(snapshot["conversation_checks"])
     assert set(conversation_checks) == {
@@ -663,12 +681,62 @@ async def test_migration_creates_exact_expected_postgresql_schema(
     assert user_unique["column_names"] == ["access_token_digest"]
     assert len(snapshot["user_uniques"]) == 1
 
+    user_sessions = _columns_by_name(snapshot, "user_sessions")
+    assert set(user_sessions) == {
+        "id",
+        "user_id",
+        "access_token_digest",
+        "label",
+        "created_at",
+        "updated_at",
+        "revoked_at",
+    }
+    _assert_required_uuid(user_sessions["id"])
+    _assert_required_uuid(user_sessions["user_id"])
+    assert isinstance(user_sessions["access_token_digest"]["type"], sa.String)
+    assert user_sessions["access_token_digest"]["type"].length == 64
+    assert user_sessions["access_token_digest"]["nullable"] is False
+    assert isinstance(user_sessions["label"]["type"], sa.String)
+    assert user_sessions["label"]["type"].length == 80
+    assert user_sessions["label"]["nullable"] is True
+    _assert_required_timestamp(user_sessions["created_at"])
+    _assert_required_timestamp(user_sessions["updated_at"])
+    assert isinstance(user_sessions["revoked_at"]["type"], sa.DateTime)
+    assert user_sessions["revoked_at"]["type"].timezone is True
+    assert user_sessions["revoked_at"]["nullable"] is True
+
+    user_session_fk = _foreign_key(
+        snapshot,
+        "user_session",
+        "fk_user_sessions_user_id_users",
+    )
+    assert user_session_fk["constrained_columns"] == ["user_id"]
+    assert user_session_fk["referred_table"] == "users"
+    assert user_session_fk["referred_columns"] == ["id"]
+    assert user_session_fk["options"]["ondelete"] == "CASCADE"
+    assert len(snapshot["user_session_uniques"]) == 1
+    user_session_unique = snapshot["user_session_uniques"][0]
+    assert user_session_unique["name"] == "uq_user_sessions_access_token_digest"
+    assert user_session_unique["column_names"] == ["access_token_digest"]
+    assert {
+        item["name"] for item in snapshot["user_session_indexes"]
+        if item.get("duplicates_constraint") is None
+    } == {"ix_user_sessions_user_revoked_created_at_id"}
+    user_session_checks = _checks_by_name(snapshot["user_session_checks"])
+    assert set(user_session_checks) == {
+        "ck_user_sessions_access_token_digest_lowercase_hex",
+        "ck_user_sessions_label_bounded_nonblank",
+        "ck_user_sessions_revoked_at_not_before_created_at",
+    }
+
     conversations = _columns_by_name(snapshot, "conversations")
     assert set(conversations) == {
         "id",
         "owner_id",
         "title",
         "next_message_sequence",
+        "is_pinned",
+        "is_archived",
         "created_at",
         "updated_at",
     }
@@ -679,6 +747,10 @@ async def test_migration_creates_exact_expected_postgresql_schema(
     assert conversations["title"]["nullable"] is True
     assert isinstance(conversations["next_message_sequence"]["type"], sa.BigInteger)
     assert conversations["next_message_sequence"]["nullable"] is False
+    assert isinstance(conversations["is_pinned"]["type"], sa.Boolean)
+    assert conversations["is_pinned"]["nullable"] is False
+    assert isinstance(conversations["is_archived"]["type"], sa.Boolean)
+    assert conversations["is_archived"]["nullable"] is False
     _assert_required_timestamp(conversations["created_at"])
     _assert_required_timestamp(conversations["updated_at"])
 
@@ -1487,8 +1559,9 @@ async def test_user_access_credential_persistence_lookup_and_uniqueness(
         user_id = user.id
         expected_digest = digest_access_token(access_token)
 
-        assert user.access_token_digest == expected_digest
-        assert user.access_token_digest != access_token
+        assert user.access_token_digest is None
+        assert user.authenticated_session_id is not None
+        assert user.authenticated_session_digest == expected_digest
         assert (
             await service.get_by_access_token_digest(expected_digest)
         ).id == user_id
@@ -1502,13 +1575,23 @@ async def test_user_access_credential_persistence_lookup_and_uniqueness(
     async with AsyncSession(test_database_engine) as verification_session:
         stored = await verification_session.get(User, user_id)
         assert stored is not None
-        assert stored.access_token_digest == expected_digest
-        assert stored.access_token_digest != access_token
+        assert stored.access_token_digest is None
+        stored_session = await verification_session.scalar(
+            sa.select(UserSession).where(UserSession.user_id == user_id)
+        )
+        assert stored_session is not None
+        assert stored_session.access_token_digest == expected_digest
+        assert stored_session.access_token_digest != access_token
+        assert stored_session.revoked_at is None
 
         with pytest.raises(IntegrityError):
-            await UserService(verification_session).create(
-                User(access_token_digest=expected_digest)
+            await UserRepository(verification_session).create_access_session(
+                UserSession(
+                    user_id=user_id,
+                    access_token_digest=expected_digest,
+                )
             )
+        await verification_session.rollback()
 
         assert not verification_session.in_transaction()
         original = await UserService(
@@ -1529,14 +1612,20 @@ async def test_user_access_credential_flush_can_be_rolled_back(
         test_database_engine,
         expire_on_commit=False,
     ) as session:
-        user = await UserRepository(session).create(
-            User(access_token_digest=access_token_digest)
+        user = await UserRepository(session).create(User(access_token_digest=None))
+        access_session = await UserRepository(session).create_access_session(
+            UserSession(
+                user_id=user.id,
+                access_token_digest=access_token_digest,
+            )
         )
         user_id = user.id
+        session_id = access_session.id
         await session.rollback()
 
     async with AsyncSession(test_database_engine) as verification_session:
         assert await verification_session.get(User, user_id) is None
+        assert await verification_session.get(UserSession, session_id) is None
         assert (
             await UserService(
                 verification_session
@@ -1558,9 +1647,9 @@ async def test_authenticated_user_lookup_is_self_only_and_read_only(
     previous_factory = getattr(app.state, "db_session_factory", missing)
     app.state.db_session_factory = session_factory
 
-    async def user_state() -> tuple[tuple, ...]:
+    async def user_state() -> tuple[tuple[tuple, ...], tuple[tuple, ...]]:
         async with AsyncSession(test_database_engine) as verification_session:
-            result = await verification_session.execute(
+            users = await verification_session.execute(
                 sa.select(
                     User.id,
                     User.access_token_digest,
@@ -1568,7 +1657,21 @@ async def test_authenticated_user_lookup_is_self_only_and_read_only(
                     User.updated_at,
                 ).order_by(User.id)
             )
-            return tuple(tuple(row) for row in result.all())
+            sessions = await verification_session.execute(
+                sa.select(
+                    UserSession.id,
+                    UserSession.user_id,
+                    UserSession.access_token_digest,
+                    UserSession.label,
+                    UserSession.created_at,
+                    UserSession.updated_at,
+                    UserSession.revoked_at,
+                ).order_by(UserSession.id)
+            )
+            return (
+                tuple(tuple(row) for row in users.all()),
+                tuple(tuple(row) for row in sessions.all()),
+            )
 
     try:
         transport = ASGITransport(app=app)
@@ -1764,6 +1867,7 @@ async def test_authenticated_access_token_rotation_is_atomic_and_preserves_owner
             async def coordinated_rotate(
                 service,
                 authenticated_user_id,
+                authenticated_session_id,
                 expected_access_token_digest,
             ):
                 nonlocal arrivals
@@ -1774,6 +1878,7 @@ async def test_authenticated_access_token_rotation_is_atomic_and_preserves_owner
                 return await original_rotate(
                     service,
                     authenticated_user_id,
+                    authenticated_session_id,
                     expected_access_token_digest,
                 )
 
@@ -1863,8 +1968,13 @@ async def test_authenticated_access_token_rotation_is_atomic_and_preserves_owner
 
         assert stored_user is not None
         assert stored_user.id == user_id
-        assert stored_user.access_token_digest == digest_access_token(winning_token)
-        assert stored_user.access_token_digest not in {
+        assert stored_user.access_token_digest is None
+        stored_session = await verification_session.scalar(
+            sa.select(UserSession).where(UserSession.user_id == user_id)
+        )
+        assert stored_session is not None
+        assert stored_session.access_token_digest == digest_access_token(winning_token)
+        assert stored_session.access_token_digest not in {
             original_token,
             first_replacement,
             winning_token,
@@ -1876,6 +1986,144 @@ async def test_authenticated_access_token_rotation_is_atomic_and_preserves_owner
         assert stored_message.role is MessageRole.USER
         assert stored_message.content == "Persist across credential rotation"
         assert stored_message.sequence_number == 1
+
+
+@pytest.mark.asyncio
+async def test_owner_device_sessions_are_independent_bounded_and_revocable(
+    test_database_engine: AsyncEngine,
+):
+    session_factory = async_sessionmaker(
+        test_database_engine,
+        class_=AsyncSession,
+        expire_on_commit=False,
+    )
+    missing = object()
+    previous_factory = getattr(app.state, "db_session_factory", missing)
+    app.state.db_session_factory = session_factory
+
+    try:
+        transport = ASGITransport(app=app)
+        async with AsyncClient(
+            transport=transport,
+            base_url="http://testserver",
+        ) as client:
+            provisioned = await client.post(
+                "/api/v1/users",
+                headers=_PROVISIONING_HEADERS,
+            )
+            assert provisioned.status_code == 201
+            owner = provisioned.json()
+            user_id = UUID(owner["id"])
+            original_token = owner["access_token"]
+            original_headers = {
+                "Authorization": f"Bearer {original_token}"
+            }
+
+            created = await client.post(
+                "/api/v1/users/me/sessions",
+                headers=original_headers,
+                json={"label": "Phone"},
+            )
+            assert created.status_code == 201
+            assert created.headers["Cache-Control"] == "no-store"
+            created_payload = created.json()
+            phone_token = created_payload["access_token"]
+            phone_session_id = UUID(created_payload["session"]["id"])
+            assert created.text.count(phone_token) == 1
+            assert "access_token_digest" not in created.text
+
+            listed_from_original = await client.get(
+                "/api/v1/users/me/sessions",
+                headers=original_headers,
+            )
+            assert listed_from_original.status_code == 200
+            assert listed_from_original.headers["Cache-Control"] == (
+                "private, no-store"
+            )
+            original_items = listed_from_original.json()["items"]
+            assert len(original_items) == 2
+            original_session = next(
+                item for item in original_items if item["is_current"]
+            )
+            assert UUID(original_session["id"]) != phone_session_id
+            assert phone_token not in listed_from_original.text
+            assert original_token not in listed_from_original.text
+
+            phone_headers = {"Authorization": f"Bearer {phone_token}"}
+            listed_from_phone = await client.get(
+                "/api/v1/users/me/sessions",
+                headers=phone_headers,
+            )
+            assert listed_from_phone.status_code == 200
+            assert next(
+                item
+                for item in listed_from_phone.json()["items"]
+                if item["is_current"]
+            )["id"] == str(phone_session_id)
+
+            renamed = await client.patch(
+                "/api/v1/users/me/sessions/current",
+                headers=phone_headers,
+                json={"label": "Owner phone"},
+            )
+            assert renamed.status_code == 200
+            assert renamed.json()["id"] == str(phone_session_id)
+            assert renamed.json()["label"] == "Owner phone"
+            assert renamed.json()["is_current"] is True
+
+            assert (
+                await client.get("/api/v1/users/me", headers=original_headers)
+            ).status_code == 200
+            assert (
+                await client.get("/api/v1/users/me", headers=phone_headers)
+            ).status_code == 200
+
+            revoked_phone = await client.delete(
+                f"/api/v1/users/me/sessions/{phone_session_id}",
+                headers=original_headers,
+            )
+            assert revoked_phone.status_code == 204
+            assert (
+                await client.get("/api/v1/users/me", headers=phone_headers)
+            ).status_code == 401
+            assert (
+                await client.get("/api/v1/users/me", headers=original_headers)
+            ).status_code == 200
+
+            revoked_current = await client.delete(
+                "/api/v1/users/me/sessions/current",
+                headers=original_headers,
+            )
+            assert revoked_current.status_code == 204
+            assert (
+                await client.get("/api/v1/users/me", headers=original_headers)
+            ).status_code == 401
+    finally:
+        if previous_factory is missing:
+            delattr(app.state, "db_session_factory")
+        else:
+            app.state.db_session_factory = previous_factory
+
+    async with AsyncSession(test_database_engine) as verification_session:
+        stored_sessions = tuple(
+            (
+                await verification_session.execute(
+                    sa.select(UserSession).where(UserSession.user_id == user_id)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        assert len(stored_sessions) == 2
+        assert all(item.revoked_at is not None for item in stored_sessions)
+        assert {item.access_token_digest for item in stored_sessions} == {
+            digest_access_token(original_token),
+            digest_access_token(phone_token),
+        }
+        assert all(
+            item.access_token_digest not in {original_token, phone_token}
+            for item in stored_sessions
+        )
 
 
 @pytest.mark.asyncio
@@ -2112,6 +2360,8 @@ async def test_authenticated_conversation_creation_uses_current_user_and_sequenc
             assert set(owned_conversation_payload) == {
                 "id",
                 "title",
+                "is_pinned",
+                "is_archived",
                 "created_at",
                 "updated_at",
             }
@@ -2191,6 +2441,8 @@ async def test_authenticated_conversation_creation_uses_current_user_and_sequenc
             assert set(rename_payload) == {
                 "id",
                 "title",
+                "is_pinned",
+                "is_archived",
                 "created_at",
                 "updated_at",
             }
@@ -2680,6 +2932,8 @@ async def test_authenticated_conversation_creation_uses_current_user_and_sequenc
     assert set(created_payload) == {
         "id",
         "title",
+        "is_pinned",
+        "is_archived",
         "created_at",
         "updated_at",
         "initial_message",
@@ -2766,7 +3020,14 @@ async def test_authenticated_conversation_creation_uses_current_user_and_sequenc
     assert foreign_conversation_page_payload["next_cursor"] is None
     assert empty_conversation_page_payload == uniform_empty_page
     for item in listed_conversation_items:
-        assert set(item) == {"id", "title", "created_at", "updated_at"}
+        assert set(item) == {
+            "id",
+            "title",
+            "is_pinned",
+            "is_archived",
+            "created_at",
+            "updated_at",
+        }
     renamed_list_item = next(
         item
         for item in listed_conversation_items
@@ -2815,8 +3076,13 @@ async def test_authenticated_conversation_creation_uses_current_user_and_sequenc
         }
 
         assert stored_user is not None
-        assert stored_user.access_token_digest == digest_access_token(access_token)
-        assert stored_user.access_token_digest != access_token
+        assert stored_user.access_token_digest is None
+        stored_session = await verification_session.scalar(
+            sa.select(UserSession).where(UserSession.user_id == user_id)
+        )
+        assert stored_session is not None
+        assert stored_session.access_token_digest == digest_access_token(access_token)
+        assert stored_session.access_token_digest != access_token
         assert stored_conversation is not None
         assert stored_conversation.owner_id == user_id
         assert stored_conversation.title == rename_title

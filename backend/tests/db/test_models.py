@@ -32,6 +32,7 @@ from app.models import (
     MessageRole,
     ToolExecution,
     User,
+    UserSession,
     Workflow,
     WorkflowStep,
 )
@@ -44,6 +45,7 @@ from app.models.message import (
 
 EXPECTED_TABLES = {
     "users",
+    "user_sessions",
     "conversations",
     "messages",
     "assets",
@@ -94,6 +96,7 @@ def _assert_timestamps(table) -> None:
 def test_model_registry_contains_only_the_approved_domain_tables():
     assert set(Base.metadata.tables) == EXPECTED_TABLES
     assert User.__table__ is Base.metadata.tables["users"]
+    assert UserSession.__table__ is Base.metadata.tables["user_sessions"]
     assert Conversation.__table__ is Base.metadata.tables["conversations"]
     assert Message.__table__ is Base.metadata.tables["messages"]
     assert Asset.__table__ is Base.metadata.tables["assets"]
@@ -136,6 +139,73 @@ def test_user_has_uuid_primary_key_timestamps_and_access_credential_digest():
         "access_token_digest"
     ]
     assert not table.indexes
+
+
+def test_user_session_has_owner_scoped_bounded_digest_metadata():
+    table = UserSession.__table__
+    assert set(table.c.keys()) == {
+        "id",
+        "user_id",
+        "access_token_digest",
+        "label",
+        "created_at",
+        "updated_at",
+        "revoked_at",
+    }
+    _assert_uuid_primary_key(table)
+    _assert_timestamps(table)
+
+    user_id = table.c.user_id
+    assert isinstance(user_id.type, Uuid)
+    assert user_id.nullable is False
+    user_fk = next(iter(user_id.foreign_keys))
+    assert user_fk.target_fullname == "users.id"
+    assert user_fk.ondelete == "CASCADE"
+
+    digest = table.c.access_token_digest
+    assert isinstance(digest.type, String)
+    assert digest.type.length == 64
+    assert digest.nullable is False
+    label = table.c.label
+    assert isinstance(label.type, String)
+    assert label.type.length == 80
+    assert label.nullable is True
+    assert table.c.revoked_at.type.timezone is True
+    assert table.c.revoked_at.nullable is True
+
+    checks = _check_constraints(table)
+    assert checks == {
+        "ck_user_sessions_access_token_digest_lowercase_hex": (
+            "access_token_digest ~ '^[0-9a-f]{64}$'"
+        ),
+        "ck_user_sessions_label_bounded_nonblank": (
+            "label IS NULL OR (char_length(trim(label)) BETWEEN 1 AND 80)"
+        ),
+        "ck_user_sessions_revoked_at_not_before_created_at": (
+            "revoked_at IS NULL OR revoked_at >= created_at"
+        ),
+    }
+    unique = next(
+        constraint
+        for constraint in table.constraints
+        if isinstance(constraint, UniqueConstraint)
+    )
+    assert unique.name == "uq_user_sessions_access_token_digest"
+    assert list(unique.columns.keys()) == ["access_token_digest"]
+
+    index = next(iter(table.indexes))
+    assert index.name == "ix_user_sessions_user_revoked_created_at_id"
+    assert list(index.columns.keys()) == [
+        "user_id",
+        "revoked_at",
+        "created_at",
+        "id",
+    ]
+    ddl = str(CreateIndex(index).compile(dialect=postgresql.dialect()))
+    assert ddl == (
+        "CREATE INDEX ix_user_sessions_user_revoked_created_at_id ON "
+        "user_sessions (user_id, revoked_at, created_at DESC, id DESC)"
+    )
 
 
 def test_conversation_columns_constraints_and_owner_foreign_key():
@@ -298,6 +368,7 @@ def test_mapper_relationships_resolve_with_async_safe_loading():
     configure_mappers()
 
     user_conversations = User.__mapper__.relationships["conversations"]
+    user_sessions = User.__mapper__.relationships["sessions"]
     conversation_owner = Conversation.__mapper__.relationships["owner"]
     conversation_messages = Conversation.__mapper__.relationships["messages"]
     message_conversation = Message.__mapper__.relationships["conversation"]
@@ -305,6 +376,9 @@ def test_mapper_relationships_resolve_with_async_safe_loading():
     assert user_conversations.mapper.class_ is Conversation
     assert user_conversations.back_populates == "owner"
     assert user_conversations.lazy == "raise"
+    assert user_sessions.mapper.class_ is UserSession
+    assert user_sessions.back_populates == "user"
+    assert user_sessions.lazy == "raise"
 
     assert conversation_owner.mapper.class_ is User
     assert conversation_owner.back_populates == "conversations"

@@ -6,14 +6,19 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import app.services.user as user_service_module
-from app.models import User
-from app.services.user import UserService
+from app.models import User, UserSession
+from app.services.user import (
+    MAX_ACTIVE_USER_SESSIONS,
+    UserService,
+    UserSessionLimitError,
+)
 
 
-def _service_session(scalar=None):
+def _service_session(scalar=None, *, auth_row=None):
     session = AsyncMock(spec=AsyncSession)
     result = Mock()
     result.scalar_one_or_none.return_value = scalar
+    result.one_or_none.return_value = auth_row
     session.execute.return_value = result
     return session
 
@@ -172,11 +177,17 @@ async def test_provision_persists_only_digest_and_commits_exactly_once(monkeypat
     user, returned_token = await service.provision_with_access_token()
 
     assert returned_token == access_token
-    assert user.access_token_digest == access_token_digest
+    assert user.access_token_digest is None
+    assert user.authenticated_session_digest == access_token_digest
     assert access_token not in user.__dict__.values()
     digest.assert_called_once_with(access_token)
-    session.add.assert_called_once_with(user)
-    assert events == ["add", "flush", "commit"]
+    added = [call.args[0] for call in session.add.call_args_list]
+    assert added[0] is user
+    assert isinstance(added[1], UserSession)
+    assert added[1].access_token_digest == access_token_digest
+    assert added[1].label == "Provisioned owner session"
+    assert access_token not in added[1].__dict__.values()
+    assert events == ["add", "flush", "add", "flush", "commit"]
     session.commit.assert_awaited_once_with()
     session.rollback.assert_not_awaited()
 
@@ -222,7 +233,7 @@ async def test_provision_failure_rolls_back_and_preserves_original_exception(
     assert caught.value is error
     expected = ["add", "flush"]
     if failure_stage == "commit":
-        expected.append("commit")
+        expected.extend(["add", "flush", "commit"])
     assert events == [*expected, "rollback"]
     session.rollback.assert_awaited_once_with()
     if failure_stage == "commit":
@@ -235,13 +246,19 @@ async def test_provision_failure_rolls_back_and_preserves_original_exception(
 @pytest.mark.parametrize("present", [True, False])
 async def test_access_token_digest_lookup_never_commits(present):
     access_token_digest = "c" * 64
-    user = User(access_token_digest=access_token_digest) if present else None
-    session = _service_session(user)
+    user = User() if present else None
+    access_session_id = uuid4()
+    session = _service_session(
+        auth_row=(user, access_session_id) if user is not None else None
+    )
     service = UserService(session)
 
     found = await service.get_by_access_token_digest(access_token_digest)
 
     assert found is user
+    if user is not None:
+        assert user.authenticated_session_id == access_session_id
+        assert user.authenticated_session_digest == access_token_digest
     session.execute.assert_awaited_once()
     session.commit.assert_not_awaited()
     session.rollback.assert_not_awaited()
@@ -273,6 +290,7 @@ async def test_rotate_access_token_persists_only_replacement_digest_and_commits_
     events: list[str] = []
     session = _service_session()
     user_id = uuid4()
+    access_session_id = uuid4()
     expected_digest = "a" * 64
     replacement_token = "B" * 43
     replacement_digest = "c" * 64
@@ -299,6 +317,7 @@ async def test_rotate_access_token_persists_only_replacement_digest_and_commits_
 
     returned_token = await service.rotate_access_token(
         user_id,
+        access_session_id,
         expected_digest,
     )
 
@@ -306,6 +325,7 @@ async def test_rotate_access_token_persists_only_replacement_digest_and_commits_
     digest.assert_called_once_with(replacement_token)
     replace_digest.assert_awaited_once_with(
         user_id,
+        access_session_id,
         expected_digest,
         replacement_digest,
     )
@@ -347,7 +367,11 @@ async def test_rotate_access_token_compare_and_swap_miss_rolls_back_without_toke
 
     session.rollback.side_effect = rollback
 
-    returned_token = await service.rotate_access_token(uuid4(), "a" * 64)
+    returned_token = await service.rotate_access_token(
+        uuid4(),
+        uuid4(),
+        "a" * 64,
+    )
 
     assert returned_token is None
     assert events == ["update", "rollback"]
@@ -395,7 +419,7 @@ async def test_rotate_access_token_failure_rolls_back_original_exception(
     session.rollback.side_effect = rollback
 
     with pytest.raises(IntegrityError) as caught:
-        await service.rotate_access_token(uuid4(), "a" * 64)
+        await service.rotate_access_token(uuid4(), uuid4(), "a" * 64)
 
     assert caught.value is error
     expected_events = ["update"]
@@ -407,3 +431,130 @@ async def test_rotate_access_token_failure_rolls_back_original_exception(
         session.commit.assert_awaited_once_with()
     else:
         session.commit.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_create_access_session_serializes_limit_and_persists_digest_only(
+    monkeypatch,
+):
+    session = _service_session()
+    service = UserService(session)
+    user_id = uuid4()
+    access_token = "S" * 43
+    access_token_digest = "e" * 64
+    monkeypatch.setattr(
+        user_service_module,
+        "generate_access_token",
+        Mock(return_value=access_token),
+    )
+    monkeypatch.setattr(
+        user_service_module,
+        "digest_access_token",
+        Mock(return_value=access_token_digest),
+    )
+    service.repository.lock_owner_and_count_active_sessions = AsyncMock(
+        return_value=2
+    )
+    created_session = UserSession(
+        id=uuid4(),
+        user_id=user_id,
+        access_token_digest=access_token_digest,
+        label="Phone",
+    )
+    service.repository.create_access_session = AsyncMock(
+        return_value=created_session
+    )
+
+    created = await service.create_access_session_for_owner(user_id, "Phone")
+
+    assert created == (created_session, access_token)
+    service.repository.lock_owner_and_count_active_sessions.assert_awaited_once_with(
+        user_id
+    )
+    candidate = service.repository.create_access_session.await_args.args[0]
+    assert candidate.user_id == user_id
+    assert candidate.label == "Phone"
+    assert candidate.access_token_digest == access_token_digest
+    assert access_token not in candidate.__dict__.values()
+    session.commit.assert_awaited_once_with()
+    session.rollback.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_create_access_session_limit_rolls_back_without_generating_token(
+    monkeypatch,
+):
+    session = _service_session()
+    service = UserService(session)
+    service.repository.lock_owner_and_count_active_sessions = AsyncMock(
+        return_value=MAX_ACTIVE_USER_SESSIONS
+    )
+    generate = Mock(return_value="must-not-be-created")
+    monkeypatch.setattr(user_service_module, "generate_access_token", generate)
+
+    with pytest.raises(UserSessionLimitError):
+        await service.create_access_session_for_owner(uuid4(), "Extra device")
+
+    generate.assert_not_called()
+    service.repository.create_access_session = AsyncMock()
+    session.commit.assert_not_awaited()
+    session.rollback.assert_awaited_once_with()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure_stage", ["persistence", "commit"])
+async def test_create_access_session_failure_rolls_back_original_exception(
+    monkeypatch,
+    failure_stage,
+):
+    session = _service_session()
+    service = UserService(session)
+    error = IntegrityError(
+        "create owner session",
+        {},
+        RuntimeError("credential uniqueness failure"),
+    )
+    access_token = "S" * 43
+    monkeypatch.setattr(
+        user_service_module,
+        "generate_access_token",
+        Mock(return_value=access_token),
+    )
+    service.repository.lock_owner_and_count_active_sessions = AsyncMock(
+        return_value=1
+    )
+    if failure_stage == "persistence":
+        service.repository.create_access_session = AsyncMock(side_effect=error)
+    else:
+        service.repository.create_access_session = AsyncMock(
+            side_effect=lambda item: item
+        )
+        session.commit.side_effect = error
+
+    with pytest.raises(IntegrityError) as caught:
+        await service.create_access_session_for_owner(uuid4(), "Phone")
+
+    assert caught.value is error
+    session.rollback.assert_awaited_once_with()
+    if failure_stage == "commit":
+        session.commit.assert_awaited_once_with()
+    else:
+        session.commit.assert_not_awaited()
+    candidate = service.repository.create_access_session.await_args.args[0]
+    assert access_token not in candidate.__dict__.values()
+
+
+@pytest.mark.asyncio
+async def test_revoke_access_session_commits_match_and_rolls_back_miss():
+    session = _service_session()
+    service = UserService(session)
+    service.repository.revoke_active_session_for_owner = AsyncMock(
+        side_effect=[True, False]
+    )
+    user_id = uuid4()
+
+    assert await service.revoke_active_session_for_owner(user_id, uuid4()) is True
+    assert await service.revoke_active_session_for_owner(user_id, uuid4()) is False
+
+    session.commit.assert_awaited_once_with()
+    session.rollback.assert_awaited_once_with()

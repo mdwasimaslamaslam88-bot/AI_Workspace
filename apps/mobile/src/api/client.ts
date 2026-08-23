@@ -26,6 +26,11 @@ import {
   type ToolExecution,
   type ToolExecutionPage,
   type ToolExecutionRequest,
+  type UserSession,
+  type UserSessionCreateRequest,
+  type UserSessionPage,
+  type UserSessionProvision,
+  type UserSessionUpdateRequest,
   type VoiceSynthesis,
   type VoiceSynthesisRequest,
   type VoiceTranscription,
@@ -50,6 +55,9 @@ import {
   parseToolDescriptorPage,
   parseToolExecution,
   parseToolExecutionPage,
+  parseUserSession,
+  parseUserSessionPage,
+  parseUserSessionProvision,
   parseVoiceSynthesis,
   parseVoiceTranscription,
   parseWorkflow,
@@ -343,6 +351,50 @@ export class MobileApiClient {
       "api/v1/users/me/access-token/rotate",
       parseAccessTokenRotation,
       { method: "POST", body: {}, signal },
+    );
+  }
+
+  listUserSessions(signal?: AbortSignal): Promise<UserSessionPage> {
+    return this.#request("api/v1/users/me/sessions", parseUserSessionPage, {
+      signal,
+    });
+  }
+
+  createUserSession(
+    request: UserSessionCreateRequest,
+    signal?: AbortSignal,
+  ): Promise<UserSessionProvision> {
+    return this.#request(
+      "api/v1/users/me/sessions",
+      parseUserSessionProvision,
+      { method: "POST", body: request, signal },
+    );
+  }
+
+  renameCurrentUserSession(
+    request: UserSessionUpdateRequest,
+    signal?: AbortSignal,
+  ): Promise<UserSession> {
+    return this.#request(
+      "api/v1/users/me/sessions/current",
+      parseUserSession,
+      { method: "PATCH", body: request, signal },
+    );
+  }
+
+  revokeCurrentUserSession(signal?: AbortSignal): Promise<void> {
+    return this.#request(
+      "api/v1/users/me/sessions/current",
+      () => undefined,
+      { method: "DELETE", signal },
+    );
+  }
+
+  revokeUserSession(sessionId: string, signal?: AbortSignal): Promise<void> {
+    return this.#request(
+      `api/v1/users/me/sessions/${encodeURIComponent(sessionId)}`,
+      () => undefined,
+      { method: "DELETE", signal },
     );
   }
 

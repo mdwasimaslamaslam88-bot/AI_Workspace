@@ -5,6 +5,8 @@ import type {
   ProductCapabilityId,
   ProductCapabilityReason,
   SystemDiagnostics,
+  UserSession,
+  UserSessionProvision,
 } from "../../api/contracts";
 import type { AppearancePreference } from "../../preferences/appearance";
 
@@ -12,10 +14,14 @@ interface SettingsPanelProps {
   onClose: () => void;
   onLoad: (signal?: AbortSignal) => Promise<ProductCapability[]>;
   onLoadDiagnostics: (signal?: AbortSignal) => Promise<SystemDiagnostics>;
+  onLoadSessions: (signal?: AbortSignal) => Promise<UserSession[]>;
   appearance: AppearancePreference;
   onAppearanceChange: (value: AppearancePreference) => void;
   onRotateSession: (signal?: AbortSignal) => Promise<void>;
-  onLogout: () => void;
+  onCreateSession: (label: string | null) => Promise<UserSessionProvision>;
+  onRenameCurrentSession: (label: string | null) => Promise<UserSession>;
+  onRevokeSession: (sessionId: string) => Promise<void>;
+  onLogout: () => Promise<void>;
   onManageMemory: () => void;
 }
 
@@ -68,14 +74,19 @@ export function SettingsPanel({
   onClose,
   onLoad,
   onLoadDiagnostics,
+  onLoadSessions,
   appearance,
   onAppearanceChange,
   onRotateSession,
+  onCreateSession,
+  onRenameCurrentSession,
+  onRevokeSession,
   onLogout,
   onManageMemory,
 }: SettingsPanelProps) {
   const [capabilities, setCapabilities] = useState<ProductCapability[]>([]);
   const [diagnostics, setDiagnostics] = useState<SystemDiagnostics | null>(null);
+  const [sessions, setSessions] = useState<UserSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [sessionBusy, setSessionBusy] = useState(false);
@@ -83,6 +94,10 @@ export function SettingsPanel({
     kind: "success" | "error";
     message: string;
   } | null>(null);
+  const [currentSessionLabel, setCurrentSessionLabel] = useState("");
+  const [newSessionLabel, setNewSessionLabel] = useState("");
+  const [issuedSession, setIssuedSession] =
+    useState<UserSessionProvision | null>(null);
   const controller = useRef<AbortController | null>(null);
 
   const load = useCallback(async () => {
@@ -92,13 +107,18 @@ export function SettingsPanel({
     setLoading(true);
     setError(null);
     try {
-      const [items, diagnosticSnapshot] = await Promise.all([
+      const [items, diagnosticSnapshot, accessSessions] = await Promise.all([
         onLoad(current.signal),
         onLoadDiagnostics(current.signal),
+        onLoadSessions(current.signal),
       ]);
       if (!current.signal.aborted) {
         setCapabilities(items);
         setDiagnostics(diagnosticSnapshot);
+        setSessions(accessSessions);
+        setCurrentSessionLabel(
+          accessSessions.find((item) => item.is_current)?.label ?? "",
+        );
       }
     } catch {
       if (!current.signal.aborted) {
@@ -107,7 +127,7 @@ export function SettingsPanel({
     } finally {
       if (!current.signal.aborted) setLoading(false);
     }
-  }, [onLoad, onLoadDiagnostics]);
+  }, [onLoad, onLoadDiagnostics, onLoadSessions]);
 
   useEffect(() => {
     void load();
@@ -138,6 +158,76 @@ export function SettingsPanel({
     }
   }, [onRotateSession]);
 
+  const renameCurrentSession = useCallback(async () => {
+    setSessionBusy(true);
+    setSessionNotice(null);
+    try {
+      const renamed = await onRenameCurrentSession(
+        currentSessionLabel.trim() || null,
+      );
+      setSessions((items) =>
+        items.map((item) => (item.id === renamed.id ? renamed : item)),
+      );
+      setSessionNotice({ kind: "success", message: "Device label updated." });
+    } catch {
+      setSessionNotice({ kind: "error", message: "The device label could not be updated." });
+    } finally {
+      setSessionBusy(false);
+    }
+  }, [currentSessionLabel, onRenameCurrentSession]);
+
+  const createSession = useCallback(async () => {
+    setSessionBusy(true);
+    setSessionNotice(null);
+    setIssuedSession(null);
+    try {
+      const created = await onCreateSession(newSessionLabel.trim() || null);
+      setSessions((items) => [created.session, ...items]);
+      setIssuedSession(created);
+      setNewSessionLabel("");
+    } catch {
+      setSessionNotice({
+        kind: "error",
+        message: "A new device session could not be created.",
+      });
+    } finally {
+      setSessionBusy(false);
+    }
+  }, [newSessionLabel, onCreateSession]);
+
+  const revokeSession = useCallback(
+    async (sessionId: string) => {
+      setSessionBusy(true);
+      setSessionNotice(null);
+      try {
+        await onRevokeSession(sessionId);
+        setSessions((items) => items.filter((item) => item.id !== sessionId));
+        setSessionNotice({ kind: "success", message: "Device session revoked." });
+      } catch {
+        setSessionNotice({ kind: "error", message: "The device session could not be revoked." });
+      } finally {
+        setSessionBusy(false);
+      }
+    },
+    [onRevokeSession],
+  );
+
+  const copyIssuedToken = useCallback(async () => {
+    if (issuedSession === null) return;
+    try {
+      if (navigator.clipboard?.writeText === undefined) {
+        throw new Error("Clipboard unavailable");
+      }
+      await navigator.clipboard.writeText(issuedSession.access_token);
+      setSessionNotice({ kind: "success", message: "Token copied." });
+    } catch {
+      setSessionNotice({
+        kind: "error",
+        message: "Copy failed. Select the token manually.",
+      });
+    }
+  }, [issuedSession]);
+
   return (
     <aside className="settings-panel" aria-labelledby="settings-panel-title">
       <header className="settings-panel-header">
@@ -155,8 +245,8 @@ export function SettingsPanel({
           <div>
             <h3 id="account-title">Account & sessions</h3>
             <p className="field-help">
-              Owner session active on this device. The backend uses one
-              revocable bearer credential; rotation signs out other sessions.
+              Each device has a separately revocable owner credential. Tokens
+              are shown only when issued and are never included in this list.
             </p>
           </div>
         </div>
@@ -169,10 +259,104 @@ export function SettingsPanel({
           >
             {sessionBusy ? "Rotating…" : "Rotate owner token"}
           </button>
-          <button type="button" className="button button-quiet" onClick={onLogout}>
+          <button
+            type="button"
+            className="button button-quiet"
+            onClick={() => void onLogout()}
+          >
             Log out on this device
           </button>
         </div>
+        <div className="session-controls">
+          <label>
+            <span>This device label</span>
+            <input
+              value={currentSessionLabel}
+              maxLength={80}
+              placeholder="This browser"
+              onChange={(event) => setCurrentSessionLabel(event.target.value)}
+            />
+          </label>
+          <button
+            type="button"
+            className="button button-secondary"
+            disabled={sessionBusy}
+            onClick={() => void renameCurrentSession()}
+          >
+            Save label
+          </button>
+        </div>
+        <div className="session-controls">
+          <label>
+            <span>New device label</span>
+            <input
+              value={newSessionLabel}
+              maxLength={80}
+              placeholder="Phone or laptop"
+              onChange={(event) => setNewSessionLabel(event.target.value)}
+            />
+          </label>
+          <button
+            type="button"
+            className="button button-secondary"
+            disabled={sessionBusy}
+            onClick={() => void createSession()}
+          >
+            Issue device token
+          </button>
+        </div>
+        {issuedSession !== null && (
+          <div className="issued-session" role="status">
+            <strong>Copy this token now. It will not be shown again.</strong>
+            <input
+              aria-label="New device access token"
+              type="password"
+              readOnly
+              value={issuedSession.access_token}
+            />
+            <div className="settings-actions">
+              <button
+                type="button"
+                className="button button-secondary"
+                onClick={() => void copyIssuedToken()}
+              >
+                Copy token
+              </button>
+              <button
+                type="button"
+                className="button button-quiet"
+                onClick={() => setIssuedSession(null)}
+              >
+                I saved it
+              </button>
+            </div>
+          </div>
+        )}
+        <ul className="session-list" aria-label="Active device sessions">
+          {sessions.map((accessSession) => (
+            <li key={accessSession.id}>
+              <div>
+                <strong>{accessSession.label ?? "Unnamed device"}</strong>
+                <span>
+                  {accessSession.is_current ? "Current device" : "Active device"}
+                  {" · "}
+                  {new Date(accessSession.updated_at).toLocaleDateString()}
+                </span>
+              </div>
+              {!accessSession.is_current && (
+                <button
+                  type="button"
+                className="button button-quiet"
+                disabled={sessionBusy}
+                aria-label={`Revoke ${accessSession.label ?? "unnamed device"}`}
+                onClick={() => void revokeSession(accessSession.id)}
+                >
+                  Revoke
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
         {sessionNotice !== null && (
           <p
             className={`notice ${sessionNotice.kind === "error" ? "notice-error" : "notice-success"}`}

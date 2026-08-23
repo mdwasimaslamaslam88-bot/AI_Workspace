@@ -562,6 +562,64 @@ textarea {
   margin-top: 0.8rem;
 }
 
+.session-controls {
+  align-items: end;
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.session-controls label,
+.issued-session {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.session-controls input,
+.issued-session input {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 0.65rem;
+  color: var(--text);
+  min-height: 2.75rem;
+  padding: 0.65rem 0.75rem;
+}
+
+.issued-session {
+  background: var(--panel);
+  border: 1px solid var(--accent);
+  border-radius: 0.8rem;
+  padding: 0.85rem;
+}
+
+.session-list {
+  display: grid;
+  gap: 0.5rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.session-list li {
+  align-items: center;
+  border-top: 1px solid var(--line);
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+  padding-top: 0.7rem;
+}
+
+.session-list li div,
+.session-list li span {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.session-list li span {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
 .appearance-control {
   display: grid;
   min-width: 9rem;
@@ -1354,7 +1412,8 @@ textarea {
   }
 
   .memory-form,
-  .tool-form {
+  .tool-form,
+  .session-controls {
     grid-template-columns: 1fr;
     align-items: stretch;
   }

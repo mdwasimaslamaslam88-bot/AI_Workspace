@@ -10,8 +10,10 @@ public services.
 
 Provisioning is a separate operator-only credential. It is accepted only by
 `POST /api/v1/users`, compared by SHA-256 digest, and never shipped to a client.
-User bearer tokens are stored only as SHA-256 digests in PostgreSQL. Token
-rotation invalidates the prior bearer. API token responses use `no-store`.
+User bearer tokens are stored only as SHA-256 digests in PostgreSQL. Each
+device session has its own digest and revocation state; rotation invalidates
+only the authenticated session's prior bearer. API token responses use
+`no-store`.
 
 ## Client sessions
 
@@ -20,10 +22,18 @@ rotation invalidates the prior bearer. API token responses use `no-store`.
 - desktop: OS credential vault through the fixed Tauri command surface
 - mobile: Keychain/Keystore-backed Expo SecureStore
 
-Owner-initiated rotation is deliberately global because the backend maintains
-one active bearer digest for the owner. It invalidates other connected devices;
-those devices must reconnect with the replacement credential. Clients do not
-attempt to display, synchronize, or provision credentials.
+The backend permits at most 16 active owner-device sessions. Settings can name
+the current device, issue a credential for another owner device, list safe
+session metadata, and revoke a selected session. A newly issued token is
+returned exactly once and is never returned by the list API. Logout attempts
+server-side revocation and always removes the local session when secure storage
+is available. Concurrent issuance is serialized by an owner-row lock, and
+rotation uses an atomic digest compare-and-swap.
+
+The legacy nullable digest column on `users` is retained only as a downgrade
+bridge. Migration `0012_owner_device_sessions` moves existing active digests
+into `user_sessions` and clears the legacy value. Authentication consults only
+active `user_sessions`; downgrade never restores a revoked digest.
 
 Tokens are never placed in URLs, source, bundles, notification previews, or
 application logs. Tailscale identity headers are not a substitute for bearer

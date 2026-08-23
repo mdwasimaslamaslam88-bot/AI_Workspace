@@ -219,6 +219,69 @@ describe("mobile API client", () => {
     });
   });
 
+  it("manages owner device sessions through shared contracts", async () => {
+    const issuedToken = "q".repeat(43);
+    const accessSession = {
+      id: "7b914edf-a46b-470c-b3de-9c6109db3fc0",
+      label: "Tablet",
+      created_at: timestamp,
+      updated_at: timestamp,
+      is_current: false,
+    };
+    const calls: Array<{ path: string; method: string; body: unknown }> = [];
+    const fetchMock = vi.fn(
+      async (input: URL | RequestInfo, init?: RequestInit) => {
+        const url = new URL(input.toString());
+        expect(url.toString()).not.toContain("mobile-session");
+        expect(url.toString()).not.toContain(issuedToken);
+        expect(new Headers(init?.headers).get("Authorization")).toBe(
+          "Bearer mobile-session",
+        );
+        calls.push({
+          path: url.pathname,
+          method: init?.method ?? "GET",
+          body: init?.body ? JSON.parse(String(init.body)) : undefined,
+        });
+        if (init?.method === "DELETE") return new Response(null, { status: 204 });
+        if (init?.method === "POST") {
+          return new Response(JSON.stringify({
+            access_token: issuedToken,
+            token_type: "bearer",
+            session: accessSession,
+          }));
+        }
+        if (init?.method === "PATCH") {
+          return new Response(JSON.stringify({ ...accessSession, is_current: true }));
+        }
+        return new Response(JSON.stringify({ items: [accessSession] }));
+      },
+    );
+    const client = new MobileApiClient("mobile-session", {
+      baseUrl: "https://work-station.example.ts.net",
+      fetchImplementation: fetchMock,
+    });
+
+    await expect(client.listUserSessions()).resolves.toEqual({ items: [accessSession] });
+    await expect(client.createUserSession({ label: "Tablet" })).resolves.toEqual({
+      access_token: issuedToken,
+      token_type: "bearer",
+      session: accessSession,
+    });
+    await expect(
+      client.renameCurrentUserSession({ label: "Phone" }),
+    ).resolves.toEqual({ ...accessSession, is_current: true });
+    await client.revokeUserSession(accessSession.id);
+    await client.revokeCurrentUserSession();
+
+    expect(calls).toEqual([
+      { path: "/api/v1/users/me/sessions", method: "GET", body: undefined },
+      { path: "/api/v1/users/me/sessions", method: "POST", body: { label: "Tablet" } },
+      { path: "/api/v1/users/me/sessions/current", method: "PATCH", body: { label: "Phone" } },
+      { path: `/api/v1/users/me/sessions/${accessSession.id}`, method: "DELETE", body: undefined },
+      { path: "/api/v1/users/me/sessions/current", method: "DELETE", body: undefined },
+    ]);
+  });
+
   it("renames, organizes, and deletes through owner-scoped conversation routes", async () => {
     const conversation = {
       id: "22222222-2222-4222-8222-222222222222",

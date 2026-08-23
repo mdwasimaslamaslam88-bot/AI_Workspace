@@ -20,10 +20,48 @@ function props() {
       void signal;
       return systemDiagnostics;
     }),
+    onLoadSessions: vi.fn(async (signal?: AbortSignal) => {
+      void signal;
+      return [
+        {
+          id: "7b914edf-a46b-470c-b3de-9c6109db3fc0",
+          label: "This browser",
+          created_at: "2026-08-20T09:00:00Z",
+          updated_at: "2026-08-21T09:00:00Z",
+          is_current: true,
+        },
+        {
+          id: "f7eb9c82-bbb3-4e9b-ad71-46d5b46a815c",
+          label: "Phone",
+          created_at: "2026-08-19T09:00:00Z",
+          updated_at: "2026-08-20T09:00:00Z",
+          is_current: false,
+        },
+      ];
+    }),
     appearance: "system" as const,
     onAppearanceChange: vi.fn(),
     onRotateSession: vi.fn(async () => undefined),
-    onLogout: vi.fn(),
+    onCreateSession: vi.fn(async (label: string | null) => ({
+      access_token: "S".repeat(43),
+      token_type: "bearer" as const,
+      session: {
+        id: "b69885c3-09f5-4f20-b5cb-50112a1dc289",
+        label,
+        created_at: "2026-08-22T09:00:00Z",
+        updated_at: "2026-08-22T09:00:00Z",
+        is_current: false,
+      },
+    })),
+    onRenameCurrentSession: vi.fn(async (label: string | null) => ({
+      id: "7b914edf-a46b-470c-b3de-9c6109db3fc0",
+      label,
+      created_at: "2026-08-20T09:00:00Z",
+      updated_at: "2026-08-22T09:00:00Z",
+      is_current: true,
+    })),
+    onRevokeSession: vi.fn(async () => undefined),
+    onLogout: vi.fn(async () => undefined),
     onManageMemory: vi.fn(),
   };
 }
@@ -43,6 +81,7 @@ describe("SettingsPanel", () => {
     expect(screen.getByText(/Test GPU · 12 GiB · ready/)).toBeVisible();
     expect(actions.onLoad.mock.calls[0]?.[0]).toBeInstanceOf(AbortSignal);
     expect(actions.onLoadDiagnostics.mock.calls[0]?.[0]).toBeInstanceOf(AbortSignal);
+    expect(actions.onLoadSessions.mock.calls[0]?.[0]).toBeInstanceOf(AbortSignal);
     expect(document.body.textContent).not.toContain("127.0.0.1");
 
     await userEvent.click(screen.getByRole("button", { name: "Manage memory" }));
@@ -56,6 +95,35 @@ describe("SettingsPanel", () => {
       await screen.findByText("Owner access token rotated and saved on this device."),
     ).toBeVisible();
     expect(actions.onRotateSession).toHaveBeenCalledOnce();
+  });
+
+  it("manages separately revocable owner device sessions without listing tokens", async () => {
+    const actions = props();
+    render(<SettingsPanel {...actions} />);
+
+    expect(await screen.findByText("This browser")).toBeVisible();
+    expect(screen.getByText("Phone")).toBeVisible();
+    expect(document.body.textContent).not.toContain("S".repeat(43));
+
+    await userEvent.clear(screen.getByLabelText("This device label"));
+    await userEvent.type(screen.getByLabelText("This device label"), "Linux workstation");
+    await userEvent.click(screen.getByRole("button", { name: "Save label" }));
+    expect(actions.onRenameCurrentSession).toHaveBeenCalledWith("Linux workstation");
+
+    await userEvent.type(screen.getByLabelText("New device label"), "Tablet");
+    await userEvent.click(screen.getByRole("button", { name: "Issue device token" }));
+    expect(actions.onCreateSession).toHaveBeenCalledWith("Tablet");
+    expect(await screen.findByLabelText("New device access token")).toHaveValue(
+      "S".repeat(43),
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "I saved it" }));
+    expect(screen.queryByLabelText("New device access token")).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Revoke Phone" }));
+    expect(actions.onRevokeSession).toHaveBeenCalledWith(
+      "f7eb9c82-bbb3-4e9b-ad71-46d5b46a815c",
+    );
   });
 
   it("shows a fixed error and never renders private failure details", async () => {

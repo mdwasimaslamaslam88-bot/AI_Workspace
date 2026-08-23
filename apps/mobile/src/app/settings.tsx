@@ -1,6 +1,19 @@
-import type { ProductCapability, SystemDiagnostics } from "@work-station/shared";
+import type {
+  ProductCapability,
+  SystemDiagnostics,
+  UserSession,
+  UserSessionProvision,
+} from "@work-station/shared";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, useColorScheme, View } from "react-native";
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  useColorScheme,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useWorkStation } from "@/context/work-station";
@@ -28,18 +41,27 @@ export default function SettingsScreen() {
   const { state, client, user, logout, retry, rotateSession } = useWorkStation();
   const [capabilities, setCapabilities] = useState<ProductCapability[]>([]);
   const [diagnostics, setDiagnostics] = useState<SystemDiagnostics | null>(null);
+  const [sessions, setSessions] = useState<UserSession[]>([]);
+  const [currentSessionLabel, setCurrentSessionLabel] = useState("");
+  const [newSessionLabel, setNewSessionLabel] = useState("");
+  const [issuedSession, setIssuedSession] = useState<UserSessionProvision | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [sessionBusy, setSessionBusy] = useState(false);
 
   const load = useCallback(async () => {
     if (client === null || state !== "connected") return;
     try {
-      const [capabilityPage, snapshot] = await Promise.all([
+      const [capabilityPage, snapshot, sessionPage] = await Promise.all([
         client.getCapabilities(),
         client.getSystemDiagnostics(),
+        client.listUserSessions(),
       ]);
       setCapabilities(capabilityPage.items);
       setDiagnostics(snapshot);
+      setSessions(sessionPage.items);
+      setCurrentSessionLabel(
+        sessionPage.items.find((item) => item.is_current)?.label ?? "",
+      );
       setNotice(null);
     } catch {
       setNotice("Private diagnostics could not be refreshed.");
@@ -82,6 +104,114 @@ export default function SettingsScreen() {
               {sessionBusy ? "Rotating…" : "Rotate owner token"}
             </Text>
           </Pressable>
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.eyebrow}>OWNER SESSIONS</Text>
+          <Text style={styles.heading}>Active devices</Text>
+          <Text style={styles.muted}>
+            Each device credential can be named and revoked independently. Tokens are never listed.
+          </Text>
+          <TextInput
+            accessibilityLabel="This device label"
+            autoCapitalize="sentences"
+            maxLength={80}
+            placeholder="This phone"
+            style={styles.input}
+            value={currentSessionLabel}
+            onChangeText={setCurrentSessionLabel}
+          />
+          <Pressable
+            disabled={sessionBusy}
+            style={styles.secondaryButton}
+            onPress={() => {
+              if (client === null) return;
+              setSessionBusy(true);
+              setNotice(null);
+              void client.renameCurrentUserSession({ label: currentSessionLabel.trim() || null })
+                .then((renamed) => {
+                  setSessions((items) => items.map((item) => item.id === renamed.id ? renamed : item));
+                  setNotice("Device label updated.");
+                })
+                .catch(() => setNotice("The device label could not be updated."))
+                .finally(() => setSessionBusy(false));
+            }}
+          >
+            <Text style={styles.buttonText}>Save this device label</Text>
+          </Pressable>
+          <TextInput
+            accessibilityLabel="New device label"
+            autoCapitalize="sentences"
+            maxLength={80}
+            placeholder="Tablet or laptop"
+            style={styles.input}
+            value={newSessionLabel}
+            onChangeText={setNewSessionLabel}
+          />
+          <Pressable
+            disabled={sessionBusy}
+            style={styles.secondaryButton}
+            onPress={() => {
+              if (client === null) return;
+              setSessionBusy(true);
+              setNotice(null);
+              setIssuedSession(null);
+              void client.createUserSession({ label: newSessionLabel.trim() || null })
+                .then((created) => {
+                  setSessions((items) => [created.session, ...items]);
+                  setIssuedSession(created);
+                  setNewSessionLabel("");
+                })
+                .catch(() => setNotice("A new device session could not be created."))
+                .finally(() => setSessionBusy(false));
+            }}
+          >
+            <Text style={styles.buttonText}>Issue device token</Text>
+          </Pressable>
+          {issuedSession !== null && (
+            <View style={styles.issuedSession}>
+              <Text style={styles.capabilityName}>
+                Copy this token now. It will not be shown again.
+              </Text>
+              <Text selectable style={styles.token}>{issuedSession.access_token}</Text>
+              <Pressable style={styles.secondaryButton} onPress={() => setIssuedSession(null)}>
+                <Text style={styles.buttonText}>I saved it</Text>
+              </Pressable>
+            </View>
+          )}
+          {sessions.map((accessSession) => (
+            <View key={accessSession.id} style={styles.sessionRow}>
+              <View style={styles.sessionDetail}>
+                <Text style={styles.capabilityName}>
+                  {accessSession.label ?? "Unnamed device"}
+                </Text>
+                <Text style={styles.muted}>
+                  {accessSession.is_current ? "Current device" : "Active device"}
+                </Text>
+              </View>
+              {!accessSession.is_current && (
+                <Pressable
+                  accessibilityLabel={`Revoke ${accessSession.label ?? "unnamed device"}`}
+                  disabled={sessionBusy}
+                  style={styles.revokeButton}
+                  onPress={() => {
+                    if (client === null) return;
+                    setSessionBusy(true);
+                    setNotice(null);
+                    void client.revokeUserSession(accessSession.id)
+                      .then(() => {
+                        setSessions((items) => items.filter((item) => item.id !== accessSession.id));
+                        setNotice("Device session revoked.");
+                      })
+                      .catch(() => setNotice("The device session could not be revoked."))
+                      .finally(() => setSessionBusy(false));
+                  }}
+                >
+                  <Text style={styles.logoutText}>Revoke</Text>
+                </Pressable>
+              )}
+            </View>
+          ))}
         </View>
 
         <View style={styles.card}>
@@ -176,6 +306,12 @@ function createStyles(colors: WorkStationColors) {
   unavailable: { color: colors.danger, fontWeight: "800" },
   error: { color: colors.danger },
   secondaryButton: { alignSelf: "flex-start", minHeight: 44, justifyContent: "center", borderColor: colors.line, borderWidth: 1, borderRadius: 10, paddingHorizontal: 14 },
+  input: { minHeight: 48, borderColor: colors.line, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, color: colors.text, backgroundColor: colors.soft },
+  issuedSession: { gap: 9, borderColor: colors.accentBorder, borderWidth: 1, borderRadius: 12, backgroundColor: colors.accentSoft, padding: 12 },
+  token: { color: colors.text, fontFamily: "monospace", fontSize: 12 },
+  sessionRow: { minHeight: 52, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12, borderTopColor: colors.line, borderTopWidth: 1, paddingTop: 9 },
+  sessionDetail: { flex: 1, gap: 2 },
+  revokeButton: { minHeight: 44, justifyContent: "center", paddingHorizontal: 10 },
   buttonText: { color: colors.text, fontWeight: "800" },
   sectionGrid: { flexDirection: "row", flexWrap: "wrap", gap: 7 },
   sectionChip: { color: colors.text, backgroundColor: colors.soft, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 7, fontSize: 12 },

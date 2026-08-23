@@ -13,6 +13,7 @@ from app.api.dependencies import get_current_user
 from app.db.dependencies import get_db_session
 from app.main import app
 from app.models.user import User
+from app.models.user_session import UserSession
 
 
 _PROVISIONING_TOKEN = "P" * 43
@@ -488,6 +489,7 @@ def rotate_access_token_api(monkeypatch):
         created_at=datetime(2026, 8, 10, 8, 30, tzinfo=timezone.utc),
         updated_at=datetime(2026, 8, 10, 8, 31, tzinfo=timezone.utc),
     )
+    current_user.bind_authenticated_session(uuid4(), "a" * 64)
     replacement_token = "B" * 43
     rotate = AsyncMock(return_value=replacement_token)
     service = Mock()
@@ -553,7 +555,8 @@ def test_rotate_access_token_accepts_omitted_or_empty_body_with_exact_response(
     service_factory.assert_called_once_with(session)
     rotate.assert_awaited_once_with(
         current_user.id,
-        current_user.access_token_digest,
+        current_user.authenticated_session_id,
+        current_user.authenticated_session_digest,
     )
 
 
@@ -609,7 +612,8 @@ def test_rotate_access_token_compare_and_swap_miss_returns_exact_conflict(
     service_factory.assert_called_once_with(session)
     rotate.assert_awaited_once_with(
         current_user.id,
-        current_user.access_token_digest,
+        current_user.authenticated_session_id,
+        current_user.authenticated_session_digest,
     )
 
 
@@ -619,7 +623,7 @@ def test_rotate_access_token_without_authenticated_digest_conflicts_before_servi
     client, session, current_user, _token, service_factory, rotate = (
         rotate_access_token_api
     )
-    current_user.access_token_digest = None
+    current_user.clear_authenticated_session()
 
     response = client.post("/api/v1/users/me/access-token/rotate")
 
@@ -652,6 +656,338 @@ def test_rotate_access_token_failure_uses_safe_existing_error_contract(
     assert "sensitive credential persistence detail" not in response.text
     service_factory.assert_called_once_with(session)
     rotate.assert_awaited_once()
+
+
+@pytest.fixture
+def access_sessions_api(monkeypatch):
+    session = AsyncMock(spec=AsyncSession)
+    current_user = User(
+        id=uuid4(),
+        created_at=datetime(2026, 8, 10, 8, 30, tzinfo=timezone.utc),
+        updated_at=datetime(2026, 8, 10, 8, 31, tzinfo=timezone.utc),
+    )
+    current_session = UserSession(
+        id=uuid4(),
+        user_id=current_user.id,
+        access_token_digest="c" * 64,
+        label="Linux desktop",
+        created_at=datetime(2026, 8, 10, 8, 32, tzinfo=timezone.utc),
+        updated_at=datetime(2026, 8, 10, 8, 33, tzinfo=timezone.utc),
+    )
+    other_session = UserSession(
+        id=uuid4(),
+        user_id=current_user.id,
+        access_token_digest="d" * 64,
+        label="Phone",
+        created_at=datetime(2026, 8, 10, 9, 32, tzinfo=timezone.utc),
+        updated_at=datetime(2026, 8, 10, 9, 33, tzinfo=timezone.utc),
+    )
+    current_user.bind_authenticated_session(
+        current_session.id,
+        current_session.access_token_digest,
+    )
+    replacement_token = "S" * 43
+    service = Mock(
+        list_active_sessions_for_owner=AsyncMock(
+            return_value=(other_session, current_session)
+        ),
+        create_access_session_for_owner=AsyncMock(
+            return_value=(other_session, replacement_token)
+        ),
+        rename_active_session_for_owner=AsyncMock(return_value=current_session),
+        revoke_active_session_for_owner=AsyncMock(return_value=True),
+    )
+    service_factory = Mock(return_value=service)
+    monkeypatch.setattr(users_module, "UserService", service_factory)
+
+    async def override_db_session():
+        yield session
+
+    async def override_current_user():
+        return current_user
+
+    app.dependency_overrides[get_db_session] = override_db_session
+    app.dependency_overrides[get_current_user] = override_current_user
+    try:
+        with TestClient(app, raise_server_exceptions=False) as client:
+            yield (
+                client,
+                session,
+                current_user,
+                current_session,
+                other_session,
+                replacement_token,
+                service_factory,
+                service,
+            )
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
+        app.dependency_overrides.pop(get_db_session, None)
+
+
+def test_list_access_sessions_returns_only_safe_owner_metadata(access_sessions_api):
+    (
+        client,
+        session,
+        current_user,
+        current_session,
+        other_session,
+        replacement_token,
+        service_factory,
+        service,
+    ) = access_sessions_api
+
+    response = client.get("/api/v1/users/me/sessions")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "items": [
+            {
+                "id": str(other_session.id),
+                "label": "Phone",
+                "created_at": "2026-08-10T09:32:00Z",
+                "updated_at": "2026-08-10T09:33:00Z",
+                "is_current": False,
+            },
+            {
+                "id": str(current_session.id),
+                "label": "Linux desktop",
+                "created_at": "2026-08-10T08:32:00Z",
+                "updated_at": "2026-08-10T08:33:00Z",
+                "is_current": True,
+            },
+        ]
+    }
+    assert response.headers["Cache-Control"] == "private, no-store"
+    for forbidden in (
+        current_session.access_token_digest,
+        other_session.access_token_digest,
+        replacement_token,
+        "access_token_digest",
+        "owner_id",
+        "user_id",
+    ):
+        assert forbidden not in response.text
+    service_factory.assert_called_once_with(session)
+    service.list_active_sessions_for_owner.assert_awaited_once_with(current_user.id)
+
+
+def test_create_access_session_returns_token_exactly_once(access_sessions_api, caplog):
+    (
+        client,
+        session,
+        current_user,
+        _current_session,
+        other_session,
+        replacement_token,
+        service_factory,
+        service,
+    ) = access_sessions_api
+
+    response = client.post(
+        "/api/v1/users/me/sessions",
+        json={"label": "Phone"},
+    )
+
+    assert response.status_code == 201
+    assert response.json() == {
+        "access_token": replacement_token,
+        "token_type": "bearer",
+        "session": {
+            "id": str(other_session.id),
+            "label": "Phone",
+            "created_at": "2026-08-10T09:32:00Z",
+            "updated_at": "2026-08-10T09:33:00Z",
+            "is_current": False,
+        },
+    }
+    assert response.headers["Cache-Control"] == "no-store"
+    assert response.text.count(replacement_token) == 1
+    assert other_session.access_token_digest not in response.text
+    assert "access_token_digest" not in response.text
+    assert replacement_token not in caplog.text
+    assert other_session.access_token_digest not in caplog.text
+    service_factory.assert_called_once_with(session)
+    service.create_access_session_for_owner.assert_awaited_once_with(
+        current_user.id,
+        "Phone",
+    )
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"label": " "},
+        {"label": "x" * 81},
+        {"user_id": str(uuid4())},
+        {"owner_id": str(uuid4())},
+        {"access_token": "client-controlled"},
+        {"access_token_digest": "client-controlled"},
+    ],
+)
+def test_create_access_session_rejects_invalid_or_identity_fields_before_service(
+    access_sessions_api,
+    payload,
+):
+    client, session, *_values, service_factory, service = access_sessions_api
+
+    response = client.post("/api/v1/users/me/sessions", json=payload)
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+    service_factory.assert_not_called()
+    service.create_access_session_for_owner.assert_not_awaited()
+    session.commit.assert_not_awaited()
+
+
+def test_create_access_session_maps_bounded_limit_to_safe_conflict(
+    access_sessions_api,
+):
+    (
+        client,
+        session,
+        current_user,
+        _current_session,
+        _other_session,
+        replacement_token,
+        service_factory,
+        service,
+    ) = access_sessions_api
+    service.create_access_session_for_owner.side_effect = (
+        users_module.UserSessionLimitError("sensitive count")
+    )
+
+    response = client.post("/api/v1/users/me/sessions", json={"label": None})
+
+    assert response.status_code == 409
+    assert response.json()["error"] == {
+        "code": "HTTP_ERROR",
+        "message": "Active session limit reached",
+    }
+    assert "sensitive count" not in response.text
+    assert replacement_token not in response.text
+    service_factory.assert_called_once_with(session)
+    service.create_access_session_for_owner.assert_awaited_once_with(
+        current_user.id,
+        None,
+    )
+
+
+def test_rename_current_access_session_uses_authenticated_session_identity(
+    access_sessions_api,
+):
+    (
+        client,
+        session,
+        current_user,
+        current_session,
+        _other_session,
+        _replacement_token,
+        service_factory,
+        service,
+    ) = access_sessions_api
+    current_session.label = "This browser"
+
+    response = client.patch(
+        "/api/v1/users/me/sessions/current",
+        json={"label": "This browser"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["id"] == str(current_session.id)
+    assert response.json()["label"] == "This browser"
+    assert response.json()["is_current"] is True
+    assert response.headers["Cache-Control"] == "private, no-store"
+    service_factory.assert_called_once_with(session)
+    service.rename_active_session_for_owner.assert_awaited_once_with(
+        current_user.id,
+        current_session.id,
+        "This browser",
+    )
+
+
+def test_revoke_current_access_session_uses_authenticated_session_identity(
+    access_sessions_api,
+):
+    (
+        client,
+        session,
+        current_user,
+        current_session,
+        _other_session,
+        _replacement_token,
+        service_factory,
+        service,
+    ) = access_sessions_api
+
+    response = client.delete("/api/v1/users/me/sessions/current")
+
+    assert response.status_code == 204
+    assert response.content == b""
+    service_factory.assert_called_once_with(session)
+    service.revoke_active_session_for_owner.assert_awaited_once_with(
+        current_user.id,
+        current_session.id,
+    )
+
+
+def test_revoke_named_access_session_is_owner_scoped_and_uniform_not_found(
+    access_sessions_api,
+):
+    (
+        client,
+        session,
+        current_user,
+        _current_session,
+        _other_session,
+        _replacement_token,
+        service_factory,
+        service,
+    ) = access_sessions_api
+    foreign_session_id = uuid4()
+    service.revoke_active_session_for_owner.return_value = False
+
+    response = client.delete(f"/api/v1/users/me/sessions/{foreign_session_id}")
+
+    assert response.status_code == 404
+    assert response.json()["error"] == {
+        "code": "HTTP_ERROR",
+        "message": "Access session not found",
+    }
+    service_factory.assert_called_once_with(session)
+    service.revoke_active_session_for_owner.assert_awaited_once_with(
+        current_user.id,
+        foreign_session_id,
+    )
+
+
+def test_session_management_conflicts_if_authentication_identity_is_missing(
+    access_sessions_api,
+):
+    client, session, current_user, *_values, service_factory, service = (
+        access_sessions_api
+    )
+    current_user.clear_authenticated_session()
+
+    responses = [
+        client.get("/api/v1/users/me/sessions"),
+        client.patch(
+            "/api/v1/users/me/sessions/current",
+            json={"label": "Browser"},
+        ),
+        client.delete("/api/v1/users/me/sessions/current"),
+    ]
+
+    assert [response.status_code for response in responses] == [409, 409, 409]
+    assert all(
+        response.json()["error"]["message"] == "Access session conflict"
+        for response in responses
+    )
+    service_factory.assert_not_called()
+    service.list_active_sessions_for_owner.assert_not_awaited()
+    service.rename_active_session_for_owner.assert_not_awaited()
+    service.revoke_active_session_for_owner.assert_not_awaited()
+    session.commit.assert_not_awaited()
 
 
 def test_provisioning_authorization_hashes_then_uses_constant_time_comparison(

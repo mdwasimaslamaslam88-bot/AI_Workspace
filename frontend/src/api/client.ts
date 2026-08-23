@@ -25,6 +25,11 @@ import {
   type PersonalMemory,
   type ProductCapabilityPage,
   type SystemDiagnostics,
+  type UserSession,
+  type UserSessionCreateRequest,
+  type UserSessionPage,
+  type UserSessionProvision,
+  type UserSessionUpdateRequest,
   type ToolDescriptorPage,
   type ToolExecution,
   type ToolExecutionPage,
@@ -52,6 +57,9 @@ import {
   parsePersonalMemory,
   parseProductCapabilityPage,
   parseSystemDiagnostics,
+  parseUserSession,
+  parseUserSessionPage,
+  parseUserSessionProvision,
   parseToolDescriptorPage,
   parseToolExecution,
   parseToolExecutionPage,
@@ -387,6 +395,51 @@ export class ApiClient {
       signal,
       decode: parseAccessTokenRotation,
     });
+  }
+
+  listUserSessions(signal?: AbortSignal): Promise<UserSessionPage> {
+    return this.#request("api/v1/users/me/sessions", {
+      signal,
+      decode: parseUserSessionPage,
+    });
+  }
+
+  createUserSession(
+    request: UserSessionCreateRequest,
+    signal?: AbortSignal,
+  ): Promise<UserSessionProvision> {
+    return this.#request("api/v1/users/me/sessions", {
+      method: "POST",
+      body: request,
+      signal,
+      decode: parseUserSessionProvision,
+    });
+  }
+
+  renameCurrentUserSession(
+    request: UserSessionUpdateRequest,
+    signal?: AbortSignal,
+  ): Promise<UserSession> {
+    return this.#request("api/v1/users/me/sessions/current", {
+      method: "PATCH",
+      body: request,
+      signal,
+      decode: parseUserSession,
+    });
+  }
+
+  revokeCurrentUserSession(signal?: AbortSignal): Promise<void> {
+    return this.#requestNoContent("api/v1/users/me/sessions/current", {
+      method: "DELETE",
+      signal,
+    });
+  }
+
+  revokeUserSession(sessionId: string, signal?: AbortSignal): Promise<void> {
+    return this.#requestNoContent(
+      `api/v1/users/me/sessions/${encodeURIComponent(sessionId)}`,
+      { method: "DELETE", signal },
+    );
   }
 
   listModels(signal?: AbortSignal): Promise<LocalModelPage> {

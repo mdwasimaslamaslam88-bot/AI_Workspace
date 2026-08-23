@@ -302,6 +302,30 @@ export interface AccessTokenRotation {
   token_type: "bearer";
 }
 
+export interface UserSession {
+  id: UUID;
+  label: string | null;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+  is_current: boolean;
+}
+
+export interface UserSessionPage {
+  items: UserSession[];
+}
+
+export interface UserSessionCreateRequest {
+  label?: string | null;
+}
+
+export interface UserSessionUpdateRequest {
+  label: string | null;
+}
+
+export interface UserSessionProvision extends AccessTokenRotation {
+  session: UserSession;
+}
+
 export interface LocalModel {
   model_id: string;
   display_name: string;
@@ -613,6 +637,32 @@ export function parseAccessTokenRotation(value: unknown): AccessTokenRotation {
   return {
     access_token: accessToken,
     token_type: enumField(item.token_type, ["bearer"] as const),
+  };
+}
+
+export function parseUserSession(value: unknown): UserSession {
+  const item = record(value);
+  return {
+    id: stringField(item.id),
+    label: nullableString(item.label),
+    created_at: stringField(item.created_at),
+    updated_at: stringField(item.updated_at),
+    is_current: booleanField(item.is_current),
+  };
+}
+
+export function parseUserSessionPage(value: unknown): UserSessionPage {
+  const page = record(value);
+  if (!Array.isArray(page.items)) return invalidResponse();
+  return { items: page.items.map(parseUserSession) };
+}
+
+export function parseUserSessionProvision(value: unknown): UserSessionProvision {
+  const item = record(value);
+  const rotated = parseAccessTokenRotation(item);
+  return {
+    ...rotated,
+    session: parseUserSession(item.session),
   };
 }
 

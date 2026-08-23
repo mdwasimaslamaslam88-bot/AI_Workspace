@@ -41,9 +41,11 @@ token is held in browser `sessionStorage`, sent only in the
 logout or HTTP 401. Closing the browser session also removes it. It is never
 placed in a URL, page text, diagnostic, or application log.
 
-Settings can rotate the owner bearer token. Rotation invalidates the prior
-token globally and replaces the current client session atomically where the
-platform storage operation succeeds; reconnect other owner devices afterward.
+Settings can name and rotate this browser's owner session, issue a separately
+revocable token for another owner device, and revoke other sessions. Rotation
+invalidates only this session's prior token and replaces it atomically where
+platform storage succeeds. Newly issued device tokens are shown once and are
+never included in the session list.
 
 ## Current workflow
 
@@ -68,8 +70,9 @@ The local client supports:
 - bounded microphone recording or audio-file upload into local transcription,
   plus cancellable local read-aloud synthesis, playback, and deletion;
 - a Settings & Diagnostics panel with an authoritative local capability matrix,
-  fixed prerequisite guidance, owner session rotation/logout, system/dark/light
-  appearance, and a direct path to memory controls;
+  fixed prerequisite guidance, per-device session naming/issuance/revocation,
+  session rotation/logout, system/dark/light appearance, and a direct path to
+  memory controls;
 - safe status-based errors, bounded media states, and history reconciliation
   after generation success or ambiguous failure.
 

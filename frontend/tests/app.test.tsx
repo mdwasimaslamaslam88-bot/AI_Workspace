@@ -30,6 +30,25 @@ function installWorkspaceFetch(options: {
     calls.push({ url, init });
 
     if (url.pathname === "/api/v1/users/me") return jsonResponse(user);
+    if (
+      url.pathname === "/api/v1/users/me/sessions/current" &&
+      init?.method === "DELETE"
+    ) {
+      return new Response(null, { status: 204 });
+    }
+    if (url.pathname === "/api/v1/users/me/sessions") {
+      return jsonResponse({
+        items: [
+          {
+            id: "7b914edf-a46b-470c-b3de-9c6109db3fc0",
+            label: "Test browser",
+            created_at: user.created_at,
+            updated_at: user.updated_at,
+            is_current: true,
+          },
+        ],
+      });
+    }
     if (url.pathname === "/api/v1/memories/settings") {
       return jsonResponse({ enabled: true, created_at: null, updated_at: null });
     }

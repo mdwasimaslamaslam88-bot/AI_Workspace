@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 from uuid import UUID, uuid4
 
 from sqlalchemy import DateTime, String, Uuid, func
@@ -11,10 +11,14 @@ from app.db.base import Base
 
 if TYPE_CHECKING:
     from app.models.conversation import Conversation
+    from app.models.user_session import UserSession
 
 
 class User(Base):
     __tablename__ = "users"
+
+    _authenticated_session_id: ClassVar[UUID | None] = None
+    _authenticated_session_digest: ClassVar[str | None] = None
 
     id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
     access_token_digest: Mapped[str | None] = mapped_column(
@@ -37,3 +41,28 @@ class User(Base):
         lazy="raise",
         passive_deletes="all",
     )
+    sessions: Mapped[list[UserSession]] = relationship(
+        back_populates="user",
+        lazy="raise",
+        passive_deletes=True,
+    )
+
+    def bind_authenticated_session(
+        self,
+        session_id: UUID,
+        access_token_digest: str,
+    ) -> None:
+        self._authenticated_session_id = session_id
+        self._authenticated_session_digest = access_token_digest
+
+    def clear_authenticated_session(self) -> None:
+        self._authenticated_session_id = None
+        self._authenticated_session_digest = None
+
+    @property
+    def authenticated_session_id(self) -> UUID | None:
+        return self._authenticated_session_id
+
+    @property
+    def authenticated_session_digest(self) -> str | None:
+        return self._authenticated_session_digest

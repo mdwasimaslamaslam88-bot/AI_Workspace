@@ -39,7 +39,8 @@ tree. The archive contains no links/devices and every member is rooted below
    and run `alembic upgrade head` followed by `alembic check`.
 6. Start the loopback backend, verify `/health/live`, `/health/ready`, owner
    authentication, chat, and owned media before re-enabling Serve.
-7. Rotate the owner bearer token if device compromise was involved.
+7. Revoke the compromised owner-device session. Rotate unaffected session
+   credentials only when their exposure cannot be ruled out.
 
 Do not restore configuration secrets or signing keys from Git. Recreate them
 through their owner-controlled systems.

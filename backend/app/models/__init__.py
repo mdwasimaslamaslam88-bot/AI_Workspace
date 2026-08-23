@@ -12,6 +12,7 @@ from app.models.message_citation import MessageCitation
 from app.models.memory import Memory, MemoryCategory, MemorySetting
 from app.models.tool import ToolExecution, ToolExecutionStatus
 from app.models.user import User
+from app.models.user_session import UserSession
 from app.models.workflow import Workflow, WorkflowStatus, WorkflowStep
 
 __all__ = [
@@ -31,6 +32,7 @@ __all__ = [
     "ToolExecutionStatus",
     "MessageRole",
     "User",
+    "UserSession",
     "Workflow",
     "WorkflowStatus",
     "WorkflowStep",
