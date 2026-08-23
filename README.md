@@ -54,14 +54,20 @@ provisioning credential.
 ## Release verification
 
 ```bash
-./scripts/release_check.sh
-./scripts/release_check.sh --with-runtime
+npm test
+npm run build
+npm run package
+npm run security-audit
+npm run check
+npm run e2e
+npm run release
 ```
 
-The second command adds destructive-to-test-data-only real runtime E2E checks
-against the explicitly configured `127.0.0.1/ai_workspace_test` database.
-Before tagging a synchronized release, use `--require-clean` after committing
-and pushing.
+`check` is the complete static/local release gate; `e2e` runs the destructive-to-test-
+data-only real AI runtime smokes against the explicitly configured disposable
+database. `release` combines both and additionally requires a clean,
+synchronized `HEAD == main == origin/main`. Its equivalent direct form is
+`./scripts/release_check.sh --with-runtime --require-clean`.
 
 ## Documentation
 

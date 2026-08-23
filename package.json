@@ -9,12 +9,17 @@
   ],
   "scripts": {
     "dev:web": "npm run dev --workspace @work-station/web",
+    "test": "(cd backend && .venv/bin/python -m pytest -q) && npm run test:web && npm run test --workspace @work-station/mobile",
     "test:web": "npm run test --workspace @work-station/web",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
+    "build": "npm run build:web && npm run build:static --workspace @work-station/mobile",
     "build:web": "npm run build --workspace @work-station/web",
     "check": "./scripts/release_check.sh",
     "security-audit": "./scripts/security_audit.sh",
-    "package:desktop": "./scripts/desktop_check.sh"
+    "package": "./scripts/desktop_check.sh",
+    "package:desktop": "./scripts/desktop_check.sh",
+    "e2e": "./scripts/runtime_e2e.sh",
+    "release": "./scripts/release_check.sh --with-runtime --require-clean"
   }
 }
