@@ -1,5 +1,6 @@
 import {
   type BackendErrorEnvelope,
+  type AccessTokenRotation,
   type Asset,
   type ConversationCreateRequest,
   type ConversationCreateResponse,
@@ -33,6 +34,7 @@ import {
   type VoiceTranscription,
   type VoiceTranscriptionRequest,
   parseIndexedDocument,
+  parseAccessTokenRotation,
   parseImageOperation,
   parseAsset,
   parseConversation,
@@ -331,6 +333,15 @@ export class ApiClient {
     return this.#request("api/v1/users/me", {
       signal,
       decode: parseCurrentUser,
+    });
+  }
+
+  rotateAccessToken(signal?: AbortSignal): Promise<AccessTokenRotation> {
+    return this.#request("api/v1/users/me/access-token/rotate", {
+      method: "POST",
+      body: {},
+      signal,
+      decode: parseAccessTokenRotation,
     });
   }
 

@@ -1,5 +1,6 @@
 import {
   type Asset,
+  type AccessTokenRotation,
   type ConversationCreateRequest,
   type ConversationCreateResponse,
   type ConversationPage,
@@ -10,8 +11,10 @@ import {
   type LocalModelPage,
   type MessagePage,
   type ProductCapabilityPage,
+  type SystemDiagnostics,
   type VoiceTranscription,
   parseAsset,
+  parseAccessTokenRotation,
   parseConversation,
   parseConversationCreateResponse,
   parseConversationPage,
@@ -20,6 +23,7 @@ import {
   parseMessagePage,
   parseModelPage,
   parseProductCapabilityPage,
+  parseSystemDiagnostics,
   parseVoiceTranscription,
 } from "@work-station/shared";
 
@@ -156,6 +160,18 @@ export class MobileApiClient {
 
   getCapabilities(signal?: AbortSignal): Promise<ProductCapabilityPage> {
     return this.#request("api/v1/ai/capabilities", parseProductCapabilityPage, { signal });
+  }
+
+  getSystemDiagnostics(signal?: AbortSignal): Promise<SystemDiagnostics> {
+    return this.#request("api/v1/diagnostics", parseSystemDiagnostics, { signal });
+  }
+
+  rotateAccessToken(signal?: AbortSignal): Promise<AccessTokenRotation> {
+    return this.#request(
+      "api/v1/users/me/access-token/rotate",
+      parseAccessTokenRotation,
+      { method: "POST", body: {}, signal },
+    );
   }
 
   listConversations(signal?: AbortSignal): Promise<ConversationPage> {

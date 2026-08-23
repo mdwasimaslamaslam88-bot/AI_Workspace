@@ -8,7 +8,7 @@ import {
 } from "expo-audio";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -20,6 +20,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  useColorScheme,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -27,6 +28,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import type { MobileUpload } from "@/api/client";
 import { MobileApiError } from "@/api/client";
 import { useWorkStation } from "@/context/work-station";
+import { workStationColors, type WorkStationColors } from "@/theme/colors";
 
 function safeError(cause: unknown): string {
   return cause instanceof MobileApiError
@@ -38,7 +40,16 @@ function modelCanChat(model: LocalModel): boolean {
   return model.runnable_now && model.capabilities.includes("text_generation");
 }
 
+function useThemedStyles() {
+  const scheme = useColorScheme();
+  return useMemo(() => {
+    const colors = workStationColors(scheme);
+    return { colors, styles: createStyles(colors) };
+  }, [scheme]);
+}
+
 function ConnectScreen() {
+  const { colors, styles } = useThemedStyles();
   const { state, error, connect, retry, logout } = useWorkStation();
   const [token, setToken] = useState("");
   const disconnected = state === "offline" || state === "backend_unavailable";
@@ -47,7 +58,7 @@ function ConnectScreen() {
     return (
       <View style={styles.centered} accessibilityLiveRegion="polite">
         <Image source={require("../../assets/work-station/app-icon.png")} style={styles.logo} />
-        <ActivityIndicator color="#68efc8" size="large" />
+        <ActivityIndicator color={colors.accent} size="large" />
         <Text style={styles.muted}>Restoring your private session…</Text>
       </View>
     );
@@ -112,6 +123,7 @@ function ConnectScreen() {
 }
 
 export default function ChatScreen() {
+  const { colors, styles } = useThemedStyles();
   const { state, client } = useWorkStation();
   const [models, setModels] = useState<LocalModel[]>([]);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
@@ -370,7 +382,7 @@ export default function ChatScreen() {
             value={prompt}
             onChangeText={setPrompt}
             placeholder="Message your Personal AI"
-            placeholderTextColor="#718199"
+            placeholderTextColor={colors.subtle}
             style={styles.composerInput}
           />
           {busy && generating ? (
@@ -393,50 +405,52 @@ export default function ChatScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#040c1f" },
-  centered: { flex: 1, justifyContent: "center", alignItems: "center", gap: 14, padding: 28, backgroundColor: "#040c1f" },
+function createStyles(colors: WorkStationColors) {
+  return StyleSheet.create({
+  safe: { flex: 1, backgroundColor: colors.background },
+  centered: { flex: 1, justifyContent: "center", alignItems: "center", gap: 14, padding: 28, backgroundColor: colors.background },
   logo: { width: 76, height: 76, borderRadius: 18 },
-  eyebrow: { color: "#68efc8", fontSize: 12, fontWeight: "800", letterSpacing: 1.6 },
-  title: { color: "#e8edf4", fontSize: 26, fontWeight: "900", textAlign: "center" },
-  muted: { color: "#9ba9ba", fontSize: 15, lineHeight: 22, textAlign: "center" },
-  footnote: { color: "#718199", fontSize: 12, textAlign: "center" },
-  preserved: { color: "#68efc8", borderColor: "#1d6d62", borderWidth: 1, borderRadius: 12, padding: 12 },
-  input: { width: "100%", minHeight: 52, color: "#e8edf4", backgroundColor: "#09152a", borderColor: "#263b58", borderWidth: 1, borderRadius: 12, padding: 14 },
-  error: { width: "100%", color: "#ffb4ab", backgroundColor: "#3c1e22", borderRadius: 10, padding: 12 },
-  primaryButton: { minWidth: 150, minHeight: 48, justifyContent: "center", alignItems: "center", backgroundColor: "#68efc8", borderRadius: 12, paddingHorizontal: 18 },
-  primaryButtonText: { color: "#04251e", fontWeight: "900" },
-  secondaryButton: { minWidth: 150, minHeight: 48, justifyContent: "center", alignItems: "center", borderColor: "#263b58", borderWidth: 1, borderRadius: 12, paddingHorizontal: 18 },
-  buttonText: { color: "#e8edf4", fontWeight: "800" },
+  eyebrow: { color: colors.accent, fontSize: 12, fontWeight: "800", letterSpacing: 1.6 },
+  title: { color: colors.text, fontSize: 26, fontWeight: "900", textAlign: "center" },
+  muted: { color: colors.muted, fontSize: 15, lineHeight: 22, textAlign: "center" },
+  footnote: { color: colors.subtle, fontSize: 12, textAlign: "center" },
+  preserved: { color: colors.accent, borderColor: colors.accentBorder, borderWidth: 1, borderRadius: 12, padding: 12 },
+  input: { width: "100%", minHeight: 52, color: colors.text, backgroundColor: colors.raised, borderColor: colors.line, borderWidth: 1, borderRadius: 12, padding: 14 },
+  error: { width: "100%", color: colors.danger, backgroundColor: colors.dangerSoft, borderRadius: 10, padding: 12 },
+  primaryButton: { minWidth: 150, minHeight: 48, justifyContent: "center", alignItems: "center", backgroundColor: colors.accent, borderRadius: 12, paddingHorizontal: 18 },
+  primaryButtonText: { color: colors.onAccent, fontWeight: "900" },
+  secondaryButton: { minWidth: 150, minHeight: 48, justifyContent: "center", alignItems: "center", borderColor: colors.line, borderWidth: 1, borderRadius: 12, paddingHorizontal: 18 },
+  buttonText: { color: colors.text, fontWeight: "800" },
   disabled: { opacity: 0.45 },
-  connectionRow: { minHeight: 42, flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 14, borderBottomColor: "#263b58", borderBottomWidth: 1 },
-  connectedDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#68efc8" },
-  connectionText: { flex: 1, color: "#68efc8", fontSize: 12, fontWeight: "800" },
-  link: { color: "#68efc8", fontWeight: "800", paddingVertical: 8, paddingHorizontal: 4 },
-  recording: { color: "#ffb4ab", fontWeight: "900", paddingVertical: 8, paddingHorizontal: 4 },
+  connectionRow: { minHeight: 42, flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 14, borderBottomColor: colors.line, borderBottomWidth: 1 },
+  connectedDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.accent },
+  connectionText: { flex: 1, color: colors.accent, fontSize: 12, fontWeight: "800" },
+  link: { color: colors.accent, fontWeight: "800", paddingVertical: 8, paddingHorizontal: 4 },
+  recording: { color: colors.danger, fontWeight: "900", paddingVertical: 8, paddingHorizontal: 4 },
   chipRow: { minHeight: 52, alignItems: "center", gap: 8, paddingHorizontal: 12 },
-  chip: { maxWidth: 170, borderColor: "#263b58", borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8 },
-  chipSelected: { backgroundColor: "#14243c", borderColor: "#68efc8" },
-  newChip: { borderRadius: 999, backgroundColor: "#68efc8", paddingHorizontal: 12, paddingVertical: 9 },
-  chipText: { color: "#e8edf4", fontSize: 12, fontWeight: "700" },
-  modelRow: { minHeight: 44, alignItems: "center", gap: 7, paddingHorizontal: 12, borderBottomColor: "#263b58", borderBottomWidth: 1 },
-  modelChip: { borderColor: "#263b58", borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 },
-  modelSelected: { borderColor: "#68efc8", backgroundColor: "#0a4b43" },
+  chip: { maxWidth: 170, borderColor: colors.line, borderWidth: 1, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8 },
+  chipSelected: { backgroundColor: colors.soft, borderColor: colors.accent },
+  newChip: { borderRadius: 999, backgroundColor: colors.accent, paddingHorizontal: 12, paddingVertical: 9 },
+  chipText: { color: colors.text, fontSize: 12, fontWeight: "700" },
+  modelRow: { minHeight: 44, alignItems: "center", gap: 7, paddingHorizontal: 12, borderBottomColor: colors.line, borderBottomWidth: 1 },
+  modelChip: { borderColor: colors.line, borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 },
+  modelSelected: { borderColor: colors.accent, backgroundColor: colors.accentSoft },
   messageList: { flex: 1 },
   messageContent: { padding: 14, gap: 12, flexGrow: 1 },
-  empty: { color: "#9ba9ba", textAlign: "center", marginTop: 80, lineHeight: 22 },
+  empty: { color: colors.muted, textAlign: "center", marginTop: 80, lineHeight: 22 },
   message: { maxWidth: "90%", borderRadius: 16, padding: 13, borderWidth: 1 },
-  userMessage: { alignSelf: "flex-end", backgroundColor: "#0a4b43", borderColor: "#1d6d62" },
-  assistantMessage: { alignSelf: "flex-start", backgroundColor: "#0e1c33", borderColor: "#263b58" },
-  messageRole: { color: "#9ba9ba", fontSize: 10, fontWeight: "900", textTransform: "uppercase", marginBottom: 5 },
-  messageText: { color: "#e8edf4", fontSize: 15, lineHeight: 22 },
-  attachmentMeta: { color: "#9ba9ba", fontSize: 11, marginTop: 8 },
-  errorBanner: { color: "#ffb4ab", backgroundColor: "#3c1e22", padding: 10, marginHorizontal: 12, borderRadius: 10 },
+  userMessage: { alignSelf: "flex-end", backgroundColor: colors.accentSoft, borderColor: colors.accentBorder },
+  assistantMessage: { alignSelf: "flex-start", backgroundColor: colors.raised, borderColor: colors.line },
+  messageRole: { color: colors.muted, fontSize: 10, fontWeight: "900", textTransform: "uppercase", marginBottom: 5 },
+  messageText: { color: colors.text, fontSize: 15, lineHeight: 22 },
+  attachmentMeta: { color: colors.muted, fontSize: 11, marginTop: 8 },
+  errorBanner: { color: colors.danger, backgroundColor: colors.dangerSoft, padding: 10, marginHorizontal: 12, borderRadius: 10 },
   attachmentRow: { gap: 6, paddingHorizontal: 12, paddingVertical: 6 },
-  attachmentChip: { color: "#68efc8", backgroundColor: "#14243c", borderRadius: 8, padding: 7, fontSize: 11 },
+  attachmentChip: { color: colors.accent, backgroundColor: colors.soft, borderRadius: 8, padding: 7, fontSize: 11 },
   composerTools: { flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 12 },
-  composer: { flexDirection: "row", alignItems: "flex-end", gap: 8, padding: 12, borderTopColor: "#263b58", borderTopWidth: 1, backgroundColor: "#07152f" },
-  composerInput: { flex: 1, minHeight: 48, maxHeight: 130, color: "#e8edf4", backgroundColor: "#09152a", borderColor: "#263b58", borderWidth: 1, borderRadius: 14, padding: 12 },
-  sendButton: { minWidth: 68, minHeight: 48, justifyContent: "center", alignItems: "center", backgroundColor: "#68efc8", borderRadius: 12 },
-  cancelButton: { minWidth: 68, minHeight: 48, justifyContent: "center", alignItems: "center", borderColor: "#ffb4ab", borderWidth: 1, borderRadius: 12 },
-});
+  composer: { flexDirection: "row", alignItems: "flex-end", gap: 8, padding: 12, borderTopColor: colors.line, borderTopWidth: 1, backgroundColor: colors.panel },
+  composerInput: { flex: 1, minHeight: 48, maxHeight: 130, color: colors.text, backgroundColor: colors.raised, borderColor: colors.line, borderWidth: 1, borderRadius: 14, padding: 12 },
+  sendButton: { minWidth: 68, minHeight: 48, justifyContent: "center", alignItems: "center", backgroundColor: colors.accent, borderRadius: 12 },
+  cancelButton: { minWidth: 68, minHeight: 48, justifyContent: "center", alignItems: "center", borderColor: colors.danger, borderWidth: 1, borderRadius: 12 },
+  });
+}

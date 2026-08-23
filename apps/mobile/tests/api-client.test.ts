@@ -78,4 +78,50 @@ describe("mobile API client", () => {
       new MobileApiError("network", "Could not reach WORK STATION."),
     );
   });
+
+  it("loads private diagnostics and rotates a credential only in headers/body", async () => {
+    const rotatedToken = "z".repeat(43);
+    const diagnostics = {
+      mode: "remote",
+      services: [
+        "backend",
+        "database",
+        "redis",
+        "ollama",
+        "vision",
+        "image_runtime",
+        "speech_to_text",
+        "text_to_speech",
+        "storage",
+        "remote_gateway",
+        "gpu",
+      ].map((id) => ({ id, status: "ready" })),
+      gpus: [],
+    };
+    const fetchMock = vi.fn(
+      async (input: URL | RequestInfo, init?: RequestInit) => {
+        const url = input.toString();
+        expect(url).not.toContain("mobile-session");
+        expect(new Headers(init?.headers).get("Authorization")).toBe(
+          "Bearer mobile-session",
+        );
+        return url.endsWith("/diagnostics")
+          ? new Response(JSON.stringify(diagnostics), { status: 200 })
+          : new Response(
+              JSON.stringify({ access_token: rotatedToken, token_type: "bearer" }),
+              { status: 200 },
+            );
+      },
+    );
+    const client = new MobileApiClient("mobile-session", {
+      baseUrl: "https://work-station.example.ts.net",
+      fetchImplementation: fetchMock,
+    });
+
+    await expect(client.getSystemDiagnostics()).resolves.toEqual(diagnostics);
+    await expect(client.rotateAccessToken()).resolves.toEqual({
+      access_token: rotatedToken,
+      token_type: "bearer",
+    });
+  });
 });

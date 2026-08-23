@@ -20,6 +20,10 @@ function props() {
       void signal;
       return systemDiagnostics;
     }),
+    appearance: "system" as const,
+    onAppearanceChange: vi.fn(),
+    onRotateSession: vi.fn(async () => undefined),
+    onLogout: vi.fn(),
     onManageMemory: vi.fn(),
   };
 }
@@ -43,6 +47,15 @@ describe("SettingsPanel", () => {
 
     await userEvent.click(screen.getByRole("button", { name: "Manage memory" }));
     expect(actions.onManageMemory).toHaveBeenCalledOnce();
+
+    await userEvent.selectOptions(screen.getByLabelText("Theme"), "light");
+    expect(actions.onAppearanceChange).toHaveBeenCalledWith("light");
+
+    await userEvent.click(screen.getByRole("button", { name: "Rotate owner token" }));
+    expect(
+      await screen.findByText("Owner access token rotated and saved on this device."),
+    ).toBeVisible();
+    expect(actions.onRotateSession).toHaveBeenCalledOnce();
   });
 
   it("shows a fixed error and never renders private failure details", async () => {
@@ -68,5 +81,20 @@ describe("SettingsPanel", () => {
     expect(capturedSignal?.aborted).toBe(false);
     view.unmount();
     expect(capturedSignal?.aborted).toBe(true);
+  });
+
+  it("redacts session rotation failures and supports device logout", async () => {
+    const actions = props();
+    actions.onRotateSession.mockRejectedValueOnce(new Error(rawSecret));
+    render(<SettingsPanel {...actions} />);
+
+    await userEvent.click(screen.getByRole("button", { name: "Rotate owner token" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "The session could not be rotated safely",
+    );
+    expect(document.body.textContent).not.toContain(rawSecret);
+
+    await userEvent.click(screen.getByRole("button", { name: "Log out on this device" }));
+    expect(actions.onLogout).toHaveBeenCalledOnce();
   });
 });

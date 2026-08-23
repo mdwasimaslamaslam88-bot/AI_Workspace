@@ -401,6 +401,32 @@ describe("ApiClient", () => {
     await expect(client.listModels()).resolves.toEqual({ items: [model] });
   });
 
+  it("rotates the bearer without placing either credential in the URL", async () => {
+    const rotatedToken = "r".repeat(43);
+    const fetchImplementation = vi.fn(
+      async (input: URL | RequestInfo, init?: RequestInit) => {
+        expect(input.toString()).toBe(
+          "http://127.0.0.1:8000/api/v1/users/me/access-token/rotate",
+        );
+        expect(input.toString()).not.toContain(token);
+        expect(input.toString()).not.toContain(rotatedToken);
+        expect(init?.method).toBe("POST");
+        expect(new Headers(init?.headers).get("Authorization")).toBe(
+          `Bearer ${token}`,
+        );
+        return jsonResponse({ access_token: rotatedToken, token_type: "bearer" });
+      },
+    );
+    const client = new ApiClient(token, {
+      fetchImplementation: fetchImplementation as typeof fetch,
+    });
+
+    await expect(client.rotateAccessToken()).resolves.toEqual({
+      access_token: rotatedToken,
+      token_type: "bearer",
+    });
+  });
+
   it("accepts only a secret-free HTTP origin as the configured base URL", () => {
     expect(normalizeApiBaseUrl(undefined)).toBe("http://127.0.0.1:8000");
     expect(

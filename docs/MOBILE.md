@@ -9,6 +9,8 @@ recovery on network and app resume, conversation creation and text generation,
 owned file/image/camera uploads, microphone recording and speech recognition,
 audio playback, generic local notification architecture, deep links, and safe
 error redaction. SecureStore maps to Keychain/Keystore-backed device storage.
+The UI follows the device light/dark preference, and the private settings view
+includes redacted runtime diagnostics plus explicit global bearer rotation.
 
 ## Local development
 

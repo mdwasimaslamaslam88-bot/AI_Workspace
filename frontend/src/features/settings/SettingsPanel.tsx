@@ -6,11 +6,16 @@ import type {
   ProductCapabilityReason,
   SystemDiagnostics,
 } from "../../api/contracts";
+import type { AppearancePreference } from "../../preferences/appearance";
 
 interface SettingsPanelProps {
   onClose: () => void;
   onLoad: (signal?: AbortSignal) => Promise<ProductCapability[]>;
   onLoadDiagnostics: (signal?: AbortSignal) => Promise<SystemDiagnostics>;
+  appearance: AppearancePreference;
+  onAppearanceChange: (value: AppearancePreference) => void;
+  onRotateSession: (signal?: AbortSignal) => Promise<void>;
+  onLogout: () => void;
   onManageMemory: () => void;
 }
 
@@ -63,12 +68,21 @@ export function SettingsPanel({
   onClose,
   onLoad,
   onLoadDiagnostics,
+  appearance,
+  onAppearanceChange,
+  onRotateSession,
+  onLogout,
   onManageMemory,
 }: SettingsPanelProps) {
   const [capabilities, setCapabilities] = useState<ProductCapability[]>([]);
   const [diagnostics, setDiagnostics] = useState<SystemDiagnostics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [sessionBusy, setSessionBusy] = useState(false);
+  const [sessionNotice, setSessionNotice] = useState<{
+    kind: "success" | "error";
+    message: string;
+  } | null>(null);
   const controller = useRef<AbortController | null>(null);
 
   const load = useCallback(async () => {
@@ -104,17 +118,92 @@ export function SettingsPanel({
     (capability) => capability.status === "available",
   ).length;
 
+  const rotateSession = useCallback(async () => {
+    setSessionBusy(true);
+    setSessionNotice(null);
+    try {
+      await onRotateSession();
+      setSessionNotice({
+        kind: "success",
+        message: "Owner access token rotated and saved on this device.",
+      });
+    } catch {
+      setSessionNotice({
+        kind: "error",
+        message:
+          "The session could not be rotated safely. Keep this app open and retry.",
+      });
+    } finally {
+      setSessionBusy(false);
+    }
+  }, [onRotateSession]);
+
   return (
     <aside className="settings-panel" aria-labelledby="settings-panel-title">
       <header className="settings-panel-header">
         <div>
-          <p className="eyebrow">Local product state</p>
+          <p className="eyebrow">Owner product state</p>
           <h2 id="settings-panel-title">Settings & diagnostics</h2>
         </div>
         <button type="button" className="button button-quiet" onClick={onClose}>
           Close
         </button>
       </header>
+
+      <section aria-labelledby="account-title" className="settings-section">
+        <div className="settings-section-heading">
+          <div>
+            <h3 id="account-title">Account & sessions</h3>
+            <p className="field-help">
+              Owner session active on this device. The backend uses one
+              revocable bearer credential; rotation signs out other sessions.
+            </p>
+          </div>
+        </div>
+        <div className="settings-actions">
+          <button
+            type="button"
+            className="button button-secondary"
+            disabled={sessionBusy}
+            onClick={() => void rotateSession()}
+          >
+            {sessionBusy ? "Rotating…" : "Rotate owner token"}
+          </button>
+          <button type="button" className="button button-quiet" onClick={onLogout}>
+            Log out on this device
+          </button>
+        </div>
+        {sessionNotice !== null && (
+          <p
+            className={`notice ${sessionNotice.kind === "error" ? "notice-error" : "notice-success"}`}
+            role={sessionNotice.kind === "error" ? "alert" : "status"}
+          >
+            {sessionNotice.message}
+          </p>
+        )}
+      </section>
+
+      <section aria-labelledby="appearance-title" className="settings-section">
+        <div className="settings-section-heading">
+          <div>
+            <h3 id="appearance-title">Appearance</h3>
+            <p className="field-help">Use the device theme or a fixed accessible palette.</p>
+          </div>
+          <label className="appearance-control">
+            <span>Theme</span>
+            <select
+              value={appearance}
+              onChange={(event) =>
+                onAppearanceChange(event.target.value as AppearancePreference)
+              }
+            >
+              <option value="system">System</option>
+              <option value="dark">Dark</option>
+              <option value="light">Light</option>
+            </select>
+          </label>
+        </div>
+      </section>
 
       <section aria-labelledby="personalization-title" className="settings-section">
         <div className="settings-section-heading">
@@ -131,6 +220,18 @@ export function SettingsPanel({
           >
             Manage memory
           </button>
+        </div>
+      </section>
+
+      <section aria-labelledby="model-settings-title" className="settings-section">
+        <div className="settings-section-heading">
+          <div>
+            <h3 id="model-settings-title">Model, voice & storage</h3>
+            <p className="field-help">
+              Model choice remains in the workspace toolbar. Runtime and
+              storage readiness below comes from the authenticated backend.
+            </p>
+          </div>
         </div>
       </section>
 
@@ -181,6 +282,18 @@ export function SettingsPanel({
             ))}
           </ul>
         )}
+      </section>
+
+      <section aria-labelledby="notification-title" className="settings-section">
+        <div className="settings-section-heading">
+          <div>
+            <h3 id="notification-title">Notifications & security</h3>
+            <p className="field-help">
+              Completion alerts are generic by default. Prompts, responses,
+              conversation names, filenames, tokens, and local paths are omitted.
+            </p>
+          </div>
+        </div>
       </section>
 
       <section aria-labelledby="diagnostics-title" className="settings-section">

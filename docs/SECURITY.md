@@ -20,6 +20,11 @@ rotation invalidates the prior bearer. API token responses use `no-store`.
 - desktop: OS credential vault through the fixed Tauri command surface
 - mobile: Keychain/Keystore-backed Expo SecureStore
 
+Owner-initiated rotation is deliberately global because the backend maintains
+one active bearer digest for the owner. It invalidates other connected devices;
+those devices must reconnect with the replacement credential. Clients do not
+attempt to display, synchronize, or provision credentials.
+
 Tokens are never placed in URLs, source, bundles, notification previews, or
 application logs. Tailscale identity headers are not a substitute for bearer
 authorization.

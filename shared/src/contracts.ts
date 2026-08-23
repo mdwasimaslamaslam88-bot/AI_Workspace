@@ -297,6 +297,11 @@ export interface CurrentUser {
   updated_at: Timestamp;
 }
 
+export interface AccessTokenRotation {
+  access_token: string;
+  token_type: "bearer";
+}
+
 export interface LocalModel {
   model_id: string;
   display_name: string;
@@ -583,6 +588,16 @@ export function parseCurrentUser(value: unknown): CurrentUser {
     id: stringField(item.id),
     created_at: stringField(item.created_at),
     updated_at: stringField(item.updated_at),
+  };
+}
+
+export function parseAccessTokenRotation(value: unknown): AccessTokenRotation {
+  const item = record(value);
+  const accessToken = stringField(item.access_token);
+  if (!/^[A-Za-z0-9_-]{43}$/.test(accessToken)) return invalidResponse();
+  return {
+    access_token: accessToken,
+    token_type: enumField(item.token_type, ["bearer"] as const),
   };
 }
 

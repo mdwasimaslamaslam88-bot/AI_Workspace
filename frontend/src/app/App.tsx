@@ -47,6 +47,12 @@ import { ModelSelector } from "../features/models/ModelSelector";
 import { SettingsPanel } from "../features/settings/SettingsPanel";
 import { ToolPanel } from "../features/tools/ToolPanel";
 import { WorkflowPanel } from "../features/workflows/WorkflowPanel";
+import {
+  applyAppearancePreference,
+  type AppearancePreference,
+  readAppearancePreference,
+  writeAppearancePreference,
+} from "../preferences/appearance";
 
 type AuthenticationStatus =
   | "checking"
@@ -112,6 +118,9 @@ export function App() {
   const [connectError, setConnectError] = useState<string | null>(null);
   const [online, setOnline] = useState(
     () => typeof navigator === "undefined" || navigator.onLine,
+  );
+  const [appearance, setAppearance] = useState<AppearancePreference>(
+    readAppearancePreference,
   );
   const [client, setClient] = useState<ApiClient | null>(null);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
@@ -246,6 +255,18 @@ export function App() {
   useEffect(() => {
     authenticationStatusRef.current = authenticationStatus;
   }, [authenticationStatus]);
+
+  useEffect(() => {
+    applyAppearancePreference(appearance);
+    writeAppearancePreference(appearance);
+    if (appearance !== "system" || typeof window.matchMedia !== "function") {
+      return;
+    }
+    const preference = window.matchMedia("(prefers-color-scheme: dark)");
+    const refresh = () => applyAppearancePreference("system");
+    preference.addEventListener("change", refresh);
+    return () => preference.removeEventListener("change", refresh);
+  }, [appearance]);
 
   useEffect(() => {
     const handleOnline = () => {
@@ -626,6 +647,19 @@ export function App() {
       return client.getSystemDiagnostics(signal);
     },
     [client],
+  );
+
+  const rotateSession = useCallback(
+    async (signal?: AbortSignal): Promise<void> => {
+      if (client === null) {
+        throw new ApiError("authentication", "Authentication failed.");
+      }
+      const rotated = await client.rotateAccessToken(signal);
+      const replacement = createClient(rotated.access_token);
+      setClient(replacement);
+      await writePersistedSessionToken(rotated.access_token);
+    },
+    [client, createClient],
   );
 
   const createMemory = useCallback(
@@ -1113,6 +1147,10 @@ export function App() {
               onClose={() => setSettingsOpen(false)}
               onLoad={loadProductCapabilities}
               onLoadDiagnostics={loadSystemDiagnostics}
+              appearance={appearance}
+              onAppearanceChange={setAppearance}
+              onRotateSession={rotateSession}
+              onLogout={resetWorkspace}
               onManageMemory={() => {
                 setSettingsOpen(false);
                 setMemoryOpen(true);

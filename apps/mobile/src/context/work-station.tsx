@@ -29,6 +29,7 @@ interface WorkStationContextValue {
   error: string | null;
   connect: (token: string) => Promise<void>;
   retry: () => Promise<void>;
+  rotateSession: () => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -146,9 +147,32 @@ export function WorkStationProvider({ children }: PropsWithChildren) {
     setState("authentication_required");
   }, []);
 
+  const rotateSession = useCallback(async () => {
+    if (client === null) throw new Error("An authenticated session is required.");
+    const rotated = await client.rotateAccessToken();
+    const replacement = new MobileApiClient(rotated.access_token);
+    setClient(replacement);
+    try {
+      await writeSecureSession(rotated.access_token);
+      setError(null);
+    } catch {
+      setError("The rotated session could not be saved. Keep the app open and retry.");
+      throw new Error("Secure device storage is unavailable.");
+    }
+  }, [client]);
+
   const value = useMemo<WorkStationContextValue>(
-    () => ({ state, client, user, error, connect, retry: restore, logout }),
-    [client, connect, error, logout, restore, state, user],
+    () => ({
+      state,
+      client,
+      user,
+      error,
+      connect,
+      retry: restore,
+      rotateSession,
+      logout,
+    }),
+    [client, connect, error, logout, restore, rotateSession, state, user],
   );
   return <WorkStationContext.Provider value={value}>{children}</WorkStationContext.Provider>;
 }

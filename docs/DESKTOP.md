@@ -15,6 +15,8 @@ does not contain AI or authorization logic.
   native drag/drop, and `work-station://` deep-link registration
 - generic notifications only; sensitive response content is not used as a
   preview
+- explicit owner token rotation through the authenticated Settings view; the
+  replacement remains in the OS credential vault and invalidates other devices
 
 ## Linux
 
