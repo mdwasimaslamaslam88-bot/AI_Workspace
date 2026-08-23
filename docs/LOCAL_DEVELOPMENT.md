@@ -44,7 +44,13 @@ npm run typecheck
 npm run lint
 npm run build:web
 npm run build:static --workspace @work-station/mobile
+./scripts/mobile_check.sh
 ```
+
+Set `WORK_STATION_ANDROID_SDK_ROOT` and add
+`--require-native-android` when the local Android SDK is installed. The native
+gate uses a disposable prebuild directory and leaves the managed Expo project
+unchanged.
 
 The accessibility command runs axe WCAG A/AA structural checks over the owner
 connection, conversation/chat/model workspace, and Settings surfaces. The same

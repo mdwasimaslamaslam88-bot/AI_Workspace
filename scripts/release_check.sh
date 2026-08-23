@@ -6,11 +6,13 @@ repository_root="$(cd -- "${script_directory}/.." && pwd -P)"
 backend_python="${repository_root}/backend/.venv/bin/python"
 with_runtime=false
 require_clean=false
+require_native_android=false
 
 for argument in "$@"; do
   case "${argument}" in
     --with-runtime) with_runtime=true ;;
     --require-clean) require_clean=true ;;
+    --require-native-android) require_native_android=true ;;
     *) echo "Unknown release option: ${argument}" >&2; exit 2 ;;
   esac
 done
@@ -37,11 +39,15 @@ done
 )
 
 npm run test:web
-npm run test --workspace @work-station/mobile
-npm run typecheck
-npm run lint
+npm run typecheck --workspace @work-station/shared
+npm run typecheck --workspace @work-station/web
+npm run lint --workspace @work-station/web
 npm run build:web
-npm run build:static --workspace @work-station/mobile
+mobile_arguments=()
+if [[ "${require_native_android}" == true ]]; then
+  mobile_arguments+=(--require-native-android)
+fi
+"${script_directory}/mobile_check.sh" "${mobile_arguments[@]}"
 "${script_directory}/desktop_check.sh"
 
 "${script_directory}/verify_service_units.sh"

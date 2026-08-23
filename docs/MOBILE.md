@@ -75,6 +75,7 @@ npm run typecheck --workspace @work-station/mobile
 npm run lint --workspace @work-station/mobile
 npm run build:static --workspace @work-station/mobile
 npx expo-doctor
+./scripts/mobile_check.sh
 ```
 
 The static build command produces independent Android and iOS JavaScript
@@ -83,6 +84,23 @@ device package; those target-host/account requirements remain below. The
 offline typecheck/config validator also requires exactly one installed and
 locked React runtime matching Expo's compatibility map. Expo Doctor adds its
 online application-schema check when the Expo API is reachable.
+
+When an Android SDK is available, use the repeatable native gate from the
+repository root:
+
+```bash
+WORK_STATION_ANDROID_SDK_ROOT=/absolute/path/to/android-sdk \
+  ./scripts/mobile_check.sh --require-native-android
+```
+
+The gate performs a fresh managed prebuild in a randomly named temporary
+directory, compiles an x86_64 debug APK by default, verifies the application
+identifier and scans the unpacked artifact for operator credential material,
+then removes the temporary project. It compares Git state before and after so
+native validation cannot silently rewrite the managed Expo source. Set
+`WORK_STATION_ANDROID_ARCHITECTURES` only when another locally installed ABI is
+needed. This is a native compilation/configuration gate, not a signed release
+artifact and not a substitute for the owner-controlled EAS credentials below.
 
 ## Release builds
 

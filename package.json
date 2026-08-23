@@ -16,13 +16,17 @@
     "build": "npm run build:web && npm run build:static --workspace @work-station/mobile",
     "build:web": "npm run build --workspace @work-station/web",
     "check": "./scripts/release_check.sh",
+    "check:mobile": "./scripts/mobile_check.sh",
+    "check:mobile:native": "./scripts/mobile_check.sh --require-native-android",
     "security-audit": "./scripts/security_audit.sh",
     "package": "./scripts/desktop_check.sh",
     "package:desktop": "./scripts/desktop_check.sh",
+    "package:mobile": "./scripts/mobile_check.sh --require-native-android",
     "e2e": "./scripts/runtime_e2e.sh",
     "release": "./scripts/release_check.sh --with-runtime --require-clean"
   },
   "devDependencies": {
+    "expo-doctor": "1.20.2",
     "react": "19.2.3",
     "react-dom": "19.2.3"
   }

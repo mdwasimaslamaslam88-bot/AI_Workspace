@@ -15,6 +15,14 @@ npm run build:static --workspace @work-station/mobile
 ./scripts/desktop_check.sh
 ```
 
+On an Android build workstation, validate the managed native project without
+creating a source-tree `android` directory:
+
+```bash
+WORK_STATION_ANDROID_SDK_ROOT=/absolute/path/to/android-sdk \
+  ./scripts/mobile_check.sh --require-native-android
+```
+
 Set `WORK_STATION_WEB_ROOT` to the absolute `frontend/dist` directory. The
 backend fails at startup if it does not contain a compiled `index.html`.
 

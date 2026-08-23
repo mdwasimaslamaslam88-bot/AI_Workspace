@@ -60,6 +60,7 @@ provisioning credential.
 npm test
 npm run build
 npm run package
+npm run check:mobile
 npm run security-audit
 npm run check
 npm run e2e
@@ -71,6 +72,9 @@ data-only real AI runtime smokes against the explicitly configured disposable
 database. `release` combines both and additionally requires a clean,
 synchronized `HEAD == main == origin/main`. Its equivalent direct form is
 `./scripts/release_check.sh --with-runtime --require-clean`.
+When an Android SDK root is configured, `check` also runs a disposable native
+Android compile. Use `npm run check:mobile:native` to require that gate instead
+of allowing a platform-independent skip.
 
 ## Documentation
 
