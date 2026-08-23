@@ -1,0 +1,11 @@
+[Unit]
+Description=Create a daily private WORK STATION backup
+
+[Timer]
+OnCalendar=*-*-* 03:30:00
+RandomizedDelaySec=15min
+Persistent=true
+Unit=work-station-backup.service
+
+[Install]
+WantedBy=timers.target

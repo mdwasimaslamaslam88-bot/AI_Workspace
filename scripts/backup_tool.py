@@ -9,6 +9,7 @@ import json
 import os
 from pathlib import Path, PurePosixPath
 import shutil
+import stat
 import subprocess
 import sys
 import tarfile
@@ -113,15 +114,36 @@ def _write_checksums(directory: Path, names: list[str]) -> None:
     (directory / "SHA256SUMS").write_text(content, encoding="ascii")
 
 
+def _validate_backup_destination(destination: Path, configured: Settings) -> Path:
+    expanded_destination = destination.expanduser()
+    if expanded_destination.is_symlink():
+        raise BackupError("The backup destination must not be a symbolic link.")
+    resolved_destination = expanded_destination.resolve()
+    if not resolved_destination.is_dir():
+        raise BackupError("The backup destination must be an existing directory.")
+    if (
+        resolved_destination == REPOSITORY_ROOT
+        or REPOSITORY_ROOT in resolved_destination.parents
+    ):
+        raise BackupError("Backups must be stored outside the source tree.")
+    if stat.S_IMODE(resolved_destination.stat().st_mode) & 0o077:
+        raise BackupError("The backup destination must be owner-only.")
+
+    if configured.ASSET_STORAGE_ROOT is not None:
+        asset_root = configured.ASSET_STORAGE_ROOT.expanduser().resolve()
+        if (
+            asset_root == resolved_destination
+            or asset_root in resolved_destination.parents
+        ):
+            raise BackupError("Backups must be stored outside the asset tree.")
+    return resolved_destination
+
+
 def create_backup(destination: Path) -> Path:
     configured = _settings()
     if configured.DATABASE_URL is None:
         raise BackupError("DATABASE_URL must be configured for backups.")
-    destination = destination.expanduser().resolve()
-    if not destination.is_dir():
-        raise BackupError("The backup destination must be an existing directory.")
-    if destination == REPOSITORY_ROOT or REPOSITORY_ROOT in destination.parents:
-        raise BackupError("Backups must be stored outside the source tree.")
+    destination = _validate_backup_destination(destination, configured)
 
     timestamp = datetime.now(timezone.utc)
     backup_name = timestamp.strftime("work-station-%Y%m%dT%H%M%SZ")
@@ -171,6 +193,7 @@ def create_backup(destination: Path) -> Path:
         )
         checksummed_names.append("manifest.json")
         _write_checksums(temporary_directory, checksummed_names)
+        verify_backup(temporary_directory)
         temporary_directory.rename(final_directory)
         return final_directory
     except BaseException:

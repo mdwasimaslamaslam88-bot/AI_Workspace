@@ -1,0 +1,24 @@
+[Unit]
+Description=Create and verify a private WORK STATION backup
+After=work-station-backend.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=@REPOSITORY_ROOT@
+EnvironmentFile=%h/.config/work-station/backup.env
+ExecStart=@REPOSITORY_ROOT@/scripts/backup.sh ${WORK_STATION_BACKUP_DESTINATION}
+TimeoutStartSec=2h
+NoNewPrivileges=yes
+PrivateDevices=yes
+PrivateTmp=yes
+ProtectSystem=full
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+RestrictRealtime=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+ReadOnlyPaths=@REPOSITORY_ROOT@
+InaccessiblePaths=-%h/.ssh -%h/.gnupg
+UMask=0077

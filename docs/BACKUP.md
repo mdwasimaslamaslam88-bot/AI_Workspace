@@ -19,25 +19,40 @@ mkdir -p /path/to/encrypted-backups
   /path/to/encrypted-backups/work-station-YYYYMMDDTHHMMSSZ
 ```
 
-The destination must already exist and must be outside Git. `pg_dump` receives
-the database password only through its process environment, never a command
-argument or report. The output contains:
+The destination must already exist, be owner-only (`0700`), and remain outside
+both Git and the configured asset tree. Symbolic-link destinations are refused.
+`pg_dump` receives the database password only through its process environment,
+never a command argument or report. The output contains:
 
 - `database.dump`: custom-format PostgreSQL dump
 - `assets.tar.gz`: optional safe relative asset archive
 - `manifest.json`: format, timestamp, commit, and component names only
 - `SHA256SUMS`: integrity checks
 
-Verification checks all hashes, rejects extra/unsafe archive members, and asks
-`pg_restore` to parse the dump. A backup is not considered usable until this
-verification passes.
+Every creation verifies all hashes, rejects extra/unsafe archive members, and
+asks `pg_restore` to parse the dump before publishing the timestamped backup
+directory. `verify_backup.sh` provides the same independent validation later.
 
 ## Schedule
 
-Use an owner-only systemd timer or encrypted backup product to invoke
-`scripts/backup.sh`. Set directory permissions to `0700`, monitor failures, and
-retain at least one disconnected copy. Do not synchronize raw backups to a
-public bucket.
+The service installer includes an opt-in daily timer. It is deliberately not
+part of `work-station.target` and remains disabled until the owner chooses an
+encrypted destination:
+
+```bash
+install -d -m 0700 ~/.config/work-station
+install -m 0600 config/environments/backup.env.example \
+  ~/.config/work-station/backup.env
+# Edit only WORK_STATION_BACKUP_DESTINATION and create it with mode 0700.
+./scripts/install_user_services.sh
+systemctl --user enable --now work-station-backup.timer
+systemctl --user list-timers work-station-backup.timer
+```
+
+Monitor `work-station-backup.service` failures and retain at least one
+disconnected copy. The timer never deletes old backups automatically. Apply the
+retention policy only after separately verifying the copies being retained. Do
+not synchronize raw backups to a public bucket.
 
 Suggested retention for a single-owner workstation is seven daily, four weekly,
 and six monthly verified snapshots, adjusted to available encrypted capacity.

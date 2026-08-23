@@ -44,6 +44,10 @@ private data root. The target also enables a readiness timer for PostgreSQL,
 Redis, and Ollama plus a remote-gateway timer that is skipped until the standard
 `/usr/bin/tailscale` client is installed.
 
+The installer also installs the disabled `work-station-backup.timer`. Configure
+and enable it separately using [BACKUP.md](BACKUP.md); the main target never
+chooses a backup destination or retention policy on the owner's behalf.
+
 `loginctl enable-linger` may require local administrator policy and is therefore
 an explicit owner action.
 

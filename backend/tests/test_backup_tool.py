@@ -92,3 +92,58 @@ def test_restore_refuses_the_configured_application_database(monkeypatch, tmp_pa
 
     with pytest.raises(backup_tool.BackupError, match="refuses"):
         backup_tool.restore_backup(tmp_path, None)
+
+
+def test_created_backup_is_verified_before_it_is_published(monkeypatch, tmp_path):
+    destination = tmp_path / "backups"
+    destination.mkdir(mode=0o700)
+    configured = Settings(
+        _env_file=None,
+        DATABASE_URL=(
+            "postgresql+asyncpg://owner:private-password@127.0.0.1:5432/work_station"
+        ),
+        DATABASE_SSL_MODE="disable",
+    )
+    commands: list[str] = []
+
+    def run_private(command, _environment):
+        commands.append(command[0])
+        if command[0] == "pg_dump":
+            output = Path(command[command.index("--file") + 1])
+            output.write_bytes(b"bounded postgres archive")
+
+    monkeypatch.setattr(backup_tool, "_settings", lambda: configured)
+    monkeypatch.setattr(backup_tool, "_run_private", run_private)
+
+    created = backup_tool.create_backup(destination)
+
+    assert created.parent == destination
+    assert created.is_dir()
+    assert commands == ["pg_dump", "pg_restore"]
+    assert not list(destination.glob(".work-station-backup-*"))
+
+
+def test_backup_destination_must_be_private_and_outside_assets(monkeypatch, tmp_path):
+    asset_root = tmp_path / "assets"
+    asset_root.mkdir(mode=0o700)
+    configured = Settings(
+        _env_file=None,
+        DATABASE_URL="postgresql+asyncpg://owner:password@127.0.0.1/work_station",
+        ASSET_STORAGE_ROOT=asset_root,
+    )
+    monkeypatch.setattr(backup_tool, "_settings", lambda: configured)
+
+    permissive = tmp_path / "permissive"
+    permissive.mkdir(mode=0o755)
+    with pytest.raises(backup_tool.BackupError, match="owner-only"):
+        backup_tool.create_backup(permissive)
+
+    linked = tmp_path / "linked-backups"
+    linked.symlink_to(asset_root, target_is_directory=True)
+    with pytest.raises(backup_tool.BackupError, match="symbolic link"):
+        backup_tool.create_backup(linked)
+
+    nested = asset_root / "backups"
+    nested.mkdir(mode=0o700)
+    with pytest.raises(backup_tool.BackupError, match="outside the asset tree"):
+        backup_tool.create_backup(nested)

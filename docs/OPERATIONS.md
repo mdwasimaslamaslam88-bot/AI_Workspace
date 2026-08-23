@@ -15,6 +15,7 @@
 systemctl --user status work-station-backend.service
 systemctl --user status work-station-health.timer
 systemctl --user status work-station-remote-health.timer
+systemctl --user status work-station-backup.timer
 curl --fail --silent http://127.0.0.1:8000/api/v1/health/ready
 ./scripts/check_remote_gateway.sh
 ```
@@ -23,6 +24,9 @@ curl --fail --silent http://127.0.0.1:8000/api/v1/health/ready
 database, Redis, and Ollama. `work-station-remote-health.timer` validates the
 tailnet-only HTTPS proxy and rejects a wrong backend target or any detectable
 Funnel configuration; it is conditionally skipped while Tailscale is absent.
+The backup timer is an independent opt-in unit: it is installed but not pulled
+in by `work-station.target`, and each run publishes a backup only after checksum,
+archive-safety, and `pg_restore` parsing checks pass.
 
 The authenticated Settings view provides fixed `ready`, `unavailable`, or
 `unconfigured` states for backend, PostgreSQL, Redis, Ollama, vision, image,
