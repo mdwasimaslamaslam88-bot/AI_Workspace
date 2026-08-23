@@ -12,7 +12,9 @@ does not contain AI or authorization logic.
 - no shell, process, filesystem, or unrestricted HTTP Tauri permission
 - loopback or private `.ts.net` network destinations enforced by CSP
 - system tray, single-instance behavior, close-to-tray, persisted window state,
-  native drag/drop, and `work-station://` deep-link registration
+  path-free HTML5 file drag/drop through the authenticated uploader, and
+  `work-station://` deep-link registration; native path interception stays off,
+  so no filesystem permission or path-bearing IPC is required
 - generic notifications only; sensitive response content is not used as a
   preview; the Settings panel requests OS permission explicitly and image or
   workflow completion/failure alerts contain only fixed generic text

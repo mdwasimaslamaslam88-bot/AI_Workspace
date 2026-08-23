@@ -22,6 +22,9 @@ if (config.identifier !== "com.workstation.personalai") throw new Error("desktop
 if (config.build.frontendDist !== "../../../frontend/dist") {
   throw new Error("desktop must package the canonical web build");
 }
+if (config.app.windows.some((window) => window.dragDropEnabled !== false)) {
+  throw new Error("desktop must use path-free HTML5 file drops");
+}
 if (config.bundle.targets !== undefined) {
   throw new Error("desktop bundle targets must be selected per platform");
 }

@@ -1,5 +1,6 @@
 import {
   type ChangeEvent,
+  type DragEvent,
   type FormEvent,
   useCallback,
   useEffect,
@@ -237,21 +238,29 @@ function useAttachmentQueue(
     [actions, update],
   );
 
-  const selectFiles = useCallback(
-    (event: ChangeEvent<HTMLInputElement>) => {
-      const selected = Array.from(event.target.files ?? []).map((file) => ({
+  const addFiles = useCallback(
+    (files: File[]) => {
+      const selected = files.map((file) => ({
         idempotencyKey: crypto.randomUUID(),
         file,
         state: "selected" as const,
         progress: null,
         asset: null,
       }));
-      event.target.value = "";
       if (selected.length === 0) return;
       setItems((current) => [...current, ...selected]);
       for (const item of selected) void startUpload(item);
     },
     [startUpload],
+  );
+
+  const selectFiles = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      const files = Array.from(event.target.files ?? []);
+      event.target.value = "";
+      addFiles(files);
+    },
+    [addFiles],
   );
 
   const cancel = useCallback((item: QueuedAttachment) => {
@@ -345,6 +354,7 @@ function useAttachmentQueue(
     readyAssets,
     readyAssetIds,
     unresolved,
+    addFiles,
     selectFiles,
     cancel,
     retry,
@@ -359,8 +369,43 @@ function AttachmentPicker({
   queue: ReturnType<typeof useAttachmentQueue>;
   disabled: boolean;
 }) {
+  const [draggingFiles, setDraggingFiles] = useState(false);
+
+  function includesFiles(event: DragEvent<HTMLDivElement>): boolean {
+    return Array.from(event.dataTransfer.types).includes("Files");
+  }
+
+  function dragOver(event: DragEvent<HTMLDivElement>) {
+    if (disabled || !includesFiles(event)) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+    setDraggingFiles(true);
+  }
+
+  function dragLeave(event: DragEvent<HTMLDivElement>) {
+    const nextTarget = event.relatedTarget;
+    if (nextTarget instanceof Node && event.currentTarget.contains(nextTarget)) return;
+    setDraggingFiles(false);
+  }
+
+  function drop(event: DragEvent<HTMLDivElement>) {
+    if (!includesFiles(event)) return;
+    event.preventDefault();
+    setDraggingFiles(false);
+    if (disabled) return;
+    queue.addFiles(Array.from(event.dataTransfer.files));
+  }
+
   return (
-    <div className="attachment-picker">
+    <div
+      className={`attachment-picker${draggingFiles ? " attachment-picker-dragging" : ""}`}
+      aria-label="File attachments"
+      aria-disabled={disabled}
+      onDragEnter={dragOver}
+      onDragOver={dragOver}
+      onDragLeave={dragLeave}
+      onDrop={drop}
+    >
       <label className="button button-secondary attachment-select">
         Attach files
         <input
@@ -370,6 +415,7 @@ function AttachmentPicker({
           disabled={disabled}
         />
       </label>
+      <span className="attachment-drop-hint">or drop files here</span>
       {queue.items.length > 0 && (
         <ul className="attachment-queue" aria-label="Selected attachments">
           {queue.items.map((item) => (

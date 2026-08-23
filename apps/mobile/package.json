@@ -49,9 +49,11 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "expo lint",
-    "typecheck": "tsc --noEmit --pretty false",
+    "typecheck": "tsc --noEmit --pretty false && node scripts/validate-config.mjs",
     "test": "vitest run",
-    "build:static": "expo export --platform android --output-dir dist/android"
+    "build:static": "npm run build:static:android && npm run build:static:ios",
+    "build:static:android": "expo export --platform android --output-dir dist/android",
+    "build:static:ios": "expo export --platform ios --output-dir dist/ios"
   },
   "private": true
 }

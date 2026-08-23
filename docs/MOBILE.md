@@ -46,6 +46,10 @@ npm run lint --workspace @work-station/mobile
 npm run build:static --workspace @work-station/mobile
 ```
 
+The static build command produces independent Android and iOS JavaScript
+bundles on any supported development host. It does not claim a signed native
+device package; those target-host/account requirements remain below.
+
 ## Release builds
 
 `apps/mobile/eas.json` defines development, preview, and production profiles.

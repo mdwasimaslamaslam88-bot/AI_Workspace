@@ -16,6 +16,7 @@
   --text: #e8edf4;
   --muted: #9ba9ba;
   --accent: #68efc8;
+  --accent-soft: rgba(104, 239, 200, 0.08);
   --accent-dark: #0a4b43;
   --accent-contrast: #06271f;
   --accent-hover: #a0f1d6;
@@ -35,6 +36,7 @@
   --text: #102034;
   --muted: #52657a;
   --accent: #087a68;
+  --accent-soft: rgba(8, 122, 104, 0.08);
   --accent-dark: #b8f1e4;
   --accent-contrast: #ffffff;
   --accent-hover: #066757;
@@ -1187,8 +1189,25 @@ textarea {
 
 .attachment-picker {
   display: grid;
+  grid-template-columns: auto 1fr;
   justify-items: start;
+  align-items: center;
   gap: 0.55rem;
+  width: 100%;
+  border: 1px dashed transparent;
+  border-radius: 0.7rem;
+  padding: 0.35rem;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+
+.attachment-picker-dragging {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.attachment-drop-hint {
+  color: var(--muted);
+  font-size: 0.78rem;
 }
 
 .attachment-select {
@@ -1211,6 +1230,10 @@ textarea {
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+.attachment-picker .attachment-queue {
+  grid-column: 1 / -1;
 }
 
 .attachment-queue li,

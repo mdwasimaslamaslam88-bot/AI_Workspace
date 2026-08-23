@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -82,6 +82,26 @@ function props(overrides = {}) {
 
 
 describe("attachment queue", () => {
+  it("uploads dropped files without exposing a native filesystem path", async () => {
+    const dropped = new File(["notes"], "dropped-notes.txt", {
+      type: "text/plain",
+    });
+    const onUploadAttachment = vi.fn(async () => asset);
+    render(<ChatView {...props({ onUploadAttachment })} />);
+
+    fireEvent.drop(screen.getByLabelText("File attachments"), {
+      dataTransfer: { files: [dropped], types: ["Files"] },
+    });
+
+    expect(await screen.findByText("Document ready")).toBeVisible();
+    expect(onUploadAttachment).toHaveBeenCalledWith(
+      dropped,
+      expect.any(String),
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
+    expect(screen.getByText("dropped-notes.txt")).toBeVisible();
+  });
+
   it("retries the same selected file with the same idempotency key", async () => {
     const onUploadAttachment = vi
       .fn()
