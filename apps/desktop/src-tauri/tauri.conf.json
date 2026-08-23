@@ -31,7 +31,6 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["deb"],
     "category": "Productivity",
     "shortDescription": "Private Personal AI workstation",
     "longDescription": "Owner-only desktop access to the WORK STATION Personal AI.",

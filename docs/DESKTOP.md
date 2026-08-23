@@ -55,8 +55,11 @@ build environment.
 ## Windows and macOS
 
 The Tauri identifier, Windows `.ico`, macOS `.icns`, deep-link scheme, session
-vault abstraction, and window behavior are shared. Build installers on the
-target operating system with the current Tauri prerequisites:
+vault abstraction, and window behavior are shared. Platform-specific Tauri
+configuration selects a Debian package on Linux, an NSIS installer on Windows,
+and an application bundle plus DMG on macOS; the common configuration does not
+hard-code a foreign platform's package type. Build installers on the target
+operating system with the current Tauri prerequisites:
 <https://v2.tauri.app/start/prerequisites/>. Code signing, notarization, and
 auto-update signing require owner-controlled platform certificates and are not
 generated or embedded by this repository.
