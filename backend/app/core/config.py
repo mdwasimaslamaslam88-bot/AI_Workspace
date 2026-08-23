@@ -64,6 +64,12 @@ _SOURCE_DECODED_STRICT_INTEGER_FIELDS = frozenset(
     }
 )
 _DECIMAL_INTEGER_PATTERN = re.compile(r"-?(?:0|[1-9][0-9]*)\Z")
+_TAURI_DESKTOP_ORIGINS = frozenset(
+    {
+        "http://tauri.localhost",
+        "tauri://localhost",
+    }
+)
 
 
 def _decode_strict_integer_source_value(field_name: str, value: Any) -> Any:
@@ -405,28 +411,34 @@ class Settings(BaseSettings):
         for origin in value:
             if not isinstance(origin, str) or origin != origin.strip():
                 raise ValueError("CORS origins must be exact nonblank strings")
-            parsed = urlsplit(origin)
-            if (
-                parsed.scheme not in {"http", "https"}
-                or parsed.username is not None
-                or parsed.password is not None
-                or parsed.path not in {"", "/"}
-                or parsed.query
-                or parsed.fragment
-                or parsed.hostname is None
-                or origin == "*"
-            ):
-                raise ValueError("CORS origins must be credential-free HTTP origins")
-            host = parsed.hostname
-            is_loopback = host == "localhost"
-            if not is_loopback:
-                try:
-                    is_loopback = ipaddress.ip_address(host).is_loopback
-                except ValueError:
-                    is_loopback = False
-            if parsed.scheme == "http" and not is_loopback:
-                raise ValueError("non-loopback CORS origins must use HTTPS")
-            exact_origin = f"{parsed.scheme}://{parsed.netloc}"
+            if origin in _TAURI_DESKTOP_ORIGINS:
+                exact_origin = origin
+            else:
+                parsed = urlsplit(origin)
+                if (
+                    parsed.scheme not in {"http", "https"}
+                    or parsed.username is not None
+                    or parsed.password is not None
+                    or parsed.path not in {"", "/"}
+                    or parsed.query
+                    or parsed.fragment
+                    or parsed.hostname is None
+                    or origin == "*"
+                ):
+                    raise ValueError(
+                        "CORS origins must be credential-free HTTP origins or "
+                        "an exact WORK STATION desktop origin"
+                    )
+                host = parsed.hostname
+                is_loopback = host == "localhost"
+                if not is_loopback:
+                    try:
+                        is_loopback = ipaddress.ip_address(host).is_loopback
+                    except ValueError:
+                        is_loopback = False
+                if parsed.scheme == "http" and not is_loopback:
+                    raise ValueError("non-loopback CORS origins must use HTTPS")
+                exact_origin = f"{parsed.scheme}://{parsed.netloc}"
             if exact_origin in normalized:
                 raise ValueError("CORS origins must be unique")
             normalized.append(exact_origin)

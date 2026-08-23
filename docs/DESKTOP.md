@@ -56,7 +56,11 @@ VITE_API_BASE_URL=https://workstation.example.ts.net \
 
 Only use the workstation's actual Tailscale MagicDNS HTTPS origin. The bearer
 token is entered at runtime and saved in the OS vault; it must not be set in the
-build environment.
+build environment. The backend CORS allowlist must contain only the packaged
+Tauri origins used by the target platforms: `tauri://localhost` for Linux and
+macOS and `http://tauri.localhost` for Windows. The shipped local and remote
+environment examples include these exact origins; the remote profile does not
+retain the Vite development origin.
 
 ## Windows and macOS
 

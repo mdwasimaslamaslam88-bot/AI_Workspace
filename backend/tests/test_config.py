@@ -103,6 +103,8 @@ def test_settings_preserve_application_defaults():
         "http://192.0.2.1:3000",
         "https://user:password@example.test",
         "https://example.test/path",
+        "tauri://example.test",
+        "work-station://localhost",
     ],
 )
 def test_cors_origins_reject_wildcards_credentials_paths_and_remote_http(origin):
@@ -110,17 +112,21 @@ def test_cors_origins_reject_wildcards_credentials_paths_and_remote_http(origin)
         Settings(_env_file=None, BACKEND_CORS_ORIGINS=[origin])
 
 
-def test_cors_origins_allow_loopback_http_and_remote_https():
+def test_cors_origins_allow_loopback_remote_https_and_exact_desktop_origins():
     configured = Settings(
         _env_file=None,
         BACKEND_CORS_ORIGINS=[
             "http://127.0.0.1:3000",
             "https://work-station.example.ts.net",
+            "tauri://localhost",
+            "http://tauri.localhost",
         ],
     )
     assert configured.BACKEND_CORS_ORIGINS == [
         "http://127.0.0.1:3000",
         "https://work-station.example.ts.net",
+        "tauri://localhost",
+        "http://tauri.localhost",
     ]
 
 

@@ -5,12 +5,14 @@ from uuid import uuid4
 
 import pytest
 from fastapi import FastAPI, HTTPException, Response
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.testclient import TestClient
 
 import app.api.v1.diagnostics as diagnostics_module
 from app.ai.catalog import ModelAvailability, ModelCapability, ModelModality
 from app.api.dependencies import get_current_user
 from app.api.v1.diagnostics import router as diagnostics_router
+from app.core.config import Settings
 from app.hardware import HardwareInventory
 from app.hardware.planner import GIBIBYTE
 from app.main import _api_documentation_urls, app
@@ -79,6 +81,45 @@ def test_application_cors_allows_owner_client_headers_but_rejects_arbitrary_ones
     assert accepted.status_code == 200
     assert accepted.headers["Access-Control-Allow-Origin"] == "http://localhost:3000"
     assert rejected.status_code == 400
+
+
+def test_exact_packaged_desktop_origins_pass_cors_without_a_wildcard():
+    configured = Settings(
+        _env_file=None,
+        BACKEND_CORS_ORIGINS=["tauri://localhost", "http://tauri.localhost"],
+    )
+    desktop_api = FastAPI()
+    desktop_api.add_middleware(
+        CORSMiddleware,
+        allow_origins=configured.BACKEND_CORS_ORIGINS,
+        allow_credentials=True,
+        allow_methods=["GET"],
+        allow_headers=["Authorization"],
+    )
+
+    with TestClient(desktop_api) as client:
+        for origin in configured.BACKEND_CORS_ORIGINS:
+            response = client.options(
+                "/api/v1/users/me",
+                headers={
+                    "Origin": origin,
+                    "Access-Control-Request-Method": "GET",
+                    "Access-Control-Request-Headers": "Authorization",
+                },
+            )
+            assert response.status_code == 200
+            assert response.headers["Access-Control-Allow-Origin"] == origin
+
+        rejected = client.options(
+            "/api/v1/users/me",
+            headers={
+                "Origin": "tauri://attacker.invalid",
+                "Access-Control-Request-Method": "GET",
+                "Access-Control-Request-Headers": "Authorization",
+            },
+        )
+    assert rejected.status_code == 400
+    assert "Access-Control-Allow-Origin" not in rejected.headers
 
 
 def test_compiled_web_mount_preserves_api_and_never_serves_source_tree(tmp_path: Path):

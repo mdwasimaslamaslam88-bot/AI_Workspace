@@ -75,7 +75,9 @@ The production PWA automatically uses that same HTTPS origin for `/api/v1`.
 
 - Web/PWA: same origin; no public API hostname is compiled into the bundle.
 - Desktop: build with an HTTPS `VITE_API_BASE_URL` under the tailnet's `.ts.net`
-  hostname. The desktop CSP permits loopback and `.ts.net` only.
+  hostname. The desktop CSP permits loopback and `.ts.net` only, and the remote
+  backend profile allowlists only the exact Linux/macOS and Windows Tauri
+  application origins.
 - Mobile: set `EXPO_PUBLIC_API_BASE_URL` to the HTTPS MagicDNS origin for the
   release build. It is an endpoint, never a token.
 
