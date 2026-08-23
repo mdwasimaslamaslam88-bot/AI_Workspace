@@ -40,6 +40,21 @@ reset`. Funnel is not supported for this owner-only deployment.
 PostgreSQL, Redis, and Ollama services without exposing their connection
 strings. Run `alembic current` and `alembic check` from `backend`.
 
+## PostgreSQL integration refuses the application database
+
+The release gate requires two distinct loopback database identities:
+
+- `DATABASE_URL`: the private application database (for example,
+  `ai_workspace`)
+- `TEST_DATABASE_URL`: the disposable database named exactly
+  `ai_workspace_test`
+
+If they identify the same database, stop rather than bypassing the guard. A
+PostgreSQL administrator must create/grant the application database, after
+which the owner updates the protected backend environment and runs `alembic
+upgrade head`. See [LOCAL_DEVELOPMENT.md](LOCAL_DEVELOPMENT.md) for the exact
+shape; never paste a database password into an issue or command transcript.
+
 ## AI runtime unavailable
 
 The model selector distinguishes installed, runnable, insufficient-hardware,

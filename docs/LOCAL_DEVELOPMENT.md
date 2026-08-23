@@ -50,6 +50,28 @@ except `ai_workspace_test`. It also refuses to run unless `DATABASE_URL` points
 to a different application database. Real runtime scripts apply the disposable
 test database restriction.
 
+If both URLs currently identify `ai_workspace_test`, a PostgreSQL administrator
+must create a separate application database once. For example, substitute the
+existing application role (never a password) in this administrator command:
+
+```bash
+sudo -u postgres createdb --owner=<application-role> ai_workspace
+```
+
+Then update only the protected backend `DATABASE_URL` to identify
+`127.0.0.1/ai_workspace`, keep `TEST_DATABASE_URL` on
+`127.0.0.1/ai_workspace_test`, and apply the application migrations:
+
+```bash
+cd backend
+.venv/bin/alembic upgrade head
+.venv/bin/alembic check
+```
+
+Do not work around the guard by pointing integration tests at the application
+database. Creating a database requires PostgreSQL administrator authority and
+is intentionally not attempted by the release script.
+
 ## Environment modes
 
 Safe templates live under `config/environments`:
