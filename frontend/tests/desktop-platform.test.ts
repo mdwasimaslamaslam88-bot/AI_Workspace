@@ -16,10 +16,16 @@ const deepLinks = vi.hoisted(() => ({
     (handler: (urls: string[]) => void) => Promise<() => void>
   >(async () => () => undefined),
 }));
+const currentWindow = vi.hoisted(() => ({
+  setContentProtected: vi.fn(async () => undefined),
+}));
 
 vi.mock("@tauri-apps/plugin-autostart", () => autostart);
 vi.mock("@tauri-apps/plugin-notification", () => notifications);
 vi.mock("@tauri-apps/plugin-deep-link", () => deepLinks);
+vi.mock("@tauri-apps/api/window", () => ({
+  getCurrentWindow: () => currentWindow,
+}));
 
 import {
   notifyDesktopTaskFinished,
@@ -27,6 +33,7 @@ import {
   readDesktopAutostartEnabled,
   readDesktopNotificationPermission,
   requestDesktopNotificationPermission,
+  setDesktopContentProtected,
   writeDesktopAutostartEnabled,
 } from "../src/platform/desktop";
 
@@ -47,6 +54,13 @@ describe("desktop native preferences", () => {
 
     expect(autostart.enable).toHaveBeenCalledOnce();
     expect(autostart.disable).toHaveBeenCalledOnce();
+  });
+
+  it("protects transient credential content only in the packaged window", async () => {
+    await expect(setDesktopContentProtected(true)).resolves.toBe(true);
+    await expect(setDesktopContentProtected(false)).resolves.toBe(true);
+    expect(currentWindow.setContentProtected).toHaveBeenNthCalledWith(1, true);
+    expect(currentWindow.setContentProtected).toHaveBeenNthCalledWith(2, false);
   });
 
   it("requests notification permission only when needed", async () => {
@@ -85,6 +99,7 @@ describe("desktop native preferences", () => {
 
     await expect(readDesktopAutostartEnabled()).resolves.toBe(false);
     await expect(readDesktopNotificationPermission()).resolves.toBe(false);
+    await expect(setDesktopContentProtected(true)).resolves.toBe(false);
     await expect(notifyDesktopTaskFinished(true)).resolves.toBe(false);
     await expect(writeDesktopAutostartEnabled(true)).rejects.toThrow(
       "Desktop runtime is unavailable.",

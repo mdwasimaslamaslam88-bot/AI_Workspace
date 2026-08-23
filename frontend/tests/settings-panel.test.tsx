@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -7,6 +7,7 @@ vi.mock("../src/platform/desktop", () => ({
   readDesktopAutostartEnabled: vi.fn(async () => false),
   readDesktopNotificationPermission: vi.fn(async () => false),
   requestDesktopNotificationPermission: vi.fn(async () => true),
+  setDesktopContentProtected: vi.fn(async () => false),
   writeDesktopAutostartEnabled: vi.fn(async () => undefined),
 }));
 
@@ -16,6 +17,7 @@ import {
   readDesktopAutostartEnabled,
   readDesktopNotificationPermission,
   requestDesktopNotificationPermission,
+  setDesktopContentProtected,
   writeDesktopAutostartEnabled,
 } from "../src/platform/desktop";
 import {
@@ -88,6 +90,7 @@ describe("SettingsPanel", () => {
     vi.mocked(readDesktopAutostartEnabled).mockResolvedValue(false);
     vi.mocked(readDesktopNotificationPermission).mockResolvedValue(false);
     vi.mocked(requestDesktopNotificationPermission).mockResolvedValue(true);
+    vi.mocked(setDesktopContentProtected).mockResolvedValue(false);
     vi.mocked(writeDesktopAutostartEnabled).mockResolvedValue(undefined);
   });
 
@@ -148,6 +151,47 @@ describe("SettingsPanel", () => {
     expect(actions.onRevokeSession).toHaveBeenCalledWith(
       "f7eb9c82-bbb3-4e9b-ad71-46d5b46a815c",
     );
+  });
+
+  it("clears a one-time device token when the browser leaves the foreground", async () => {
+    const actions = props();
+    render(<SettingsPanel {...actions} />);
+    await screen.findByText("This browser");
+    await userEvent.type(screen.getByLabelText("New device label"), "Tablet");
+    await userEvent.click(screen.getByRole("button", { name: "Issue device token" }));
+    expect(await screen.findByLabelText("New device access token")).toBeVisible();
+
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      value: "hidden",
+    });
+    fireEvent(document, new Event("visibilitychange"));
+    expect(screen.queryByLabelText("New device access token")).not.toBeInTheDocument();
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      value: "visible",
+    });
+  });
+
+  it("fails closed if packaged desktop content protection is unavailable", async () => {
+    vi.mocked(isDesktopRuntime).mockReturnValue(true);
+    vi.mocked(setDesktopContentProtected).mockImplementation(async (enabled) => {
+      if (enabled) throw new Error("private native detail");
+      return true;
+    });
+    const actions = props();
+    render(<SettingsPanel {...actions} />);
+    await screen.findByText("This browser");
+    await userEvent.type(screen.getByLabelText("New device label"), "Tablet");
+    await userEvent.click(screen.getByRole("button", { name: "Issue device token" }));
+
+    await waitFor(() => {
+      expect(screen.queryByLabelText("New device access token")).not.toBeInTheDocument();
+    });
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "one-time token view could not be protected",
+    );
+    expect(document.body.textContent).not.toContain("private native detail");
   });
 
   it("shows a fixed error and never renders private failure details", async () => {

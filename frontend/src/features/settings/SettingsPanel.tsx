@@ -14,6 +14,7 @@ import {
   readDesktopAutostartEnabled,
   readDesktopNotificationPermission,
   requestDesktopNotificationPermission,
+  setDesktopContentProtected,
   writeDesktopAutostartEnabled,
 } from "../../platform/desktop";
 
@@ -165,6 +166,39 @@ export function SettingsPanel({
       active = false;
     };
   }, [desktopRuntime]);
+
+  useEffect(() => {
+    const clearTransientCredential = () => {
+      if (document.visibilityState !== "visible") setIssuedSession(null);
+    };
+    document.addEventListener("visibilitychange", clearTransientCredential);
+    window.addEventListener("pagehide", clearTransientCredential);
+    return () => {
+      document.removeEventListener("visibilitychange", clearTransientCredential);
+      window.removeEventListener("pagehide", clearTransientCredential);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!desktopRuntime) return;
+    let active = true;
+    const protectedContent = issuedSession !== null;
+    void setDesktopContentProtected(protectedContent).catch(() => {
+      if (active && protectedContent) {
+        setIssuedSession(null);
+        setSessionNotice({
+          kind: "error",
+          message: "The one-time token view could not be protected. Issue a new device token after desktop protection is available.",
+        });
+      }
+    });
+    return () => {
+      active = false;
+      if (protectedContent) {
+        void setDesktopContentProtected(false).catch(() => undefined);
+      }
+    };
+  }, [desktopRuntime, issuedSession]);
 
   const available = capabilities.filter(
     (capability) => capability.status === "available",
@@ -372,6 +406,10 @@ export function SettingsPanel({
         {issuedSession !== null && (
           <div className="issued-session" role="status">
             <strong>Copy this token now. It will not be shown again.</strong>
+            <span className="field-help">
+              This one-time view clears when the app leaves the foreground. The
+              packaged desktop window also blocks capture while it is visible.
+            </span>
             <input
               aria-label="New device access token"
               type="password"

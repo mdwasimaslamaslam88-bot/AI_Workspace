@@ -28,6 +28,10 @@ does not contain AI or authorization logic.
 - explicit owner session naming, issuance, revocation, and token rotation
   through Settings; the replacement remains in the OS credential vault and
   invalidates only the prior token for this desktop session
+- one-time device-token views enable native window content protection, clear on
+  background/page hide, fail closed if protection cannot be enabled, and always
+  disable the capture guard during cleanup; ordinary browsers receive the same
+  background clearing without claiming OS-level capture prevention
 
 ## Linux
 

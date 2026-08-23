@@ -37,6 +37,13 @@ export async function clearDesktopSessionToken(): Promise<void> {
   await (await core()).invoke("clear_session_token");
 }
 
+export async function setDesktopContentProtected(enabled: boolean): Promise<boolean> {
+  if (!isDesktopRuntime()) return false;
+  const { getCurrentWindow } = await import("@tauri-apps/api/window");
+  await getCurrentWindow().setContentProtected(enabled);
+  return true;
+}
+
 export async function readDesktopAutostartEnabled(): Promise<boolean> {
   if (!isDesktopRuntime()) return false;
   return (await import("@tauri-apps/plugin-autostart")).isEnabled();
