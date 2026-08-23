@@ -99,6 +99,12 @@ def authenticated_ai_client(monkeypatch):
     app.dependency_overrides[get_current_user] = override_current_user
     previous_catalog = getattr(app.state, "model_catalog", None)
     previous_storage = getattr(app.state, "asset_storage", None)
+    previous_recognition = getattr(app.state, "speech_recognition_runtime", None)
+    previous_synthesis = getattr(app.state, "speech_synthesis_runtime", None)
+    previous_image_generation = getattr(
+        app.state, "image_generation_runtime", None
+    )
+    previous_image_editing = getattr(app.state, "image_editing_runtime", None)
     try:
         with TestClient(app, raise_server_exceptions=False) as client:
             yield client, user
@@ -106,6 +112,10 @@ def authenticated_ai_client(monkeypatch):
         app.dependency_overrides.pop(get_current_user, None)
         app.state.model_catalog = previous_catalog
         app.state.asset_storage = previous_storage
+        app.state.speech_recognition_runtime = previous_recognition
+        app.state.speech_synthesis_runtime = previous_synthesis
+        app.state.image_generation_runtime = previous_image_generation
+        app.state.image_editing_runtime = previous_image_editing
 
 
 def test_product_capabilities_report_implemented_and_blocked_features(
@@ -205,6 +215,98 @@ def test_product_capabilities_return_fixed_safe_runtime_and_storage_blockers(
     assert "127.0.0.1" not in response.text
     assert "private/model" not in response.text
     ai_module.async_object_session.return_value.rollback.assert_awaited_once_with()
+
+
+def test_voice_capabilities_require_runtime_and_runnable_catalog_model(
+    authenticated_ai_client,
+):
+    client, _user = authenticated_ai_client
+    app.state.asset_storage = object()
+    app.state.speech_recognition_runtime = object()
+    app.state.speech_synthesis_runtime = object()
+    app.state.model_catalog = Mock(
+        list_models=AsyncMock(
+            return_value=(
+                _descriptor(
+                    1,
+                    capabilities=(ModelCapability.SPEECH_RECOGNITION,),
+                ),
+                _descriptor(
+                    2,
+                    capabilities=(ModelCapability.SPEECH_SYNTHESIS,),
+                ),
+            )
+        )
+    )
+
+    response = client.get("/api/v1/ai/capabilities")
+
+    assert response.status_code == 200
+    items = {item["id"]: item for item in response.json()["items"]}
+    assert items["voice_input"] == {
+        "id": "voice_input",
+        "status": "available",
+        "blocking_reasons": [],
+    }
+    assert items["voice_output"] == {
+        "id": "voice_output",
+        "status": "available",
+        "blocking_reasons": [],
+    }
+
+    app.state.model_catalog = Mock(list_models=AsyncMock(return_value=()))
+    unavailable = client.get("/api/v1/ai/capabilities")
+    unavailable_items = {
+        item["id"]: item for item in unavailable.json()["items"]
+    }
+    assert unavailable_items["voice_input"]["status"] == "unavailable"
+    assert unavailable_items["voice_output"]["status"] == "unavailable"
+
+
+def test_image_capabilities_require_runtime_storage_and_runnable_catalog_model(
+    authenticated_ai_client,
+):
+    client, _user = authenticated_ai_client
+    app.state.asset_storage = object()
+    app.state.image_generation_runtime = object()
+    app.state.image_editing_runtime = object()
+    app.state.model_catalog = Mock(
+        list_models=AsyncMock(
+            return_value=(
+                _descriptor(
+                    1,
+                    capabilities=(
+                        ModelCapability.IMAGE_GENERATION,
+                        ModelCapability.IMAGE_EDITING,
+                    ),
+                ),
+            )
+        )
+    )
+
+    response = client.get("/api/v1/ai/capabilities")
+
+    assert response.status_code == 200
+    items = {item["id"]: item for item in response.json()["items"]}
+    assert items["image_generation"] == {
+        "id": "image_generation",
+        "status": "available",
+        "blocking_reasons": [],
+    }
+    assert items["image_editing"] == {
+        "id": "image_editing",
+        "status": "available",
+        "blocking_reasons": [],
+    }
+
+    app.state.image_generation_runtime = None
+    app.state.image_editing_runtime = None
+    unavailable = client.get("/api/v1/ai/capabilities")
+    unavailable_items = {
+        item["id"]: item for item in unavailable.json()["items"]
+    }
+    assert unavailable_items["image_generation"]["status"] == "unavailable"
+    assert unavailable_items["image_editing"]["status"] == "unavailable"
 
 
 def test_product_capability_schema_rejects_duplicate_ids():

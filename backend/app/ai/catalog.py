@@ -145,10 +145,10 @@ class RuntimeModel:
         if self.estimated_vram_bytes is not None and (
             isinstance(self.estimated_vram_bytes, bool)
             or not isinstance(self.estimated_vram_bytes, int)
-            or self.estimated_vram_bytes < 1
+            or self.estimated_vram_bytes < 0
         ):
             raise ValueError(
-                "model estimated_vram_bytes must be a positive integer"
+                "model estimated_vram_bytes must be a non-negative integer"
             )
         for field_name, value in (
             ("required_vram_bytes", self.required_vram_bytes),
@@ -157,9 +157,11 @@ class RuntimeModel:
             if value is not None and (
                 isinstance(value, bool)
                 or not isinstance(value, int)
-                or value < 1
+                or value < 0
             ):
-                raise ValueError(f"model {field_name} must be a positive integer")
+                raise ValueError(
+                    f"model {field_name} must be a non-negative integer"
+                )
         object.__setattr__(
             self,
             "capabilities",

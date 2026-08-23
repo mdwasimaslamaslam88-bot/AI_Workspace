@@ -27,6 +27,20 @@ class MessageService:
         self.session = session
         self.repository = MessageRepository(session)
 
+    async def get_by_attachment_for_owner(
+        self,
+        owner_id: UUID,
+        asset_id: UUID,
+    ) -> Message | None:
+        try:
+            return await self.repository.get_by_attachment_for_owner(
+                owner_id,
+                asset_id,
+            )
+        except BaseException:
+            await self.session.rollback()
+            raise
+
     async def append_for_owner(
         self,
         owner_id: UUID,

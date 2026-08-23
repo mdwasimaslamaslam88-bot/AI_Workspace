@@ -77,6 +77,17 @@ def test_hardware_planner_reserves_capacity_and_fails_closed_on_unknowns():
     )
 
 
+def test_hardware_planner_admits_cpu_compatible_model_without_gpu_vram():
+    planner = HardwarePlanner(HardwareInventory(total_ram_bytes=32 * GIBIBYTE))
+
+    assert planner.runnable_now(
+        installed=True,
+        required_vram_bytes=0,
+        required_ram_bytes=512 * 1024**2,
+    )
+    assert planner.required_hardware_class(0) is HardwareClass.CPU_ONLY
+
+
 def test_detect_hardware_uses_capacity_only(monkeypatch):
     completed = Mock(stdout="12288\n", returncode=0)
     run = Mock(return_value=completed)

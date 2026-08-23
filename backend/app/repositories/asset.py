@@ -4,7 +4,7 @@ from uuid import UUID
 
 from sqlalchemy import func, select, update
 
-from app.models.asset import Asset
+from app.models.asset import Asset, AssetProvenanceKind
 from app.repositories.base import BaseRepository
 
 
@@ -36,6 +36,52 @@ class AssetRepository(BaseRepository):
             content_sha256=content_sha256,
             storage_key=storage_key,
             upload_idempotency_key=upload_idempotency_key,
+        )
+        self.session.add(asset)
+        await self.session.flush()
+        return asset
+
+    async def create_generated(
+        self,
+        *,
+        asset_id: UUID,
+        owner_id: UUID,
+        original_filename: str | None,
+        media_type: str,
+        byte_size: int,
+        content_sha256: str,
+        storage_key: str,
+        upload_idempotency_key: UUID,
+        provenance_kind: AssetProvenanceKind,
+        source_asset_id: UUID | None,
+        runtime_id: str,
+        model_id: str,
+    ) -> Asset | None:
+        if source_asset_id is not None:
+            source = await self.session.execute(
+                select(Asset.id)
+                .where(
+                    Asset.id == source_asset_id,
+                    Asset.owner_id == owner_id,
+                    Asset.deleted_at.is_(None),
+                )
+                .with_for_update(of=Asset, read=True)
+            )
+            if source.scalar_one_or_none() is None:
+                return None
+        asset = Asset(
+            id=asset_id,
+            owner_id=owner_id,
+            original_filename=original_filename,
+            media_type=media_type,
+            byte_size=byte_size,
+            content_sha256=content_sha256,
+            storage_key=storage_key,
+            upload_idempotency_key=upload_idempotency_key,
+            provenance_kind=provenance_kind,
+            source_asset_id=source_asset_id,
+            runtime_id=runtime_id,
+            model_id=model_id,
         )
         self.session.add(asset)
         await self.session.flush()

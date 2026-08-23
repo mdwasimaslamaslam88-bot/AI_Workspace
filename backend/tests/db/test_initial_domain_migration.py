@@ -82,6 +82,24 @@ class RecordingOperations:
         table.append_constraint(constraint)
         self.events.append(("create_check_constraint", constraint_name))
 
+    def create_foreign_key(
+        self,
+        constraint_name: str,
+        source_table: str,
+        referent_table: str,
+        local_columns,
+        remote_columns,
+        **kwargs,
+    ) -> None:
+        table = self.metadata.tables[source_table]
+        sa.ForeignKeyConstraint(
+            [table.c[column_name] for column_name in local_columns],
+            [f"{referent_table}.{column_name}" for column_name in remote_columns],
+            name=constraint_name,
+            ondelete=kwargs.get("ondelete"),
+        )
+        self.events.append(("create_foreign_key", constraint_name))
+
     def drop_constraint(
         self,
         constraint_name: str,

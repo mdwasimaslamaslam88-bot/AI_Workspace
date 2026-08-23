@@ -2,7 +2,11 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
-import { selectableTextModels } from "../src/app/collections";
+import {
+  firstRunnableCapabilityModel,
+  selectableTextModels,
+} from "../src/app/collections";
+import type { LocalModel } from "../src/api/contracts";
 import { ModelSelector } from "../src/features/models/ModelSelector";
 import { model, visionModel } from "./fixtures";
 
@@ -12,6 +16,24 @@ const callbacks = {
 };
 
 describe("ModelSelector", () => {
+  it("keeps multimodal text models selectable and finds media capabilities", () => {
+    const multimodal: LocalModel = {
+      ...model,
+      modality: "multimodal" as const,
+      capabilities: ["text_generation", "vision_input"],
+    };
+    const speech: LocalModel = {
+      ...model,
+      model_id: "piper:" + "b".repeat(24),
+      runtime_id: "piper",
+      modality: "audio" as const,
+      capabilities: ["speech_synthesis"],
+    };
+
+    expect(selectableTextModels([multimodal])).toEqual([multimodal]);
+    expect(firstRunnableCapabilityModel([multimodal, speech], "speech_synthesis"))
+      .toBe(speech);
+  });
   it("shows loading and empty states", () => {
     const { rerender } = render(
       <ModelSelector

@@ -3,7 +3,7 @@
 Import future modules that define mapped ``Base`` subclasses here.
 """
 
-from app.models.asset import Asset
+from app.models.asset import Asset, AssetProvenanceKind
 from app.models.conversation import Conversation
 from app.models.document import Document, DocumentChunk, DocumentStatus
 from app.models.message import Message, MessageRole
@@ -16,6 +16,7 @@ from app.models.workflow import Workflow, WorkflowStatus, WorkflowStep
 
 __all__ = [
     "Asset",
+    "AssetProvenanceKind",
     "Conversation",
     "Document",
     "DocumentChunk",

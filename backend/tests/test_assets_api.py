@@ -11,7 +11,7 @@ import app.api.v1.assets as assets_module
 from app.api.dependencies import get_current_user
 from app.api.v1.assets import router
 from app.db.dependencies import get_db_session
-from app.models import Asset, User
+from app.models import Asset, AssetProvenanceKind, User
 from app.services.asset import AssetContent, AssetUploadResult
 from app.storage.local import LocalAssetStorage
 
@@ -63,6 +63,7 @@ def _asset(owner_id, idempotency_key):
             f"objects/{asset_id.hex[:2]}/{asset_id.hex[2:4]}/{asset_id.hex}"
         ),
         upload_idempotency_key=idempotency_key,
+        provenance_kind=AssetProvenanceKind.UPLOAD,
         created_at=datetime(2026, 8, 21, tzinfo=timezone.utc),
         deleted_at=None,
     )
@@ -100,6 +101,10 @@ def test_upload_returns_safe_metadata_and_never_storage_key(asset_api):
         "media_type": "text/plain",
         "byte_size": 7,
         "content_sha256": "a" * 64,
+        "provenance_kind": "upload",
+        "source_asset_id": None,
+        "runtime_id": None,
+        "model_id": None,
         "created_at": "2026-08-21T00:00:00Z",
         "deleted_at": None,
     }
@@ -180,6 +185,7 @@ def test_download_is_opaque_authenticated_no_store_and_filename_safe(asset_api):
     asset_api["service"].get_content_for_owner.return_value = AssetContent(
         storage_key=storage_key,
         original_filename='résumé "final".txt',
+        media_type="text/plain",
         byte_size=7,
     )
 
@@ -189,6 +195,7 @@ def test_download_is_opaque_authenticated_no_store_and_filename_safe(asset_api):
     assert response.content == b"content"
     assert response.headers["content-type"] == "application/octet-stream"
     assert response.headers["x-content-type-options"] == "nosniff"
+    assert response.headers["x-asset-media-type"] == "text/plain"
     assert response.headers["cache-control"] == "private, no-store"
     assert response.headers["accept-ranges"] == "none"
     disposition = response.headers["content-disposition"]
@@ -203,6 +210,7 @@ def test_range_is_rejected_without_opening_content(asset_api):
     asset_api["service"].get_content_for_owner.return_value = AssetContent(
         storage_key="objects/aa/aa/" + "a" * 32,
         original_filename=None,
+        media_type="application/octet-stream",
         byte_size=7,
     )
     asset_api["app"].state.asset_storage.open_read = Mock()
@@ -230,6 +238,7 @@ def test_active_metadata_with_missing_file_is_generic_503(asset_api):
     asset_api["service"].get_content_for_owner.return_value = AssetContent(
         storage_key="objects/aa/aa/" + "a" * 32,
         original_filename="private-name.txt",
+        media_type="text/plain",
         byte_size=7,
     )
 
@@ -287,6 +296,7 @@ def test_file_size_mismatch_is_generic_503(asset_api):
     asset_api["service"].get_content_for_owner.return_value = AssetContent(
         storage_key=storage_key,
         original_filename="private.txt",
+        media_type="text/plain",
         byte_size=99,
     )
 

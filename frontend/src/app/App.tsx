@@ -23,6 +23,7 @@ import type {
 import {
   mergeConversations,
   mergeMessages,
+  firstRunnableCapabilityModel,
   modelSupportsVision,
   selectableTextModels,
 } from "./collections";
@@ -710,6 +711,195 @@ export function App() {
     [client, refreshMessageSnapshot, selectedConversation],
   );
 
+  const transcribeVoice = useCallback(
+    async (recording: Blob, signal?: AbortSignal): Promise<string> => {
+      if (client === null) {
+        throw new ApiError("authentication", "Authentication failed.");
+      }
+      const model = firstRunnableCapabilityModel(models, "speech_recognition");
+      if (model === null) {
+        throw new ApiError("unavailable", "Local speech recognition is unavailable.");
+      }
+      const mediaType = recording.type.split(";", 1)[0] || "audio/webm";
+      const extension =
+        ({
+          "audio/wav": "wav",
+          "audio/x-wav": "wav",
+          "audio/ogg": "ogg",
+          "audio/mpeg": "mp3",
+          "audio/mp3": "mp3",
+          "audio/webm": "webm",
+        } as Record<string, string>)[mediaType] ?? "audio";
+      const idempotencyKey = crypto.randomUUID();
+      const file = new File([recording], `local-recording.${extension}`, {
+        type: mediaType,
+      });
+      const asset = await client.uploadAsset(file, idempotencyKey, { signal });
+      try {
+        return (
+          await client.transcribeVoice(
+            { asset_id: asset.id, model_id: model.model_id },
+            signal,
+          )
+        ).text;
+      } finally {
+        try {
+          await client.deleteAsset(asset.id);
+        } catch {
+          // The asset remains owner-scoped if cleanup fails; never
+          // replace a valid transcript or cancellation with cleanup details.
+        }
+      }
+    },
+    [client, models],
+  );
+
+  const synthesizeVoice = useCallback(
+    async (
+      text: string,
+      signal?: AbortSignal,
+    ): Promise<{ asset: Asset; audio: Blob }> => {
+      if (client === null) {
+        throw new ApiError("authentication", "Authentication failed.");
+      }
+      const model = firstRunnableCapabilityModel(models, "speech_synthesis");
+      if (model === null) {
+        throw new ApiError("unavailable", "Local speech synthesis is unavailable.");
+      }
+      const synthesis = await client.synthesizeVoice(
+        { model_id: model.model_id, text },
+        crypto.randomUUID(),
+        signal,
+      );
+      try {
+        const audio = await client.downloadAsset(synthesis.asset.id, signal);
+        return { asset: synthesis.asset, audio };
+      } catch (error) {
+        try {
+          await client.deleteAsset(synthesis.asset.id);
+        } catch {
+          // The failed output remains owner-scoped if cleanup also fails.
+        }
+        throw error;
+      }
+    },
+    [client, models],
+  );
+
+  const generateImage = useCallback(
+    async (prompt: string): Promise<void> => {
+      if (client === null || selectedConversation === null || generating) return;
+      const model = firstRunnableCapabilityModel(models, "image_generation");
+      if (model === null) {
+        throw new ApiError("unavailable", "Local image generation is unavailable.");
+      }
+      const controller = new AbortController();
+      generationAbort.current = controller;
+      setGenerating(true);
+      setChatNotice(null);
+      try {
+        const seed = crypto.getRandomValues(new Uint32Array(1))[0] ?? 0;
+        const result = await client.generateImage(
+          {
+            conversation_id: selectedConversation.id,
+            model_id: model.model_id,
+            prompt,
+            width: 768,
+            height: 768,
+            steps: 20,
+            guidance: 7,
+            seed,
+          },
+          crypto.randomUUID(),
+          controller.signal,
+        );
+        setMessages((current) => mergeMessages(current, [result.message]));
+        await refreshMessageSnapshot(selectedConversation.id, 2);
+        await reloadConversations();
+      } catch (error) {
+        const reconciled = await refreshMessageSnapshot(
+          selectedConversation.id,
+          2,
+        );
+        await reloadConversations();
+        if (!(error instanceof ApiError && error.kind === "cancelled")) {
+          setChatNotice(
+            safeNotice(error, reconciled ? "complete" : "uncertain"),
+          );
+        }
+        throw error;
+      } finally {
+        if (generationAbort.current === controller) generationAbort.current = null;
+        setGenerating(false);
+      }
+    },
+    [
+      client,
+      generating,
+      models,
+      refreshMessageSnapshot,
+      reloadConversations,
+      selectedConversation,
+    ],
+  );
+
+  const editImage = useCallback(
+    async (sourceAssetId: string, instruction: string): Promise<void> => {
+      if (client === null || selectedConversation === null || generating) return;
+      const model = firstRunnableCapabilityModel(models, "image_editing");
+      if (model === null) {
+        throw new ApiError("unavailable", "Local image editing is unavailable.");
+      }
+      const controller = new AbortController();
+      generationAbort.current = controller;
+      setGenerating(true);
+      setChatNotice(null);
+      try {
+        const seed = crypto.getRandomValues(new Uint32Array(1))[0] ?? 0;
+        const result = await client.editImage(
+          {
+            conversation_id: selectedConversation.id,
+            model_id: model.model_id,
+            source_asset_id: sourceAssetId,
+            instruction,
+            steps: 20,
+            guidance: 7,
+            denoise: 0.65,
+            seed,
+          },
+          crypto.randomUUID(),
+          controller.signal,
+        );
+        setMessages((current) => mergeMessages(current, [result.message]));
+        await refreshMessageSnapshot(selectedConversation.id, 2);
+        await reloadConversations();
+      } catch (error) {
+        const reconciled = await refreshMessageSnapshot(
+          selectedConversation.id,
+          2,
+        );
+        await reloadConversations();
+        if (!(error instanceof ApiError && error.kind === "cancelled")) {
+          setChatNotice(
+            safeNotice(error, reconciled ? "complete" : "uncertain"),
+          );
+        }
+        throw error;
+      } finally {
+        if (generationAbort.current === controller) generationAbort.current = null;
+        setGenerating(false);
+      }
+    },
+    [
+      client,
+      generating,
+      models,
+      refreshMessageSnapshot,
+      reloadConversations,
+      selectedConversation,
+    ],
+  );
+
   function chooseModel(modelId: string) {
     setSelectedModelId(modelId);
     writeModelPreference(modelId);
@@ -897,6 +1087,22 @@ export function App() {
           onIngestDocument={ingestDocument}
           onDownloadAttachment={downloadAttachment}
           onDeleteAttachment={deleteAttachment}
+          voiceInputAvailable={
+            firstRunnableCapabilityModel(models, "speech_recognition") !== null
+          }
+          voiceOutputAvailable={
+            firstRunnableCapabilityModel(models, "speech_synthesis") !== null
+          }
+          imageGenerationAvailable={
+            firstRunnableCapabilityModel(models, "image_generation") !== null
+          }
+          imageEditingAvailable={
+            firstRunnableCapabilityModel(models, "image_editing") !== null
+          }
+          onTranscribeVoice={transcribeVoice}
+          onSynthesizeVoice={synthesizeVoice}
+          onGenerateImage={generateImage}
+          onEditImage={editImage}
         />
       </section>
     </main>

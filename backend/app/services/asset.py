@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.logging import get_logger
 from app.models.asset import Asset
+from app.models.asset import AssetProvenanceKind
 from app.repositories.asset import AssetRepository
 from app.storage.base import AssetStorage, ReconciliationReport, StagedAssetWrite
 from app.storage.local import StorageError
@@ -52,6 +53,10 @@ class AssetFilenameInvalidError(AssetUploadError):
     """A submitted display filename contains unsafe control data."""
 
 
+class AssetProvenanceUnavailableError(AssetUploadError):
+    """Generated media provenance cannot be claimed for this owner."""
+
+
 @dataclass(frozen=True, slots=True)
 class AssetUploadResult:
     asset: Asset
@@ -62,7 +67,29 @@ class AssetUploadResult:
 class AssetContent:
     storage_key: str
     original_filename: str | None
+    media_type: str
     byte_size: int
+
+
+def _validate_generated_provenance(
+    provenance_kind: AssetProvenanceKind,
+    source_asset_id: UUID | None,
+    runtime_id: str,
+    model_id: str,
+) -> None:
+    if provenance_kind is AssetProvenanceKind.UPLOAD:
+        raise ValueError("generated asset provenance cannot be upload")
+    if provenance_kind is AssetProvenanceKind.IMAGE_EDITING:
+        if source_asset_id is None:
+            raise ValueError("image editing provenance requires a source asset")
+    elif source_asset_id is not None:
+        raise ValueError("this generated asset provenance cannot have a source")
+    if not re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,63}", runtime_id):
+        raise ValueError("generated asset runtime ID is invalid")
+    if not re.fullmatch(
+        r"[a-z0-9][a-z0-9_-]{0,63}:[a-f0-9]{24}", model_id
+    ):
+        raise ValueError("generated asset model ID is invalid")
 
 
 def normalize_original_filename(filename: str | None) -> str | None:
@@ -121,6 +148,8 @@ def canonical_media_type(claimed: str | None, prefix: bytes) -> str:
         return "audio/wav"
     if prefix.startswith(b"OggS"):
         return "audio/ogg"
+    if prefix.startswith(b"\x1a\x45\xdf\xa3") and normalized_claim == "audio/webm":
+        return "audio/webm"
     if _looks_like_mp3(prefix):
         return "audio/mpeg"
     if prefix.startswith(b"PK\x03\x04"):
@@ -219,6 +248,83 @@ class AssetService:
                 await self._delete_compensation(finalized_key, asset_id)
             raise
 
+    async def create_generated_for_owner(
+        self,
+        owner_id: UUID,
+        idempotency_key: UUID,
+        *,
+        filename: str,
+        claimed_media_type: str,
+        content: bytes,
+        provenance_kind: AssetProvenanceKind,
+        source_asset_id: UUID | None,
+        runtime_id: str,
+        model_id: str,
+    ) -> AssetUploadResult:
+        if not isinstance(content, bytes):
+            raise TypeError("generated asset content must be bytes")
+        _validate_generated_provenance(
+            provenance_kind,
+            source_asset_id,
+            runtime_id,
+            model_id,
+        )
+        asset_id = uuid4()
+        writer = await asyncio.to_thread(self.storage.begin_write, asset_id)
+        finalized_key: str | None = None
+        prefix = content[:ASSET_SNIFF_BYTES]
+        try:
+            for offset in range(0, len(content), ASSET_COPY_CHUNK_BYTES):
+                await asyncio.to_thread(
+                    writer.write,
+                    content[offset : offset + ASSET_COPY_CHUNK_BYTES],
+                )
+            if writer.byte_size == 0:
+                raise AssetEmptyError("asset content is empty")
+            original_filename = normalize_original_filename(filename)
+            media_type = canonical_media_type(claimed_media_type, prefix)
+            if media_type != claimed_media_type:
+                raise AssetUploadError("generated asset media type is invalid")
+            finalized_key = await asyncio.to_thread(writer.finalize)
+            try:
+                asset = await self.repository.create_generated(
+                    asset_id=asset_id,
+                    owner_id=owner_id,
+                    original_filename=original_filename,
+                    media_type=media_type,
+                    byte_size=writer.byte_size,
+                    content_sha256=writer.content_sha256,
+                    storage_key=finalized_key,
+                    upload_idempotency_key=idempotency_key,
+                    provenance_kind=provenance_kind,
+                    source_asset_id=source_asset_id,
+                    runtime_id=runtime_id,
+                    model_id=model_id,
+                )
+                if asset is None:
+                    raise AssetProvenanceUnavailableError(
+                        "generated asset source is unavailable"
+                    )
+                await self.session.commit()
+                return AssetUploadResult(asset=asset, created=True)
+            except IntegrityError:
+                await self.session.rollback()
+                await self._delete_compensation(finalized_key, asset_id)
+                finalized_key = None
+                existing = await self.repository.get_by_idempotency_key_for_owner(
+                    owner_id,
+                    idempotency_key,
+                )
+                if existing is None:
+                    raise
+                return AssetUploadResult(asset=existing, created=False)
+        except BaseException:
+            await self.session.rollback()
+            await self._abort_compensation(writer, asset_id)
+            if finalized_key is not None:
+                await self._delete_compensation(finalized_key, asset_id)
+            raise
+
     async def get_content_for_owner(
         self,
         owner_id: UUID,
@@ -232,6 +338,7 @@ class AssetService:
             content = AssetContent(
                 storage_key=asset.storage_key,
                 original_filename=asset.original_filename,
+                media_type=asset.media_type,
                 byte_size=asset.byte_size,
             )
             await self.session.rollback()

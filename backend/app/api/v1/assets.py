@@ -214,6 +214,7 @@ async def download_asset(
                 content.original_filename
             ),
             "X-Content-Type-Options": "nosniff",
+            "X-Asset-Media-Type": content.media_type,
             "Cache-Control": "private, no-store",
             "Accept-Ranges": "none",
         },

@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from uuid import UUID
 
 from sqlalchemy import Integer, bindparam, func, or_, select, true, update
+from sqlalchemy.orm import selectinload
 
 from app.models.asset import Asset
 from app.models.conversation import Conversation
@@ -87,6 +88,27 @@ class MessageCitationClaimError(RuntimeError):
 
 
 class MessageRepository(BaseRepository):
+    async def get_by_attachment_for_owner(
+        self,
+        owner_id: UUID,
+        asset_id: UUID,
+    ) -> Message | None:
+        statement = (
+            select(Message)
+            .join(Conversation, Conversation.id == Message.conversation_id)
+            .join(MessageAsset, MessageAsset.message_id == Message.id)
+            .where(
+                Conversation.owner_id == owner_id,
+                MessageAsset.asset_id == asset_id,
+            )
+            .options(
+                selectinload(Message.asset_links),
+                selectinload(Message.citation_links),
+            )
+        )
+        result = await self.session.execute(statement)
+        return result.scalar_one_or_none()
+
     async def append_for_owner(
         self,
         owner_id: UUID,

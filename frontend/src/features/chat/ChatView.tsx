@@ -84,9 +84,24 @@ interface ChatViewProps extends AttachmentActions {
   onLoadMoreMessages: () => void;
   onReloadMessages: () => void;
   onDownloadAttachment: (assetId: string, signal?: AbortSignal) => Promise<Blob>;
+  voiceInputAvailable?: boolean;
+  voiceOutputAvailable?: boolean;
+  onTranscribeVoice?: (
+    recording: Blob,
+    signal?: AbortSignal,
+  ) => Promise<string>;
+  onSynthesizeVoice?: (
+    text: string,
+    signal?: AbortSignal,
+  ) => Promise<{ asset: Asset; audio: Blob }>;
+  imageGenerationAvailable?: boolean;
+  imageEditingAvailable?: boolean;
+  onGenerateImage?: (prompt: string) => Promise<void>;
+  onEditImage?: (sourceAssetId: string, instruction: string) => Promise<void>;
 }
 
 const EMPTY_ATTACHMENT_STATES = new Map<string, MessageAttachment["state"]>();
+const MAX_VOICE_CAPTURE_BYTES = 220_000;
 
 function formatTimestamp(timestamp: string): string {
   const date = new Date(timestamp);
@@ -414,6 +429,46 @@ function AttachmentPicker({
   );
 }
 
+function OwnedImagePreview({
+  assetId,
+  label,
+  onDownload,
+}: {
+  assetId: string;
+  label: string;
+  onDownload: ChatViewProps["onDownloadAttachment"];
+}) {
+  const [url, setUrl] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    let objectUrl: string | null = null;
+    setUrl(null);
+    setFailed(false);
+    void onDownload(assetId, controller.signal)
+      .then((blob) => {
+        if (controller.signal.aborted) return;
+        if (!["image/png", "image/jpeg"].includes(blob.type)) {
+          throw new Error("Unsupported image response");
+        }
+        objectUrl = URL.createObjectURL(blob);
+        setUrl(objectUrl);
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setFailed(true);
+      });
+    return () => {
+      controller.abort();
+      if (objectUrl !== null) URL.revokeObjectURL(objectUrl);
+    };
+  }, [assetId, onDownload]);
+
+  if (failed) return <span className="muted">Image preview unavailable.</span>;
+  if (url === null) return <span className="muted" role="status">Loading image…</span>;
+  return <img className="owned-image-preview" src={url} alt={label} />;
+}
+
 function NewConversationView({
   canGenerate,
   creating,
@@ -569,11 +624,40 @@ export function ChatView({
   onIngestDocument,
   onDownloadAttachment,
   onDeleteAttachment,
+  voiceInputAvailable = false,
+  voiceOutputAvailable = false,
+  onTranscribeVoice,
+  onSynthesizeVoice,
+  imageGenerationAvailable = false,
+  imageEditingAvailable = false,
+  onGenerateImage,
+  onEditImage,
 }: ChatViewProps) {
   const [draft, setDraft] = useState("");
   const [attachmentNotice, setAttachmentNotice] = useState<string | null>(null);
+  const [voiceNotice, setVoiceNotice] = useState<string | null>(null);
+  const [recording, setRecording] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
+  const [synthesizingMessageId, setSynthesizingMessageId] = useState<string | null>(null);
+  const [imagePrompt, setImagePrompt] = useState("");
+  const [editInstruction, setEditInstruction] = useState("");
+  const [editingAttachment, setEditingAttachment] =
+    useState<MessageAttachment | null>(null);
+  const [imageOperation, setImageOperation] = useState<
+    "generating" | "editing" | null
+  >(null);
+  const [speechOutput, setSpeechOutput] = useState<{
+    messageId: string;
+    asset: Asset;
+    url: string;
+  } | null>(null);
   const objectUrls = useRef(new Set<string>());
   const contentControllers = useRef(new Set<AbortController>());
+  const recorder = useRef<MediaRecorder | null>(null);
+  const recordingStream = useRef<MediaStream | null>(null);
+  const recordingTimer = useRef<number | null>(null);
+  const voiceController = useRef<AbortController | null>(null);
+  const voiceUploadInput = useRef<HTMLInputElement | null>(null);
   const attachedStates = useMemo(
     () =>
       new Map(
@@ -622,8 +706,280 @@ export function ChatView({
       controllers.clear();
       for (const url of urls) URL.revokeObjectURL(url);
       urls.clear();
+      voiceController.current?.abort();
+      if (recordingTimer.current !== null) window.clearTimeout(recordingTimer.current);
+      if (recorder.current !== null) {
+        recorder.current.ondataavailable = null;
+        recorder.current.onstop = null;
+        if (recorder.current.state === "recording") recorder.current.stop();
+      }
+      for (const track of recordingStream.current?.getTracks() ?? []) track.stop();
     };
   }, []);
+
+  const stopRecording = useCallback(() => {
+    if (recordingTimer.current !== null) {
+      window.clearTimeout(recordingTimer.current);
+      recordingTimer.current = null;
+    }
+    if (recorder.current?.state === "recording") recorder.current.stop();
+  }, []);
+
+  const transcribeAudio = useCallback(
+    (audio: Blob) => {
+      if (
+        !voiceInputAvailable ||
+        onTranscribeVoice === undefined ||
+        audio.size === 0 ||
+        audio.size > MAX_VOICE_CAPTURE_BYTES ||
+        recording ||
+        transcribing ||
+        synthesizingMessageId !== null
+      ) return;
+      const controller = new AbortController();
+      voiceController.current = controller;
+      setVoiceNotice(null);
+      setTranscribing(true);
+      void onTranscribeVoice(audio, controller.signal)
+        .then((transcript) => setDraft(transcript))
+        .catch(() => {
+          if (!controller.signal.aborted) {
+            setVoiceNotice("The local audio could not be transcribed.");
+          }
+        })
+        .finally(() => {
+          if (voiceController.current === controller) voiceController.current = null;
+          setTranscribing(false);
+        });
+    },
+    [
+      onTranscribeVoice,
+      recording,
+      synthesizingMessageId,
+      transcribing,
+      voiceInputAvailable,
+    ],
+  );
+
+  const uploadVoice = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => {
+      const file = event.target.files?.[0] ?? null;
+      event.target.value = "";
+      if (file === null) return;
+      const mediaType = file.type.split(";", 1)[0]?.toLowerCase() ?? "";
+      const extension = file.name.toLowerCase().split(".").pop() ?? "";
+      if (
+        ![
+          "audio/wav",
+          "audio/x-wav",
+          "audio/ogg",
+          "audio/mpeg",
+          "audio/mp3",
+          "audio/webm",
+        ].includes(mediaType) &&
+        !(mediaType === "" && ["wav", "ogg", "mp3", "webm"].includes(extension))
+      ) {
+        setVoiceNotice("Choose a WAV, OGG, MP3, or WebM audio file.");
+        return;
+      }
+      if (file.size === 0 || file.size > MAX_VOICE_CAPTURE_BYTES) {
+        setVoiceNotice("The audio file exceeded its local size limit.");
+        return;
+      }
+      transcribeAudio(file);
+    },
+    [transcribeAudio],
+  );
+
+  const startRecording = useCallback(async () => {
+    if (
+      !voiceInputAvailable ||
+      onTranscribeVoice === undefined ||
+      recording ||
+      transcribing ||
+      synthesizingMessageId !== null
+    ) return;
+    setVoiceNotice(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      recordingStream.current = stream;
+      const preferred = ["audio/webm;codecs=opus", "audio/ogg;codecs=opus"].find(
+        (value) => MediaRecorder.isTypeSupported(value),
+      );
+      const mediaRecorder = new MediaRecorder(stream, {
+        ...(preferred === undefined ? {} : { mimeType: preferred }),
+        audioBitsPerSecond: 32_000,
+      });
+      recorder.current = mediaRecorder;
+      const chunks: Blob[] = [];
+      let totalBytes = 0;
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size === 0) return;
+        totalBytes += event.data.size;
+        if (totalBytes > MAX_VOICE_CAPTURE_BYTES) {
+          setVoiceNotice("The recording exceeded its local size limit.");
+          stopRecording();
+          return;
+        }
+        chunks.push(event.data);
+      };
+      mediaRecorder.onstop = () => {
+        setRecording(false);
+        for (const track of stream.getTracks()) track.stop();
+        recordingStream.current = null;
+        recorder.current = null;
+        if (chunks.length === 0 || totalBytes > MAX_VOICE_CAPTURE_BYTES) return;
+        const blob = new Blob(chunks, { type: mediaRecorder.mimeType });
+        transcribeAudio(blob);
+      };
+      mediaRecorder.start(250);
+      setRecording(true);
+      recordingTimer.current = window.setTimeout(stopRecording, 12_000);
+    } catch {
+      setVoiceNotice("Microphone access is unavailable.");
+      for (const track of recordingStream.current?.getTracks() ?? []) track.stop();
+      recordingStream.current = null;
+      setRecording(false);
+    }
+  }, [
+    onTranscribeVoice,
+    recording,
+    stopRecording,
+    synthesizingMessageId,
+    transcribeAudio,
+    transcribing,
+    voiceInputAvailable,
+  ]);
+
+  const synthesizeMessage = useCallback(
+    async (message: Message) => {
+      if (
+        !voiceOutputAvailable ||
+        onSynthesizeVoice === undefined ||
+        recording ||
+        transcribing
+      ) return;
+      voiceController.current?.abort();
+      const controller = new AbortController();
+      voiceController.current = controller;
+      setVoiceNotice(null);
+      setSynthesizingMessageId(message.id);
+      try {
+        const result = await onSynthesizeVoice(message.content, controller.signal);
+        if (speechOutput !== null) {
+          try {
+            await onDeleteAttachment(speechOutput.asset.id);
+          } catch {
+            // A superseded output remains owner-scoped if its best-effort
+            // cleanup fails; the new playable result remains valid.
+          }
+          URL.revokeObjectURL(speechOutput.url);
+          objectUrls.current.delete(speechOutput.url);
+        }
+        const typedAudio = new Blob([result.audio], { type: result.asset.media_type });
+        const url = URL.createObjectURL(typedAudio);
+        objectUrls.current.add(url);
+        setSpeechOutput({ messageId: message.id, asset: result.asset, url });
+      } catch {
+        if (!controller.signal.aborted) {
+          setVoiceNotice("The local response could not be synthesized.");
+        }
+      } finally {
+        if (voiceController.current === controller) voiceController.current = null;
+        setSynthesizingMessageId(null);
+      }
+    },
+    [
+      onSynthesizeVoice,
+      onDeleteAttachment,
+      recording,
+      speechOutput,
+      transcribing,
+      voiceOutputAvailable,
+    ],
+  );
+
+  const deleteSpeechOutput = useCallback(async () => {
+    if (speechOutput === null) return;
+    const current = speechOutput;
+    try {
+      await onDeleteAttachment(current.asset.id);
+      URL.revokeObjectURL(current.url);
+      objectUrls.current.delete(current.url);
+      setSpeechOutput(null);
+    } catch {
+      setVoiceNotice("The synthesized audio could not be deleted.");
+    }
+  }, [onDeleteAttachment, speechOutput]);
+
+  const submitImageGeneration = useCallback(
+    async (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      if (
+        !imagePrompt.trim() ||
+        imageOperation !== null ||
+        generating ||
+        recording ||
+        transcribing ||
+        synthesizingMessageId !== null ||
+        onGenerateImage === undefined
+      ) return;
+      setImageOperation("generating");
+      try {
+        await onGenerateImage(imagePrompt);
+        setImagePrompt("");
+      } catch {
+        // The app-level safe notice owns runtime error presentation.
+      } finally {
+        setImageOperation(null);
+      }
+    },
+    [
+      generating,
+      imageOperation,
+      imagePrompt,
+      onGenerateImage,
+      recording,
+      synthesizingMessageId,
+      transcribing,
+    ],
+  );
+
+  const submitImageEdit = useCallback(
+    async (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      if (
+        editingAttachment === null ||
+        !editInstruction.trim() ||
+        imageOperation !== null ||
+        generating ||
+        recording ||
+        transcribing ||
+        synthesizingMessageId !== null ||
+        onEditImage === undefined
+      ) return;
+      setImageOperation("editing");
+      try {
+        await onEditImage(editingAttachment.id, editInstruction);
+        setEditInstruction("");
+        setEditingAttachment(null);
+      } catch {
+        // The app-level safe notice owns runtime error presentation.
+      } finally {
+        setImageOperation(null);
+      }
+    },
+    [
+      editInstruction,
+      editingAttachment,
+      generating,
+      imageOperation,
+      onEditImage,
+      recording,
+      synthesizingMessageId,
+      transcribing,
+    ],
+  );
 
   const download = useCallback(
     async (attachment: MessageAttachment) => {
@@ -762,6 +1118,9 @@ export function ChatView({
       {attachmentNotice !== null && (
         <p className="notice notice-error" role="alert">{attachmentNotice}</p>
       )}
+      {voiceNotice !== null && (
+        <p className="notice notice-error" role="alert">{voiceNotice}</p>
+      )}
 
       <div className="message-region" aria-live="polite" aria-busy={loadingMessages}>
         {loadingMessages && <p className="muted" role="status">Loading history…</p>}
@@ -778,6 +1137,45 @@ export function ChatView({
                 </time>
               </div>
               <p>{message.content}</p>
+              {message.role === "assistant" && voiceOutputAvailable && (
+                <div className="voice-output-controls">
+                  <button
+                    type="button"
+                    className="button button-quiet"
+                    disabled={
+                      synthesizingMessageId !== null || recording || transcribing
+                    }
+                    onClick={() => void synthesizeMessage(message)}
+                  >
+                    {synthesizingMessageId === message.id
+                      ? "Synthesizing…"
+                      : "Read aloud"}
+                  </button>
+                  {synthesizingMessageId === message.id && (
+                    <button
+                      type="button"
+                      className="button button-quiet"
+                      onClick={() => voiceController.current?.abort()}
+                    >
+                      Cancel speech
+                    </button>
+                  )}
+                  {speechOutput?.messageId === message.id && (
+                    <div className="voice-playback">
+                      <audio controls src={speechOutput.url}>
+                        Local synthesized audio is ready to download.
+                      </audio>
+                      <button
+                        type="button"
+                        className="button button-quiet"
+                        onClick={() => void deleteSpeechOutput()}
+                      >
+                        Delete audio
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
               {message.attachments.length > 0 && (
                 <ul className="message-attachments" aria-label="Message attachments">
                   {message.attachments.map((attachment) => (
@@ -799,6 +1197,61 @@ export function ChatView({
                           {isVisionImageMediaType(attachment.media_type) && (
                             <span className="attachment-kind">Vision image</span>
                           )}
+                          {isVisionImageMediaType(attachment.media_type) &&
+                            attachment.provenance_kind === "image_generation" && (
+                              <figure className="generated-image">
+                                <OwnedImagePreview
+                                  assetId={attachment.id}
+                                  label="Locally generated image"
+                                  onDownload={onDownloadAttachment}
+                                />
+                                <figcaption>Generated locally</figcaption>
+                              </figure>
+                            )}
+                          {isVisionImageMediaType(attachment.media_type) &&
+                            attachment.provenance_kind === "image_editing" &&
+                            attachment.source_asset_id !== null && (
+                              <figure className="image-comparison">
+                                <div>
+                                  <OwnedImagePreview
+                                    assetId={attachment.source_asset_id}
+                                    label="Original image before local edit"
+                                    onDownload={onDownloadAttachment}
+                                  />
+                                  <span>Original</span>
+                                </div>
+                                <div>
+                                  <OwnedImagePreview
+                                    assetId={attachment.id}
+                                    label="Locally edited image"
+                                    onDownload={onDownloadAttachment}
+                                  />
+                                  <span>Edited</span>
+                                </div>
+                                <figcaption>Local edit comparison</figcaption>
+                              </figure>
+                            )}
+                          {imageEditingAvailable &&
+                            onEditImage !== undefined &&
+                            isVisionImageMediaType(attachment.media_type) && (
+                              <button
+                                type="button"
+                                className="button button-quiet"
+                                disabled={
+                                  generating ||
+                                  imageOperation !== null ||
+                                  recording ||
+                                  transcribing ||
+                                  synthesizingMessageId !== null
+                                }
+                                onClick={() => {
+                                  setEditingAttachment(attachment);
+                                  setEditInstruction("");
+                                }}
+                              >
+                                Edit locally
+                              </button>
+                            )}
                           <button
                             type="button"
                             className="button button-quiet"
@@ -854,6 +1307,115 @@ export function ChatView({
         )}
       </div>
 
+      {(imageGenerationAvailable || editingAttachment !== null) && (
+        <section className="image-studio" aria-labelledby="image-studio-title">
+          <div className="image-studio-heading">
+            <div>
+              <p className="eyebrow">Local media</p>
+              <h3 id="image-studio-title">Image studio</h3>
+            </div>
+            {editingAttachment !== null && (
+              <button
+                type="button"
+                className="button button-quiet"
+                disabled={imageOperation !== null}
+                onClick={() => setEditingAttachment(null)}
+              >
+                Close edit
+              </button>
+            )}
+          </div>
+          {editingAttachment === null ? (
+            imageGenerationAvailable &&
+            onGenerateImage !== undefined && (
+              <form onSubmit={(event) => void submitImageGeneration(event)}>
+                <label htmlFor="image-prompt">Image prompt</label>
+                <textarea
+                  id="image-prompt"
+                  rows={3}
+                  maxLength={2000}
+                  value={imagePrompt}
+                  onChange={(event) => setImagePrompt(event.target.value)}
+                  disabled={generating || imageOperation !== null}
+                  placeholder="Describe an image to generate locally"
+                />
+                <div className="composer-actions">
+                  {imageOperation === "generating" ? (
+                    <>
+                      <span role="status">Generating locally…</span>
+                      <button
+                        type="button"
+                        className="button button-secondary"
+                        onClick={onCancelGeneration}
+                      >
+                        Cancel image
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      className="button button-secondary"
+                      disabled={
+                        generating ||
+                        recording ||
+                        transcribing ||
+                        synthesizingMessageId !== null ||
+                        !imagePrompt.trim()
+                      }
+                    >
+                      Generate image
+                    </button>
+                  )}
+                </div>
+              </form>
+            )
+          ) : (
+            <form onSubmit={(event) => void submitImageEdit(event)}>
+              <p className="muted">
+                Editing {editingAttachment.original_filename ?? "owned image"}; the
+                original will be preserved.
+              </p>
+              <label htmlFor="image-edit-instruction">Edit instruction</label>
+              <textarea
+                id="image-edit-instruction"
+                rows={3}
+                maxLength={2000}
+                value={editInstruction}
+                onChange={(event) => setEditInstruction(event.target.value)}
+                disabled={generating || imageOperation !== null}
+                placeholder="Describe the local edit"
+              />
+              <div className="composer-actions">
+                {imageOperation === "editing" ? (
+                  <>
+                    <span role="status">Editing locally…</span>
+                    <button
+                      type="button"
+                      className="button button-secondary"
+                      onClick={onCancelGeneration}
+                    >
+                      Cancel edit
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    className="button button-secondary"
+                    disabled={
+                      generating ||
+                      recording ||
+                      transcribing ||
+                      synthesizingMessageId !== null ||
+                      !editInstruction.trim()
+                    }
+                  >
+                    Create edited copy
+                  </button>
+                )}
+              </div>
+            </form>
+          )}
+        </section>
+      )}
+
       {canRetryResponse && !generating && (
         <button
           className="button button-secondary retry-response"
@@ -884,6 +1446,64 @@ export function ChatView({
           disabled={generating}
         />
         <AttachmentPicker queue={queue} disabled={generating} />
+        {voiceInputAvailable && (
+          <div className="voice-input-controls">
+            <input
+              ref={voiceUploadInput}
+              className="sr-only"
+              type="file"
+              accept=".wav,.ogg,.mp3,.webm,audio/wav,audio/ogg,audio/mpeg,audio/webm"
+              aria-label="Upload audio for transcription"
+              disabled={
+                generating ||
+                recording ||
+                transcribing ||
+                synthesizingMessageId !== null
+              }
+              onChange={uploadVoice}
+            />
+            {recording ? (
+              <button
+                type="button"
+                className="button button-secondary"
+                onClick={stopRecording}
+              >
+                Stop recording
+              </button>
+            ) : transcribing ? (
+              <>
+                <span role="status">Transcribing locally…</span>
+                <button
+                  type="button"
+                  className="button button-secondary"
+                  onClick={() => voiceController.current?.abort()}
+                >
+                  Cancel transcription
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  className="button button-secondary"
+                  disabled={generating || synthesizingMessageId !== null}
+                  onClick={() => void startRecording()}
+                >
+                  Record voice
+                </button>
+                <button
+                  type="button"
+                  className="button button-secondary"
+                  disabled={generating || synthesizingMessageId !== null}
+                  onClick={() => voiceUploadInput.current?.click()}
+                >
+                  Upload audio
+                </button>
+              </>
+            )}
+            {recording && <span role="status">Recording locally (12 seconds max)…</span>}
+          </div>
+        )}
         {visionBlockReason !== null && (
           <p className="vision-guidance" role="status">
             {visionBlockReason}

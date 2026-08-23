@@ -7,11 +7,26 @@ import type {
 export function selectableTextModels(models: LocalModel[]): LocalModel[] {
   return models.filter(
     (model) =>
-      model.modality === "text" &&
+      (model.modality === "text" || model.modality === "multimodal") &&
       model.availability === "available" &&
       model.installed &&
       model.runnable_now &&
       model.capabilities.includes("text_generation"),
+  );
+}
+
+export function firstRunnableCapabilityModel(
+  models: LocalModel[],
+  capability: LocalModel["capabilities"][number],
+): LocalModel | null {
+  return (
+    models.find(
+      (model) =>
+        model.availability === "available" &&
+        model.installed &&
+        model.runnable_now &&
+        model.capabilities.includes(capability),
+    ) ?? null
   );
 }
 

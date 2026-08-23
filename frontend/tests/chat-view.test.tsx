@@ -97,6 +97,255 @@ describe("ChatView", () => {
     expect(screen.queryByText(/assistant response/i)).not.toBeInTheDocument();
   });
 
+  it("runs bounded local image generation from the unified chat", async () => {
+    const onGenerateImage = vi.fn(async () => undefined);
+    render(
+      <ChatView
+        {...baseProps}
+        imageGenerationAvailable
+        onGenerateImage={onGenerateImage}
+      />,
+    );
+
+    await userEvent.type(
+      screen.getByLabelText("Image prompt"),
+      "A private geometric lantern",
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "Generate image" }),
+    );
+
+    expect(onGenerateImage).toHaveBeenCalledWith(
+      "A private geometric lantern",
+    );
+    expect(screen.getByLabelText("Image prompt")).toHaveValue("");
+  });
+
+  it("presents an authenticated edited-image comparison and preserves its source", async () => {
+    const sourceId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const outputId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+    const edited = {
+      ...message(2, "assistant", "Edited an image locally."),
+      attachments: [
+        {
+          id: outputId,
+          position: 1,
+          state: "active" as const,
+          original_filename: "local-image-edit.png",
+          media_type: "image/png",
+          byte_size: 128,
+          provenance_kind: "image_editing" as const,
+          source_asset_id: sourceId,
+        },
+      ],
+    };
+    const onDownloadAttachment = vi.fn(async () =>
+      new Blob(["safe png"], { type: "image/png" }),
+    );
+    const onEditImage = vi.fn(async () => undefined);
+    const createObjectUrl = vi
+      .spyOn(URL, "createObjectURL")
+      .mockReturnValueOnce("blob:original")
+      .mockReturnValueOnce("blob:edited");
+    const revokeObjectUrl = vi
+      .spyOn(URL, "revokeObjectURL")
+      .mockImplementation(() => undefined);
+    const { unmount } = render(
+      <ChatView
+        {...baseProps}
+        messages={[edited]}
+        imageEditingAvailable
+        onEditImage={onEditImage}
+        onDownloadAttachment={onDownloadAttachment}
+      />,
+    );
+
+    expect(
+      await screen.findByRole("img", {
+        name: "Original image before local edit",
+      }),
+    ).toBeVisible();
+    expect(
+      await screen.findByRole("img", { name: "Locally edited image" }),
+    ).toBeVisible();
+    expect(onDownloadAttachment).toHaveBeenCalledWith(
+      sourceId,
+      expect.any(AbortSignal),
+    );
+    expect(onDownloadAttachment).toHaveBeenCalledWith(
+      outputId,
+      expect.any(AbortSignal),
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Edit locally" }));
+    await userEvent.type(
+      screen.getByLabelText("Edit instruction"),
+      "Make the lantern blue",
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: "Create edited copy" }),
+    );
+    expect(onEditImage).toHaveBeenCalledWith(
+      outputId,
+      "Make the lantern blue",
+    );
+
+    unmount();
+    expect(revokeObjectUrl).toHaveBeenCalledWith("blob:original");
+    expect(revokeObjectUrl).toHaveBeenCalledWith("blob:edited");
+    createObjectUrl.mockRestore();
+    revokeObjectUrl.mockRestore();
+  });
+
+  it("synthesizes, plays, and deletes an assistant response as owned audio", async () => {
+    const assistant = message(2, "assistant", "Private answer for speech");
+    const asset = {
+      id: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+      original_filename: "local-speech.wav",
+      media_type: "audio/wav",
+      byte_size: 128,
+      content_sha256: "e".repeat(64),
+      provenance_kind: "speech_synthesis" as const,
+      source_asset_id: null,
+      runtime_id: "piper",
+      model_id: "piper:" + "e".repeat(24),
+      created_at: "2026-08-23T00:00:00Z",
+      deleted_at: null,
+    };
+    const createObjectUrl = vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:voice");
+    const revokeObjectUrl = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => undefined);
+    const onSynthesizeVoice = vi.fn(async () => ({
+      asset,
+      audio: new Blob(["wave"]),
+    }));
+    const onDeleteAttachment = vi.fn(async () => undefined);
+    render(
+      <ChatView
+        {...baseProps}
+        messages={[assistant]}
+        voiceOutputAvailable
+        onSynthesizeVoice={onSynthesizeVoice}
+        onDeleteAttachment={onDeleteAttachment}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Read aloud" }));
+    await waitFor(() => expect(onSynthesizeVoice).toHaveBeenCalledWith(
+      "Private answer for speech",
+      expect.any(AbortSignal),
+    ));
+    expect(screen.getByText("Local synthesized audio is ready to download.")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Delete audio" }));
+    await waitFor(() => expect(onDeleteAttachment).toHaveBeenCalledWith(asset.id));
+    expect(revokeObjectUrl).toHaveBeenCalledWith("blob:voice");
+    createObjectUrl.mockRestore();
+    revokeObjectUrl.mockRestore();
+  });
+
+  it("records bounded local audio, stops tracks, and places its transcript in the draft", async () => {
+    const track = { stop: vi.fn() };
+    const getUserMedia = vi.fn(async () => ({ getTracks: () => [track] }));
+    const originalMediaDevices = Object.getOwnPropertyDescriptor(
+      navigator,
+      "mediaDevices",
+    );
+    Object.defineProperty(navigator, "mediaDevices", {
+      configurable: true,
+      value: { getUserMedia },
+    });
+
+    class LocalMediaRecorder {
+      static isTypeSupported(value: string) {
+        return value === "audio/webm;codecs=opus";
+      }
+
+      state: RecordingState = "inactive";
+      mimeType = "audio/webm;codecs=opus";
+      ondataavailable: ((event: BlobEvent) => void) | null = null;
+      onstop: (() => void) | null = null;
+
+      start() {
+        this.state = "recording";
+      }
+
+      stop() {
+        this.state = "inactive";
+        this.ondataavailable?.({
+          data: new Blob(["local audio"], { type: "audio/webm" }),
+        } as BlobEvent);
+        this.onstop?.();
+      }
+    }
+    vi.stubGlobal("MediaRecorder", LocalMediaRecorder);
+    const onTranscribeVoice = vi.fn(async (blob: Blob) => {
+      expect(blob.size).toBeLessThanOrEqual(220_000);
+      expect(blob.type).toBe("audio/webm;codecs=opus");
+      return "A private local transcript";
+    });
+
+    try {
+      render(
+        <ChatView
+          {...baseProps}
+          voiceInputAvailable
+          onTranscribeVoice={onTranscribeVoice}
+        />,
+      );
+      await userEvent.click(screen.getByRole("button", { name: "Record voice" }));
+      expect(getUserMedia).toHaveBeenCalledWith({ audio: true });
+      expect(screen.getByRole("status")).toHaveTextContent("12 seconds max");
+      await userEvent.click(
+        screen.getByRole("button", { name: "Stop recording" }),
+      );
+      await waitFor(() => expect(onTranscribeVoice).toHaveBeenCalledOnce());
+      await waitFor(() =>
+        expect(screen.getByLabelText("Message")).toHaveValue(
+          "A private local transcript",
+        ),
+      );
+      expect(track.stop).toHaveBeenCalledOnce();
+    } finally {
+      vi.unstubAllGlobals();
+      if (originalMediaDevices === undefined) {
+        Reflect.deleteProperty(navigator, "mediaDevices");
+      } else {
+        Object.defineProperty(navigator, "mediaDevices", originalMediaDevices);
+      }
+    }
+  });
+
+  it("uploads bounded local audio and places its transcript in the draft", async () => {
+    const onTranscribeVoice = vi.fn(async (audio: Blob) => {
+      expect(audio.type).toBe("audio/wav");
+      return "Transcript from an owned WAV upload";
+    });
+    render(
+      <ChatView
+        {...baseProps}
+        voiceInputAvailable
+        onTranscribeVoice={onTranscribeVoice}
+      />,
+    );
+
+    const input = screen.getByLabelText("Upload audio for transcription");
+    await userEvent.upload(
+      input,
+      new File(["safe wav bytes"], "private-note.wav", {
+        type: "audio/wav",
+      }),
+    );
+
+    await waitFor(() => expect(onTranscribeVoice).toHaveBeenCalledWith(
+      expect.any(File),
+      expect.any(AbortSignal),
+    ));
+    await waitFor(() =>
+      expect(screen.getByLabelText("Message")).toHaveValue(
+        "Transcript from an owned WAV upload",
+      ),
+    );
+  });
+
   it.each([
     ["The conversation changed. Refresh and try again.", 409],
     ["The request is too large.", 413],
@@ -144,6 +393,10 @@ describe("ChatView", () => {
       media_type: "text/plain",
       byte_size: 5,
       content_sha256: "a".repeat(64),
+      provenance_kind: "upload" as const,
+      source_asset_id: null,
+      runtime_id: null,
+      model_id: null,
       created_at: "2026-01-03T00:00:00Z",
       deleted_at: null,
     };
@@ -223,6 +476,8 @@ describe("ChatView", () => {
           original_filename: `<img src=x onerror="${rawSecret}">`,
           media_type: "application/octet-stream",
           byte_size: 5,
+          provenance_kind: "upload" as const,
+          source_asset_id: null,
         },
       ],
     };
@@ -236,6 +491,8 @@ describe("ChatView", () => {
           original_filename: null,
           media_type: null,
           byte_size: null,
+          provenance_kind: null,
+          source_asset_id: null,
         },
       ],
     };

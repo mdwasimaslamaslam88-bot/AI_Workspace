@@ -34,6 +34,8 @@ MAX_OLLAMA_EMBEDDING_REQUEST_BYTES = 1_048_576
 MAX_OLLAMA_EMBEDDING_RESPONSE_BYTES = 16_777_216
 MAX_DOCUMENT_INGESTION_ACTIVE_PER_PROCESS = 4
 MAX_DOCUMENT_INGESTION_DURATION_SECONDS = 300.0
+MAX_SPEECH_RUNTIME_ACTIVE_PER_PROCESS = 2
+MAX_SPEECH_RUNTIME_DURATION_SECONDS = 300.0
 MAX_REQUEST_BODY_BYTES = 1_048_576
 _SOURCE_DECODED_STRICT_INTEGER_FIELDS = frozenset(
     {
@@ -49,6 +51,9 @@ _SOURCE_DECODED_STRICT_INTEGER_FIELDS = frozenset(
         "OLLAMA_EMBEDDING_MAX_ACTIVE_PER_PROCESS",
         "GENERATION_MAX_ACTIVE_PER_PROCESS",
         "DOCUMENT_INGESTION_MAX_ACTIVE_PER_PROCESS",
+        "STT_MAX_ACTIVE_PER_PROCESS",
+        "TTS_MAX_ACTIVE_PER_PROCESS",
+        "COMFYUI_MAX_ACTIVE_PER_PROCESS",
         "REQUEST_MAX_BODY_BYTES",
         "DATABASE_POOL_SIZE",
         "DATABASE_MAX_OVERFLOW",
@@ -112,6 +117,74 @@ class Settings(BaseSettings):
     REDIS_URL: RedisDsn | None = None
     OLLAMA_BASE_URL: AnyHttpUrl | None = None
     ASSET_STORAGE_ROOT: Path | None = None
+    COMFYUI_BASE_URL: AnyHttpUrl | None = None
+    COMFYUI_CHECKPOINT: Path | None = None
+    COMFYUI_INPUT_ROOT: Path | None = None
+    COMFYUI_TEMP_ROOT: Path | None = None
+    COMFYUI_MODEL_REFERENCE: str | None = Field(
+        default=None,
+        strict=True,
+        min_length=1,
+        max_length=240,
+    )
+    COMFYUI_TIMEOUT_SECONDS: float = Field(
+        default=300.0,
+        gt=0,
+        le=600.0,
+        allow_inf_nan=False,
+    )
+    COMFYUI_MAX_ACTIVE_PER_PROCESS: int = Field(
+        default=1,
+        strict=True,
+        ge=1,
+        le=1,
+    )
+    STT_PYTHON: Path | None = None
+    STT_MODEL_ROOT: Path | None = None
+    STT_MODEL_REFERENCE: str | None = Field(
+        default=None,
+        strict=True,
+        min_length=1,
+        max_length=240,
+    )
+    STT_LIBRARY_DIRECTORIES: tuple[Path, ...] = ()
+    STT_DEVICE: Literal["cuda", "cpu"] = "cuda"
+    STT_COMPUTE_TYPE: Literal[
+        "float16", "int8_float16", "int8", "float32"
+    ] = "float16"
+    STT_TIMEOUT_SECONDS: float = Field(
+        default=120.0,
+        gt=0,
+        le=MAX_SPEECH_RUNTIME_DURATION_SECONDS,
+        allow_inf_nan=False,
+    )
+    STT_MAX_ACTIVE_PER_PROCESS: int = Field(
+        default=1,
+        strict=True,
+        ge=1,
+        le=MAX_SPEECH_RUNTIME_ACTIVE_PER_PROCESS,
+    )
+    TTS_PIPER_BINARY: Path | None = None
+    TTS_VOICE_MODEL: Path | None = None
+    TTS_VOICE_CONFIG: Path | None = None
+    TTS_VOICE_REFERENCE: str | None = Field(
+        default=None,
+        strict=True,
+        min_length=1,
+        max_length=240,
+    )
+    TTS_TIMEOUT_SECONDS: float = Field(
+        default=60.0,
+        gt=0,
+        le=MAX_SPEECH_RUNTIME_DURATION_SECONDS,
+        allow_inf_nan=False,
+    )
+    TTS_MAX_ACTIVE_PER_PROCESS: int = Field(
+        default=1,
+        strict=True,
+        ge=1,
+        le=MAX_SPEECH_RUNTIME_ACTIVE_PER_PROCESS,
+    )
     USER_PROVISIONING_TOKEN_DIGEST: str | None = Field(
         default=None,
         strict=True,
@@ -271,6 +344,18 @@ class Settings(BaseSettings):
         "OLLAMA_BASE_URL",
         "OLLAMA_EMBEDDING_MODEL",
         "ASSET_STORAGE_ROOT",
+        "COMFYUI_BASE_URL",
+        "COMFYUI_CHECKPOINT",
+        "COMFYUI_INPUT_ROOT",
+        "COMFYUI_TEMP_ROOT",
+        "COMFYUI_MODEL_REFERENCE",
+        "STT_PYTHON",
+        "STT_MODEL_ROOT",
+        "STT_MODEL_REFERENCE",
+        "TTS_PIPER_BINARY",
+        "TTS_VOICE_MODEL",
+        "TTS_VOICE_CONFIG",
+        "TTS_VOICE_REFERENCE",
         "DATABASE_SSL_ROOT_CERT",
         "USER_PROVISIONING_TOKEN_DIGEST",
         mode="before",
@@ -304,6 +389,58 @@ class Settings(BaseSettings):
             )
         return candidate
 
+    @field_validator(
+        "STT_MODEL_ROOT",
+        "COMFYUI_CHECKPOINT",
+        "COMFYUI_INPUT_ROOT",
+        "COMFYUI_TEMP_ROOT",
+        "TTS_PIPER_BINARY",
+        "TTS_VOICE_MODEL",
+        "TTS_VOICE_CONFIG",
+    )
+    @classmethod
+    def require_absolute_external_runtime_path(cls, value):
+        if value is None:
+            return None
+        candidate = Path(value)
+        if not candidate.is_absolute():
+            raise ValueError("local runtime paths must be absolute")
+        candidate = candidate.resolve(strict=False)
+        project_root = Path(__file__).resolve().parents[3]
+        if candidate == project_root or project_root in candidate.parents:
+            raise ValueError("local runtime paths must be outside the source tree")
+        return candidate
+
+    @field_validator("STT_PYTHON")
+    @classmethod
+    def require_absolute_external_python_path(cls, value):
+        if value is None:
+            return None
+        candidate = Path(value)
+        if not candidate.is_absolute():
+            raise ValueError("local runtime paths must be absolute")
+        resolved = candidate.resolve(strict=False)
+        project_root = Path(__file__).resolve().parents[3]
+        if resolved == project_root or project_root in resolved.parents:
+            raise ValueError("local runtime paths must be outside the source tree")
+        # Preserve a virtual environment's bin/python symlink. Resolving it to
+        # the system interpreter would bypass the isolated runtime packages.
+        return candidate.absolute()
+
+    @field_validator("STT_LIBRARY_DIRECTORIES")
+    @classmethod
+    def require_absolute_unique_stt_library_directories(cls, value):
+        resolved: list[Path] = []
+        for item in value:
+            candidate = Path(item)
+            if not candidate.is_absolute():
+                raise ValueError("STT library directories must be absolute")
+            candidate = candidate.resolve(strict=False)
+            if candidate in resolved:
+                raise ValueError("STT library directories must be unique")
+            resolved.append(candidate)
+        return tuple(resolved)
+
     @field_validator("OLLAMA_BASE_URL")
     @classmethod
     def require_loopback_ollama_url(cls, value):
@@ -328,6 +465,32 @@ class Settings(BaseSettings):
         if not address.is_loopback:
             raise ValueError(
                 "OLLAMA_BASE_URL must use localhost or a loopback IP address"
+            )
+        return value
+
+    @field_validator("COMFYUI_BASE_URL")
+    @classmethod
+    def require_loopback_comfyui_url(cls, value):
+        if value is None:
+            return None
+        if value.username is not None or value.password is not None:
+            raise ValueError("COMFYUI_BASE_URL must not include credentials")
+        if value.path not in (None, "", "/") or value.query or value.fragment:
+            raise ValueError("COMFYUI_BASE_URL must identify only a local origin")
+        host = value.host
+        if host.startswith("[") and host.endswith("]"):
+            host = host[1:-1]
+        if host == "localhost":
+            return value
+        try:
+            address = ipaddress.ip_address(host)
+        except ValueError as exc:
+            raise ValueError(
+                "COMFYUI_BASE_URL must use localhost or a loopback IP address"
+            ) from exc
+        if not address.is_loopback:
+            raise ValueError(
+                "COMFYUI_BASE_URL must use localhost or a loopback IP address"
             )
         return value
 
@@ -386,6 +549,50 @@ class Settings(BaseSettings):
         ):
             raise ValueError(
                 "OLLAMA_EMBEDDING_MODEL must be present in the exact local model allowlist"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def require_complete_speech_runtime_groups(self):
+        stt_values = (
+            self.STT_PYTHON,
+            self.STT_MODEL_ROOT,
+            self.STT_MODEL_REFERENCE,
+        )
+        if any(value is not None for value in stt_values) and not all(
+            value is not None for value in stt_values
+        ):
+            raise ValueError(
+                "STT_PYTHON, STT_MODEL_ROOT, and STT_MODEL_REFERENCE must be configured together"
+            )
+        tts_values = (
+            self.TTS_PIPER_BINARY,
+            self.TTS_VOICE_MODEL,
+            self.TTS_VOICE_CONFIG,
+            self.TTS_VOICE_REFERENCE,
+        )
+        if any(value is not None for value in tts_values) and not all(
+            value is not None for value in tts_values
+        ):
+            raise ValueError(
+                "Piper binary, voice model, voice config, and voice reference must be configured together"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def require_complete_comfyui_runtime_group(self):
+        values = (
+            self.COMFYUI_BASE_URL,
+            self.COMFYUI_CHECKPOINT,
+            self.COMFYUI_INPUT_ROOT,
+            self.COMFYUI_TEMP_ROOT,
+            self.COMFYUI_MODEL_REFERENCE,
+        )
+        if any(value is not None for value in values) and not all(
+            value is not None for value in values
+        ):
+            raise ValueError(
+                "ComfyUI URL, checkpoint, input root, temp root, and model reference must be configured together"
             )
         return self
 

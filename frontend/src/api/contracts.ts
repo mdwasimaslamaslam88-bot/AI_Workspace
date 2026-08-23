@@ -3,6 +3,11 @@ export type Timestamp = string;
 
 export type MessageRole = "system" | "user" | "assistant" | "tool";
 export type AttachmentState = "active" | "deleted";
+export type AssetProvenanceKind =
+  | "upload"
+  | "image_generation"
+  | "image_editing"
+  | "speech_synthesis";
 
 export interface Asset {
   id: UUID;
@@ -10,6 +15,10 @@ export interface Asset {
   media_type: string;
   byte_size: number;
   content_sha256: string;
+  provenance_kind: AssetProvenanceKind;
+  source_asset_id: UUID | null;
+  runtime_id: string | null;
+  model_id: string | null;
   created_at: Timestamp;
   deleted_at: Timestamp | null;
 }
@@ -21,6 +30,8 @@ export interface MessageAttachment {
   original_filename: string | null;
   media_type: string | null;
   byte_size: number | null;
+  provenance_kind: AssetProvenanceKind | null;
+  source_asset_id: UUID | null;
 }
 
 
@@ -88,6 +99,58 @@ export interface MemorySetting {
 export interface MemoryCreateRequest {
   category: MemoryCategory;
   content: string;
+}
+
+export interface VoiceTranscriptionRequest {
+  asset_id: UUID;
+  model_id: string;
+}
+
+export interface VoiceTranscription {
+  text: string;
+  language: string | null;
+  duration_seconds: number;
+}
+
+export interface VoiceSynthesisRequest {
+  model_id: string;
+  text: string;
+}
+
+export interface VoiceSynthesis {
+  asset: Asset;
+  created: boolean;
+}
+
+export interface ImageGenerationRequest {
+  conversation_id: UUID;
+  model_id: string;
+  prompt: string;
+  negative_prompt?: string;
+  width?: number;
+  height?: number;
+  steps?: number;
+  guidance?: number;
+  seed?: number;
+}
+
+export interface ImageEditingRequest {
+  conversation_id: UUID;
+  model_id: string;
+  source_asset_id: UUID;
+  mask_asset_id?: UUID;
+  instruction: string;
+  negative_prompt?: string;
+  steps?: number;
+  guidance?: number;
+  denoise?: number;
+  seed?: number;
+}
+
+export interface ImageOperation {
+  asset: Asset;
+  message: Message;
+  created: boolean;
 }
 
 export type JsonValue =
@@ -579,8 +642,51 @@ export function parseAsset(value: unknown): Asset {
     media_type: stringField(item.media_type),
     byte_size: byteSize,
     content_sha256: contentSha256,
+    provenance_kind: enumField(item.provenance_kind, [
+      "upload",
+      "image_generation",
+      "image_editing",
+      "speech_synthesis",
+    ] as const),
+    source_asset_id: nullableString(item.source_asset_id),
+    runtime_id: nullableString(item.runtime_id),
+    model_id: nullableString(item.model_id),
     created_at: stringField(item.created_at),
     deleted_at: nullableString(item.deleted_at),
+  };
+}
+
+export function parseVoiceTranscription(value: unknown): VoiceTranscription {
+  const item = record(value);
+  if (
+    typeof item.duration_seconds !== "number" ||
+    item.duration_seconds <= 0 ||
+    !Number.isFinite(item.duration_seconds)
+  ) return invalidResponse();
+  const duration = item.duration_seconds;
+  const text = stringField(item.text);
+  if (!text.trim()) return invalidResponse();
+  return {
+    text,
+    language: nullableString(item.language),
+    duration_seconds: duration,
+  };
+}
+
+export function parseVoiceSynthesis(value: unknown): VoiceSynthesis {
+  const item = record(value);
+  return {
+    asset: parseAsset(item.asset),
+    created: booleanField(item.created),
+  };
+}
+
+export function parseImageOperation(value: unknown): ImageOperation {
+  const item = record(value);
+  return {
+    asset: parseAsset(item.asset),
+    message: parseMessage(item.message),
+    created: booleanField(item.created),
   };
 }
 
@@ -672,10 +778,24 @@ export function parseMessageAttachment(value: unknown): MessageAttachment {
   const originalFilename = nullableString(item.original_filename);
   const mediaType = nullableString(item.media_type);
   const byteSize = integerOrNull(item.byte_size);
+  const provenanceKind =
+    item.provenance_kind === null
+      ? null
+      : enumField(item.provenance_kind, [
+          "upload",
+          "image_generation",
+          "image_editing",
+          "speech_synthesis",
+        ] as const);
+  const sourceAssetId = nullableString(item.source_asset_id);
   if (position === null || position < 1) return invalidResponse();
   if (
     (state === "deleted" &&
-      (originalFilename !== null || mediaType !== null || byteSize !== null)) ||
+      (originalFilename !== null ||
+        mediaType !== null ||
+        byteSize !== null ||
+        provenanceKind !== null ||
+        sourceAssetId !== null)) ||
     (state === "active" &&
       (mediaType === null || byteSize === null || byteSize < 1))
   ) {
@@ -688,6 +808,8 @@ export function parseMessageAttachment(value: unknown): MessageAttachment {
     original_filename: originalFilename,
     media_type: mediaType,
     byte_size: byteSize,
+    provenance_kind: provenanceKind,
+    source_asset_id: sourceAssetId,
   };
 }
 

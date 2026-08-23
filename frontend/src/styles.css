@@ -856,6 +856,7 @@ textarea {
 .attachment-queue li,
 .message-attachments li {
   display: flex;
+  flex-wrap: wrap;
   min-width: 0;
   align-items: center;
   gap: 0.55rem;
@@ -920,6 +921,77 @@ textarea {
   flex: 1;
 }
 
+.generated-image,
+.image-comparison {
+  flex-basis: 100%;
+  margin: 0.35rem 0;
+}
+
+.generated-image {
+  display: grid;
+  justify-items: start;
+  gap: 0.35rem;
+}
+
+.image-comparison {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.image-comparison > div {
+  display: grid;
+  gap: 0.3rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.generated-image figcaption,
+.image-comparison figcaption {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.image-comparison figcaption {
+  grid-column: 1 / -1;
+}
+
+.owned-image-preview {
+  display: block;
+  width: 100%;
+  max-width: 34rem;
+  height: auto;
+  border: 1px solid var(--line);
+  border-radius: 0.7rem;
+  background: var(--panel);
+}
+
+.image-studio {
+  display: grid;
+  gap: 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 0.85rem;
+  background: var(--panel-raised);
+  padding: 0.85rem;
+}
+
+.image-studio-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.image-studio h3,
+.image-studio p {
+  margin: 0;
+}
+
+.image-studio form {
+  display: grid;
+  gap: 0.65rem;
+}
+
 .message-citations {
   display: grid;
   gap: 0.45rem;
@@ -948,6 +1020,28 @@ textarea {
   margin-top: 0.25rem;
   color: var(--muted);
   font-size: 0.78rem;
+}
+
+.voice-input-controls,
+.voice-output-controls,
+.voice-playback {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.voice-input-controls {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.voice-output-controls {
+  margin-top: 0.55rem;
+}
+
+.voice-playback audio {
+  width: min(24rem, 100%);
 }
 @media (max-width: 760px) {
   .workspace-shell {

@@ -4,6 +4,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.models.asset import AssetProvenanceKind
 from app.models.message import MessageRole
 
 
@@ -30,6 +31,8 @@ class MessageAttachmentResponse(BaseModel):
     original_filename: str | None
     media_type: str | None
     byte_size: int | None
+    provenance_kind: AssetProvenanceKind | None
+    source_asset_id: UUID | None
 
 
 class MessageCitationResponse(BaseModel):

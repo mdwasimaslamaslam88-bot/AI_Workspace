@@ -51,9 +51,18 @@ def test_upgrade_creates_exact_asset_and_message_asset_schema():
         "assets",
         "message_assets",
     }
-    assert _table_signature(operations.metadata.tables["assets"]) == (
-        _table_signature(Base.metadata.tables["assets"])
+    migration_columns, migration_constraints, migration_indexes = _table_signature(
+        operations.metadata.tables["assets"]
     )
+    model_columns, model_constraints, model_indexes = _table_signature(
+        Base.metadata.tables["assets"]
+    )
+    legacy_names = {column[0] for column in migration_columns}
+    assert migration_columns == tuple(
+        column for column in model_columns if column[0] in legacy_names
+    )
+    assert set(migration_constraints).issubset(model_constraints)
+    assert set(migration_indexes).issubset(model_indexes)
     assert _table_signature(operations.metadata.tables["message_assets"]) == (
         _table_signature(Base.metadata.tables["message_assets"])
     )

@@ -1,27 +1,137 @@
 import asyncio
 from collections.abc import AsyncIterator
 from contextlib import AsyncExitStack, asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 
-from app.ai.catalog import ModelCatalog
+from app.ai.catalog import ModelCapability, ModelCatalog, ModelModality
 from app.ai.generation import TextGenerationRouter
+from app.clients.comfyui import close_comfyui, create_comfyui_client
 from app.clients.ollama import close_ollama, create_ollama_client
 from app.clients.postgres import create_postgres_engine, dispose_postgres
 from app.clients.redis import close_redis, create_redis_client
 from app.core.config import settings
 from app.db.session import create_session_factory
 from app.hardware import detect_hardware
+from app.hardware.planner import GIBIBYTE
+from app.runtimes.configured_media import (
+    ConfiguredMediaModel,
+    ConfiguredMediaModelDiscoveryRuntime,
+)
+from app.runtimes.comfyui import ComfyUIImageRuntime
+from app.runtimes.faster_whisper import FasterWhisperSpeechRecognitionRuntime
 from app.runtimes.ollama import (
     OllamaModelDiscoveryRuntime,
     OllamaTextGenerationRuntime,
 )
 from app.runtimes.ollama_embedding import OllamaEmbeddingRuntime
+from app.runtimes.piper import PiperSpeechSynthesisRuntime
 from app.services.asset import reconcile_asset_storage
 from app.services.generation_admission import GenerationAdmissionController
 from app.services.tool import reconcile_tool_executions
 from app.services.workflow import WorkflowRunner, reconcile_workflows
 from app.storage.local import LocalAssetStorage
+
+
+def _speech_runtimes():
+    discovery_runtimes = []
+    speech_recognition_runtime = None
+    speech_synthesis_runtime = None
+    worker = Path(__file__).resolve().parents[1] / "runtime_workers/faster_whisper.py"
+
+    if (
+        settings.STT_PYTHON is not None
+        and settings.STT_MODEL_ROOT is not None
+        and settings.STT_MODEL_REFERENCE is not None
+    ):
+        discovery_runtimes.append(
+            ConfiguredMediaModelDiscoveryRuntime(
+                "faster_whisper",
+                (
+                    ConfiguredMediaModel(
+                        reference=settings.STT_MODEL_REFERENCE,
+                        display_name="Faster Whisper Small English",
+                        modality=ModelModality.AUDIO,
+                        family="Whisper",
+                        parameter_class="244M",
+                        capabilities=(ModelCapability.SPEECH_RECOGNITION,),
+                        required_vram_bytes=(
+                            2 * GIBIBYTE if settings.STT_DEVICE == "cuda" else 0
+                        ),
+                        required_ram_bytes=2 * GIBIBYTE,
+                        required_files=(
+                            settings.STT_PYTHON,
+                            settings.STT_MODEL_ROOT / "model.bin",
+                            settings.STT_MODEL_ROOT / "config.json",
+                            settings.STT_MODEL_ROOT / "tokenizer.json",
+                            settings.STT_MODEL_ROOT / "vocabulary.txt",
+                        ),
+                        required_directories=settings.STT_LIBRARY_DIRECTORIES,
+                    ),
+                ),
+            )
+        )
+        try:
+            speech_recognition_runtime = FasterWhisperSpeechRecognitionRuntime(
+                settings.STT_PYTHON,
+                worker,
+                settings.STT_MODEL_ROOT,
+                model_reference=settings.STT_MODEL_REFERENCE,
+                device=settings.STT_DEVICE,
+                compute_type=settings.STT_COMPUTE_TYPE,
+                library_directories=settings.STT_LIBRARY_DIRECTORIES,
+                timeout_seconds=settings.STT_TIMEOUT_SECONDS,
+                max_active=settings.STT_MAX_ACTIVE_PER_PROCESS,
+            )
+        except (OSError, ValueError):
+            speech_recognition_runtime = None
+
+    if (
+        settings.TTS_PIPER_BINARY is not None
+        and settings.TTS_VOICE_MODEL is not None
+        and settings.TTS_VOICE_CONFIG is not None
+        and settings.TTS_VOICE_REFERENCE is not None
+    ):
+        discovery_runtimes.append(
+            ConfiguredMediaModelDiscoveryRuntime(
+                "piper",
+                (
+                    ConfiguredMediaModel(
+                        reference=settings.TTS_VOICE_REFERENCE,
+                        display_name="Piper Lessac Medium",
+                        modality=ModelModality.AUDIO,
+                        family="Piper",
+                        parameter_class="medium",
+                        capabilities=(ModelCapability.SPEECH_SYNTHESIS,),
+                        required_vram_bytes=0,
+                        required_ram_bytes=512 * 1024**2,
+                        required_files=(
+                            settings.TTS_PIPER_BINARY,
+                            settings.TTS_VOICE_MODEL,
+                            settings.TTS_VOICE_CONFIG,
+                        ),
+                    ),
+                ),
+            )
+        )
+        try:
+            speech_synthesis_runtime = PiperSpeechSynthesisRuntime(
+                settings.TTS_PIPER_BINARY,
+                settings.TTS_VOICE_MODEL,
+                settings.TTS_VOICE_CONFIG,
+                model_reference=settings.TTS_VOICE_REFERENCE,
+                timeout_seconds=settings.TTS_TIMEOUT_SECONDS,
+                max_active=settings.TTS_MAX_ACTIVE_PER_PROCESS,
+            )
+        except (OSError, ValueError):
+            speech_synthesis_runtime = None
+
+    return (
+        tuple(discovery_runtimes),
+        speech_recognition_runtime,
+        speech_synthesis_runtime,
+    )
 
 
 @asynccontextmanager
@@ -38,6 +148,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         resource_stack.push_async_callback(close_redis, redis_client)
         ollama_client = create_ollama_client(settings)
         resource_stack.push_async_callback(close_ollama, ollama_client)
+        comfyui_client = create_comfyui_client(settings)
+        resource_stack.push_async_callback(close_comfyui, comfyui_client)
 
         app.state.postgres_engine = postgres_engine
         app.state.db_session_factory = create_session_factory(postgres_engine)
@@ -52,6 +164,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.asset_storage = asset_storage
         app.state.redis_client = redis_client
         app.state.ollama_client = ollama_client
+        app.state.comfyui_client = comfyui_client
         app.state.generation_admission_controller = GenerationAdmissionController(
             settings.GENERATION_MAX_ACTIVE_PER_PROCESS
         )
@@ -80,6 +193,33 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             and settings.OLLAMA_EMBEDDING_MODEL is not None
             else None
         )
+        (
+            speech_discovery_runtimes,
+            app.state.speech_recognition_runtime,
+            app.state.speech_synthesis_runtime,
+        ) = _speech_runtimes()
+        image_runtime = None
+        if (
+            comfyui_client is not None
+            and settings.COMFYUI_CHECKPOINT is not None
+            and settings.COMFYUI_INPUT_ROOT is not None
+            and settings.COMFYUI_TEMP_ROOT is not None
+            and settings.COMFYUI_MODEL_REFERENCE is not None
+        ):
+            try:
+                image_runtime = ComfyUIImageRuntime(
+                    comfyui_client,
+                    settings.COMFYUI_CHECKPOINT,
+                    settings.COMFYUI_INPUT_ROOT,
+                    settings.COMFYUI_TEMP_ROOT,
+                    model_reference=settings.COMFYUI_MODEL_REFERENCE,
+                    timeout_seconds=settings.COMFYUI_TIMEOUT_SECONDS,
+                    max_active=settings.COMFYUI_MAX_ACTIVE_PER_PROCESS,
+                )
+            except (OSError, ValueError):
+                image_runtime = None
+        app.state.image_generation_runtime = image_runtime
+        app.state.image_editing_runtime = image_runtime
         app.state.workflow_tasks = {}
         app.state.workflow_runner = (
             WorkflowRunner(
@@ -102,19 +242,23 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         )
         app.state.model_catalog = ModelCatalog(
             (
-                OllamaModelDiscoveryRuntime(
-                    ollama_client,
-                    settings.OLLAMA_LOCAL_MODEL_ALLOWLIST,
-                    max_response_bytes=(
-                        settings.OLLAMA_CATALOG_MAX_RESPONSE_BYTES
+                (
+                    OllamaModelDiscoveryRuntime(
+                        ollama_client,
+                        settings.OLLAMA_LOCAL_MODEL_ALLOWLIST,
+                        max_response_bytes=(
+                            settings.OLLAMA_CATALOG_MAX_RESPONSE_BYTES
+                        ),
+                        max_list_models=(
+                            settings.OLLAMA_CATALOG_MAX_LIST_MODELS
+                        ),
                     ),
-                    max_list_models=(
-                        settings.OLLAMA_CATALOG_MAX_LIST_MODELS
-                    ),
-                ),
+                )
+                if ollama_client is not None
+                else ()
             )
-            if ollama_client is not None
-            else (),
+            + speech_discovery_runtimes
+            + ((image_runtime,) if image_runtime is not None else ()),
             max_list_discovery_seconds=(
                 settings.MODEL_LIST_MAX_DISCOVERY_SECONDS
             ),

@@ -10,6 +10,7 @@ from app.db.base import Base
 
 if TYPE_CHECKING:
     from app.models.asset import Asset
+    from app.models.asset import AssetProvenanceKind
     from app.models.message import Message
 
 
@@ -61,3 +62,19 @@ class MessageAsset(Base):
     @property
     def byte_size(self) -> int | None:
         return None if self.asset.deleted_at is not None else self.asset.byte_size
+
+    @property
+    def provenance_kind(self) -> AssetProvenanceKind | None:
+        return (
+            None
+            if self.asset.deleted_at is not None
+            else self.asset.provenance_kind
+        )
+
+    @property
+    def source_asset_id(self) -> UUID | None:
+        return (
+            None
+            if self.asset.deleted_at is not None
+            else self.asset.source_asset_id
+        )

@@ -55,6 +55,10 @@ The local client supports:
   document, Conversation, and memory search;
 - a bounded Workflows panel for persisted one-to-eight-step owner research
   tasks, live progress, tool activity, safe results, and cancellation;
+- a local Image studio for bounded generation, owned-source editing,
+  cancellation, authenticated previews, and original/output comparison;
+- bounded microphone recording or audio-file upload into local transcription,
+  plus cancellable local read-aloud synthesis, playback, and deletion;
 - a Settings & Diagnostics panel with an authoritative local capability matrix,
   fixed prerequisite guidance, and a direct path to memory controls;
 - safe status-based errors, bounded media states, and history reconciliation
@@ -63,11 +67,11 @@ The local client supports:
 The backend remains authoritative for authentication, ownership, persistence,
 model resolution, generation admission, deadlines, and cancellation.
 
-The client does not provision users or add a cloud provider. Image
-creation/editing and voice have no execution controls and remain explicitly
-unavailable until bounded local adapters, runtimes, and allowlisted models are
-installed, implemented, and validated. Workflow execution is limited to the
-fixed server tool registry; there is no arbitrary agent autonomy.
+The client does not provision users or add a cloud provider. Image and voice
+controls appear only when the backend reports a matching installed,
+hardware-runnable local model and implemented adapter. Workflow execution is
+limited to the fixed server tool registry; there is no arbitrary agent
+autonomy.
 
 ## Validation
 

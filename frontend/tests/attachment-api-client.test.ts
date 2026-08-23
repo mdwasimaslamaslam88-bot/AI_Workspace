@@ -69,7 +69,12 @@ describe("attachment API client", () => {
   it("downloads and deletes with bearer headers but never URL credentials", async () => {
     const fetchImplementation = vi
       .fn()
-      .mockResolvedValueOnce(new Response(new Blob(["opaque"]), { status: 200 }))
+      .mockResolvedValueOnce(
+        new Response(new Blob(["opaque"]), {
+          status: 200,
+          headers: { "X-Asset-Media-Type": "application/octet-stream" },
+        }),
+      )
       .mockResolvedValueOnce(new Response(null, { status: 204 }));
     const client = new ApiClient(token, {
       fetchImplementation: fetchImplementation as typeof fetch,

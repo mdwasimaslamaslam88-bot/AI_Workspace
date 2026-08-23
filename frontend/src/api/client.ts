@@ -10,6 +10,9 @@ import {
   type ConversationTextGenerationResponse,
   type CurrentUser,
   type IndexedDocument,
+  type ImageEditingRequest,
+  type ImageGenerationRequest,
+  type ImageOperation,
   type LocalModelPage,
   type MemoryCreateRequest,
   type MemoryPage,
@@ -24,7 +27,12 @@ import {
   type Workflow,
   type WorkflowCreateRequest,
   type WorkflowPage,
+  type VoiceSynthesis,
+  type VoiceSynthesisRequest,
+  type VoiceTranscription,
+  type VoiceTranscriptionRequest,
   parseIndexedDocument,
+  parseImageOperation,
   parseAsset,
   parseConversation,
   parseConversationCreateResponse,
@@ -42,6 +50,8 @@ import {
   parseToolExecutionPage,
   parseWorkflow,
   parseWorkflowPage,
+  parseVoiceSynthesis,
+  parseVoiceTranscription,
 } from "./contracts";
 
 export type ApiErrorKind =
@@ -79,6 +89,10 @@ const statusErrors: Record<number, { kind: ApiErrorKind; message: string }> = {
   503: {
     kind: "unavailable",
     message: "The local model runtime is unavailable.",
+  },
+  504: {
+    kind: "unavailable",
+    message: "The local operation timed out.",
   },
 };
 
@@ -150,6 +164,7 @@ interface ApiClientOptions {
 interface RequestOptions<T> {
   method?: "GET" | "POST" | "PUT" | "DELETE";
   body?: unknown;
+  headers?: Record<string, string>;
   signal?: AbortSignal;
   decode: JsonDecoder<T>;
 }
@@ -232,6 +247,9 @@ export class ApiClient {
       Authorization: `Bearer ${this.#token}`,
     });
     if (options.body !== undefined) headers.set("Content-Type", "application/json");
+    for (const [name, value] of Object.entries(options.headers ?? {})) {
+      headers.set(name, value);
+    }
 
     let response: Response;
     try {
@@ -602,7 +620,12 @@ export class ApiClient {
       throw attachmentErrorForStatus(response.status, requestId, code);
     }
     try {
-      return await response.blob();
+      const blob = await response.blob();
+      const mediaType = response.headers.get("X-Asset-Media-Type");
+      if (mediaType === null || !/^[a-z0-9][a-z0-9!#$&^_.+-]*\/[a-z0-9][a-z0-9!#$&^_.+-]*$/.test(mediaType)) {
+        throw new Error("invalid asset media type");
+      }
+      return new Blob([blob], { type: mediaType });
     } catch {
       throw new ApiError(
         "unexpected",
@@ -652,5 +675,59 @@ export class ApiClient {
         decode: parseGenerationResponse,
       },
     );
+  }
+
+  transcribeVoice(
+    request: VoiceTranscriptionRequest,
+    signal?: AbortSignal,
+  ): Promise<VoiceTranscription> {
+    return this.#request("api/v1/voice/transcriptions", {
+      method: "POST",
+      body: request,
+      signal,
+      decode: parseVoiceTranscription,
+    });
+  }
+
+  synthesizeVoice(
+    request: VoiceSynthesisRequest,
+    idempotencyKey: string,
+    signal?: AbortSignal,
+  ): Promise<VoiceSynthesis> {
+    return this.#request("api/v1/voice/syntheses", {
+      method: "POST",
+      body: request,
+      headers: { "Idempotency-Key": idempotencyKey },
+      signal,
+      decode: parseVoiceSynthesis,
+    });
+  }
+
+  generateImage(
+    request: ImageGenerationRequest,
+    idempotencyKey: string,
+    signal?: AbortSignal,
+  ): Promise<ImageOperation> {
+    return this.#request("api/v1/images/generations", {
+      method: "POST",
+      body: request,
+      headers: { "Idempotency-Key": idempotencyKey },
+      signal,
+      decode: parseImageOperation,
+    });
+  }
+
+  editImage(
+    request: ImageEditingRequest,
+    idempotencyKey: string,
+    signal?: AbortSignal,
+  ): Promise<ImageOperation> {
+    return this.#request("api/v1/images/edits", {
+      method: "POST",
+      body: request,
+      headers: { "Idempotency-Key": idempotencyKey },
+      signal,
+      decode: parseImageOperation,
+    });
   }
 }

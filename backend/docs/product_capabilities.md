@@ -15,13 +15,15 @@ Personal memory, the strict tool registry, and bounded workflows are implemented
 local product features. Model discovery begins only after the authentication
 read transaction is rolled back.
 
-Image generation, image editing, voice input, and voice output remain
-`unavailable`. Their reason codes require implemented bounded loopback adapters
-and explicitly allowlisted local models or voices; their asset pipelines also
-report unconfigured private asset storage. GPU presence alone never
-advertises a capability. See
+Image generation, image editing, voice input, and voice output are derived from
+the configured bounded adapters at request time. Each requires private asset
+storage, an instantiated local adapter, an installed discovered model or voice,
+and `runnable_now` hardware admission. Missing image prerequisites retain the
+fixed image-runtime reason codes; missing speech prerequisites retain the fixed
+voice-runtime reason code. No capability is hard-coded available, and GPU
+presence alone never advertises one. See
 [`media_runtime_prerequisites.md`](media_runtime_prerequisites.md) for the
-workstation audit and operator prerequisites.
+workstation inventory and real-runtime evidence.
 
 The browser validates the exact capability ID, status, blocker vocabulary,
 count, uniqueness, and available/unavailable lifecycle before rendering it. It

@@ -8,11 +8,19 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models import Asset, Conversation, Message, MessageAsset, MessageRole, User
+from app.models import (
+    Asset,
+    AssetProvenanceKind,
+    Conversation,
+    Message,
+    MessageAsset,
+    MessageRole,
+    User,
+)
 from app.repositories.asset import AssetRepository
 from app.repositories.message import MessageAttachmentClaimError, MessageRepository
 from app.schemas.message import MessageResponse
-from app.services.asset import AssetService
+from app.services.asset import AssetProvenanceUnavailableError, AssetService
 from app.services.conversation import ConversationService
 from app.services.message import (
     MessageAppendConflictError,
@@ -110,25 +118,51 @@ async def test_owned_asset_migration_has_exact_constraints(test_database_engine)
         "upload_idempotency_key",
         "created_at",
         "deleted_at",
+        "provenance_kind",
+        "source_asset_id",
+        "runtime_id",
+        "model_id",
     ]
     assert {item["name"] for item in snapshot["asset_checks"]} == {
         "ck_assets_byte_size_positive",
         "ck_assets_content_sha256_lowercase_hex",
         "ck_assets_storage_key_generated",
         "ck_assets_deleted_at_not_before_created_at",
+        "ck_assets_provenance_kind_known",
+        "ck_assets_runtime_id_safe",
+        "ck_assets_model_id_public",
+        "ck_assets_provenance_consistent",
+        "ck_assets_source_not_self",
     }
-    assert snapshot["asset_fks"] == [
-        {
-            **snapshot["asset_fks"][0],
-            "name": "fk_assets_owner_id_users",
-            "constrained_columns": ["owner_id"],
-            "referred_table": "users",
-            "referred_columns": ["id"],
-            "options": {"ondelete": "RESTRICT"},
-        }
+    asset_fks = {item["name"]: item for item in snapshot["asset_fks"]}
+    assert set(asset_fks) == {
+        "fk_assets_owner_id_users",
+        "fk_assets_source_asset_id_assets",
+    }
+    assert asset_fks["fk_assets_owner_id_users"]["constrained_columns"] == [
+        "owner_id"
     ]
+    assert asset_fks["fk_assets_owner_id_users"]["referred_table"] == "users"
+    assert asset_fks["fk_assets_owner_id_users"]["referred_columns"] == ["id"]
+    assert asset_fks["fk_assets_owner_id_users"]["options"] == {
+        "ondelete": "RESTRICT"
+    }
+    assert asset_fks["fk_assets_source_asset_id_assets"][
+        "constrained_columns"
+    ] == ["source_asset_id", "owner_id"]
+    assert asset_fks["fk_assets_source_asset_id_assets"]["referred_table"] == (
+        "assets"
+    )
+    assert asset_fks["fk_assets_source_asset_id_assets"]["referred_columns"] == [
+        "id",
+        "owner_id",
+    ]
+    assert asset_fks["fk_assets_source_asset_id_assets"]["options"] == {
+        "ondelete": "RESTRICT"
+    }
     assert {tuple(item["column_names"]) for item in snapshot["asset_uniques"]} == {
         ("storage_key",),
+        ("id", "owner_id"),
         ("owner_id", "upload_idempotency_key"),
     }
     indexes = {item["name"]: item for item in snapshot["asset_indexes"]}
@@ -138,6 +172,12 @@ async def test_owned_asset_migration_has_exact_constraints(test_database_engine)
         "id",
     ]
     assert indexes["ix_assets_deleted_at"]["dialect_options"]["postgresql_where"]
+    assert indexes["ix_assets_source_asset_id"]["column_names"] == [
+        "source_asset_id"
+    ]
+    assert indexes["ix_assets_source_asset_id"]["dialect_options"][
+        "postgresql_where"
+    ]
 
     assert [item["name"] for item in snapshot["link_columns"]] == [
         "message_id",
@@ -191,6 +231,30 @@ async def test_database_enforces_asset_and_attachment_constraints(test_database_
     await rejected_asset(storage_key="../../escape")
     now = datetime.now(timezone.utc)
     await rejected_asset(created_at=now, deleted_at=now - timedelta(seconds=1))
+    await rejected_asset(provenance_kind="unknown")
+    await rejected_asset(
+        provenance_kind=AssetProvenanceKind.SPEECH_SYNTHESIS,
+        runtime_id=None,
+        model_id=None,
+    )
+    await rejected_asset(
+        provenance_kind=AssetProvenanceKind.UPLOAD,
+        runtime_id="piper",
+        model_id="piper:" + "a" * 24,
+    )
+    await rejected_asset(
+        provenance_kind=AssetProvenanceKind.SPEECH_SYNTHESIS,
+        runtime_id="unsafe runtime",
+        model_id="piper:" + "a" * 24,
+    )
+    self_id = uuid4()
+    await rejected_asset(
+        id=self_id,
+        source_asset_id=self_id,
+        provenance_kind=AssetProvenanceKind.IMAGE_EDITING,
+        runtime_id="comfyui",
+        model_id="comfyui:" + "a" * 24,
+    )
 
     async with AsyncSession(test_database_engine, expire_on_commit=False) as session:
         first = await _insert_asset(session, owner.id)
@@ -212,6 +276,99 @@ async def test_database_enforces_asset_and_attachment_constraints(test_database_
         session.add(MessageAsset(message_id=message_id, asset_id=second_id, position=0))
         with pytest.raises(IntegrityError):
             await session.commit()
+
+
+@pytest.mark.asyncio
+async def test_generated_asset_provenance_locks_source_to_owner_and_cleans_rejection(
+    test_database_engine, tmp_path
+):
+    owner = await _create_user(test_database_engine)
+    foreign_owner = await _create_user(test_database_engine)
+    storage = LocalAssetStorage((tmp_path / "generated-assets").resolve())
+    png = b"\x89PNG\r\n\x1a\n" + b"bounded-generated-image"
+    generated_id = None
+    generated_storage_key = None
+
+    try:
+        async with AsyncSession(
+            test_database_engine, expire_on_commit=False
+        ) as session:
+            source = await _insert_asset(session, owner.id)
+            source_id = source.id
+            generated = await AssetService(
+                session, storage
+            ).create_generated_for_owner(
+                owner.id,
+                uuid4(),
+                filename="edited.png",
+                claimed_media_type="image/png",
+                content=png,
+                provenance_kind=AssetProvenanceKind.IMAGE_EDITING,
+                source_asset_id=source_id,
+                runtime_id="comfyui",
+                model_id="comfyui:" + "a" * 24,
+            )
+            generated_id = generated.asset.id
+            generated_storage_key = generated.asset.storage_key
+            assert generated.created is True
+            assert generated.asset.source_asset_id == source_id
+            assert generated.asset.owner_id == owner.id
+
+            with pytest.raises(AssetProvenanceUnavailableError):
+                await AssetService(session, storage).create_generated_for_owner(
+                    foreign_owner.id,
+                    uuid4(),
+                    filename="foreign-edit.png",
+                    claimed_media_type="image/png",
+                    content=png,
+                    provenance_kind=AssetProvenanceKind.IMAGE_EDITING,
+                    source_asset_id=source_id,
+                    runtime_id="comfyui",
+                    model_id="comfyui:" + "b" * 24,
+                )
+
+            bypass_id = uuid4()
+            session.add(
+                Asset(
+                    id=bypass_id,
+                    owner_id=foreign_owner.id,
+                    original_filename="forbidden-cross-owner-edit.png",
+                    media_type="image/png",
+                    byte_size=len(png),
+                    content_sha256="c" * 64,
+                    storage_key=(
+                        f"objects/{bypass_id.hex[:2]}/{bypass_id.hex[2:4]}/"
+                        f"{bypass_id.hex}"
+                    ),
+                    upload_idempotency_key=uuid4(),
+                    provenance_kind=AssetProvenanceKind.IMAGE_EDITING,
+                    source_asset_id=source_id,
+                    runtime_id="comfyui",
+                    model_id="comfyui:" + "c" * 24,
+                )
+            )
+            with pytest.raises(IntegrityError):
+                await session.commit()
+            await session.rollback()
+
+            persisted = await session.get(Asset, generated_id)
+            assert persisted is not None
+            assert persisted.provenance_kind == AssetProvenanceKind.IMAGE_EDITING
+            assert persisted.runtime_id == "comfyui"
+
+        stored_files = [
+            path for path in storage.objects_root.rglob("*") if path.is_file()
+        ]
+        assert stored_files == [storage.path_for(generated_storage_key)]
+    finally:
+        if generated_id is not None:
+            async with AsyncSession(test_database_engine) as cleanup_session:
+                await cleanup_session.execute(
+                    sa.delete(Asset).where(Asset.id == generated_id)
+                )
+                await cleanup_session.commit()
+        if generated_storage_key is not None:
+            storage.delete(generated_storage_key)
 
 
 @pytest.mark.asyncio

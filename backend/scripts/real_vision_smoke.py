@@ -250,6 +250,8 @@ def main() -> None:
                 "original_filename": None,
                 "media_type": None,
                 "byte_size": None,
+                "provenance_kind": None,
+                "source_asset_id": None,
             }:
                 raise RuntimeError("deleted PNG did not become a safe tombstone")
 

@@ -134,6 +134,169 @@ describe("ApiClient", () => {
     });
   });
 
+  it("uses bounded voice contracts and keeps text and credentials out of URLs", async () => {
+    const modelId = "piper:" + "b".repeat(24);
+    const assetId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+    const idempotencyKey = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+    const calls: Array<{ url: string; headers: Headers; body: unknown }> = [];
+    const fetchImplementation = vi.fn(
+      async (input: URL | RequestInfo, init?: RequestInit) => {
+        const url = input.toString();
+        calls.push({
+          url,
+          headers: new Headers(init?.headers),
+          body: init?.body ? JSON.parse(String(init.body)) : undefined,
+        });
+        if (url.endsWith("/transcriptions")) {
+          return jsonResponse({
+            text: "local transcript",
+            language: "en",
+            duration_seconds: 1.5,
+          }, 201);
+        }
+        return jsonResponse({
+          created: true,
+          asset: {
+            id: assetId,
+            original_filename: "local-speech.wav",
+            media_type: "audio/wav",
+            byte_size: 128,
+            content_sha256: "d".repeat(64),
+            provenance_kind: "speech_synthesis",
+            source_asset_id: null,
+            runtime_id: "piper",
+            model_id: modelId,
+            created_at: "2026-08-23T00:00:00Z",
+            deleted_at: null,
+          },
+        }, 201);
+      },
+    );
+    const client = new ApiClient(token, {
+      fetchImplementation: fetchImplementation as typeof fetch,
+    });
+
+    await client.transcribeVoice({ asset_id: assetId, model_id: modelId });
+    const synthesis = await client.synthesizeVoice(
+      { model_id: modelId, text: "private spoken response" },
+      idempotencyKey,
+    );
+
+    expect(synthesis.asset.provenance_kind).toBe("speech_synthesis");
+    expect(calls[1]?.headers.get("Idempotency-Key")).toBe(idempotencyKey);
+    expect(calls[1]?.headers.get("Authorization")).toBe(`Bearer ${token}`);
+    expect(calls[1]?.body).toEqual({
+      model_id: modelId,
+      text: "private spoken response",
+    });
+    expect(calls[1]?.url).not.toContain("private spoken response");
+    expect(calls[1]?.url).not.toContain(token);
+  });
+
+  it("uses idempotent bounded image contracts and decodes message provenance", async () => {
+    const modelId = "comfyui:" + "a".repeat(24);
+    const sourceId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const outputId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+    const key = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
+    const calls: Array<{ url: string; headers: Headers; body: unknown }> = [];
+    const fetchImplementation = vi.fn(
+      async (input: URL | RequestInfo, init?: RequestInit) => {
+        const url = input.toString();
+        const editing = url.endsWith("/edits");
+        calls.push({
+          url,
+          headers: new Headers(init?.headers),
+          body: init?.body ? JSON.parse(String(init.body)) : undefined,
+        });
+        const asset = {
+          id: outputId,
+          original_filename: editing
+            ? "local-image-edit.png"
+            : "local-image.png",
+          media_type: "image/png",
+          byte_size: 128,
+          content_sha256: "d".repeat(64),
+          provenance_kind: editing ? "image_editing" : "image_generation",
+          source_asset_id: editing ? sourceId : null,
+          runtime_id: "comfyui",
+          model_id: modelId,
+          created_at: "2026-08-23T00:00:00Z",
+          deleted_at: null,
+        };
+        return jsonResponse(
+          {
+            asset,
+            message: {
+              ...message(2, "assistant", editing
+                ? "Edited an image locally."
+                : "Generated an image locally."),
+              attachments: [
+                {
+                  id: outputId,
+                  position: 1,
+                  state: "active",
+                  original_filename: asset.original_filename,
+                  media_type: "image/png",
+                  byte_size: 128,
+                  provenance_kind: asset.provenance_kind,
+                  source_asset_id: asset.source_asset_id,
+                },
+              ],
+            },
+            created: true,
+          },
+          201,
+        );
+      },
+    );
+    const client = new ApiClient(token, {
+      fetchImplementation: fetchImplementation as typeof fetch,
+    });
+
+    await client.generateImage(
+      {
+        conversation_id: conversation.id,
+        model_id: modelId,
+        prompt: "private local image prompt",
+        width: 768,
+        height: 768,
+        steps: 20,
+        seed: 7,
+      },
+      key,
+    );
+    const edit = await client.editImage(
+      {
+        conversation_id: conversation.id,
+        model_id: modelId,
+        source_asset_id: sourceId,
+        instruction: "private local edit instruction",
+        denoise: 0.65,
+        seed: 9,
+      },
+      key,
+    );
+
+    expect(edit.asset.provenance_kind).toBe("image_editing");
+    expect(edit.message.attachments[0]?.source_asset_id).toBe(sourceId);
+    expect(calls[0]?.headers.get("Idempotency-Key")).toBe(key);
+    expect(calls[1]?.headers.get("Authorization")).toBe(`Bearer ${token}`);
+    expect(calls[0]?.body).toMatchObject({
+      prompt: "private local image prompt",
+      width: 768,
+      height: 768,
+      steps: 20,
+    });
+    expect(calls[1]?.body).toMatchObject({
+      source_asset_id: sourceId,
+      instruction: "private local edit instruction",
+      denoise: 0.65,
+    });
+    expect(calls[0]?.url).not.toContain("private local image prompt");
+    expect(calls[1]?.url).not.toContain("private local edit instruction");
+    expect(calls[0]?.url).not.toContain(token);
+  });
+
   it("clears authentication on 401 and never exposes backend details or the token", async () => {
     const onUnauthorized = vi.fn();
     const client = new ApiClient(token, {
@@ -269,6 +432,10 @@ describe("ApiClient", () => {
       media_type: "text/plain",
       byte_size: 5,
       content_sha256: "a".repeat(64),
+      provenance_kind: "upload",
+      source_asset_id: null,
+      runtime_id: null,
+      model_id: null,
       created_at: "2026-01-03T00:00:00Z",
       deleted_at: null,
     };

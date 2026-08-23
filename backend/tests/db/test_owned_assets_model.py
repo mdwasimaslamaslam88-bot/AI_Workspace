@@ -29,12 +29,20 @@ def test_asset_columns_constraints_indexes_and_owner_foreign_key():
         "upload_idempotency_key",
         "created_at",
         "deleted_at",
+        "provenance_kind",
+        "source_asset_id",
+        "runtime_id",
+        "model_id",
     }
     assert isinstance(table.c.id.type, Uuid)
     assert table.c.id.type.python_type is UUID
     assert table.c.id.primary_key is True
 
-    owner_fk = next(iter(table.c.owner_id.foreign_keys))
+    owner_fk = next(
+        foreign_key
+        for foreign_key in table.c.owner_id.foreign_keys
+        if foreign_key.target_fullname == "users.id"
+    )
     assert owner_fk.target_fullname == "users.id"
     assert owner_fk.ondelete == "RESTRICT"
     assert table.c.original_filename.nullable is True
@@ -44,6 +52,22 @@ def test_asset_columns_constraints_indexes_and_owner_foreign_key():
     assert table.c.content_sha256.type.length == 64
     assert table.c.storage_key.type.length == 128
     assert table.c.upload_idempotency_key.nullable is True
+    assert table.c.provenance_kind.type.length == 32
+    assert table.c.source_asset_id.nullable is True
+    assert table.c.runtime_id.type.length == 64
+    assert table.c.model_id.type.length == 96
+    source_fk = next(iter(table.c.source_asset_id.foreign_keys))
+    assert source_fk.target_fullname == "assets.id"
+    assert source_fk.ondelete == "RESTRICT"
+    assert {
+        tuple(constraint.columns.keys())
+        for constraint in table.constraints
+        if isinstance(constraint, UniqueConstraint)
+    } == {
+        ("storage_key",),
+        ("id", "owner_id"),
+        ("owner_id", "upload_idempotency_key"),
+    }
     assert table.c.created_at.type.timezone is True
     assert table.c.created_at.server_default is not None
     assert table.c.deleted_at.type.timezone is True
@@ -61,15 +85,29 @@ def test_asset_columns_constraints_indexes_and_owner_foreign_key():
         "ck_assets_deleted_at_not_before_created_at": (
             "deleted_at IS NULL OR deleted_at >= created_at"
         ),
-    }
-    unique_columns = {
-        tuple(constraint.columns.keys())
-        for constraint in table.constraints
-        if isinstance(constraint, UniqueConstraint)
-    }
-    assert unique_columns == {
-        ("storage_key",),
-        ("owner_id", "upload_idempotency_key"),
+        "ck_assets_provenance_kind_known": (
+            "provenance_kind IN ('upload', 'image_generation', "
+            "'image_editing', 'speech_synthesis')"
+        ),
+        "ck_assets_runtime_id_safe": (
+            "runtime_id IS NULL OR runtime_id ~ '^[a-z0-9][a-z0-9_-]{0,63}$'"
+        ),
+        "ck_assets_model_id_public": (
+            "model_id IS NULL OR model_id ~ "
+            "'^[a-z0-9][a-z0-9_-]{0,63}:[a-f0-9]{24}$'"
+        ),
+        "ck_assets_provenance_consistent": (
+            "(provenance_kind = 'upload' AND source_asset_id IS NULL "
+            "AND runtime_id IS NULL AND model_id IS NULL) OR "
+            "(provenance_kind IN ('image_generation', 'speech_synthesis') "
+            "AND source_asset_id IS NULL AND runtime_id IS NOT NULL "
+            "AND model_id IS NOT NULL) OR "
+            "(provenance_kind = 'image_editing' AND source_asset_id IS NOT NULL "
+            "AND runtime_id IS NOT NULL AND model_id IS NOT NULL)"
+        ),
+        "ck_assets_source_not_self": (
+            "source_asset_id IS NULL OR source_asset_id <> id"
+        ),
     }
     index_ddl = {
         str(CreateIndex(index).compile(dialect=postgresql.dialect()))
@@ -80,6 +118,8 @@ def test_asset_columns_constraints_indexes_and_owner_foreign_key():
         "ON assets (owner_id, created_at DESC, id DESC)",
         "CREATE INDEX ix_assets_deleted_at ON assets (deleted_at) "
         "WHERE deleted_at IS NOT NULL",
+        "CREATE INDEX ix_assets_source_asset_id ON assets (source_asset_id) "
+        "WHERE source_asset_id IS NOT NULL",
     }
 
 

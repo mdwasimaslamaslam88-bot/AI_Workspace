@@ -13,6 +13,10 @@ const asset: Asset = {
   media_type: "text/plain",
   byte_size: 5,
   content_sha256: "a".repeat(64),
+  provenance_kind: "upload",
+  source_asset_id: null,
+  runtime_id: null,
+  model_id: null,
   created_at: "2026-01-03T00:00:00Z",
   deleted_at: null,
 };
@@ -290,6 +294,8 @@ describe("attachment queue", () => {
           original_filename: "<img src=x onerror=alert(1)>.png",
           media_type: "image/png",
           byte_size: 12,
+          provenance_kind: "upload" as const,
+          source_asset_id: null,
         },
       ],
     };

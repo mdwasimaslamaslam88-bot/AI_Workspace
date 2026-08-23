@@ -321,6 +321,46 @@ async def list_product_capabilities(
     storage_reasons: tuple[ProductCapabilityReason, ...] = (
         () if storage_available else ("asset_storage_required",)
     )
+    speech_recognition_available = (
+        getattr(request.app.state, "speech_recognition_runtime", None) is not None
+        and any(
+            model.availability is ModelAvailability.AVAILABLE
+            and model.installed
+            and model.runnable_now
+            and ModelCapability.SPEECH_RECOGNITION in model.capabilities
+            for model in models
+        )
+    )
+    speech_synthesis_available = (
+        getattr(request.app.state, "speech_synthesis_runtime", None) is not None
+        and any(
+            model.availability is ModelAvailability.AVAILABLE
+            and model.installed
+            and model.runnable_now
+            and ModelCapability.SPEECH_SYNTHESIS in model.capabilities
+            for model in models
+        )
+    )
+    image_generation_available = (
+        getattr(request.app.state, "image_generation_runtime", None) is not None
+        and any(
+            model.availability is ModelAvailability.AVAILABLE
+            and model.installed
+            and model.runnable_now
+            and ModelCapability.IMAGE_GENERATION in model.capabilities
+            for model in models
+        )
+    )
+    image_editing_available = (
+        getattr(request.app.state, "image_editing_runtime", None) is not None
+        and any(
+            model.availability is ModelAvailability.AVAILABLE
+            and model.installed
+            and model.runnable_now
+            and ModelCapability.IMAGE_EDITING in model.capabilities
+            for model in models
+        )
+    )
 
     return ProductCapabilityPageResponse(
         items=[
@@ -340,22 +380,38 @@ async def list_product_capabilities(
             _product_capability(
                 "image_generation",
                 *storage_reasons,
-                "local_image_runtime_and_model_required",
+                *(
+                    ()
+                    if image_generation_available
+                    else ("local_image_runtime_and_model_required",)
+                ),
             ),
             _product_capability(
                 "image_editing",
                 *storage_reasons,
-                "local_image_edit_runtime_and_model_required",
+                *(
+                    ()
+                    if image_editing_available
+                    else ("local_image_edit_runtime_and_model_required",)
+                ),
             ),
             _product_capability(
                 "voice_input",
                 *storage_reasons,
-                "local_voice_runtime_and_models_required",
+                *(
+                    ()
+                    if speech_recognition_available
+                    else ("local_voice_runtime_and_models_required",)
+                ),
             ),
             _product_capability(
                 "voice_output",
                 *storage_reasons,
-                "local_voice_runtime_and_models_required",
+                *(
+                    ()
+                    if speech_synthesis_available
+                    else ("local_voice_runtime_and_models_required",)
+                ),
             ),
         ]
     )
