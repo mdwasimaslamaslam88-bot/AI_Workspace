@@ -12,6 +12,9 @@ text-to-speech, bounded tools/workflows, private assets, and hardware-aware
 model admission. Conversation pin/archive state and immutable duplicate,
 edit/resend, and regenerate branches are owner-scoped and shared across
 clients. Availability shown by a client always comes from the backend.
+The web and mobile model catalogs expose the backend-reported installed/ready
+state, runtime, modality, context, scale class, hardware class, and capabilities;
+clients never infer availability or download models automatically.
 
 ## Product surfaces
 

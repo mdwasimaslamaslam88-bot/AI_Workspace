@@ -52,6 +52,8 @@ never included in the session list.
 The local client supports:
 
 - current-user validation and capability-aware local model selection;
+- an authoritative model catalog with installed/readiness, runtime, modality,
+  context, scale, hardware class, and capability metadata;
 - real backend conversation/message pagination, private owner-wide search,
   rename, confirmed deletion, generation, response retry, and cancellation;
 - safe CommonMark/GFM response presentation with code blocks, tables, exact

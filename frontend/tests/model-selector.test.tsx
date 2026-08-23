@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -6,7 +6,13 @@ import {
   firstRunnableCapabilityModel,
   selectableTextModels,
 } from "../src/app/collections";
-import type { LocalModel } from "../src/api/contracts";
+import {
+  modelContextLabel,
+  modelHardwareLabel,
+  modelReadiness,
+  modelScaleLabel,
+  type LocalModel,
+} from "../src/api/contracts";
 import { ModelSelector } from "../src/features/models/ModelSelector";
 import { model, visionModel } from "./fixtures";
 
@@ -94,7 +100,11 @@ describe("ModelSelector", () => {
     expect(screen.queryByRole("option", { name: /embedding/i })).not.toBeInTheDocument();
     await userEvent.selectOptions(screen.getByRole("combobox"), model.model_id);
     expect(onSelect).toHaveBeenCalledWith(model.model_id);
-    expect(screen.getByText("text generation")).toBeVisible();
+    expect(
+      within(screen.getByLabelText("Selected model capabilities")).getByText(
+        "text generation",
+      ),
+    ).toBeVisible();
   });
 
   it("shows a safe unavailable state and retries", async () => {
@@ -128,6 +138,60 @@ describe("ModelSelector", () => {
     expect(
       screen.getByRole("option", { name: /Local Vision Model · 8B · Vision/ }),
     ).toBeVisible();
-    expect(screen.getByText("vision input")).toBeVisible();
+    expect(
+      within(screen.getByLabelText("Selected model capabilities")).getByText(
+        "vision input",
+      ),
+    ).toBeVisible();
+  });
+
+  it("shows authoritative readiness, scale, runtime, context, and capabilities", async () => {
+    const notInstalled: LocalModel = {
+      ...model,
+      model_id: "ollama-local:bbbbbbbbbbbbbbbbbbbbbbbb",
+      display_name: "Future 70B",
+      parameter_class: "70B",
+      scale_class: "70b",
+      installed: false,
+      runnable_now: false,
+      hardware_class: "gpu_80gb_plus",
+    };
+    const insufficient: LocalModel = {
+      ...model,
+      model_id: "ollama-local:cccccccccccccccccccccccc",
+      display_name: "Local 34B",
+      parameter_class: "34B",
+      scale_class: "30b_34b",
+      runnable_now: false,
+      hardware_class: "gpu_24_to_47gb",
+    };
+
+    expect(modelReadiness(model)).toBe("ready");
+    expect(modelReadiness(notInstalled)).toBe("not_installed");
+    expect(modelReadiness(insufficient)).toBe("insufficient_hardware");
+    expect(modelScaleLabel(notInstalled.scale_class)).toBe("70B");
+    expect(modelContextLabel(model.context_window)).toBe("8,192 token context");
+    expect(modelHardwareLabel(insufficient.hardware_class)).toBe("GPU 24–47 GiB");
+
+    render(
+      <ModelSelector
+        models={[model, notInstalled, insufficient]}
+        selectedModelId={model.model_id}
+        loading={false}
+        error={null}
+        {...callbacks}
+      />,
+    );
+
+    expect(screen.getByLabelText("Selected model details")).toHaveTextContent(
+      "ollama-local",
+    );
+    expect(screen.getByLabelText("Selected model details")).toHaveTextContent(
+      "8,192 token context",
+    );
+    await userEvent.click(screen.getByText("Model catalog · 3 discovered"));
+    expect(screen.getByText("Future 70B")).toBeVisible();
+    expect(screen.getByText("Not installed", { selector: ".model-readiness" })).toBeVisible();
+    expect(screen.getByText("Insufficient hardware")).toBeVisible();
   });
 });

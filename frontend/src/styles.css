@@ -961,6 +961,7 @@ textarea {
 
 
 .model-panel {
+  position: relative;
   width: min(100%, 31rem);
 }
 
@@ -973,6 +974,18 @@ textarea {
 
 .model-panel label {
   margin: 0;
+}
+
+.selected-model-summary {
+  margin-top: 0.45rem;
+}
+
+.model-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.65rem;
+  color: var(--muted);
+  font-size: 0.72rem;
 }
 
 .capability-row {
@@ -989,6 +1002,78 @@ textarea {
   color: var(--muted);
   padding: 0.18rem 0.5rem;
   font-size: 0.7rem;
+}
+
+.model-catalog {
+  position: relative;
+  margin-top: 0.55rem;
+  border: 1px solid var(--line);
+  border-radius: 0.65rem;
+  background: var(--panel-raised);
+}
+
+.model-catalog summary {
+  min-height: 2.4rem;
+  cursor: pointer;
+  padding: 0.65rem 0.8rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.model-catalog[open] {
+  position: absolute;
+  z-index: 5;
+  width: min(31rem, calc(100vw - 2rem));
+  max-height: min(34rem, calc(100vh - 7rem));
+  overflow: auto;
+  box-shadow: 0 1rem 3rem rgba(0, 0, 0, 0.35);
+}
+
+.model-catalog ul {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0 0.65rem 0.65rem;
+}
+
+.model-catalog li {
+  display: grid;
+  gap: 0.4rem;
+  border: 1px solid var(--line);
+  border-radius: 0.55rem;
+  padding: 0.65rem;
+}
+
+.model-catalog .capability-row {
+  justify-content: flex-start;
+  margin-top: 0;
+}
+
+.model-catalog-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.model-readiness {
+  flex: none;
+  border-radius: 999px;
+  padding: 0.15rem 0.45rem;
+  font-size: 0.68rem;
+  font-weight: 800;
+}
+
+.model-readiness-ready {
+  background: var(--accent-dark);
+  color: var(--accent);
+}
+
+.model-readiness-not_installed,
+.model-readiness-unavailable,
+.model-readiness-insufficient_hardware {
+  background: var(--danger-soft);
+  color: var(--danger);
 }
 
 .chat-view,

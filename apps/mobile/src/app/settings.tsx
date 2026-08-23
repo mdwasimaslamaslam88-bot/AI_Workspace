@@ -1,8 +1,16 @@
 import type {
+  LocalModel,
   ProductCapability,
   SystemDiagnostics,
   UserSession,
   UserSessionProvision,
+} from "@work-station/shared";
+import {
+  MODEL_READINESS_LABELS,
+  modelContextLabel,
+  modelHardwareLabel,
+  modelReadiness,
+  modelScaleLabel,
 } from "@work-station/shared";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -40,6 +48,7 @@ export default function SettingsScreen() {
   const styles = useMemo(() => createStyles(workStationColors(scheme)), [scheme]);
   const { state, client, user, logout, retry, rotateSession } = useWorkStation();
   const [capabilities, setCapabilities] = useState<ProductCapability[]>([]);
+  const [models, setModels] = useState<LocalModel[]>([]);
   const [diagnostics, setDiagnostics] = useState<SystemDiagnostics | null>(null);
   const [sessions, setSessions] = useState<UserSession[]>([]);
   const [currentSessionLabel, setCurrentSessionLabel] = useState("");
@@ -51,12 +60,14 @@ export default function SettingsScreen() {
   const load = useCallback(async () => {
     if (client === null || state !== "connected") return;
     try {
-      const [capabilityPage, snapshot, sessionPage] = await Promise.all([
+      const [capabilityPage, modelPage, snapshot, sessionPage] = await Promise.all([
         client.getCapabilities(),
+        client.listModels(),
         client.getSystemDiagnostics(),
         client.listUserSessions(),
       ]);
       setCapabilities(capabilityPage.items);
+      setModels(modelPage.items);
       setDiagnostics(snapshot);
       setSessions(sessionPage.items);
       setCurrentSessionLabel(
@@ -104,6 +115,42 @@ export default function SettingsScreen() {
               {sessionBusy ? "Rotating…" : "Rotate owner token"}
             </Text>
           </Pressable>
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.eyebrow}>MODEL CATALOG</Text>
+          <Text style={styles.heading}>Hardware-aware models</Text>
+          <Text style={styles.muted}>
+            Availability comes from the workstation. This app never downloads models automatically.
+          </Text>
+          {models.length === 0 && <Text style={styles.muted}>No models were reported.</Text>}
+          {models.map((model) => {
+            const readiness = modelReadiness(model);
+            return (
+              <View key={model.model_id} style={styles.modelCard}>
+                <View style={styles.capability}>
+                  <Text style={styles.capabilityName}>{model.display_name}</Text>
+                  <Text style={readiness === "ready" ? styles.available : styles.unavailable}>
+                    {MODEL_READINESS_LABELS[readiness]}
+                  </Text>
+                </View>
+                <Text style={styles.muted}>
+                  {model.installed ? "Installed" : "Not installed"} · {model.runtime_id} · {model.modality}
+                </Text>
+                <Text style={styles.muted}>
+                  {modelScaleLabel(model.scale_class)} · {modelContextLabel(model.context_window)}
+                </Text>
+                <Text style={styles.muted}>{modelHardwareLabel(model.hardware_class)}</Text>
+                <View style={styles.capabilityTags}>
+                  {model.capabilities.map((capability) => (
+                    <Text key={capability} style={styles.sectionChip}>
+                      {capability.replaceAll("_", " ")}
+                    </Text>
+                  ))}
+                </View>
+              </View>
+            );
+          })}
         </View>
 
         <View style={styles.card}>
@@ -302,6 +349,8 @@ function createStyles(colors: WorkStationColors) {
   muted: { color: colors.muted, lineHeight: 20 },
   capability: { flexDirection: "row", justifyContent: "space-between", gap: 12, borderTopColor: colors.line, borderTopWidth: 1, paddingTop: 9 },
   capabilityName: { flex: 1, color: colors.text, textTransform: "capitalize" },
+  modelCard: { gap: 7, borderTopColor: colors.line, borderTopWidth: 1, paddingTop: 10 },
+  capabilityTags: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
   available: { color: colors.accent, fontWeight: "800" },
   unavailable: { color: colors.danger, fontWeight: "800" },
   error: { color: colors.danger },

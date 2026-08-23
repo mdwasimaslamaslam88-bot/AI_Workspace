@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -449,7 +449,11 @@ describe("App integration", () => {
         name: /Local Vision Model · 8B · Vision/,
       }),
     ).toBeVisible();
-    expect(screen.getByText("vision input")).toBeVisible();
+    expect(
+      within(screen.getByLabelText("Selected model capabilities")).getByText(
+        "vision input",
+      ),
+    ).toBeVisible();
     expect(document.body.textContent).not.toContain(token);
   });
 

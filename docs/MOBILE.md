@@ -13,9 +13,9 @@ authenticated image and audio playback, generic local notification architecture,
 deep links, and safe error redaction. SecureStore maps to
 Keychain/Keystore-backed device storage. The UI follows the device light/dark
 preference, and the private settings view includes redacted runtime diagnostics
-plus per-device session naming, issuance, revocation, logout, and bearer
-rotation. Newly issued credentials remain transient until the owner saves them
-on the intended device.
+plus an authoritative hardware-aware model catalog, per-device session naming,
+issuance, revocation, logout, and bearer rotation. Newly issued credentials
+remain transient until the owner saves them on the intended device.
 
 The Studio tab uses the existing owner-scoped backend APIs for explicit memory,
 allowlisted tool execution, bounded workflow creation/start/cancel/status,

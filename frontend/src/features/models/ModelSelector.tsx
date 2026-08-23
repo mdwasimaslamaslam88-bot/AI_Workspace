@@ -1,4 +1,11 @@
-import type { LocalModel } from "../../api/contracts";
+import {
+  MODEL_READINESS_LABELS,
+  modelContextLabel,
+  modelHardwareLabel,
+  modelReadiness,
+  modelScaleLabel,
+  type LocalModel,
+} from "../../api/contracts";
 import {
   modelSupportsVision,
   selectableTextModels,
@@ -24,6 +31,7 @@ export function ModelSelector({
   onReload,
 }: ModelSelectorProps) {
   const selectable = selectableTextModels(models);
+  const selected = models.find((model) => model.model_id === selectedModelId) ?? null;
 
   return (
     <section className="model-panel" aria-labelledby="model-label">
@@ -45,15 +53,22 @@ export function ModelSelector({
           ))}
         </select>
       </div>
-      {selectedModelId !== null && (
-        <div className="capability-row" aria-label="Selected model capabilities">
-          {selectable
-            .find((model) => model.model_id === selectedModelId)
-            ?.capabilities.map((capability) => (
+      {selected !== null && (
+        <div className="selected-model-summary">
+          <div className="model-facts" aria-label="Selected model details">
+            <span>{MODEL_READINESS_LABELS[modelReadiness(selected)]}</span>
+            <span>{selected.runtime_id}</span>
+            <span>{modelScaleLabel(selected.scale_class)}</span>
+            <span>{modelContextLabel(selected.context_window)}</span>
+            <span>{modelHardwareLabel(selected.hardware_class)}</span>
+          </div>
+          <div className="capability-row" aria-label="Selected model capabilities">
+            {selected.capabilities.map((capability) => (
               <span className="capability" key={capability}>
                 {capability.replaceAll("_", " ")}
               </span>
             ))}
+          </div>
         </div>
       )}
       {loading && <p className="field-help" role="status">Discovering local models…</p>}
@@ -67,6 +82,41 @@ export function ModelSelector({
         <p className="field-help">
           Configure and allowlist a local text-generation model in the backend.
         </p>
+      )}
+      {!loading && error === null && models.length > 0 && (
+        <details className="model-catalog">
+          <summary>Model catalog · {models.length} discovered</summary>
+          <ul>
+            {models.map((model) => {
+              const readiness = modelReadiness(model);
+              return (
+                <li key={model.model_id}>
+                  <div className="model-catalog-heading">
+                    <strong>{model.display_name}</strong>
+                    <span className={`model-readiness model-readiness-${readiness}`}>
+                      {MODEL_READINESS_LABELS[readiness]}
+                    </span>
+                  </div>
+                  <div className="model-facts">
+                    <span>{model.installed ? "Installed" : "Not installed"}</span>
+                    <span>{model.runtime_id}</span>
+                    <span>{model.modality}</span>
+                    <span>{modelScaleLabel(model.scale_class)}</span>
+                    <span>{modelContextLabel(model.context_window)}</span>
+                    <span>{modelHardwareLabel(model.hardware_class)}</span>
+                  </div>
+                  <div className="capability-row" aria-label={`${model.display_name} capabilities`}>
+                    {model.capabilities.map((capability) => (
+                      <span className="capability" key={capability}>
+                        {capability.replaceAll("_", " ")}
+                      </span>
+                    ))}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </details>
       )}
     </section>
   );
