@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as Notifications from "expo-notifications";
 
 import {
+  loadPrivateNotifications,
   notifyTaskFinished,
   privateTaskNotificationContent,
   requestPrivateNotificationPermission,
@@ -12,6 +13,10 @@ vi.mock("expo-notifications", () => ({
   getPermissionsAsync: vi.fn(),
   requestPermissionsAsync: vi.fn(),
   scheduleNotificationAsync: vi.fn(),
+}));
+
+vi.mock("expo-constants", () => ({
+  default: { expoVersion: null },
 }));
 
 describe("private mobile notifications", () => {
@@ -42,5 +47,31 @@ describe("private mobile notifications", () => {
       content: privateTaskNotificationContent(true),
       trigger: null,
     });
+  });
+
+  it("keeps Expo Go usable when native notifications are unavailable", async () => {
+    const unavailable = async () => null;
+
+    await expect(requestPrivateNotificationPermission(unavailable)).resolves.toBe(false);
+    await expect(notifyTaskFinished(true, unavailable)).resolves.toBeUndefined();
+    expect(Notifications.getPermissionsAsync).not.toHaveBeenCalled();
+    expect(Notifications.requestPermissionsAsync).not.toHaveBeenCalled();
+    expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
+  });
+
+  it("does not import the unsupported notification module inside Expo Go", async () => {
+    const importNotifications = vi.fn(async () => Notifications);
+
+    await expect(loadPrivateNotifications(true, importNotifications)).resolves.toBeNull();
+    expect(importNotifications).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when the native permission APIs reject", async () => {
+    vi.mocked(Notifications.getPermissionsAsync).mockRejectedValueOnce(
+      new Error("native notification failure"),
+    );
+
+    await expect(requestPrivateNotificationPermission()).resolves.toBe(false);
+    expect(Notifications.requestPermissionsAsync).not.toHaveBeenCalled();
   });
 });

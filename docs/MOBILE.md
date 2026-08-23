@@ -102,4 +102,8 @@ cannot be fabricated. Follow the current Expo build documentation at
 Remote push delivery is an architecture boundary, not silently enabled: it
 requires owner-approved APNs/FCM/EAS credentials and a private backend device
 registration/revocation design. Current notifications are local and generic,
-with no sensitive message preview.
+with no sensitive message preview. Android Expo Go does not ship the native
+notification module; WORK STATION detects Expo Go before importing it, keeps
+chat, Settings, and Studio usable without a development error overlay, and
+treats notification permission/alerts as unavailable. Native development and
+production builds retain the configured notification integration.

@@ -1,9 +1,41 @@
-import * as Notifications from "expo-notifications";
+import Constants from "expo-constants";
 
-export async function requestPrivateNotificationPermission(): Promise<boolean> {
-  const current = await Notifications.getPermissionsAsync();
-  if (current.granted) return true;
-  return (await Notifications.requestPermissionsAsync()).granted;
+type PrivateNotificationsModule = Pick<
+  typeof import("expo-notifications"),
+  "getPermissionsAsync" | "requestPermissionsAsync" | "scheduleNotificationAsync"
+>;
+
+type PrivateNotificationsLoader = () => Promise<PrivateNotificationsModule | null>;
+type PrivateNotificationsImporter = () => Promise<PrivateNotificationsModule>;
+
+export async function loadPrivateNotifications(
+  isExpoGo = typeof Constants.expoVersion === "string",
+  importNotifications: PrivateNotificationsImporter = () => import("expo-notifications"),
+): Promise<PrivateNotificationsModule | null> {
+  // Expo Go intentionally throws while evaluating expo-notifications on
+  // Android. Detect it before import so the exception cannot reach Metro's
+  // development overlay. Native development and production builds expose no
+  // Expo Go version and continue through the real module.
+  if (isExpoGo) return null;
+  try {
+    return await importNotifications();
+  } catch {
+    return null;
+  }
+}
+
+export async function requestPrivateNotificationPermission(
+  loadNotifications: PrivateNotificationsLoader = loadPrivateNotifications,
+): Promise<boolean> {
+  const notifications = await loadNotifications();
+  if (notifications === null) return false;
+  try {
+    const current = await notifications.getPermissionsAsync();
+    if (current.granted) return true;
+    return (await notifications.requestPermissionsAsync()).granted;
+  } catch {
+    return false;
+  }
 }
 
 export function privateTaskNotificationContent(succeeded: boolean) {
@@ -14,10 +46,15 @@ export function privateTaskNotificationContent(succeeded: boolean) {
   } as const;
 }
 
-export async function notifyTaskFinished(succeeded: boolean): Promise<void> {
+export async function notifyTaskFinished(
+  succeeded: boolean,
+  loadNotifications: PrivateNotificationsLoader = loadPrivateNotifications,
+): Promise<void> {
   // Notification previews intentionally contain no prompts, model output,
   // conversation names, filenames, or other private content.
-  await Notifications.scheduleNotificationAsync({
+  const notifications = await loadNotifications();
+  if (notifications === null) return;
+  await notifications.scheduleNotificationAsync({
     content: privateTaskNotificationContent(succeeded),
     trigger: null,
   });
