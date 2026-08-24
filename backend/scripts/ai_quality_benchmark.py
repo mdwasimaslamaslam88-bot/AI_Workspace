@@ -383,13 +383,41 @@ class BenchmarkRunner:
         available = [
             item for item in self.models if item.get("installed") and item.get("runnable_now")
         ]
+        text_models = [
+            item
+            for item in available
+            if "text_generation" in set(item["capabilities"])
+            and "vision_input" not in set(item["capabilities"])
+        ]
+        general = next(
+            (
+                item
+                for item in text_models
+                if "qwen3" in item["display_name"].casefold()
+            ),
+            text_models[0] if text_models else None,
+        )
+        if general is not None:
+            self.model_ids["general"] = general["model_id"]
+
+        coder_candidates = [
+            item
+            for item in text_models
+            if general is None or item["model_id"] != general["model_id"]
+        ]
+        coder = next(
+            (
+                item
+                for item in coder_candidates
+                if "qwen2" in item["display_name"].casefold()
+            ),
+            coder_candidates[0] if coder_candidates else None,
+        )
+        if coder is not None:
+            self.model_ids["coder"] = coder["model_id"]
+
         for item in available:
-            name = item["display_name"].casefold()
             capabilities = set(item["capabilities"])
-            if "qwen3" in name and "text_generation" in capabilities:
-                self.model_ids["general"] = item["model_id"]
-            if "coder" in name and "text_generation" in capabilities:
-                self.model_ids["coder"] = item["model_id"]
             if "vision_input" in capabilities:
                 self.model_ids["vision"] = item["model_id"]
             if "embeddings" in capabilities:

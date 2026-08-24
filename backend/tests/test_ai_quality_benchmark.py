@@ -1,7 +1,7 @@
 from collections import Counter
 
 from scripts.ai_benchmark_cases import BenchmarkCase, build_text_matrix, validate_matrix
-from scripts.ai_quality_benchmark import _evaluate_answer
+from scripts.ai_quality_benchmark import BenchmarkRunner, _evaluate_answer
 
 
 def test_text_matrix_meets_every_required_easy_medium_and_hard_minimum():
@@ -65,3 +65,47 @@ def test_evaluator_requires_exact_json_without_code_fence():
 
     assert _evaluate_answer(case, '{"ready":true}', 0.5)["result"] == "PASS"
     assert _evaluate_answer(case, '```json\n{"ready":true}\n```', 0.5)["result"] == "FAIL"
+
+
+def test_model_selection_recognizes_redacted_public_qwen_coder_family():
+    runner = BenchmarkRunner.__new__(BenchmarkRunner)
+    runner.model_ids = {}
+    runner.models = [
+        {
+            "model_id": "general-id",
+            "display_name": "qwen3 8.2B",
+            "capabilities": ["text_generation"],
+            "installed": True,
+            "runnable_now": True,
+        },
+        {
+            "model_id": "coder-id",
+            "display_name": "qwen2 7.6B",
+            "capabilities": ["text_generation"],
+            "installed": True,
+            "runnable_now": True,
+        },
+        {
+            "model_id": "vision-id",
+            "display_name": "qwen25vl 8.3B",
+            "capabilities": ["text_generation", "vision_input"],
+            "installed": True,
+            "runnable_now": True,
+        },
+        {
+            "model_id": "embedding-id",
+            "display_name": "nomic-bert 137M",
+            "capabilities": ["embeddings"],
+            "installed": True,
+            "runnable_now": True,
+        },
+    ]
+
+    runner._select_models()
+
+    assert runner.model_ids == {
+        "general": "general-id",
+        "coder": "coder-id",
+        "vision": "vision-id",
+        "embedding": "embedding-id",
+    }
