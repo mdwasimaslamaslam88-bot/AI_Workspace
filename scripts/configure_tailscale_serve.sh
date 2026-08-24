@@ -28,20 +28,41 @@ if ! curl --fail --silent --show-error --max-time 5 \
   exit 1
 fi
 
-existing_status="$("${tailscale_cli}" serve status --json 2>/dev/null || true)"
-if [[ -n "${existing_status//[[:space:]]/}" && "${existing_status//[[:space:]]/}" != "{}" ]]; then
-  echo "An existing Tailscale Serve configuration was detected; refusing to overwrite it." >&2
+if ! existing_status="$("${tailscale_cli}" serve status --json 2>/dev/null)" ||
+  ! jq --exit-status 'type == "object"' \
+    >/dev/null 2>&1 <<< "${existing_status}"; then
+  echo "The current Serve state could not be verified; refusing to configure Serve." >&2
   exit 1
 fi
 if ! existing_funnel="$("${tailscale_cli}" funnel status --json 2>/dev/null)"; then
   echo "The current Funnel state could not be verified; refusing to configure Serve." >&2
   exit 1
 fi
-normalized_funnel="${existing_funnel//[[:space:]]/}"
-if [[ -n "${normalized_funnel}" &&
-  "${normalized_funnel}" != "{}" &&
-  "${normalized_funnel}" != "null" ]]; then
+funnel_is_clear='[
+  .. | objects | .AllowFunnel? | select(. != null)
+] | all(type == "object" and length == 0)'
+if ! jq --exit-status 'type == "object"' \
+  >/dev/null 2>&1 <<< "${existing_funnel}"; then
+  echo "The current Funnel state could not be verified; refusing to configure Serve." >&2
+  exit 1
+fi
+if ! jq --exit-status "${funnel_is_clear}" \
+  >/dev/null 2>&1 <<< "${existing_funnel}"; then
   echo "A public Funnel configuration was detected; refusing to configure Serve." >&2
+  exit 1
+fi
+if ! jq --exit-status "${funnel_is_clear}" \
+  >/dev/null 2>&1 <<< "${existing_status}"; then
+  echo "A public Funnel configuration was detected; refusing to configure Serve." >&2
+  exit 1
+fi
+if ! jq --exit-status 'length == 0' \
+  >/dev/null 2>&1 <<< "${existing_status}"; then
+  if "${script_directory}/check_remote_gateway.sh" >/dev/null 2>&1; then
+    echo "Private HTTPS Serve is active for the enrolled tailnet."
+    exit 0
+  fi
+  echo "An existing Tailscale Serve configuration was detected; refusing to overwrite it." >&2
   exit 1
 fi
 

@@ -66,9 +66,11 @@ created by the repository without the owner's Tailscale authorization.
    is not yet authorized. Complete that owner-account step, then run the Serve
    configurator. Do not use Funnel.
 
-The configurator checks enrollment and backend health, refuses an existing
-Serve configuration, binds HTTPS 443 to `http://127.0.0.1:8000`, and never
-enables Funnel. Inspect status without exposing application credentials:
+The configurator checks enrollment and backend health, accepts an existing
+Serve configuration only when it exactly matches the private WORK STATION
+route, otherwise refuses to overwrite it, binds HTTPS 443 to
+`http://127.0.0.1:8000`, and never enables Funnel. Inspect status without
+exposing application credentials:
 
 ```bash
 ./scripts/check_remote_gateway.sh
