@@ -221,7 +221,9 @@ trap 'cleanup_desktop_launch; cleanup_work_root' EXIT
 launch_and_verify() {
   local label="$1"
   shift
-  setsid "$@" >"${work_root}/${label}.log" 2>&1 &
+  # xwininfo can inspect X11 windows only. On mixed Wayland/X11 sessions GTK
+  # otherwise prefers Wayland, leaving this smoke blind to a healthy window.
+  setsid env GDK_BACKEND=x11 "$@" >"${work_root}/${label}.log" 2>&1 &
   desktop_pid="$!"
   desktop_pgid="$(ps -o pgid= -p "${desktop_pid}" | tr -d ' ')"
   if [[ -z "${desktop_pgid}" || "${desktop_pgid}" != "${desktop_pid}" ]]; then
