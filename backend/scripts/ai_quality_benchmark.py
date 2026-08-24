@@ -45,6 +45,7 @@ SECRET_SIGNATURES = (
     re.compile(r"AKIA[0-9A-Z]{16}"),
 )
 DOCUMENT_SEARCH_LIMIT = 4
+MALFORMED_PNG = b"\x89PNG\r\n\x1a\ntruncated"
 
 
 def _latency_score(seconds: float) -> float:
@@ -830,7 +831,7 @@ class BenchmarkRunner:
                     metadata={"synthetic_asset_media_type": uploaded.json()["media_type"]},
                 )
         malformed, malformed_latency = self._upload(
-            "malformed.png", b"not-a-real-png", "image/png"
+            "malformed.png", MALFORMED_PNG, "image/png"
         )
         malformed.raise_for_status()
         malformed_id = malformed.json()["id"]

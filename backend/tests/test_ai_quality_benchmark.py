@@ -4,9 +4,11 @@ from pathlib import Path
 import httpx
 
 from app.schemas.document import DocumentSearchQuery
+from app.services.vision_input import _valid_png
 from scripts.ai_benchmark_cases import BenchmarkCase, build_text_matrix, validate_matrix
 from scripts.ai_quality_benchmark import (
     DOCUMENT_SEARCH_LIMIT,
+    MALFORMED_PNG,
     BenchmarkRunner,
     _bounded_judge_image_command,
     _bounded_noisy_audio_command,
@@ -125,6 +127,11 @@ def test_benchmark_document_search_uses_the_product_bound():
     query = DocumentSearchQuery(query="synthetic checkpoint", limit=DOCUMENT_SEARCH_LIMIT)
 
     assert query.limit == 4
+
+
+def test_malformed_png_fixture_reaches_structural_validation():
+    assert MALFORMED_PNG.startswith(b"\x89PNG\r\n\x1a\n")
+    assert not _valid_png(MALFORMED_PNG)
 
 
 def test_noisy_audio_fixture_is_bounded_mono_pcm():
