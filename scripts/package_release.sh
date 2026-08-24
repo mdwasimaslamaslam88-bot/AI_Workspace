@@ -101,9 +101,8 @@ windows_checksums_source="${windows_artifact_directory}/Work_Station_Windows.sha
   cd "${windows_artifact_directory}"
   sha256sum --check --strict "$(basename -- "${windows_checksums_source}")"
 )
-for windows_artifact in "${windows_setup_source}" "${windows_binary_source}"; do
-  file "${windows_artifact}" | rg -q 'PE32\+.*x86-64'
-done
+file "${windows_setup_source}" | rg -q 'PE32 executable .*Nullsoft Installer'
+file "${windows_binary_source}" | rg -q 'PE32\+.*x86-64'
 7z t "${windows_setup_source}" >/dev/null
 windows_scan_root="${stage_root}/.windows-scan"
 install -d -m 0700 "${windows_scan_root}"
