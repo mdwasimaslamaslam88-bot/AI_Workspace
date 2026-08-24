@@ -44,6 +44,7 @@ SECRET_SIGNATURES = (
     re.compile(r"gh[pousr]_[A-Za-z0-9]{30,}"),
     re.compile(r"AKIA[0-9A-Z]{16}"),
 )
+DOCUMENT_SEARCH_LIMIT = 4
 
 
 def _latency_score(seconds: float) -> float:
@@ -875,7 +876,10 @@ class BenchmarkRunner:
                 "GET",
                 "/api/v1/documents/search",
                 headers=self.owner_headers,
-                params={"query": f"What is the {kind.upper()} checkpoint?", "limit": 5},
+                params={
+                    "query": f"What is the {kind.upper()} checkpoint?",
+                    "limit": DOCUMENT_SEARCH_LIMIT,
+                },
             )
             search.raise_for_status()
             items = search.json()["items"]

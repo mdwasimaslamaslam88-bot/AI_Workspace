@@ -1,7 +1,12 @@
 from collections import Counter
 
+from app.schemas.document import DocumentSearchQuery
 from scripts.ai_benchmark_cases import BenchmarkCase, build_text_matrix, validate_matrix
-from scripts.ai_quality_benchmark import BenchmarkRunner, _evaluate_answer
+from scripts.ai_quality_benchmark import (
+    DOCUMENT_SEARCH_LIMIT,
+    BenchmarkRunner,
+    _evaluate_answer,
+)
 
 
 def test_text_matrix_meets_every_required_easy_medium_and_hard_minimum():
@@ -109,3 +114,9 @@ def test_model_selection_recognizes_redacted_public_qwen_coder_family():
         "vision": "vision-id",
         "embedding": "embedding-id",
     }
+
+
+def test_benchmark_document_search_uses_the_product_bound():
+    query = DocumentSearchQuery(query="synthetic checkpoint", limit=DOCUMENT_SEARCH_LIMIT)
+
+    assert query.limit == 4
