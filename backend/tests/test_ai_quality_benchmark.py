@@ -1,10 +1,12 @@
 from collections import Counter
+from pathlib import Path
 
 from app.schemas.document import DocumentSearchQuery
 from scripts.ai_benchmark_cases import BenchmarkCase, build_text_matrix, validate_matrix
 from scripts.ai_quality_benchmark import (
     DOCUMENT_SEARCH_LIMIT,
     BenchmarkRunner,
+    _bounded_noisy_audio_command,
     _evaluate_answer,
 )
 
@@ -120,3 +122,22 @@ def test_benchmark_document_search_uses_the_product_bound():
     query = DocumentSearchQuery(query="synthetic checkpoint", limit=DOCUMENT_SEARCH_LIMIT)
 
     assert query.limit == 4
+
+
+def test_noisy_audio_fixture_is_bounded_mono_pcm():
+    command = _bounded_noisy_audio_command(
+        Path("/synthetic/source.wav"),
+        Path("/synthetic/noisy.wav"),
+    )
+
+    assert command[-9:] == [
+        "-t",
+        "12",
+        "-ac",
+        "1",
+        "-ar",
+        "16000",
+        "-c:a",
+        "pcm_s16le",
+        "/synthetic/noisy.wav",
+    ]

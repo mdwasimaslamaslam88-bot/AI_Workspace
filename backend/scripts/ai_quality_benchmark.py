@@ -75,6 +75,29 @@ def _safe_json(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
 
 
+def _bounded_noisy_audio_command(source: Path, target: Path) -> list[str]:
+    return [
+        "/usr/bin/ffmpeg",
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-y",
+        "-i",
+        str(source),
+        "-filter_complex",
+        "anoisesrc=color=white:amplitude=0.015[d];[0:a][d]amix=inputs=2:duration=first",
+        "-t",
+        "12",
+        "-ac",
+        "1",
+        "-ar",
+        "16000",
+        "-c:a",
+        "pcm_s16le",
+        str(target),
+    ]
+
+
 def _normalize_exact(value: str) -> str:
     return value.strip()
 
@@ -1838,10 +1861,7 @@ class BenchmarkRunner:
             noisy = Path(root) / "noisy.wav"
             source.write_bytes(synthesized_assets[0][1])
             subprocess.run(
-                [
-                    "/usr/bin/ffmpeg", "-hide_banner", "-loglevel", "error", "-y",
-                    "-i", str(source), "-filter_complex", "anoisesrc=color=white:amplitude=0.015[d];[0:a][d]amix=inputs=2:duration=first", str(noisy),
-                ],
+                _bounded_noisy_audio_command(source, noisy),
                 check=True,
                 timeout=30,
             )
