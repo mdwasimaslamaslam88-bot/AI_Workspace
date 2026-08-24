@@ -98,6 +98,25 @@ def _bounded_noisy_audio_command(source: Path, target: Path) -> list[str]:
     ]
 
 
+def _bounded_judge_image_command(source: Path, target: Path) -> list[str]:
+    return [
+        "/usr/bin/ffmpeg",
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-y",
+        "-i",
+        str(source),
+        "-vf",
+        "scale=384:384:force_original_aspect_ratio=decrease,pad=384:384:(ow-iw)/2:(oh-ih)/2:color=white",
+        "-frames:v",
+        "1",
+        "-q:v",
+        "3",
+        str(target),
+    ]
+
+
 def _normalize_exact(value: str) -> str:
     return value.strip()
 
@@ -1581,13 +1600,35 @@ class BenchmarkRunner:
     def _download_asset(self, asset_id: str, *, headers: dict[str, str] | None = None) -> tuple[httpx.Response, float]:
         return self._request("GET", f"/api/v1/assets/{asset_id}/content", headers=headers or self.owner_headers)
 
+    @staticmethod
+    def _bounded_judge_copy(content: bytes) -> bytes:
+        with tempfile.TemporaryDirectory(
+            prefix="work-station-image-judge-copy."
+        ) as root:
+            source = Path(root) / "source.png"
+            target = Path(root) / "judge.jpg"
+            source.write_bytes(content)
+            subprocess.run(
+                _bounded_judge_image_command(source, target),
+                check=True,
+                timeout=30,
+            )
+            result = target.read_bytes()
+        if (
+            not result.startswith(b"\xff\xd8\xff")
+            or len(result) > settings.REQUEST_MAX_BODY_BYTES - 4096
+        ):
+            raise RuntimeError("bounded image judge copy is invalid")
+        return result
+
     def _vision_judge_asset(self, test_id: str, asset_id: str, prompt: str, required: tuple[str, ...]) -> tuple[str, dict[str, Any], float]:
         source, download_latency = self._download_asset(asset_id)
         source.raise_for_status()
+        judge_content = self._bounded_judge_copy(source.content)
         judge_copy, upload_latency = self._upload(
-            f"{test_id}-judge-copy.png",
-            source.content,
-            "image/png",
+            f"{test_id}-judge-copy.jpg",
+            judge_content,
+            "image/jpeg",
         )
         judge_copy.raise_for_status()
         judge_asset_id = judge_copy.json()["id"]

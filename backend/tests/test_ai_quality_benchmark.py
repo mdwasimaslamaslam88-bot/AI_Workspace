@@ -8,6 +8,7 @@ from scripts.ai_benchmark_cases import BenchmarkCase, build_text_matrix, validat
 from scripts.ai_quality_benchmark import (
     DOCUMENT_SEARCH_LIMIT,
     BenchmarkRunner,
+    _bounded_judge_image_command,
     _bounded_noisy_audio_command,
     _evaluate_answer,
 )
@@ -145,6 +146,22 @@ def test_noisy_audio_fixture_is_bounded_mono_pcm():
     ]
 
 
+def test_image_judge_copy_command_is_bounded_jpeg():
+    command = _bounded_judge_image_command(
+        Path("/synthetic/source.png"),
+        Path("/synthetic/judge.jpg"),
+    )
+
+    assert command[-5:] == [
+        "-frames:v",
+        "1",
+        "-q:v",
+        "3",
+        "/synthetic/judge.jpg",
+    ]
+    assert "scale=384:384:force_original_aspect_ratio=decrease" in command[-6]
+
+
 def test_multimodal_case_attaches_image_to_the_generated_user_message():
     runner = BenchmarkRunner.__new__(BenchmarkRunner)
     runner.owner_token = "synthetic-test-bearer"
@@ -210,6 +227,7 @@ def test_image_judge_uses_a_disposable_owner_upload_copy():
         ),
         0.1,
     )
+    runner._bounded_judge_copy = lambda content: b"\xff\xd8\xffsynthetic-jpeg"
 
     def upload(filename, content, media_type):
         observed["upload"] = (filename, content, media_type)
@@ -241,8 +259,8 @@ def test_image_judge_uses_a_disposable_owner_upload_copy():
     assert round(latency, 4) == 0.6
     assert observed["attachments"] == ["judge-copy-id"]
     assert observed["upload"] == (
-        "judge-case-judge-copy.png",
-        b"\x89PNG\r\n\x1a\nsynthetic",
-        "image/png",
+        "judge-case-judge-copy.jpg",
+        b"\xff\xd8\xffsynthetic-jpeg",
+        "image/jpeg",
     )
     assert runner.synthetic_asset_ids == ["judge-copy-id"]
