@@ -123,9 +123,9 @@ mkdir -p "${native_stage_root}/apps/mobile"
 rsync -a \
   --exclude='.env*' \
   --exclude='.expo' \
-  --exclude='android' \
+  --exclude='/android' \
   --exclude='dist' \
-  --exclude='ios' \
+  --exclude='/ios' \
   --exclude='node_modules' \
   --exclude='web-build' \
   "${mobile_root}/" "${native_stage_root}/apps/mobile/"
@@ -150,6 +150,18 @@ fi
   CI=1 NODE_ENV="${node_environment}" \
     "${repository_root}/node_modules/.bin/expo" prebuild \
       --platform android --no-install
+  generated_manifest="android/app/src/main/AndroidManifest.xml"
+  generated_network_policy="android/app/src/main/res/xml/work_station_network_security_config.xml"
+  rg -q 'android:usesCleartextTraffic="false"' "${generated_manifest}"
+  rg -q 'android:networkSecurityConfig="@xml/work_station_network_security_config"' "${generated_manifest}"
+  rg -q '<base-config cleartextTrafficPermitted="false"' "${generated_network_policy}"
+  rg -q '<domain-config cleartextTrafficPermitted="true"' "${generated_network_policy}"
+  rg -q '>127\.0\.0\.1</domain>' "${generated_network_policy}"
+  rg -q '>localhost</domain>' "${generated_network_policy}"
+  if rg -q 'includeSubdomains="true"|\*|0\.0\.0\.0' "${generated_network_policy}"; then
+    echo "The Android network policy permits an unrestricted cleartext target." >&2
+    exit 1
+  fi
   ANDROID_HOME="${android_sdk_root}" \
   ANDROID_SDK_ROOT="${android_sdk_root}" \
   NODE_ENV="${node_environment}" \
@@ -193,9 +205,17 @@ mapfile -d '' apk_path_matches < <(
 )
 if [[ "${#apk_path_matches[@]}" -gt 0 && -n "${output_apk}" ]]; then
   sanitized_members=()
+  IFS=',' read -r -a expected_android_abis <<<"${android_architectures}"
   for matched_file in "${apk_path_matches[@]}"; do
     relative_member="${matched_file#"${apk_scan_root}/"}"
-    if [[ "${relative_member}" != lib/arm64-v8a/*.so ]]; then
+    expected_native_member="false"
+    for expected_android_abi in "${expected_android_abis[@]}"; do
+      if [[ "${relative_member}" == lib/"${expected_android_abi}"/*.so ]]; then
+        expected_native_member="true"
+        break
+      fi
+    done
+    if [[ "${expected_native_member}" != "true" ]]; then
       echo "An unexpected APK member contains a build-machine path: ${relative_member}" >&2
       exit 1
     fi

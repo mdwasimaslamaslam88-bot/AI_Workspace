@@ -31,6 +31,7 @@
     "web": { "output": "static", "favicon": "./assets/work-station/app-icon.png" },
     "plugins": [
       "expo-router",
+      "./plugins/with-local-loopback-network-security",
       [
         "expo-secure-store",
         { "faceIDPermission": "Allow WORK STATION to unlock your private session." }

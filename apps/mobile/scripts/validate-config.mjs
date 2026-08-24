@@ -46,6 +46,7 @@ const pluginNames = app.plugins.map((plugin) =>
 );
 for (const required of [
   "expo-router",
+  "./plugins/with-local-loopback-network-security",
   "expo-secure-store",
   "expo-image-picker",
   "expo-notifications",
