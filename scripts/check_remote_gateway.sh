@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if ! command -v tailscale >/dev/null 2>&1; then
+script_directory="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+tailscale_cli="${script_directory}/tailscale_cli.sh"
+
+if ! "${tailscale_cli}" version >/dev/null 2>&1; then
   echo "remote gateway: unavailable (Tailscale is not installed)"
   exit 2
 fi
@@ -9,13 +12,13 @@ if ! command -v jq >/dev/null 2>&1; then
   echo "remote gateway: unavailable (JSON validation is not installed)"
   exit 2
 fi
-if ! tailscale_status="$(tailscale status --json 2>/dev/null)" ||
+if ! tailscale_status="$("${tailscale_cli}" status --json 2>/dev/null)" ||
   ! jq --exit-status '.BackendState == "Running"' \
     >/dev/null 2>&1 <<< "${tailscale_status}"; then
   echo "remote gateway: unavailable (workstation is not enrolled)"
   exit 2
 fi
-serve_status="$(tailscale serve status 2>/dev/null || true)"
+serve_status="$("${tailscale_cli}" serve status 2>/dev/null || true)"
 if [[ -z "${serve_status//[[:space:]]/}" ]]; then
   echo "remote gateway: unavailable (Serve is not configured)"
   exit 2
@@ -36,7 +39,7 @@ if [[ "${serve_status}" == *"Available on the internet:"* ]]; then
   echo "remote gateway: unsafe (public Funnel exposure detected)"
   exit 2
 fi
-if ! funnel_status="$(tailscale funnel status --json 2>/dev/null)"; then
+if ! funnel_status="$("${tailscale_cli}" funnel status --json 2>/dev/null)"; then
   echo "remote gateway: unavailable (Funnel state could not be verified)"
   exit 2
 fi

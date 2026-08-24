@@ -17,6 +17,9 @@ sed "s|@REPOSITORY_ROOT@|${escaped_repository_root}|g" \
 sed "s|@REPOSITORY_ROOT@|${escaped_repository_root}|g" \
   "${repository_root}/deploy/systemd/work-station-backup.service.in" \
   > "${temporary_units}/work-station-backup.service"
+sed "s|@REPOSITORY_ROOT@|${escaped_repository_root}|g" \
+  "${repository_root}/deploy/systemd/work-station-tailscaled.service.in" \
+  > "${temporary_units}/work-station-tailscaled.service"
 cp "${repository_root}/deploy/systemd/work-station-health.service" \
   "${repository_root}/deploy/systemd/work-station-health.timer" \
   "${repository_root}/deploy/systemd/work-station-backup.timer" \

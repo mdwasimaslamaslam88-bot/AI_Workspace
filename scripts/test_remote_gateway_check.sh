@@ -11,6 +11,7 @@ printf '%s\n' \
   '#!/usr/bin/env bash' \
   'set -euo pipefail' \
   'case "${1:-} ${2:-} ${3:-}" in' \
+  '  "version  ") exit 0 ;;' \
   '  "status --json ")' \
   '    if [[ "${WORK_STATION_GATEWAY_TEST_CASE:-}" == "not-enrolled" ]]; then' \
   '      printf "%s\n" "{\"BackendState\":\"NeedsLogin\"}"' \
@@ -59,6 +60,7 @@ run_case() {
   local actual_status=0
   output="$(
     PATH="${temporary_root}/bin:/usr/bin:/bin" \
+      WORK_STATION_TAILSCALE_CLI="${fake_tailscale}" \
       WORK_STATION_GATEWAY_TEST_CASE="${case_name}" \
       "${script_directory}/check_remote_gateway.sh" 2>&1
   )" || actual_status=$?
@@ -89,6 +91,7 @@ run_configure_case() {
   local actual_status=0
   output="$(
     PATH="${temporary_root}/bin:/usr/bin:/bin" \
+      WORK_STATION_TAILSCALE_CLI="${fake_tailscale}" \
       WORK_STATION_GATEWAY_TEST_CASE="${case_name}" \
       "${script_directory}/configure_tailscale_serve.sh" 2>&1
   )" || actual_status=$?

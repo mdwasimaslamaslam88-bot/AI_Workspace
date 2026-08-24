@@ -4,15 +4,13 @@ After=work-station-backend.service
 
 [Service]
 Type=oneshot
-ExecCondition=/usr/bin/test -x /usr/bin/tailscale
+ExecCondition=@REPOSITORY_ROOT@/scripts/tailscale_cli.sh version
 ExecStart=@REPOSITORY_ROOT@/scripts/check_remote_gateway.sh
 NoNewPrivileges=yes
-PrivateDevices=yes
 PrivateTmp=yes
 ProtectSystem=strict
 ProtectHome=read-only
 ProtectKernelTunables=yes
-ProtectKernelModules=yes
 ProtectControlGroups=yes
 RestrictSUIDSGID=yes
 LockPersonality=yes

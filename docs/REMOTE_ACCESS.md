@@ -33,8 +33,10 @@ Official references:
 
 Install Tailscale, enroll the workstation and each owner device in the same
 tailnet, enable MagicDNS/HTTPS, and restrict the tailnet policy to the owner's
-identity and devices. These account actions cannot be created by the repository
-without the owner's Tailscale account authorization.
+identity and devices. The service supports either the normal system client or
+official static binaries under
+`~/AI_Workspace_Runtimes/tailscale/current/`. The account actions cannot be
+created by the repository without the owner's Tailscale authorization.
 
 ## Enable the private gateway
 
@@ -56,8 +58,13 @@ without the owner's Tailscale account authorization.
    ```bash
    ./scripts/install_user_services.sh
    systemctl --user enable --now work-station.target
+   ./scripts/tailscale_cli.sh up
    ./scripts/configure_tailscale_serve.sh
    ```
+
+   `tailscale_cli.sh up` prints Tailscale's enrollment URL when the workstation
+   is not yet authorized. Complete that owner-account step, then run the Serve
+   configurator. Do not use Funnel.
 
 The configurator checks enrollment and backend health, refuses an existing
 Serve configuration, binds HTTPS 443 to `http://127.0.0.1:8000`, and never
@@ -65,7 +72,7 @@ enables Funnel. Inspect status without exposing application credentials:
 
 ```bash
 ./scripts/check_remote_gateway.sh
-tailscale serve status
+./scripts/tailscale_cli.sh serve status
 ```
 
 Open the HTTPS MagicDNS URL printed by Tailscale on an enrolled owner device.

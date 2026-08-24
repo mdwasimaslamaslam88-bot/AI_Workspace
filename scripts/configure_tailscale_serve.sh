@@ -2,8 +2,9 @@
 set -euo pipefail
 
 script_directory="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+tailscale_cli="${script_directory}/tailscale_cli.sh"
 
-if ! command -v tailscale >/dev/null 2>&1; then
+if ! "${tailscale_cli}" version >/dev/null 2>&1; then
   echo "Tailscale is not installed. Install and enroll this workstation first." >&2
   exit 1
 fi
@@ -15,7 +16,7 @@ if ! command -v jq >/dev/null 2>&1; then
   echo "jq is required for redacted Tailscale state validation." >&2
   exit 1
 fi
-if ! tailscale_status="$(tailscale status --json 2>/dev/null)" ||
+if ! tailscale_status="$("${tailscale_cli}" status --json 2>/dev/null)" ||
   ! jq --exit-status '.BackendState == "Running"' \
     >/dev/null 2>&1 <<< "${tailscale_status}"; then
   echo "This workstation is not enrolled in a Tailscale tailnet." >&2
@@ -27,12 +28,12 @@ if ! curl --fail --silent --show-error --max-time 5 \
   exit 1
 fi
 
-existing_status="$(tailscale serve status --json 2>/dev/null || true)"
+existing_status="$("${tailscale_cli}" serve status --json 2>/dev/null || true)"
 if [[ -n "${existing_status//[[:space:]]/}" && "${existing_status//[[:space:]]/}" != "{}" ]]; then
   echo "An existing Tailscale Serve configuration was detected; refusing to overwrite it." >&2
   exit 1
 fi
-if ! existing_funnel="$(tailscale funnel status --json 2>/dev/null)"; then
+if ! existing_funnel="$("${tailscale_cli}" funnel status --json 2>/dev/null)"; then
   echo "The current Funnel state could not be verified; refusing to configure Serve." >&2
   exit 1
 fi
@@ -45,6 +46,6 @@ if [[ -n "${normalized_funnel}" &&
 fi
 
 # Serve is private to the tailnet. Funnel is intentionally never enabled.
-tailscale serve --yes --bg --https=443 http://127.0.0.1:8000
+"${tailscale_cli}" serve --yes --bg --https=443 http://127.0.0.1:8000
 "${script_directory}/check_remote_gateway.sh" >/dev/null
 echo "Private HTTPS Serve is active for the enrolled tailnet."

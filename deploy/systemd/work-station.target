@@ -1,7 +1,7 @@
 [Unit]
 Description=WORK STATION private Personal AI
-Wants=work-station-backend.service work-station-health.timer work-station-remote-health.timer
-After=work-station-backend.service
+Wants=work-station-backend.service work-station-health.timer work-station-remote-health.timer work-station-tailscaled.service
+After=work-station-backend.service work-station-tailscaled.service
 
 [Install]
 WantedBy=default.target

@@ -73,8 +73,9 @@ creating user units. It does not start services automatically. The backend
 service binds `127.0.0.1:8000`, trusts proxy headers only from loopback, uses a
 restrictive umask, has restart/time/resource bounds, and writes only to the
 private data root. The target also enables a readiness timer for PostgreSQL,
-Redis, and Ollama plus a remote-gateway timer that is skipped until the standard
-`/usr/bin/tailscale` client is installed.
+Redis, and Ollama plus a remote-gateway timer that supports either the standard
+`/usr/bin/tailscale` client or verified official static binaries under
+`~/AI_Workspace_Runtimes/tailscale/current/`.
 
 The installer also installs the disabled `work-station-backup.timer`. Configure
 and enable it separately using [BACKUP.md](BACKUP.md); the main target never

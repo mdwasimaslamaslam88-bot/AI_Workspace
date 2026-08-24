@@ -21,7 +21,6 @@ ProtectSystem=strict
 ProtectHome=read-only
 ReadWritePaths=%h/AI_Workspace_Data
 ProtectKernelTunables=yes
-ProtectKernelModules=yes
 ProtectControlGroups=yes
 RestrictSUIDSGID=yes
 LockPersonality=yes

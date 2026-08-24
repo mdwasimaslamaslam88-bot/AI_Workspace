@@ -5,6 +5,7 @@
 - PostgreSQL: existing local service; never publicly bind port 5432
 - Ollama: existing loopback service; never expose port 11434
 - WORK STATION backend/PWA: user service on `127.0.0.1:8000`
+- Tailscale: hardened userspace user service; enrollment remains owner-controlled
 - Tailscale Serve: private tailnet HTTPS proxy to the backend
 - ComfyUI, faster-whisper, Piper: started only when their bounded runtime is
   required; no public listener
@@ -38,6 +39,7 @@ content.
 
 ```bash
 journalctl --user -u work-station-backend.service --since today
+journalctl --user -u work-station-tailscaled.service --since today
 ```
 
 Logs contain event names, method/status, request IDs, and fixed dependency
