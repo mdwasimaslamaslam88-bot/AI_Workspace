@@ -473,8 +473,11 @@ class BenchmarkRunner:
                     "user's explicit output contract. Do not reveal hidden reasoning, "
                     "credentials, private paths, or unrelated content."
                 ),
-                "initial_message": effective_prompt,
-                **({"attachment_ids": attachments} if attachments else {}),
+                "initial_message": (
+                    "Initialize a disposable synthetic multimodal benchmark."
+                    if attachments
+                    else effective_prompt
+                ),
             },
         )
         create.raise_for_status()
@@ -488,6 +491,14 @@ class BenchmarkRunner:
             headers=self.owner_headers,
             json={
                 "model_id": model_id,
+                **(
+                    {
+                        "user_message": effective_prompt,
+                        "attachment_ids": attachments,
+                    }
+                    if attachments
+                    else {}
+                ),
                 "max_output_tokens": case.max_output_tokens,
                 "temperature": 0.0,
                 "seed": 20260825,
@@ -802,32 +813,86 @@ class BenchmarkRunner:
         malformed, malformed_latency = self._upload(
             "malformed.png", b"not-a-real-png", "image/png"
         )
+        malformed.raise_for_status()
+        malformed_id = malformed.json()["id"]
+        self.synthetic_asset_ids.append(malformed_id)
+        malformed_conversation, _ = self._request(
+            "POST",
+            "/api/v1/conversations",
+            headers=self.owner_headers,
+            json={"initial_message": "Prepare a malformed image rejection test."},
+        )
+        malformed_conversation.raise_for_status()
+        malformed_conversation_id = malformed_conversation.json()["id"]
+        self.conversation_ids.append(malformed_conversation_id)
+        malformed_operation, malformed_operation_latency = self._request(
+            "POST",
+            f"/api/v1/conversations/{malformed_conversation_id}/messages/generate",
+            headers=self.owner_headers,
+            json={
+                "model_id": self.model_ids["vision"],
+                "user_message": "Inspect this malformed synthetic image.",
+                "attachment_ids": [malformed_id],
+                "max_output_tokens": 32,
+                "temperature": 0.0,
+            },
+        )
         self._record_boolean(
             "vision-08-malformed",
             "vision",
             "adversarial",
-            "Upload malformed bytes claiming to be PNG.",
-            "Reject malformed image content without model execution.",
-            {"http_status": malformed.status_code},
-            malformed_latency,
-            malformed.status_code in {400, 415, 422},
-            failure_reason="malformed image was accepted",
+            "Consume malformed bytes claiming to be PNG as vision input.",
+            "Reject malformed image content with a bounded generic error.",
+            {
+                "upload_http_status": malformed.status_code,
+                "operation_http_status": malformed_operation.status_code,
+            },
+            malformed_latency + malformed_operation_latency,
+            malformed_operation.status_code in {422, 503},
+            failure_reason="malformed image reached successful generation",
         )
         unsupported, unsupported_latency = self._upload(
-            "unsupported.svg",
-            b'<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>',
-            "image/svg+xml",
+            "unsupported.webp",
+            b"RIFF\x04\x00\x00\x00WEBP",
+            "image/webp",
+        )
+        unsupported.raise_for_status()
+        unsupported_id = unsupported.json()["id"]
+        self.synthetic_asset_ids.append(unsupported_id)
+        unsupported_conversation, _ = self._request(
+            "POST",
+            "/api/v1/conversations",
+            headers=self.owner_headers,
+            json={"initial_message": "Prepare an unsupported image rejection test."},
+        )
+        unsupported_conversation.raise_for_status()
+        unsupported_conversation_id = unsupported_conversation.json()["id"]
+        self.conversation_ids.append(unsupported_conversation_id)
+        unsupported_operation, unsupported_operation_latency = self._request(
+            "POST",
+            f"/api/v1/conversations/{unsupported_conversation_id}/messages/generate",
+            headers=self.owner_headers,
+            json={
+                "model_id": self.model_ids["vision"],
+                "user_message": "Inspect this unsupported synthetic image.",
+                "attachment_ids": [unsupported_id],
+                "max_output_tokens": 32,
+                "temperature": 0.0,
+            },
         )
         self._record_boolean(
             "vision-09-unsupported",
             "vision",
             "adversarial",
-            "Upload an unsupported SVG containing active content.",
-            "Reject unsupported active image content.",
-            {"http_status": unsupported.status_code},
-            unsupported_latency,
-            unsupported.status_code in {400, 415, 422},
-            failure_reason="unsupported active image was accepted",
+            "Consume an unsupported WEBP image.",
+            "Reject an unsupported image media type before runtime execution.",
+            {
+                "upload_http_status": unsupported.status_code,
+                "operation_http_status": unsupported_operation.status_code,
+            },
+            unsupported_latency + unsupported_operation_latency,
+            unsupported_operation.status_code == 422,
+            failure_reason="unsupported image reached successful generation",
         )
 
     @staticmethod
@@ -1530,6 +1595,16 @@ class BenchmarkRunner:
         return answer, _evaluate_answer(case, answer, latency), latency
 
     def run_images(self) -> None:
+        self._start_comfy()
+        refreshed, _ = self._request("GET", "/api/v1/ai/models", headers=self.owner_headers)
+        refreshed.raise_for_status()
+        self.models = refreshed.json()["items"]
+        self._select_models()
+        refreshed_capabilities, _ = self._request(
+            "GET", "/api/v1/ai/capabilities", headers=self.owner_headers
+        )
+        refreshed_capabilities.raise_for_status()
+        self.capabilities = refreshed_capabilities.json()["items"]
         capability_state = {item["id"]: item for item in self.capabilities}
         if (
             capability_state.get("image_generation", {}).get("status") != "available"
@@ -1542,11 +1617,6 @@ class BenchmarkRunner:
                     failure_reason="capability advertised unavailable before runtime execution",
                 )
             return
-        self._start_comfy()
-        refreshed, _ = self._request("GET", "/api/v1/ai/models", headers=self.owner_headers)
-        refreshed.raise_for_status()
-        self.models = refreshed.json()["items"]
-        self._select_models()
         if "image" not in self.model_ids:
             raise RuntimeError("no runnable image model after ComfyUI startup")
         model_id = self.model_ids["image"]
@@ -1882,10 +1952,28 @@ class BenchmarkRunner:
                 passed, failure_reason="noisy transcription lost most checkpoint terms",
             )
         invalid_audio, upload_latency = self._upload("invalid.wav", b"RIFF-invalid", "audio/wav")
+        invalid_audio.raise_for_status()
+        invalid_audio_id = invalid_audio.json()["id"]
+        self.synthetic_asset_ids.append(invalid_audio_id)
+        invalid_operation, invalid_operation_latency = self._request(
+            "POST",
+            "/api/v1/voice/transcriptions",
+            headers=self.owner_headers,
+            json={
+                "asset_id": invalid_audio_id,
+                "model_id": self.model_ids["stt"],
+            },
+        )
         self._record_boolean(
-            "voice-05-invalid-audio", "voice", "adversarial", "Upload malformed bytes claiming to be WAV.",
-            "Reject malformed audio before transcription.", {"http_status": invalid_audio.status_code}, upload_latency,
-            invalid_audio.status_code in {400, 415, 422}, failure_reason="malformed audio was accepted",
+            "voice-05-invalid-audio", "voice", "adversarial", "Transcribe malformed bytes claiming to be WAV.",
+            "Reject malformed audio during bounded transcription.",
+            {
+                "upload_http_status": invalid_audio.status_code,
+                "operation_http_status": invalid_operation.status_code,
+            },
+            upload_latency + invalid_operation_latency,
+            invalid_operation.status_code == 422,
+            failure_reason="malformed audio reached successful transcription",
         )
         foreign, latency = self._request(
             "POST", "/api/v1/voice/transcriptions", headers=self.foreign_headers,

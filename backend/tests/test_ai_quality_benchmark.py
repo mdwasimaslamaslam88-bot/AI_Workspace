@@ -1,6 +1,8 @@
 from collections import Counter
 from pathlib import Path
 
+import httpx
+
 from app.schemas.document import DocumentSearchQuery
 from scripts.ai_benchmark_cases import BenchmarkCase, build_text_matrix, validate_matrix
 from scripts.ai_quality_benchmark import (
@@ -141,3 +143,56 @@ def test_noisy_audio_fixture_is_bounded_mono_pcm():
         "pcm_s16le",
         "/synthetic/noisy.wav",
     ]
+
+
+def test_multimodal_case_attaches_image_to_the_generated_user_message():
+    runner = BenchmarkRunner.__new__(BenchmarkRunner)
+    runner.owner_token = "synthetic-test-bearer"
+    runner.model_ids = {"vision": "vision-model-id"}
+    runner.conversation_ids = []
+    requests: list[tuple[str, str, dict]] = []
+
+    def request(method, path, **kwargs):
+        requests.append((method, path, kwargs))
+        if path == "/api/v1/conversations":
+            response = httpx.Response(
+                201,
+                json={"id": "conversation-id"},
+                request=httpx.Request(method, "http://benchmark.invalid" + path),
+            )
+            return response, 0.1
+        response = httpx.Response(
+            201,
+            json={"message": {"content": "BLUE", "citations": []}},
+            request=httpx.Request(method, "http://benchmark.invalid" + path),
+        )
+        return response, 0.2
+
+    runner._request = request
+    case = BenchmarkCase(
+        test_id="vision",
+        category="vision",
+        difficulty="hard",
+        prompt="Inspect the synthetic image.",
+        expected_behavior="Use the attached image.",
+        model_role="vision",
+    )
+
+    answer, latency, citations, model_id = runner._generate_case(
+        case,
+        attachments=["asset-id"],
+        model_role="vision",
+    )
+
+    assert (answer, latency, citations, model_id) == (
+        "BLUE",
+        0.2,
+        [],
+        "vision-model-id",
+    )
+    create_body = requests[0][2]["json"]
+    generation_body = requests[1][2]["json"]
+    assert "attachment_ids" not in create_body
+    assert create_body["initial_message"] != case.prompt
+    assert generation_body["user_message"] == case.prompt
+    assert generation_body["attachment_ids"] == ["asset-id"]
