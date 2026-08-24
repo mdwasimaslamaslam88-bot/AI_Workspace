@@ -14,6 +14,14 @@ from app.repositories.message import (
     MessageAttachmentClaimError,
     MessageAttachmentMetadata,
 )
+
+
+VALID_PNG = base64.b64decode(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+)
+VALID_JPEG = bytes.fromhex(
+    "ffd8ffc00011080001000103011100021100031100ffda0008010100003f00ffd9"
+)
 from app.services.vision_input import (
     VISION_READ_CHUNK_BYTES,
     VisionInputAttachmentUnavailableError,
@@ -196,8 +204,8 @@ class _Storage:
 async def test_encoding_is_incremental_ordered_verified_and_closes_handles(
     tmp_path,
 ):
-    first_content = bytes(range(256)) * 400
-    second_content = b"jpeg-content"
+    first_content = VALID_PNG
+    second_content = VALID_JPEG
     first_path = tmp_path / "first"
     second_path = tmp_path / "second"
     first_path.write_bytes(first_content)
@@ -233,6 +241,38 @@ async def test_encoding_is_incremental_ordered_verified_and_closes_handles(
         for handle in returned_handles
         for size in handle.read_sizes
     )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("media_type", "content"),
+    [
+        ("image/png", b"not-a-png"),
+        ("image/png", b"\x89PNG\r\n\x1a\ntruncated"),
+        ("image/jpeg", b"not-a-jpeg"),
+        ("image/jpeg", b"\xff\xd8\xff\xd9"),
+    ],
+)
+async def test_malformed_image_content_is_rejected_before_runtime(
+    tmp_path,
+    media_type,
+    content,
+):
+    path = tmp_path / "malformed-image"
+    path.write_bytes(content)
+    handle = _TrackingHandle(path)
+    service = VisionInputService(
+        AsyncMock(spec=AsyncSession),
+        _Storage(lambda: handle),
+    )
+
+    with pytest.raises(VisionInputContentUnavailableError) as captured:
+        await service.encode_images(
+            (_metadata(media_type=media_type, content=content),)
+        )
+
+    assert str(captured.value) == "vision input content is unavailable"
+    assert handle.closed
 
 
 @pytest.mark.asyncio

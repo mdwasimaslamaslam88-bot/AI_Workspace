@@ -6,8 +6,10 @@ import hashlib
 import hmac
 import os
 import stat
+import struct
 from collections.abc import Callable
 from typing import BinaryIO, TypeVar
+import zlib
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,6 +25,114 @@ from app.storage.base import AssetStorage
 VISION_READ_CHUNK_BYTES = 65_536
 VISION_MEDIA_TYPES = frozenset({"image/jpeg", "image/png"})
 _T = TypeVar("_T")
+_MAX_VISION_IMAGE_DIMENSION = 16_384
+_JPEG_START_OF_FRAME_MARKERS = frozenset(
+    {
+        0xC0,
+        0xC1,
+        0xC2,
+        0xC3,
+        0xC5,
+        0xC6,
+        0xC7,
+        0xC9,
+        0xCA,
+        0xCB,
+        0xCD,
+        0xCE,
+        0xCF,
+    }
+)
+
+
+def _valid_png(content: bytes) -> bool:
+    if not content.startswith(b"\x89PNG\r\n\x1a\n"):
+        return False
+    offset = 8
+    chunk_index = 0
+    saw_header = False
+    saw_data = False
+    while offset + 12 <= len(content):
+        length = struct.unpack(">I", content[offset : offset + 4])[0]
+        end = offset + 12 + length
+        if end > len(content):
+            return False
+        kind = content[offset + 4 : offset + 8]
+        data = content[offset + 8 : offset + 8 + length]
+        expected_crc = struct.unpack(">I", content[offset + 8 + length : end])[0]
+        if zlib.crc32(kind + data) & 0xFFFFFFFF != expected_crc:
+            return False
+        if chunk_index == 0:
+            if kind != b"IHDR" or length != 13:
+                return False
+            width, height = struct.unpack(">II", data[:8])
+            if not (
+                1 <= width <= _MAX_VISION_IMAGE_DIMENSION
+                and 1 <= height <= _MAX_VISION_IMAGE_DIMENSION
+                and data[10] == 0
+                and data[11] == 0
+                and data[12] in {0, 1}
+            ):
+                return False
+            saw_header = True
+        elif kind == b"IHDR":
+            return False
+        if kind == b"IDAT":
+            saw_data = True
+        if kind == b"IEND":
+            return length == 0 and saw_header and saw_data and end == len(content)
+        offset = end
+        chunk_index += 1
+    return False
+
+
+def _valid_jpeg(content: bytes) -> bool:
+    if len(content) < 8 or not content.startswith(b"\xff\xd8"):
+        return False
+    offset = 2
+    saw_dimensions = False
+    while offset < len(content):
+        if content[offset] != 0xFF:
+            return False
+        while offset < len(content) and content[offset] == 0xFF:
+            offset += 1
+        if offset >= len(content):
+            return False
+        marker = content[offset]
+        offset += 1
+        if marker == 0xD9:
+            return saw_dimensions and offset == len(content)
+        if marker in {0x01, *range(0xD0, 0xD8)}:
+            continue
+        if offset + 2 > len(content):
+            return False
+        segment_length = struct.unpack(">H", content[offset : offset + 2])[0]
+        if segment_length < 2 or offset + segment_length > len(content):
+            return False
+        segment = content[offset + 2 : offset + segment_length]
+        if marker in _JPEG_START_OF_FRAME_MARKERS:
+            if len(segment) < 6:
+                return False
+            height, width = struct.unpack(">HH", segment[1:5])
+            if not (
+                1 <= width <= _MAX_VISION_IMAGE_DIMENSION
+                and 1 <= height <= _MAX_VISION_IMAGE_DIMENSION
+                and 1 <= segment[5] <= 4
+            ):
+                return False
+            saw_dimensions = True
+        if marker == 0xDA:
+            return saw_dimensions and content.endswith(b"\xff\xd9")
+        offset += segment_length
+    return False
+
+
+def _valid_image_content(content: bytes, media_type: str) -> bool:
+    if media_type == "image/png":
+        return _valid_png(content)
+    if media_type == "image/jpeg":
+        return _valid_jpeg(content)
+    return False
 
 
 class VisionInputAttachmentUnavailableError(RuntimeError):
@@ -182,6 +292,7 @@ class VisionInputService:
             )
         handle: BinaryIO | None = None
         encoded = bytearray()
+        raw = bytearray()
         carry = b""
         digest = hashlib.sha256()
         byte_size = 0
@@ -212,6 +323,7 @@ class VisionInputService:
                         "vision input content is unavailable"
                     )
                 digest.update(chunk)
+                raw.extend(chunk)
                 combined = carry + chunk
                 complete_size = (len(combined) // 3) * 3
                 if complete_size:
@@ -227,6 +339,7 @@ class VisionInputService:
                     metadata.content_sha256,
                 )
                 or len(encoded) != _base64_size(metadata.byte_size)
+                or not _valid_image_content(bytes(raw), metadata.media_type)
             ):
                 raise VisionInputContentUnavailableError(
                     "vision input content is unavailable"
@@ -242,6 +355,7 @@ class VisionInputService:
             ) from None
         finally:
             carry = b""
+            raw.clear()
             encoded.clear()
             if handle is not None:
                 try:
