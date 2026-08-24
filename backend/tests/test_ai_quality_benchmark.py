@@ -196,3 +196,53 @@ def test_multimodal_case_attaches_image_to_the_generated_user_message():
     assert create_body["initial_message"] != case.prompt
     assert generation_body["user_message"] == case.prompt
     assert generation_body["attachment_ids"] == ["asset-id"]
+
+
+def test_image_judge_uses_a_disposable_owner_upload_copy():
+    runner = BenchmarkRunner.__new__(BenchmarkRunner)
+    runner.synthetic_asset_ids = []
+    observed: dict[str, object] = {}
+    runner._download_asset = lambda asset_id: (
+        httpx.Response(
+            200,
+            content=b"\x89PNG\r\n\x1a\nsynthetic",
+            request=httpx.Request("GET", "http://benchmark.invalid/source"),
+        ),
+        0.1,
+    )
+
+    def upload(filename, content, media_type):
+        observed["upload"] = (filename, content, media_type)
+        return (
+            httpx.Response(
+                201,
+                json={"id": "judge-copy-id"},
+                request=httpx.Request("POST", "http://benchmark.invalid/assets"),
+            ),
+            0.2,
+        )
+
+    def generate(case, **kwargs):
+        observed["attachments"] = kwargs["attachments"]
+        return "red circle", 0.3, [], "vision-id"
+
+    runner._upload = upload
+    runner._generate_case = generate
+
+    answer, evaluation, latency = runner._vision_judge_asset(
+        "judge-case",
+        "generated-asset-id",
+        "Inspect the image.",
+        ("red",),
+    )
+
+    assert answer == "red circle"
+    assert evaluation["result"] == "PASS"
+    assert round(latency, 4) == 0.6
+    assert observed["attachments"] == ["judge-copy-id"]
+    assert observed["upload"] == (
+        "judge-case-judge-copy.png",
+        b"\x89PNG\r\n\x1a\nsynthetic",
+        "image/png",
+    )
+    assert runner.synthetic_asset_ids == ["judge-copy-id"]

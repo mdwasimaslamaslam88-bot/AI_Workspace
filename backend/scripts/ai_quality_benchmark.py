@@ -1582,6 +1582,16 @@ class BenchmarkRunner:
         return self._request("GET", f"/api/v1/assets/{asset_id}/content", headers=headers or self.owner_headers)
 
     def _vision_judge_asset(self, test_id: str, asset_id: str, prompt: str, required: tuple[str, ...]) -> tuple[str, dict[str, Any], float]:
+        source, download_latency = self._download_asset(asset_id)
+        source.raise_for_status()
+        judge_copy, upload_latency = self._upload(
+            f"{test_id}-judge-copy.png",
+            source.content,
+            "image/png",
+        )
+        judge_copy.raise_for_status()
+        judge_asset_id = judge_copy.json()["id"]
+        self.synthetic_asset_ids.append(judge_asset_id)
         case = BenchmarkCase(
             test_id=test_id,
             category="image_task",
@@ -1591,8 +1601,13 @@ class BenchmarkRunner:
             required=required,
             max_output_tokens=80,
         )
-        answer, latency, _citations, _model_id = self._generate_case(case, attachments=[asset_id], model_role="vision")
-        return answer, _evaluate_answer(case, answer, latency), latency
+        answer, generation_latency, _citations, _model_id = self._generate_case(
+            case,
+            attachments=[judge_asset_id],
+            model_role="vision",
+        )
+        total_latency = download_latency + upload_latency + generation_latency
+        return answer, _evaluate_answer(case, answer, total_latency), total_latency
 
     def run_images(self) -> None:
         self._start_comfy()
