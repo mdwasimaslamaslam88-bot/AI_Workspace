@@ -7,6 +7,7 @@ backend_python="${repository_root}/backend/.venv/bin/python"
 run_integration=true
 run_runtime=false
 run_browser=false
+run_benchmark=false
 e2e_backend_pid=""
 
 usage() {
@@ -22,6 +23,7 @@ the same disposable database before exercising real clients and runtimes.
   --with-browser  Add real compiled-PWA browser E2E.
   --runtime-only  Skip integration and run real AI runtime E2E.
   --browser-only  Skip integration and run real browser E2E.
+  --benchmark     Skip integration and run the full real-HTTP AI benchmark.
 EOF
 }
 
@@ -31,6 +33,7 @@ for argument in "$@"; do
     --with-browser) run_browser=true ;;
     --runtime-only) run_integration=false; run_runtime=true ;;
     --browser-only) run_integration=false; run_browser=true ;;
+    --benchmark) run_integration=false; run_benchmark=true ;;
     --help|-h) usage; exit 0 ;;
     *) echo "Unknown PostgreSQL check option: ${argument}" >&2; usage >&2; exit 2 ;;
   esac
@@ -142,7 +145,8 @@ if [[ "${run_integration}" == true ]]; then
   )
 fi
 
-if [[ "${run_runtime}" == true || "${run_browser}" == true ]]; then
+if [[ "${run_runtime}" == true || "${run_browser}" == true ||
+  "${run_benchmark}" == true ]]; then
   (
     export RUN_DATABASE_INTEGRATION_TESTS=true
     export TEST_DATABASE_URL="${ephemeral_url}"
@@ -151,24 +155,26 @@ if [[ "${run_runtime}" == true || "${run_browser}" == true ]]; then
   )
 fi
 
-if [[ "${run_browser}" == true ]]; then
+if [[ "${run_browser}" == true || "${run_benchmark}" == true ]]; then
   playwright_browsers_path="${WORK_STATION_PLAYWRIGHT_BROWSERS_PATH:-${repository_root}/../../AI_Workspace_Runtimes/playwright}"
-  if [[ "${playwright_browsers_path}" != /* || ! -d "${playwright_browsers_path}" ]]; then
-    echo "The private Playwright browser runtime directory is unavailable." >&2
-    echo "Set WORK_STATION_PLAYWRIGHT_BROWSERS_PATH to an existing absolute directory." >&2
-    exit 1
-  fi
-  playwright_browsers_path="$(cd -- "${playwright_browsers_path}" && pwd -P)"
-  if ! PLAYWRIGHT_BROWSERS_PATH="${playwright_browsers_path}" node --input-type=module - <<'JS'
+  if [[ "${run_browser}" == true ]]; then
+    if [[ "${playwright_browsers_path}" != /* || ! -d "${playwright_browsers_path}" ]]; then
+      echo "The private Playwright browser runtime directory is unavailable." >&2
+      echo "Set WORK_STATION_PLAYWRIGHT_BROWSERS_PATH to an existing absolute directory." >&2
+      exit 1
+    fi
+    playwright_browsers_path="$(cd -- "${playwright_browsers_path}" && pwd -P)"
+    if ! PLAYWRIGHT_BROWSERS_PATH="${playwright_browsers_path}" node --input-type=module - <<'JS'
 import { existsSync } from "node:fs";
 import { chromium } from "playwright";
 
 process.exit(existsSync(chromium.executablePath()) ? 0 : 1);
 JS
-  then
-    echo "The pinned Playwright Chromium runtime is unavailable." >&2
-    echo "Install it with PLAYWRIGHT_BROWSERS_PATH set to the private runtime directory." >&2
-    exit 1
+    then
+      echo "The pinned Playwright Chromium runtime is unavailable." >&2
+      echo "Install it with PLAYWRIGHT_BROWSERS_PATH set to the private runtime directory." >&2
+      exit 1
+    fi
   fi
 
   api_port="$(choose_loopback_port)"
@@ -236,12 +242,31 @@ PY
     exit 1
   fi
 
-  printf '%s' "${e2e_provisioning_token}" | (
-    export PLAYWRIGHT_BROWSERS_PATH="${playwright_browsers_path}"
-    export WORK_STATION_E2E_API_ORIGIN="${api_origin}"
-    export WORK_STATION_E2E_WEB_ORIGIN="${api_origin}"
-    exec node scripts/browser_e2e.mjs
-  )
+  if [[ "${run_browser}" == true ]]; then
+    printf '%s' "${e2e_provisioning_token}" | (
+      export PLAYWRIGHT_BROWSERS_PATH="${playwright_browsers_path}"
+      export WORK_STATION_E2E_API_ORIGIN="${api_origin}"
+      export WORK_STATION_E2E_WEB_ORIGIN="${api_origin}"
+      exec node scripts/browser_e2e.mjs
+    )
+  fi
+  if [[ "${run_benchmark}" == true ]]; then
+    benchmark_report_root="${WORK_STATION_BENCHMARK_REPORT_ROOT:-${HOME}/Desktop/Work_Station_Benchmark}"
+    if [[ "${benchmark_report_root}" != /* ]]; then
+      echo "The benchmark report root must be an absolute path." >&2
+      exit 1
+    fi
+    printf '%s' "${e2e_provisioning_token}" | (
+      export WORK_STATION_BENCHMARK_API_ORIGIN="${api_origin}"
+      export WORK_STATION_BENCHMARK_ASSET_ROOT="${asset_root}"
+      export WORK_STATION_BENCHMARK_DATABASE_URL="${ephemeral_url}"
+      export WORK_STATION_BENCHMARK_PROVISIONING_DIGEST="${e2e_provisioning_digest}"
+      export WORK_STATION_BENCHMARK_REPORT_ROOT="${benchmark_report_root}"
+      export WORK_STATION_BENCHMARK_WEB_ROOT="${web_root}"
+      cd backend
+      exec .venv/bin/python -m scripts.ai_quality_benchmark
+    )
+  fi
   e2e_provisioning_token=""
   stop_e2e_backend
 fi
@@ -259,7 +284,9 @@ if [[ "${after_status}" != "${before_status}" ]]; then
   exit 1
 fi
 
-if [[ "${run_integration}" == true && "${run_browser}" == true && "${run_runtime}" == true ]]; then
+if [[ "${run_benchmark}" == true ]]; then
+  echo "ephemeral PostgreSQL validation: real-HTTP AI benchmark passed"
+elif [[ "${run_integration}" == true && "${run_browser}" == true && "${run_runtime}" == true ]]; then
   echo "ephemeral PostgreSQL validation: integration, browser/PWA E2E, and runtime E2E passed"
 elif [[ "${run_integration}" == true && "${run_browser}" == true ]]; then
   echo "ephemeral PostgreSQL validation: integration and browser/PWA E2E passed"

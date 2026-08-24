@@ -2605,6 +2605,7 @@ async def test_ollama_generation_is_non_streaming_bounded_and_preserves_content(
             {"role": "user", "content": "  exact prompt  "},
         ],
         "stream": False,
+        "think": False,
         "options": {"num_predict": 1024},
     }
 
@@ -2657,6 +2658,7 @@ async def test_ollama_generation_forwards_exact_valid_temperature(temperature):
         "model": LOCAL_MODEL_REFERENCE,
         "messages": [{"role": "user", "content": "prompt"}],
         "stream": False,
+        "think": False,
         "options": {
             "num_predict": 128,
             "temperature": temperature,
@@ -2712,6 +2714,7 @@ async def test_ollama_generation_forwards_exact_valid_seed(seed):
         "model": LOCAL_MODEL_REFERENCE,
         "messages": [{"role": "user", "content": "prompt"}],
         "stream": False,
+        "think": False,
         "options": {
             "num_predict": 128,
             "seed": seed,
@@ -2767,6 +2770,7 @@ async def test_ollama_generation_forwards_exact_valid_top_p(top_p):
         "model": LOCAL_MODEL_REFERENCE,
         "messages": [{"role": "user", "content": "prompt"}],
         "stream": False,
+        "think": False,
         "options": {
             "num_predict": 128,
             "top_p": top_p,
@@ -2822,6 +2826,7 @@ async def test_ollama_generation_forwards_exact_valid_top_k(top_k):
         "model": LOCAL_MODEL_REFERENCE,
         "messages": [{"role": "user", "content": "prompt"}],
         "stream": False,
+        "think": False,
         "options": {
             "num_predict": 128,
             "top_k": top_k,
@@ -2877,6 +2882,7 @@ async def test_ollama_generation_forwards_exact_valid_min_p(min_p):
         "model": LOCAL_MODEL_REFERENCE,
         "messages": [{"role": "user", "content": "prompt"}],
         "stream": False,
+        "think": False,
         "options": {
             "num_predict": 128,
             "min_p": min_p,
@@ -2934,6 +2940,7 @@ async def test_ollama_generation_forwards_exact_valid_repeat_penalty(
         "model": LOCAL_MODEL_REFERENCE,
         "messages": [{"role": "user", "content": "prompt"}],
         "stream": False,
+        "think": False,
         "options": {
             "num_predict": 128,
             "repeat_penalty": repeat_penalty,
@@ -2991,6 +2998,7 @@ async def test_ollama_generation_forwards_exact_valid_repeat_last_n(
         "model": LOCAL_MODEL_REFERENCE,
         "messages": [{"role": "user", "content": "prompt"}],
         "stream": False,
+        "think": False,
         "options": {
             "num_predict": 128,
             "repeat_last_n": repeat_last_n,
@@ -3046,6 +3054,7 @@ async def test_ollama_generation_forwards_exact_valid_typical_p(typical_p):
         "model": LOCAL_MODEL_REFERENCE,
         "messages": [{"role": "user", "content": "prompt"}],
         "stream": False,
+        "think": False,
         "options": {
             "num_predict": 128,
             "typical_p": typical_p,
@@ -3106,6 +3115,7 @@ async def test_ollama_generation_forwards_exact_valid_presence_penalty(
         "model": LOCAL_MODEL_REFERENCE,
         "messages": [{"role": "user", "content": "prompt"}],
         "stream": False,
+        "think": False,
         "options": {
             "num_predict": 128,
             "presence_penalty": presence_penalty,
@@ -3166,6 +3176,7 @@ async def test_ollama_generation_forwards_exact_valid_frequency_penalty(
         "model": LOCAL_MODEL_REFERENCE,
         "messages": [{"role": "user", "content": "prompt"}],
         "stream": False,
+        "think": False,
         "options": {
             "num_predict": 128,
             "frequency_penalty": frequency_penalty,
@@ -3230,6 +3241,7 @@ async def test_ollama_generation_forwards_exact_valid_stop_sequences(
         "model": LOCAL_MODEL_REFERENCE,
         "messages": [{"role": "user", "content": "prompt"}],
         "stream": False,
+        "think": False,
         "options": {
             "num_predict": 128,
             "stop": stop_sequences,
@@ -3294,6 +3306,7 @@ async def test_ollama_generation_combines_all_bounded_options():
         "model": LOCAL_MODEL_REFERENCE,
         "messages": [{"role": "user", "content": "prompt"}],
         "stream": False,
+        "think": False,
         "options": {
             "num_predict": 128,
             "temperature": 0.5,
@@ -4420,6 +4433,7 @@ async def test_ollama_generation_serializes_exactly_once_into_bounded_chunks(
             for message in messages
         ],
         "stream": False,
+        "think": False,
         "options": {
             "num_predict": 128,
             "temperature": 0.5,
@@ -4575,6 +4589,7 @@ async def test_ollama_generation_adds_raw_images_only_to_the_new_user_message():
             },
         ],
         "stream": False,
+        "think": False,
         "options": {"num_predict": 128},
     }
     assert b"data:" not in requests[0].content
@@ -4594,6 +4609,7 @@ def test_ollama_vision_preflight_matches_exact_serialized_request_boundary():
             {"role": "user", "content": "inspect", "images": ["cG5n"]}
         ],
         "stream": False,
+        "think": False,
         "options": {"num_predict": 128},
     }
     body = json.dumps(
@@ -4633,6 +4649,7 @@ async def test_ollama_generation_accepts_request_at_or_below_cap(headroom):
         "model": LOCAL_MODEL_REFERENCE,
         "messages": [{"role": "user", "content": "bounded prompt"}],
         "stream": False,
+        "think": False,
         "options": {"num_predict": 128},
     }
     expected_body = json.dumps(
@@ -4685,6 +4702,7 @@ async def test_ollama_generation_rejects_request_at_cap_plus_one_before_transpor
             "model": LOCAL_MODEL_REFERENCE,
             "messages": [{"role": "user", "content": private_content}],
             "stream": False,
+            "think": False,
             "options": {"num_predict": 128},
         },
         ensure_ascii=False,

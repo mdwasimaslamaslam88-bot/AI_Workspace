@@ -408,6 +408,11 @@ class OllamaTextGenerationRuntime:
                 for message in messages
             ],
             "stream": False,
+            # WORK STATION only persists and exposes the final assistant
+            # answer. Disable Ollama's separate hidden-thinking channel so a
+            # bounded Qwen3 request cannot exhaust num_predict before it
+            # produces message.content.
+            "think": False,
             "options": options,
         }
         if self.keep_alive_seconds is not None:
