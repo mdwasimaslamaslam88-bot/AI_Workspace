@@ -146,12 +146,27 @@ def _strip_markdown_fence(value: str) -> str:
     return match.group(1).strip() if match else value
 
 
+def _canonical_complexities(value: str) -> set[str]:
+    normalized = value.translate(
+        str.maketrans({"\u00b2": "^2", "\u00b3": "^3", "\u2074": "^4"})
+    ).casefold()
+    normalized = normalized.replace("omega", "\u03c9")
+    normalized = re.sub(r"[*_`\s]", "", normalized)
+    expressions = set(re.findall(r"(?:o|\u03c9)\([^)]*\)", normalized))
+    # V and n are conventional aliases for the vertex/input count in these
+    # objective complexity questions. Keep O and Omega distinct.
+    return {re.sub(r"v", "n", expression) for expression in expressions}
+
+
 def _semantic_exact_match(case: BenchmarkCase, answer: str) -> bool:
     expected = case.exact
     if expected is None:
         return False
     normalized = _normalize_exact(answer)
     if normalized == expected:
+        return True
+    semantic_patterns = case.metadata.get("semantic_exact_regex", ())
+    if any(re.search(pattern, answer) is not None for pattern in semantic_patterns):
         return True
     if case.category not in _SEMANTIC_EXACT_CATEGORIES:
         return False
@@ -167,25 +182,67 @@ def _semantic_exact_match(case: BenchmarkCase, answer: str) -> bool:
 
     if re.fullmatch(r"-?(?:\d+(?:\.\d+)?|\.\d+)", expected):
         numeric_answers = re.findall(
-            r"(?<![A-Za-z0-9_.])-?(?:\d+(?:\.\d+)?|\.\d+)(?![A-Za-z0-9_.])",
+            r"(?<![A-Za-z0-9_])-?(?:\d+(?:\.\d+)?|\.\d+)(?![A-Za-z0-9_])",
             normalized,
         )
-        return bool(numeric_answers) and numeric_answers[-1] == expected
+        if numeric_answers and numeric_answers[-1] == expected:
+            return True
+        return re.search(
+            rf"[*_`]*\banswer[*_`]*\s*:\s*[*_`]*\s*{re.escape(expected)}(?![A-Za-z0-9_])",
+            normalized,
+            re.IGNORECASE,
+        ) is not None
 
     candidate = re.sub(r"[*_`]", "", normalized).strip()
     candidate = candidate.rstrip(".!?").strip().casefold()
     expected_folded = expected.casefold()
     if candidate == expected_folded:
         return True
-    if candidate.startswith("choose ") and candidate[7:].strip() == expected_folded:
+    if re.match(rf"^{re.escape(expected_folded)}(?:\b|\s|[,:;()])", candidate):
         return True
+    if re.search(
+        rf"(?:^|\n)\s*answer\s*:\s*{re.escape(expected_folded)}(?:\b|\s|[,:;()])",
+        candidate,
+    ):
+        return True
+    if re.match(
+        rf"^choose\s+(?:the\s+)?{re.escape(expected_folded)}(?:\b|\s)",
+        candidate,
+    ):
+        return True
+    if case.category == "algorithm_reasoning":
+        expected_complexities = _canonical_complexities(expected)
+        if expected_complexities and expected_complexities <= _canonical_complexities(answer):
+            return True
     return case.category == "factual" and candidate == f"{expected_folded} ocean"
 
 
-def _contains_required(answer: str, required: str) -> bool:
+def _contains_required(
+    answer: str,
+    required: str,
+    alternatives: tuple[str, ...] = (),
+) -> bool:
     normalized_answer = re.sub(r"\s+", "", answer.casefold()).replace("'", '"')
-    normalized_required = re.sub(r"\s+", "", required.casefold()).replace("'", '"')
-    return normalized_required in normalized_answer
+    candidates = (required, *alternatives)
+    if any(
+        re.sub(r"\s+", "", candidate.casefold()).replace("'", '"')
+        in normalized_answer
+        for candidate in candidates
+    ):
+        return True
+
+    numeric_tuple = re.fullmatch(
+        r"\s*(-?(?:\d+(?:\.\d+)?|\.\d+))(?:\s*,\s*(-?(?:\d+(?:\.\d+)?|\.\d+)))+\s*",
+        required,
+    )
+    if numeric_tuple:
+        expected_values = [part.strip() for part in required.split(",")]
+        assigned_values = re.findall(
+            r"=\s*(-?(?:\d+(?:\.\d+)?|\.\d+))(?![A-Za-z0-9_])",
+            answer,
+        )
+        return assigned_values == expected_values
+    return False
 
 
 def _failure_group(result: dict[str, Any]) -> str:
@@ -260,6 +317,18 @@ def _read_existing_report(path: Path) -> dict[str, Any] | None:
     return loaded if isinstance(loaded, dict) else None
 
 
+def _baseline_initial_score(summary: dict[str, Any] | None) -> float | None:
+    if summary is None:
+        return None
+    recorded_initial = summary.get("initial_score")
+    prior_total = summary.get("total_score")
+    if isinstance(recorded_initial, (int, float)):
+        return float(recorded_initial)
+    if isinstance(prior_total, (int, float)):
+        return float(prior_total)
+    return None
+
+
 def _evaluate_answer(case: BenchmarkCase, answer: str, latency: float) -> dict[str, Any]:
     normalized = _normalize_exact(answer)
     checks: list[tuple[str, bool]] = []
@@ -273,8 +342,15 @@ def _evaluate_answer(case: BenchmarkCase, answer: str, latency: float) -> dict[s
         strict_format = literal_pass
         if semantic_pass and not literal_pass:
             format_failures.append(f"literal_format:{case.exact}")
+    required_aliases = case.metadata.get("required_aliases", {})
     for required in case.required:
-        checks.append((f"required:{required}", _contains_required(answer, required)))
+        aliases = required_aliases.get(required, ())
+        checks.append(
+            (
+                f"required:{required}",
+                _contains_required(answer, required, tuple(aliases)),
+            )
+        )
     for pattern in case.regex:
         checks.append((f"regex:{pattern}", re.search(pattern, answer) is not None))
     if case.expected_json is not None:
@@ -345,6 +421,65 @@ def _evaluate_answer(case: BenchmarkCase, answer: str, latency: float) -> dict[s
         "word_count": word_count,
         "checks": [{"check": name, "passed": result} for name, result in checks],
     }
+
+
+def _refresh_text_record(case: BenchmarkCase, record: dict[str, Any]) -> None:
+    """Re-evaluate preserved raw answers when an examiner rule changes."""
+    answer = record.get("actual_answer")
+    latency = record.get("latency_seconds")
+    if not isinstance(answer, str) or not isinstance(latency, (int, float)):
+        raise RuntimeError("benchmark text checkpoint record is invalid")
+    evaluation = _evaluate_answer(case, answer, float(latency))
+    for key in (
+        "score",
+        "result",
+        "dimensions",
+        "failure_reason",
+        "hallucination",
+        "safety_failure",
+    ):
+        record[key] = evaluation[key]
+    record["metadata"] = {
+        **record.get("metadata", {}),
+        "checks": evaluation["checks"],
+        "word_count": evaluation["word_count"],
+    }
+
+    retry = record.get("retry_result")
+    if not isinstance(retry, dict):
+        return
+    retry_evaluations: dict[str, dict[str, Any]] = {}
+    for retry_name in ("identical", "diagnostic_variant"):
+        attempt = retry.get(retry_name)
+        if not isinstance(attempt, dict):
+            continue
+        attempt_answer = attempt.get("actual_answer")
+        attempt_latency = attempt.get("latency_seconds")
+        if not isinstance(attempt_answer, str) or not isinstance(
+            attempt_latency, (int, float)
+        ):
+            continue
+        attempt_evaluation = _evaluate_answer(
+            case, attempt_answer, float(attempt_latency)
+        )
+        attempt["score"] = attempt_evaluation["score"]
+        attempt["result"] = attempt_evaluation["result"]
+        retry_evaluations[retry_name] = attempt_evaluation
+
+    identical = retry_evaluations.get("identical")
+    diagnostic = retry_evaluations.get("diagnostic_variant")
+    if identical is None or diagnostic is None:
+        return
+    deterministic = (
+        identical["result"] == "FAIL" and diagnostic["result"] == "FAIL"
+    )
+    retry["deterministic_failure"] = deterministic
+    if record["result"] == "FAIL":
+        record["dimensions"]["consistency"] = (
+            0.0 if deterministic else 50.0 if identical["result"] == "FAIL" else 100.0
+        )
+        record["score"] = _weighted_score(record["dimensions"])
+        record["result"] = _status(record["score"])
 
 
 class BenchmarkRunner:
@@ -683,6 +818,7 @@ class BenchmarkRunner:
     def run_text_matrix(self) -> None:
         cases = build_text_matrix()
         validate_matrix(cases)
+        cases_by_id = {case.test_id: case for case in cases}
         text_ids = {case.test_id for case in cases}
         if self.text_checkpoint.is_file():
             checkpoint = json.loads(self.text_checkpoint.read_text(encoding="utf-8"))
@@ -692,6 +828,8 @@ class BenchmarkRunner:
                 for item in restored
             ):
                 raise RuntimeError("benchmark text checkpoint is invalid")
+            for item in restored:
+                _refresh_text_record(cases_by_id[item["test_id"]], item)
             self.results.extend(restored)
         def save_checkpoint() -> None:
             records = [item for item in self.results if item["test_id"] in text_ids]
@@ -2678,12 +2816,7 @@ class BenchmarkRunner:
             "unavailable_capabilities": [item for item in self.capabilities if item["status"] == "unavailable"],
             "duration_seconds": round(time.time() - self._started_at, 2),
         }
-        initial_score = (
-            baseline_summary.get("total_score")
-            if baseline_summary is not None
-            and isinstance(baseline_summary.get("total_score"), (int, float))
-            else None
-        )
+        initial_score = _baseline_initial_score(baseline_summary)
         summary["initial_score"] = initial_score
         summary["score_delta"] = (
             round(summary["total_score"] - initial_score, 2)

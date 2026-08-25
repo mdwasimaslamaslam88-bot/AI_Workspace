@@ -11,9 +11,11 @@ from scripts.ai_quality_benchmark import (
     DOCUMENT_SEARCH_LIMIT,
     MALFORMED_PNG,
     BenchmarkRunner,
+    _baseline_initial_score,
     _bounded_judge_image_command,
     _bounded_noisy_audio_command,
     _evaluate_answer,
+    _refresh_text_record,
 )
 
 
@@ -106,6 +108,179 @@ def test_evaluator_separates_semantic_correctness_from_minor_formatting():
     assert categorical_result["failure_reason"] == "literal_format:yes"
     assert numeric_result["result"] == "PASS"
     assert numeric_result["hallucination"] is False
+
+
+def test_evaluator_accepts_explicit_semantic_answers_but_keeps_format_penalty():
+    yes_no = BenchmarkCase(
+        test_id="semantic-yes-no",
+        category="systems_reasoning",
+        difficulty="expert",
+        prompt="Yes or no only.",
+        expected_behavior="Return no.",
+        exact="no",
+    )
+    algorithm = BenchmarkCase(
+        test_id="semantic-algorithm",
+        category="algorithm_reasoning",
+        difficulty="expert",
+        prompt="BFS or DFS only.",
+        expected_behavior="Return BFS.",
+        exact="BFS",
+    )
+
+    yes_no_result = _evaluate_answer(yes_no, "No. Replicas can diverge.", 0.5)
+    algorithm_result = _evaluate_answer(
+        algorithm,
+        "DFS is not shortest-path safe.\nAnswer: **BFS** is correct.",
+        0.5,
+    )
+
+    assert yes_no_result["result"] == "PASS"
+    assert yes_no_result["dimensions"]["instruction_following"] == 70
+    assert algorithm_result["result"] == "PASS"
+    assert algorithm_result["dimensions"]["instruction_following"] == 70
+
+
+def test_evaluator_accepts_equivalent_complexity_notation():
+    omega = BenchmarkCase(
+        test_id="semantic-omega",
+        category="algorithm_reasoning",
+        difficulty="expert",
+        prompt="Complexity only.",
+        expected_behavior="Return the lower bound.",
+        exact="Omega(n log n)",
+    )
+    cubic = BenchmarkCase(
+        test_id="semantic-cubic",
+        category="algorithm_reasoning",
+        difficulty="expert",
+        prompt="Complexity only.",
+        expected_behavior="Return cubic time.",
+        exact="O(n^3)",
+    )
+
+    assert _evaluate_answer(omega, "The bound is **\u03a9(n log n)**.", 0.5)["result"] == "PASS"
+    assert _evaluate_answer(cubic, "O(V\u00b3)", 0.5)["result"] == "PASS"
+
+
+def test_evaluator_accepts_numeric_sentence_and_labelled_numeric_tuple():
+    numeric = BenchmarkCase(
+        test_id="semantic-number-period",
+        category="algebra_reasoning",
+        difficulty="expert",
+        prompt="Return the integer.",
+        expected_behavior="Return 12.",
+        exact="12",
+    )
+    stationary = BenchmarkCase(
+        test_id="semantic-tuple",
+        category="complex_math",
+        difficulty="expert",
+        prompt="Return p0,p1.",
+        expected_behavior="Return stationary probabilities.",
+        required=("0.6,0.4",),
+    )
+
+    assert _evaluate_answer(numeric, "The middle integer is 12.", 0.5)["result"] == "PASS"
+    assert _evaluate_answer(
+        numeric,
+        "Intermediate value: 10. Answer: **12** (or twelve).",
+        0.5,
+    )["result"] == "PASS"
+    assert _evaluate_answer(
+        numeric,
+        "Intermediate value: 10. **Answer:** 12 (or twelve).",
+        0.5,
+    )["result"] == "PASS"
+    assert _evaluate_answer(stationary, "p0=0.6,p1=0.4", 0.5)["result"] == "PASS"
+
+
+def test_evaluator_required_aliases_are_explicit_and_case_scoped():
+    case = BenchmarkCase(
+        test_id="semantic-summary",
+        category="summarization",
+        difficulty="easy",
+        prompt="Summarize.",
+        expected_behavior="Preserve the checkpoint.",
+        required=("without downtime",),
+        metadata={"required_aliases": {"without downtime": ("no downtime",)}},
+    )
+
+    assert _evaluate_answer(case, "Migration completed with no downtime.", 0.5)["result"] == "PASS"
+    assert _evaluate_answer(case, "Migration completed.", 0.5)["result"] == "FAIL"
+
+
+def test_evaluator_case_scoped_semantic_exact_regex_keeps_literal_penalty():
+    case = BenchmarkCase(
+        test_id="semantic-rewrite",
+        category="rewriting",
+        difficulty="easy",
+        prompt="Rewrite as a polite request.",
+        expected_behavior="Return a polite request.",
+        exact="Please send the report.",
+        metadata={
+            "semantic_exact_regex": (r"(?is)\bplease\b.*\bsend\s+the\s+report\b",)
+        },
+    )
+
+    result = _evaluate_answer(case, "Could you please send the report?", 0.5)
+
+    assert result["result"] == "PASS"
+    assert result["dimensions"]["correctness"] == 100
+    assert result["dimensions"]["instruction_following"] == 70
+
+
+def test_checkpoint_refresh_rescores_raw_answer_and_retry_without_replacing_them():
+    case = BenchmarkCase(
+        test_id="refresh",
+        category="systems_reasoning",
+        difficulty="expert",
+        prompt="Yes or no only.",
+        expected_behavior="Return no.",
+        exact="no",
+    )
+    record = {
+        "actual_answer": "No. Replicas may diverge.",
+        "latency_seconds": 0.5,
+        "score": 0.0,
+        "result": "FAIL",
+        "dimensions": {},
+        "failure_reason": "exact:no",
+        "hallucination": False,
+        "safety_failure": False,
+        "metadata": {},
+        "retry_result": {
+            "identical": {
+                "actual_answer": "No. Replicas may diverge.",
+                "latency_seconds": 0.5,
+                "score": 0.0,
+                "result": "FAIL",
+            },
+            "diagnostic_variant": {
+                "actual_answer": "no",
+                "latency_seconds": 0.5,
+                "score": 0.0,
+                "result": "FAIL",
+            },
+            "deterministic_failure": True,
+        },
+    }
+
+    _refresh_text_record(case, record)
+
+    assert record["actual_answer"] == "No. Replicas may diverge."
+    assert record["result"] == "PASS"
+    assert record["retry_result"]["identical"]["result"] == "PASS"
+    assert record["retry_result"]["diagnostic_variant"]["result"] == "PASS"
+    assert record["retry_result"]["deterministic_failure"] is False
+
+
+def test_repeated_report_preserves_original_improvement_baseline():
+    assert _baseline_initial_score(
+        {"initial_score": 84.57, "total_score": 93.38}
+    ) == 84.57
+    assert _baseline_initial_score({"total_score": 84.57}) == 84.57
+    assert _baseline_initial_score(None) is None
 
 
 def test_evaluator_keeps_genuinely_wrong_numeric_answer_failing():
