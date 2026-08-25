@@ -22,7 +22,7 @@ def test_text_matrix_meets_every_required_easy_medium_and_hard_minimum():
     validate_matrix(cases)
     counts = Counter(case.category for case in cases)
 
-    assert len(cases) == 204
+    assert len(cases) == 284
     assert all(
         counts[category] == 10
         for category in (
@@ -44,6 +44,19 @@ def test_text_matrix_meets_every_required_easy_medium_and_hard_minimum():
             "long_context_reasoning",
             "ambiguous_resolvable",
             "cross_document_reasoning",
+        )
+    )
+    assert all(
+        counts[category] == 10
+        for category in (
+            "algebra_reasoning",
+            "probability_reasoning",
+            "statistics_reasoning",
+            "discrete_math",
+            "algorithm_reasoning",
+            "systems_reasoning",
+            "security_reasoning",
+            "contradiction_detection",
         )
     )
 

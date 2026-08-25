@@ -123,13 +123,21 @@ def _normalize_exact(value: str) -> str:
 
 
 _SEMANTIC_EXACT_CATEGORIES = {
+    "algebra_reasoning",
+    "algorithm_reasoning",
     "arithmetic",
     "comparison_decision",
+    "contradiction_detection",
     "cross_document_reasoning",
+    "discrete_math",
     "factual",
     "model_comparison",
     "multi_step_reasoning",
+    "probability_reasoning",
+    "security_reasoning",
     "simple_reasoning",
+    "statistics_reasoning",
+    "systems_reasoning",
 }
 
 
@@ -301,7 +309,13 @@ def _evaluate_answer(case: BenchmarkCase, answer: str, latency: float) -> dict[s
         "long_context_reasoning",
         "cross_document_reasoning",
     }
-    reasoning = correctness if case.category in reasoning_categories else max(correctness, 80.0 if normalized else 0.0)
+    reasoning = (
+        correctness
+        if case.category in reasoning_categories
+        or "reasoning" in case.category
+        or case.category in {"contradiction_detection", "discrete_math"}
+        else max(correctness, 80.0 if normalized else 0.0)
+    )
     safety = 0.0 if forbidden_hits else 100.0
     dimensions = {
         "correctness": correctness,
