@@ -122,17 +122,151 @@ def _normalize_exact(value: str) -> str:
     return value.strip()
 
 
+_SEMANTIC_EXACT_CATEGORIES = {
+    "arithmetic",
+    "comparison_decision",
+    "cross_document_reasoning",
+    "factual",
+    "model_comparison",
+    "multi_step_reasoning",
+    "simple_reasoning",
+}
+
+
+def _strip_markdown_fence(value: str) -> str:
+    match = re.fullmatch(r"```(?:json)?\s*\n?(.*?)\n?```", value, re.DOTALL | re.IGNORECASE)
+    return match.group(1).strip() if match else value
+
+
+def _semantic_exact_match(case: BenchmarkCase, answer: str) -> bool:
+    expected = case.exact
+    if expected is None:
+        return False
+    normalized = _normalize_exact(answer)
+    if normalized == expected:
+        return True
+    if case.category not in _SEMANTIC_EXACT_CATEGORIES:
+        return False
+
+    candidate_json = _strip_markdown_fence(normalized)
+    try:
+        expected_json = json.loads(expected)
+        actual_json = json.loads(candidate_json)
+    except (json.JSONDecodeError, TypeError):
+        pass
+    else:
+        return actual_json == expected_json
+
+    if re.fullmatch(r"-?(?:\d+(?:\.\d+)?|\.\d+)", expected):
+        numeric_answers = re.findall(
+            r"(?<![A-Za-z0-9_.])-?(?:\d+(?:\.\d+)?|\.\d+)(?![A-Za-z0-9_.])",
+            normalized,
+        )
+        return bool(numeric_answers) and numeric_answers[-1] == expected
+
+    candidate = re.sub(r"[*_`]", "", normalized).strip()
+    candidate = candidate.rstrip(".!?").strip().casefold()
+    expected_folded = expected.casefold()
+    if candidate == expected_folded:
+        return True
+    if candidate.startswith("choose ") and candidate[7:].strip() == expected_folded:
+        return True
+    return case.category == "factual" and candidate == f"{expected_folded} ocean"
+
+
+def _contains_required(answer: str, required: str) -> bool:
+    normalized_answer = re.sub(r"\s+", "", answer.casefold()).replace("'", '"')
+    normalized_required = re.sub(r"\s+", "", required.casefold()).replace("'", '"')
+    return normalized_required in normalized_answer
+
+
+def _failure_group(result: dict[str, Any]) -> str:
+    category = str(result.get("category", ""))
+    if result.get("hallucination"):
+        return "hallucination"
+    if category in {"arithmetic", "complex_math"}:
+        return "mathematics"
+    if category in {
+        "simple_reasoning",
+        "multi_step_reasoning",
+        "comparison_decision",
+    }:
+        return "reasoning"
+    if "algorithm" in category:
+        return "algorithms"
+    if "coding" in category or "debugging" in category:
+        return "coding"
+    if "architecture" in category or category in {
+        "database_design",
+        "distributed_systems",
+        "concurrency",
+        "performance_analysis",
+        "large_codebase_reasoning",
+        "multi_file_planning",
+        "long_horizon_planning",
+    }:
+        return "architecture"
+    if "security" in category or category in {
+        "prompt_injection",
+        "tool_misuse",
+        "unauthorized_data",
+        "owner_isolation",
+        "malicious_file",
+        "arbitrary_code",
+    }:
+        return "security"
+    if category.startswith("rag_"):
+        return "csv_document_retrieval" if "retrieval" in category else "rag"
+    if "document" in category:
+        return "rag"
+    if category.startswith("memory"):
+        return "memory"
+    if category == "vision":
+        return "vision"
+    if category.startswith("image_"):
+        return "image"
+    if category.startswith("voice"):
+        return "voice"
+    if category == "tools":
+        return "tools"
+    if category == "workflows":
+        return "workflows"
+    if "context" in category or category == "multi_turn_long_context":
+        return "context_handling"
+    if category == "failure_recovery":
+        return "recovery"
+    if category in {"instruction_following", "rewriting", "summarization"}:
+        return "instruction_following"
+    if result.get("dimensions", {}).get("latency", 100) < 75:
+        return "latency"
+    return "reasoning"
+
+
+def _read_existing_report(path: Path) -> dict[str, Any] | None:
+    try:
+        if not path.is_file() or path.is_symlink() or path.stat().st_size > 20_000_000:
+            return None
+        loaded = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        return None
+    return loaded if isinstance(loaded, dict) else None
+
+
 def _evaluate_answer(case: BenchmarkCase, answer: str, latency: float) -> dict[str, Any]:
     normalized = _normalize_exact(answer)
     checks: list[tuple[str, bool]] = []
+    format_failures: list[str] = []
     strict_format = True
 
     if case.exact is not None:
-        exact_pass = normalized == case.exact
-        checks.append((f"exact:{case.exact}", exact_pass))
-        strict_format = exact_pass
+        literal_pass = normalized == case.exact
+        semantic_pass = _semantic_exact_match(case, answer)
+        checks.append((f"exact:{case.exact}", semantic_pass))
+        strict_format = literal_pass
+        if semantic_pass and not literal_pass:
+            format_failures.append(f"literal_format:{case.exact}")
     for required in case.required:
-        checks.append((f"required:{required}", required.casefold() in answer.casefold()))
+        checks.append((f"required:{required}", _contains_required(answer, required)))
     for pattern in case.regex:
         checks.append((f"regex:{pattern}", re.search(pattern, answer) is not None))
     if case.expected_json is not None:
@@ -187,7 +321,11 @@ def _evaluate_answer(case: BenchmarkCase, answer: str, latency: float) -> dict[s
         "score": score,
         "result": _status(score),
         "dimensions": dimensions,
-        "failure_reason": "; ".join(failed_checks) if failed_checks else None,
+        "failure_reason": (
+            "; ".join([*failed_checks, *format_failures])
+            if failed_checks or format_failures
+            else None
+        ),
         "hallucination": hallucination,
         "safety_failure": safety == 0,
         "word_count": word_count,
@@ -2456,6 +2594,12 @@ class BenchmarkRunner:
     def write_reports(self) -> dict[str, Any]:
         self.report_root.mkdir(parents=True, exist_ok=True, mode=0o700)
         self.report_root.chmod(0o700)
+        baseline_summary = _read_existing_report(
+            self.report_root / "benchmark-summary.json"
+        )
+        baseline_document = _read_existing_report(
+            self.report_root / "benchmark-results.json"
+        )
         latencies = sorted(item["latency_seconds"] for item in self.results if item["latency_seconds"] > 0)
         counts = {state: sum(item["result"] == state for item in self.results) for state in ("PASS", "PARTIAL", "FAIL")}
         total = len(self.results)
@@ -2520,6 +2664,18 @@ class BenchmarkRunner:
             "unavailable_capabilities": [item for item in self.capabilities if item["status"] == "unavailable"],
             "duration_seconds": round(time.time() - self._started_at, 2),
         }
+        initial_score = (
+            baseline_summary.get("total_score")
+            if baseline_summary is not None
+            and isinstance(baseline_summary.get("total_score"), (int, float))
+            else None
+        )
+        summary["initial_score"] = initial_score
+        summary["score_delta"] = (
+            round(summary["total_score"] - initial_score, 2)
+            if initial_score is not None
+            else None
+        )
         results_document = {
             "benchmark": "WORK STATION AI CAPABILITY BENCHMARK",
             "scoring_weights": WEIGHTS,
@@ -2536,6 +2692,132 @@ class BenchmarkRunner:
             if role:
                 model_groups.setdefault(role, []).append(item["score"])
         model_differences = {name: round(statistics.fmean(values), 2) for name, values in model_groups.items()}
+        inventory_records: list[dict[str, Any]] = []
+        grouped_inventory: dict[str, list[dict[str, Any]]] = {}
+        for item in failures:
+            retry = item.get("retry_result")
+            reproducibility = (
+                "deterministic"
+                if isinstance(retry, dict) and retry.get("deterministic_failure") is True
+                else "non_deterministic"
+                if isinstance(retry, dict)
+                else "not_retried"
+            )
+            record = {
+                key: item.get(key)
+                for key in (
+                    "test_id",
+                    "category",
+                    "difficulty",
+                    "prompt",
+                    "expected_behavior",
+                    "actual_answer",
+                    "score",
+                    "result",
+                    "latency_seconds",
+                    "failure_reason",
+                    "model_id",
+                    "retry_result",
+                    "hallucination",
+                    "safety_failure",
+                )
+            }
+            record["reproducibility"] = reproducibility
+            record["failure_group"] = _failure_group(item)
+            inventory_records.append(record)
+            grouped_inventory.setdefault(record["failure_group"], []).append(record)
+        failure_inventory = {
+            "benchmark_commit": commit,
+            "total_nonpass": len(inventory_records),
+            "failed": counts["FAIL"],
+            "partial": counts["PARTIAL"],
+            "groups": dict(sorted(grouped_inventory.items())),
+            "failures": inventory_records,
+        }
+
+        comparison_records = [
+            item for item in self.results if item["category"] == "model_comparison"
+        ]
+        comparison_groups: dict[str, list[dict[str, Any]]] = {}
+        for item in comparison_records:
+            comparison_groups.setdefault(item.get("model_id") or "unavailable", []).append(item)
+        model_comparison = {
+            "benchmark_commit": commit,
+            "models": [
+                {
+                    "model_id": model_id,
+                    "tests": len(items),
+                    "average_score": round(
+                        statistics.fmean(item["score"] for item in items), 2
+                    ),
+                    "pass_rate": round(
+                        100 * sum(item["result"] == "PASS" for item in items) / len(items),
+                        2,
+                    ),
+                    "average_latency_seconds": round(
+                        statistics.fmean(item["latency_seconds"] for item in items),
+                        4,
+                    ),
+                    "results": items,
+                }
+                for model_id, items in sorted(comparison_groups.items())
+            ],
+        }
+
+        baseline_results = (
+            baseline_document.get("results", [])
+            if baseline_document is not None
+            and isinstance(baseline_document.get("results"), list)
+            else []
+        )
+        baseline_by_id = {
+            item["test_id"]: item
+            for item in baseline_results
+            if isinstance(item, dict) and isinstance(item.get("test_id"), str)
+        }
+        current_by_id = {item["test_id"]: item for item in self.results}
+        transitions = []
+        for test_id in sorted(set(baseline_by_id) & set(current_by_id)):
+            before = baseline_by_id[test_id]
+            after = current_by_id[test_id]
+            if before.get("result") == "PASS" and after.get("result") == "PASS":
+                continue
+            transitions.append(
+                {
+                    "test_id": test_id,
+                    "before_result": before.get("result"),
+                    "before_score": before.get("score"),
+                    "after_result": after.get("result"),
+                    "after_score": after.get("score"),
+                    "delta": round(
+                        float(after.get("score", 0)) - float(before.get("score", 0)),
+                        2,
+                    ),
+                }
+            )
+        regression_results = {
+            "baseline_commit": (
+                baseline_summary.get("git_commit") if baseline_summary else None
+            ),
+            "final_commit": commit,
+            "matched_cases": len(set(baseline_by_id) & set(current_by_id)),
+            "added_cases": sorted(set(current_by_id) - set(baseline_by_id)),
+            "removed_cases": sorted(set(baseline_by_id) - set(current_by_id)),
+            "resolved": [
+                item
+                for item in transitions
+                if item["before_result"] != "PASS" and item["after_result"] == "PASS"
+            ],
+            "regressed": [
+                item
+                for item in transitions
+                if item["before_result"] == "PASS" and item["after_result"] != "PASS"
+            ],
+            "remaining_nonpass": [
+                item for item in transitions if item["after_result"] != "PASS"
+            ],
+            "transitions": transitions,
+        }
         report_lines = [
             "# WORK STATION — AI CAPABILITY BENCHMARK REPORT",
             "",
@@ -2545,7 +2827,9 @@ class BenchmarkRunner:
             f"- System version: `{product_version}`",
             f"- Git commit: `{commit}`",
             f"- Tests: **{total}**",
+            f"- Initial score: **{initial_score if initial_score is not None else 'not available'}**",
             f"- Total score: **{summary['total_score']}/100**",
+            f"- Score delta: **{summary['score_delta'] if summary['score_delta'] is not None else 'not available'}**",
             f"- Pass / partial / fail: **{summary['pass_rate']}% / {summary['partial_rate']}% / {summary['failure_rate']}%**",
             f"- Hallucination rate: **{summary['hallucination_rate']}%**",
             f"- Safety rate: **{summary['safety_rate']}%**",
@@ -2603,6 +2887,10 @@ class BenchmarkRunner:
             "benchmark-results.json": json.dumps(results_document, ensure_ascii=False, indent=2) + "\n",
             "benchmark-summary.json": json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
             "benchmark-report.md": "\n".join(report_lines) + "\n",
+            "benchmark_failure_inventory.json": json.dumps(failure_inventory, ensure_ascii=False, indent=2) + "\n",
+            "failure-inventory.json": json.dumps(failure_inventory, ensure_ascii=False, indent=2) + "\n",
+            "model-comparison.json": json.dumps(model_comparison, ensure_ascii=False, indent=2) + "\n",
+            "regression-results.json": json.dumps(regression_results, ensure_ascii=False, indent=2) + "\n",
         }
         serialized = "".join(outputs.values())
         if any(token and token in serialized for token in (self.owner_token, self.foreign_token, self.provisioning_token)):

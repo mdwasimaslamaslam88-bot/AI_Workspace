@@ -115,7 +115,7 @@ def _parse_csv(data: bytes) -> tuple[ParsedUnit, ...]:
         content = data.decode("utf-8-sig", errors="strict")
     except UnicodeDecodeError as exc:
         raise DocumentParseError("CSV document must be UTF-8") from exc
-    units: list[ParsedUnit] = []
+    rows: list[tuple[int, str]] = []
     try:
         reader = csv.reader(io.StringIO(content, newline=""), strict=True)
         for row_number, row in enumerate(reader, start=1):
@@ -125,17 +125,48 @@ def _parse_csv(data: bytes) -> tuple[ParsedUnit, ...]:
                 raise DocumentTooLargeError("CSV contains too many columns")
             if any(len(field) > MAX_CSV_FIELD_CHARACTERS for field in row):
                 raise DocumentTooLargeError("CSV field is too large")
-            units.append(
-                ParsedUnit(
-                    " | ".join(row),
-                    "row",
-                    row_start=row_number,
-                    row_end=row_number,
-                )
-            )
+            rows.append((row_number, " | ".join(row)))
     except (csv.Error, UnicodeError) as exc:
         raise DocumentParseError("CSV document is malformed") from exc
-    return _validate_units(units)
+    if not rows:
+        return _validate_units([])
+
+    # Keep a small table together and repeat its header in later bounded
+    # blocks. Embedding isolated rows loses column meaning and makes lookup,
+    # aggregation, and cross-row reasoning unnecessarily fragile.
+    header = rows[0][1]
+    blocks: list[ParsedUnit] = []
+    current_lines = [header]
+    block_start = 1
+    block_end = 1
+    for row_number, rendered in rows[1:]:
+        candidate_lines = [*current_lines, rendered]
+        if (
+            len("\n".join(candidate_lines)) > DOCUMENT_CHUNK_CHARACTERS
+            and len(current_lines) > 1
+        ):
+            blocks.append(
+                ParsedUnit(
+                    "\n".join(current_lines),
+                    "row",
+                    row_start=block_start,
+                    row_end=block_end,
+                )
+            )
+            current_lines = [header, rendered]
+            block_start = row_number
+        else:
+            current_lines = candidate_lines
+        block_end = row_number
+    blocks.append(
+        ParsedUnit(
+            "\n".join(current_lines),
+            "row",
+            row_start=block_start,
+            row_end=block_end,
+        )
+    )
+    return _validate_units(blocks)
 
 
 def _parse_pdf(data: bytes) -> tuple[ParsedUnit, ...]:

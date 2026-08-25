@@ -35,6 +35,7 @@ from app.runtimes.ollama import (
 LOCAL_MODEL_REFERENCE = "/private/runtime/model:14b"
 LOCAL_MODEL_ALLOWLIST = (LOCAL_MODEL_REFERENCE,)
 DUPLICATE_MODEL_REFERENCE = "/private/runtime/duplicate:14b"
+QWEN3_MODEL_REFERENCE = "qwen3:8b"
 
 
 @pytest.mark.parametrize(
@@ -2608,6 +2609,125 @@ async def test_ollama_generation_is_non_streaming_bounded_and_preserves_content(
         "think": False,
         "options": {"num_predict": 1024},
     }
+
+
+@pytest.mark.asyncio
+async def test_qwen3_generation_uses_bounded_hidden_reasoning_headroom():
+    requests: list[httpx.Request] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(
+            200,
+            json={
+                "done": True,
+                "message": {
+                    "role": "assistant",
+                    "thinking": "bounded internal reasoning",
+                    "content": "42",
+                },
+            },
+        )
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        base_url="http://127.0.0.1:11434",
+    ) as client:
+        result = await OllamaTextGenerationRuntime(
+            client,
+            37,
+            (QWEN3_MODEL_REFERENCE,),
+        ).generate_text(
+            QWEN3_MODEL_REFERENCE,
+            (
+                TextGenerationMessage(
+                    role=TextGenerationRole.USER,
+                    content="Return the answer only.",
+                ),
+            ),
+            max_output_tokens=32,
+        )
+
+    assert result.content == "42"
+    assert len(requests) == 1
+    outgoing = json.loads(requests[0].content)
+    assert outgoing["think"] is True
+    assert outgoing["options"]["num_predict"] == 800
+
+
+@pytest.mark.asyncio
+async def test_qwen3_generation_falls_back_once_after_reasoning_exhaustion():
+    requests: list[httpx.Request] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        outgoing = json.loads(request.content)
+        if outgoing["think"] is True:
+            return httpx.Response(
+                200,
+                json={
+                    "done": True,
+                    "message": {
+                        "role": "assistant",
+                        "thinking": "reasoning reached its bound",
+                        "content": "",
+                    },
+                },
+            )
+        return httpx.Response(
+            200,
+            json={
+                "done": True,
+                "message": {"role": "assistant", "content": "safe answer"},
+            },
+        )
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        base_url="http://127.0.0.1:11434",
+    ) as client:
+        result = await OllamaTextGenerationRuntime(
+            client,
+            37,
+            (QWEN3_MODEL_REFERENCE,),
+        ).generate_text(
+            QWEN3_MODEL_REFERENCE,
+            (
+                TextGenerationMessage(
+                    role=TextGenerationRole.USER,
+                    content="bounded prompt",
+                ),
+            ),
+            max_output_tokens=64,
+        )
+
+    assert result.content == "safe answer"
+    assert len(requests) == 2
+    first, second = [json.loads(request.content) for request in requests]
+    assert (first["think"], first["options"]["num_predict"]) == (True, 832)
+    assert (second["think"], second["options"]["num_predict"]) == (False, 64)
+
+
+def test_qwen3_preflight_caps_total_predict_tokens():
+    runtime = OllamaTextGenerationRuntime(
+        object(),
+        37,
+        (QWEN3_MODEL_REFERENCE,),
+    )
+
+    payload = runtime._generation_payload(
+        QWEN3_MODEL_REFERENCE,
+        (
+            TextGenerationMessage(
+                role=TextGenerationRole.USER,
+                content="bounded prompt",
+            ),
+        ),
+        max_output_tokens=1_024,
+    )
+
+    assert payload["think"] is True
+    assert payload["options"]["num_predict"] == 1_792
 
 
 @pytest.mark.parametrize("temperature", [0, 1, 2, 0.5, 2.0])

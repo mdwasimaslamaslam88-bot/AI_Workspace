@@ -8,6 +8,7 @@ run_integration=true
 run_runtime=false
 run_browser=false
 run_benchmark=false
+run_massive_benchmark=false
 e2e_backend_pid=""
 
 usage() {
@@ -24,6 +25,7 @@ the same disposable database before exercising real clients and runtimes.
   --runtime-only  Skip integration and run real AI runtime E2E.
   --browser-only  Skip integration and run real browser E2E.
   --benchmark     Skip integration and run the full real-HTTP AI benchmark.
+  --massive-benchmark  Run only the disposable adaptive massive benchmark.
 EOF
 }
 
@@ -33,7 +35,8 @@ for argument in "$@"; do
     --with-browser) run_browser=true ;;
     --runtime-only) run_integration=false; run_runtime=true ;;
     --browser-only) run_integration=false; run_browser=true ;;
-    --benchmark) run_integration=false; run_benchmark=true ;;
+    --benchmark) run_integration=false; run_benchmark=true; run_massive_benchmark=true ;;
+    --massive-benchmark) run_integration=false; run_massive_benchmark=true ;;
     --help|-h) usage; exit 0 ;;
     *) echo "Unknown PostgreSQL check option: ${argument}" >&2; usage >&2; exit 2 ;;
   esac
@@ -146,7 +149,7 @@ if [[ "${run_integration}" == true ]]; then
 fi
 
 if [[ "${run_runtime}" == true || "${run_browser}" == true ||
-  "${run_benchmark}" == true ]]; then
+  "${run_benchmark}" == true || "${run_massive_benchmark}" == true ]]; then
   (
     export RUN_DATABASE_INTEGRATION_TESTS=true
     export TEST_DATABASE_URL="${ephemeral_url}"
@@ -155,7 +158,8 @@ if [[ "${run_runtime}" == true || "${run_browser}" == true ||
   )
 fi
 
-if [[ "${run_browser}" == true || "${run_benchmark}" == true ]]; then
+if [[ "${run_browser}" == true || "${run_benchmark}" == true ||
+  "${run_massive_benchmark}" == true ]]; then
   playwright_browsers_path="${WORK_STATION_PLAYWRIGHT_BROWSERS_PATH:-${repository_root}/../../AI_Workspace_Runtimes/playwright}"
   if [[ "${run_browser}" == true ]]; then
     if [[ "${playwright_browsers_path}" != /* || ! -d "${playwright_browsers_path}" ]]; then
@@ -185,15 +189,23 @@ JS
   backend_log="${cluster_root}/backend.log"
   mkdir -m 700 "${web_root}" "${asset_root}"
 
-  if ! (
-    cd frontend
-    VITE_API_BASE_URL="${api_origin}" ../node_modules/.bin/vite build \
-      --outDir "${web_root}" \
-      --emptyOutDir \
-      --logLevel error
-  ) >"${cluster_root}/vite.log" 2>&1; then
-    echo "The isolated browser PWA build failed." >&2
-    exit 1
+  if [[ "${run_browser}" == true || "${run_benchmark}" == true ]]; then
+    if ! (
+      cd frontend
+      VITE_API_BASE_URL="${api_origin}" ../node_modules/.bin/vite build \
+        --outDir "${web_root}" \
+        --emptyOutDir \
+        --logLevel error
+    ) >"${cluster_root}/vite.log" 2>&1; then
+      echo "The isolated browser PWA build failed." >&2
+      exit 1
+    fi
+  else
+    web_root="${repository_root}/frontend/dist"
+    if [[ ! -f "${web_root}/index.html" ]]; then
+      echo "The compiled local PWA required by the isolated backend is unavailable." >&2
+      exit 1
+    fi
   fi
 
   e2e_provisioning_token="$("${backend_python}" - <<'PY'
@@ -267,6 +279,19 @@ PY
       exec .venv/bin/python -m scripts.ai_quality_benchmark
     )
   fi
+  if [[ "${run_massive_benchmark}" == true ]]; then
+    benchmark_report_root="${WORK_STATION_BENCHMARK_REPORT_ROOT:-${HOME}/Desktop/Work_Station_Benchmark}"
+    if [[ "${benchmark_report_root}" != /* ]]; then
+      echo "The benchmark report root must be an absolute path." >&2
+      exit 1
+    fi
+    printf '%s' "${e2e_provisioning_token}" | (
+      export WORK_STATION_BENCHMARK_API_ORIGIN="${api_origin}"
+      export WORK_STATION_BENCHMARK_REPORT_ROOT="${benchmark_report_root}"
+      cd backend
+      exec .venv/bin/python -m scripts.massive_ai_benchmark
+    )
+  fi
   e2e_provisioning_token=""
   stop_e2e_backend
 fi
@@ -285,7 +310,9 @@ if [[ "${after_status}" != "${before_status}" ]]; then
 fi
 
 if [[ "${run_benchmark}" == true ]]; then
-  echo "ephemeral PostgreSQL validation: real-HTTP AI benchmark passed"
+  echo "ephemeral PostgreSQL validation: real-HTTP AI and massive benchmarks passed"
+elif [[ "${run_massive_benchmark}" == true ]]; then
+  echo "ephemeral PostgreSQL validation: massive benchmark passed"
 elif [[ "${run_integration}" == true && "${run_browser}" == true && "${run_runtime}" == true ]]; then
   echo "ephemeral PostgreSQL validation: integration, browser/PWA E2E, and runtime E2E passed"
 elif [[ "${run_integration}" == true && "${run_browser}" == true ]]; then

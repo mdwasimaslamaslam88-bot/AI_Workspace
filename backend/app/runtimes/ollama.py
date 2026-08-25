@@ -30,6 +30,27 @@ from app.core.config import (
 
 
 _SAFE_METADATA_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ +()-]{0,254}$")
+QWEN3_REASONING_HEADROOM_TOKENS = 768
+MAX_QWEN3_PREDICT_TOKENS = 1_792
+
+
+def _supports_hidden_thinking(runtime_reference: str) -> bool:
+    model_name = runtime_reference.rsplit("/", 1)[-1].casefold()
+    return model_name == "qwen3" or model_name.startswith("qwen3:")
+
+
+def _reasoning_exhausted(payload: Any) -> bool:
+    if not isinstance(payload, Mapping) or payload.get("done") is not True:
+        return False
+    message = payload.get("message")
+    return (
+        isinstance(message, Mapping)
+        and message.get("role") == TextGenerationRole.ASSISTANT.value
+        and isinstance(message.get("content"), str)
+        and not message["content"].strip()
+        and isinstance(message.get("thinking"), str)
+        and bool(message["thinking"].strip())
+    )
 
 
 class _BoundedJSONRequestStream(httpx.AsyncByteStream):
@@ -367,13 +388,25 @@ class OllamaTextGenerationRuntime:
         presence_penalty: float | None = None,
         frequency_penalty: float | None = None,
         stop_sequences: list[str] | None = None,
+        thinking: bool | None = None,
     ) -> dict[str, Any]:
         if runtime_reference not in self.local_model_allowlist:
             raise TextGenerationRuntimeUnsupportedError(
                 "model is not approved for local text generation"
             )
+        use_thinking = (
+            _supports_hidden_thinking(runtime_reference)
+            if thinking is None
+            else thinking
+        )
+        predict_tokens = max_output_tokens
+        if use_thinking:
+            predict_tokens = min(
+                max_output_tokens + QWEN3_REASONING_HEADROOM_TOKENS,
+                MAX_QWEN3_PREDICT_TOKENS,
+            )
         options: dict[str, int | float | list[str]] = {
-            "num_predict": max_output_tokens,
+            "num_predict": predict_tokens,
         }
         if temperature is not None:
             options["temperature"] = temperature
@@ -408,11 +441,10 @@ class OllamaTextGenerationRuntime:
                 for message in messages
             ],
             "stream": False,
-            # WORK STATION only persists and exposes the final assistant
-            # answer. Disable Ollama's separate hidden-thinking channel so a
-            # bounded Qwen3 request cannot exhaust num_predict before it
-            # produces message.content.
-            "think": False,
+            # WORK STATION persists and exposes only the final answer. Qwen3
+            # receives separate bounded headroom for its hidden reasoning;
+            # other model families retain their ordinary bounded generation.
+            "think": use_thinking,
             "options": options,
         }
         if self.keep_alive_seconds is not None:
@@ -420,6 +452,58 @@ class OllamaTextGenerationRuntime:
             # accumulating several large models on the GPU.
             payload["keep_alive"] = self.keep_alive_seconds
         return payload
+
+    async def _request_generation_payload(
+        self,
+        payload: Mapping[str, Any],
+    ) -> Any:
+        request_body: _BoundedJSONRequestStream | None = None
+        response_body: bytearray | None = None
+        try:
+            request_body, request_body_length = _encode_bounded_json_request(
+                payload,
+                self.max_request_bytes,
+            )
+            async with self.client.stream(
+                "POST",
+                "/api/chat",
+                headers={
+                    "Accept-Encoding": "identity",
+                    "Content-Length": str(request_body_length),
+                    "Content-Type": "application/json",
+                },
+                content=request_body,
+                timeout=self.timeout_seconds,
+            ) as response:
+                response.raise_for_status()
+                _validate_identity_content_encoding(response)
+                declared_length = _response_content_length(response)
+                if (
+                    declared_length is not None
+                    and declared_length > self.max_response_bytes
+                ):
+                    raise TextGenerationRuntimeUnavailableError(
+                        "local text runtime returned an invalid response"
+                    )
+
+                response_body = bytearray()
+                async for chunk in response.aiter_bytes():
+                    if len(chunk) > self.max_response_bytes - len(response_body):
+                        raise TextGenerationRuntimeUnavailableError(
+                            "local text runtime returned an invalid response"
+                        )
+                    response_body.extend(chunk)
+                try:
+                    return json.loads(response_body)
+                except (ValueError, TypeError, RecursionError) as exc:
+                    raise TextGenerationRuntimeUnavailableError(
+                        "local text generation is unavailable"
+                    ) from exc
+        finally:
+            if response_body is not None:
+                response_body.clear()
+            if request_body is not None:
+                await request_body.aclose()
 
     def preflight_text(
         self,
@@ -636,60 +720,36 @@ class OllamaTextGenerationRuntime:
             frequency_penalty=frequency_penalty,
             stop_sequences=stop_sequences,
         )
-        request_body: _BoundedJSONRequestStream | None = None
-        response_body: bytearray | None = None
         try:
-            request_body, request_body_length = _encode_bounded_json_request(
-                payload,
-                self.max_request_bytes,
-            )
-            async with self.client.stream(
-                "POST",
-                "/api/chat",
-                headers={
-                    "Accept-Encoding": "identity",
-                    "Content-Length": str(request_body_length),
-                    "Content-Type": "application/json",
-                },
-                content=request_body,
-                timeout=self.timeout_seconds,
-            ) as response:
-                response.raise_for_status()
-                _validate_identity_content_encoding(response)
-                declared_length = _response_content_length(response)
-                if (
-                    declared_length is not None
-                    and declared_length > self.max_response_bytes
-                ):
-                    raise TextGenerationRuntimeUnavailableError(
-                        "local text runtime returned an invalid response"
-                    )
-
-                response_body = bytearray()
-                async for chunk in response.aiter_bytes():
-                    if len(chunk) > self.max_response_bytes - len(response_body):
-                        raise TextGenerationRuntimeUnavailableError(
-                            "local text runtime returned an invalid response"
-                        )
-                    response_body.extend(chunk)
-                try:
-                    payload = json.loads(response_body)
-                except (ValueError, TypeError, RecursionError) as exc:
-                    raise TextGenerationRuntimeUnavailableError(
-                        "local text generation is unavailable"
-                    ) from exc
-                return _parse_generation(payload)
+            response_payload = await self._request_generation_payload(payload)
+            if payload["think"] is True and _reasoning_exhausted(response_payload):
+                fallback_payload = self._generation_payload(
+                    runtime_reference,
+                    messages,
+                    max_output_tokens=max_output_tokens,
+                    temperature=temperature,
+                    seed=seed,
+                    top_p=top_p,
+                    top_k=top_k,
+                    min_p=min_p,
+                    repeat_penalty=repeat_penalty,
+                    repeat_last_n=repeat_last_n,
+                    typical_p=typical_p,
+                    presence_penalty=presence_penalty,
+                    frequency_penalty=frequency_penalty,
+                    stop_sequences=stop_sequences,
+                    thinking=False,
+                )
+                response_payload = await self._request_generation_payload(
+                    fallback_payload
+                )
+            return _parse_generation(response_payload)
         except TextGenerationRuntimeUnavailableError:
             raise
         except (httpx.HTTPError, ValueError, TypeError) as exc:
             raise TextGenerationRuntimeUnavailableError(
                 "local text generation is unavailable"
             ) from exc
-        finally:
-            if response_body is not None:
-                response_body.clear()
-            if request_body is not None:
-                await request_body.aclose()
 
 
 def _response_content_length(response: httpx.Response) -> int | None:

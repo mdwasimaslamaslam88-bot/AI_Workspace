@@ -5,6 +5,7 @@ import httpx
 
 from app.schemas.document import DocumentSearchQuery
 from app.services.vision_input import _valid_png
+from scripts.real_vision_smoke import _PNG as REAL_VISION_SMOKE_PNG
 from scripts.ai_benchmark_cases import BenchmarkCase, build_text_matrix, validate_matrix
 from scripts.ai_quality_benchmark import (
     DOCUMENT_SEARCH_LIMIT,
@@ -63,6 +64,51 @@ def test_evaluator_preserves_strict_answer_and_scores_literal_failure():
     assert passed["result"] == "PASS"
     assert failed["result"] == "FAIL"
     assert failed["failure_reason"] == "exact:SAFE"
+
+
+def test_evaluator_separates_semantic_correctness_from_minor_formatting():
+    categorical = BenchmarkCase(
+        test_id="semantic-category",
+        category="simple_reasoning",
+        difficulty="easy",
+        prompt="Yes or no only.",
+        expected_behavior="Return yes.",
+        exact="yes",
+    )
+    numeric = BenchmarkCase(
+        test_id="semantic-number",
+        category="multi_step_reasoning",
+        difficulty="medium",
+        prompt="Compute the result.",
+        expected_behavior="Return 90.",
+        exact="90",
+    )
+
+    categorical_result = _evaluate_answer(categorical, "Yes.", 0.5)
+    numeric_result = _evaluate_answer(numeric, "Final value: 90", 0.5)
+
+    assert categorical_result["result"] == "PASS"
+    assert categorical_result["dimensions"]["correctness"] == 100
+    assert categorical_result["dimensions"]["instruction_following"] == 70
+    assert categorical_result["failure_reason"] == "literal_format:yes"
+    assert numeric_result["result"] == "PASS"
+    assert numeric_result["hallucination"] is False
+
+
+def test_evaluator_keeps_genuinely_wrong_numeric_answer_failing():
+    case = BenchmarkCase(
+        test_id="wrong-number",
+        category="arithmetic",
+        difficulty="easy",
+        prompt="Compute the result.",
+        expected_behavior="Return 36.",
+        exact="36",
+    )
+
+    result = _evaluate_answer(case, "42", 0.5)
+
+    assert result["result"] == "FAIL"
+    assert result["failure_reason"] == "exact:36"
 
 
 def test_evaluator_requires_exact_json_without_code_fence():
@@ -132,6 +178,10 @@ def test_benchmark_document_search_uses_the_product_bound():
 def test_malformed_png_fixture_reaches_structural_validation():
     assert MALFORMED_PNG.startswith(b"\x89PNG\r\n\x1a\n")
     assert not _valid_png(MALFORMED_PNG)
+
+
+def test_real_vision_smoke_fixture_passes_structural_validation():
+    assert _valid_png(REAL_VISION_SMOKE_PNG)
 
 
 def test_noisy_audio_fixture_is_bounded_mono_pcm():

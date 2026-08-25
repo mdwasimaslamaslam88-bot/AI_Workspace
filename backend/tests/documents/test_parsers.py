@@ -60,7 +60,12 @@ def _pdf_bytes(text: str) -> bytes:
     ("media_type", "data", "expected", "provenance"),
     [
         ("text/plain", b"  alpha\r\n beta  ", "alpha beta", "text"),
-        ("text/csv", b"name,value\nalice,42\n", "name | value", "row"),
+        (
+            "text/csv",
+            b"name,value\nalice,42\n",
+            "name | value alice | 42",
+            "row",
+        ),
     ],
 )
 def test_text_and_csv_parse_to_normalized_provenance(
@@ -74,7 +79,30 @@ def test_text_and_csv_parse_to_normalized_provenance(
     assert units[0].content == expected
     assert units[0].provenance_kind == provenance
     if media_type == "text/csv":
-        assert (units[0].row_start, units[0].row_end) == (1, 1)
+        assert (units[0].row_start, units[0].row_end) == (1, 2)
+
+
+def test_small_csv_is_one_bounded_header_aware_chunk():
+    units = parse_document(
+        b"name,value\nalpha,11\nbeta,29\ngamma,73\n",
+        "text/csv",
+    )
+    chunks = chunk_document(units)
+
+    assert len(chunks) == 1
+    assert chunks[0].content == "name | value alpha | 11 beta | 29 gamma | 73"
+    assert (chunks[0].row_start, chunks[0].row_end) == (1, 4)
+
+
+def test_large_csv_blocks_repeat_header_and_remain_bounded():
+    rows = ["name,value", *[f"row-{index},{'x' * 40}" for index in range(80)]]
+    chunks = chunk_document(parse_document("\n".join(rows).encode(), "text/csv"))
+
+    assert len(chunks) > 1
+    assert all(chunk.content.startswith("name | value ") for chunk in chunks)
+    assert all(len(chunk.content) <= 1_200 for chunk in chunks)
+    assert chunks[0].row_start == 1
+    assert chunks[-1].row_end == 81
 
 
 def test_pdf_and_docx_parse_locally_with_page_and_section_provenance():
