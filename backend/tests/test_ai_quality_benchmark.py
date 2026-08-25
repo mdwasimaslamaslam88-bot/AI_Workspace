@@ -15,8 +15,96 @@ from scripts.ai_quality_benchmark import (
     _bounded_judge_image_command,
     _bounded_noisy_audio_command,
     _evaluate_answer,
+    _normalized_transcript_words,
     _refresh_text_record,
+    _transcript_metrics,
 )
+
+
+def test_corrected_objective_cases_remove_ambiguous_oracles():
+    cases = {case.test_id: case for case in build_text_matrix()}
+
+    assert "nested object coordinates" in cases["medium-structured_data-09"].prompt
+    assert "end of Friday" in cases["hard-cross_document_reasoning-04"].prompt
+    assert "increment by one" in cases["expert-systems_reasoning-07"].prompt
+
+
+def test_javascript_loose_equality_is_a_valid_comparison_fix():
+    case = next(
+        item
+        for item in build_text_matrix()
+        if item.test_id == "medium-debugging-02"
+    )
+
+    evaluation = _evaluate_answer(
+        case,
+        "if (x == 5) console.log('yes');",
+        0.5,
+    )
+
+    assert evaluation["result"] == "PASS"
+
+
+def test_numeric_words_satisfy_object_count_without_changing_raw_answer():
+    case = BenchmarkCase(
+        test_id="image-count",
+        category="image_task",
+        difficulty="expert",
+        prompt="Inspect.",
+        expected_behavior="Count objects.",
+        required=("3", "blue"),
+    )
+    answer = "Exactly three blue cubes appear in one row."
+
+    evaluation = _evaluate_answer(case, answer, 0.5)
+
+    assert evaluation["result"] == "PASS"
+    assert answer == "Exactly three blue cubes appear in one row."
+
+
+def test_transcript_metrics_treat_spoken_and_numeric_47_as_equivalent():
+    reference = "Pause, then continue: quartz harbor; value forty seven."
+    transcript = "Pause, then continue, Quartz Harbor. Value 47."
+
+    assert {"forty", "seven"} <= set(_normalized_transcript_words(transcript))
+    metrics = _transcript_metrics(reference, transcript)
+    assert metrics["wer"] == 0
+    assert metrics["cer"] == 0
+
+
+def test_semantic_math_accepts_equivalent_decimal_and_final_fraction():
+    cases = {case.test_id: case for case in build_text_matrix()}
+
+    decimal = _evaluate_answer(
+        cases["expert-statistics_reasoning-07"],
+        "Z-score: 2.0",
+        0.5,
+    )
+    fraction = _evaluate_answer(
+        cases["expert-probability_reasoning-10"],
+        "4/10 simplifies to 2/5.",
+        0.5,
+    )
+
+    assert decimal["result"] == "PASS"
+    assert decimal["dimensions"]["instruction_following"] == 70
+    assert fraction["result"] == "PASS"
+    assert fraction["dimensions"]["instruction_following"] == 70
+
+
+def test_dijkstra_auxiliary_space_is_an_explicit_case_scoped_alias():
+    case = next(
+        item
+        for item in build_text_matrix()
+        if item.test_id == "expert-advanced_algorithms-07"
+    )
+    evaluation = _evaluate_answer(
+        case,
+        "Time O(E log V); auxiliary space O(V).",
+        0.5,
+    )
+
+    assert evaluation["result"] == "PASS"
 
 
 def test_text_matrix_meets_every_required_easy_medium_and_hard_minimum():
@@ -61,6 +149,15 @@ def test_text_matrix_meets_every_required_easy_medium_and_hard_minimum():
             "contradiction_detection",
         )
     )
+
+
+def test_strict_oracle_prompts_state_the_operation_and_exact_format():
+    cases = {case.test_id: case for case in build_text_matrix()}
+
+    assert "revised phrase" in cases["easy-rewriting-08"].prompt
+    assert "comma and one space" in cases["easy-instruction_following-02"].prompt
+    assert "terminating concept" in cases["medium-debugging-10"].prompt
+    assert cases["expert-discrete_math-10"].prompt.startswith("How many")
 
 
 def test_evaluator_preserves_strict_answer_and_scores_literal_failure():

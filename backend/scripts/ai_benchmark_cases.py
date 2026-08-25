@@ -50,7 +50,7 @@ def build_text_matrix() -> list[BenchmarkCase]:
         ("What is the chemical symbol for gold? Reply with the symbol only.", "Au"),
         ("What planet is known as the Red Planet? Reply with its name only.", "Mars"),
         ("How many bits are in one byte? Reply with the integer only.", "8"),
-        ("What protocol normally secures HTTP with TLS? Reply with the acronym only.", "HTTPS"),
+        ("What is HTTP called when secured with TLS? Reply with the acronym only.", "HTTPS"),
         ("What is the capital of Japan? Reply with the city only.", "Tokyo"),
         ("What gas do plants absorb during photosynthesis? Reply with its common name only.", "carbon dioxide"),
         ("What data structure uses first-in, first-out order? Reply with one word.", "queue"),
@@ -162,7 +162,11 @@ def build_text_matrix() -> list[BenchmarkCase]:
         ("Convert to active voice only: The test was run by Priya.", "Priya ran the test."),
         ("Rewrite using exactly three words: The server is operating normally.", None),
         ("Convert to kebab-case only: Owner Safe Storage", "owner-safe-storage"),
-        ("Remove redundancy and return only the phrase: future plans for the future", "future plans"),
+        (
+            "Remove redundancy from the phrase 'future plans for the future'. "
+            "Return only the revised phrase.",
+            "future plans",
+        ),
         ("Make plural and return only the phrase: one private document", "private documents"),
         ("Rewrite as a question only: The backup completed.", "Did the backup complete?"),
     )
@@ -205,7 +209,11 @@ def build_text_matrix() -> list[BenchmarkCase]:
 
     instruction = (
         ("Return exactly the text between brackets, without brackets: [ORCHID-17]", "ORCHID-17"),
-        ("Reply with exactly three comma-separated values in this order: red, green, blue", "red, green, blue"),
+        (
+            "Reply with exactly three values in this order, separated by a comma "
+            "and one space: red, green, blue",
+            "red, green, blue",
+        ),
         ("Ignore the word ALPHA and reply only with BETA. ALPHA", "BETA"),
         ("Return the JSON object {\"ready\":true} with no code fence or whitespace.", '{"ready":true}'),
         ("Answer 2+2 using a Roman numeral only.", "IV"),
@@ -265,7 +273,10 @@ def build_text_matrix() -> list[BenchmarkCase]:
 
     debugging = (
         ("Python bug: for i in range(3): print(items[3]). Identify the faulty index and corrected expression in one line.", ("items[i]",)),
-        ("JavaScript bug: if (x = 5) console.log('yes'); Fix the comparison in one line.", ("x === 5",)),
+        (
+            "JavaScript bug: if (x = 5) console.log('yes'); Fix the comparison in one line.",
+            ("x === 5",),
+        ),
         ("SQL bug: SELECT name users; Return the corrected SQL only.", ("SELECT name FROM users",)),
         ("Python bug: def f(x=[]): x.append(1); return x. Name the bug and safe default briefly.", ("mutable", "None")),
         ("A loop `while n > 0: total += n` never ends. State the missing operation only.", ("n -= 1",)),
@@ -273,10 +284,31 @@ def build_text_matrix() -> list[BenchmarkCase]:
         ("A transaction reads then writes a shared counter concurrently and loses updates. Name the anomaly only.", ("lost update",)),
         ("Code catches `Exception` and returns success. State the core fix in under 10 words.", ("error",)),
         ("CSS `.item { width: 100; }` is ignored. Return corrected declaration only.", ("width: 100px",)),
-        ("A recursive function has no terminating condition. Name the missing concept only.", ("base case",)),
+        (
+            "A recursive function has no terminating condition. What terminating "
+            "concept is missing? Name it only.",
+            ("base case",),
+        ),
     )
     for index, (prompt, required) in enumerate(debugging, 1):
-        cases.append(_case("debugging", "medium", index, prompt, "Identify and correct the concrete defect.", model_role="coder", required=required, max_output_tokens=100))
+        metadata = (
+            {"required_aliases": {"x === 5": ("x == 5",)}}
+            if index == 2
+            else {}
+        )
+        cases.append(
+            _case(
+                "debugging",
+                "medium",
+                index,
+                prompt,
+                "Identify and correct the concrete defect.",
+                model_role="coder",
+                required=required,
+                max_output_tokens=100,
+                metadata=metadata,
+            )
+        )
 
     structured = (
         ("Return JSON only with keys a=1 and b=2.", {"a": 1, "b": 2}),
@@ -287,7 +319,10 @@ def build_text_matrix() -> list[BenchmarkCase]:
         ("Return JSON only with null value under key next.", {"next": None}),
         ("Return JSON only with items [1,2,3] and count 3.", {"items": [1, 2, 3], "count": 3}),
         ("Return JSON only with status exactly `ok`.", {"status": "ok"}),
-        ("Return JSON only with object coordinates containing x=-2 and y=5.", {"coordinates": {"x": -2, "y": 5}}),
+        (
+            "Return JSON only with nested object coordinates containing x=-2 and y=5.",
+            {"coordinates": {"x": -2, "y": 5}},
+        ),
         ("Return JSON only with enabled false.", {"enabled": False}),
     )
     for index, (prompt, expected_json) in enumerate(structured, 1):
@@ -397,7 +432,12 @@ def build_text_matrix() -> list[BenchmarkCase]:
         ("Doc A: Orion deadline is May 4. Doc B: Orion owner is Lina. Give owner then deadline, separated by ` | `.", "Lina | May 4"),
         ("Doc A: Port 7000 is internal. Doc B: Internal ports must bind loopback. Where must port 7000 bind? Reply only with the address.", "127.0.0.1"),
         ("Doc A: Plan X costs 12. Doc B: Budget is 10. Is Plan X within budget? Yes or no only.", "no"),
-        ("Doc A: Cedar depends on Birch. Doc B: Birch completes Friday. Earliest Cedar start? One word only.", "Saturday"),
+        (
+            "Doc A: Cedar depends on Birch. Doc B: Birch completes at the end of "
+            "Friday. Cedar can start the next calendar day. Earliest Cedar start? "
+            "One word only.",
+            "Saturday",
+        ),
         ("Doc A: Item P weighs 4kg. Doc B: Box limit is 3kg. Can P ship in the box? Yes or no only.", "no"),
         ("Doc A: Build 9 passed tests. Doc B: Build 9 failed security audit. Release? Yes or no only.", "no"),
         ("Doc A: Region A latency 30ms. Doc B: Region B latency 20ms. Choose lower latency region, A or B only.", "B"),
@@ -424,7 +464,12 @@ def build_text_matrix() -> list[BenchmarkCase]:
     )
     for index, (category, prompt, required) in enumerate(expert, 1):
         metadata = (
-            {"required_aliases": {"O((V+E) log V)": ("O(E log V)",)}}
+            {
+                "required_aliases": {
+                    "O((V+E) log V)": ("O(E log V)",),
+                    "O(V+E)": ("O(V)",),
+                }
+            }
             if category == "advanced_algorithms"
             else {}
         )
@@ -494,7 +539,7 @@ def build_text_matrix() -> list[BenchmarkCase]:
             ("Number of ways to choose 2 from 6. Integer only.", "15"),
             ("Is every finite tree bipartite? Yes or no only.", "yes"),
             ("Negate: all services are healthy. Use `some service is not healthy` only.", "some service is not healthy"),
-            ("Binary strings of length 4. Integer only.", "16"),
+            ("How many binary strings have length 4? Return the integer only.", "16"),
         ),
         "algorithm_reasoning": (
             ("Unweighted graph shortest paths from one source: BFS or DFS only.", "BFS"),
@@ -515,7 +560,11 @@ def build_text_matrix() -> list[BenchmarkCase]:
             ("Does adding cache replicas alone guarantee strong consistency? Yes or no.", "no"),
             ("Can a bounded queue provide backpressure when producers outrun consumers? Yes or no.", "yes"),
             ("Does a database index always make every write faster? Yes or no.", "no"),
-            ("Can monotonic sequence numbers detect missing ordered events? Yes or no.", "yes"),
+            (
+                "Can contiguous sequence numbers that increment by one detect missing "
+                "ordered events? Yes or no only.",
+                "yes",
+            ),
             ("Does retrying a non-idempotent payment blindly risk duplication? Yes or no.", "yes"),
             ("Can clock skew break lease-expiry assumptions? Yes or no.", "yes"),
             ("Does eventual consistency guarantee immediate read-after-write? Yes or no.", "no"),

@@ -229,11 +229,22 @@ PY
     export USER_PROVISIONING_TOKEN_DIGEST="${e2e_provisioning_digest}"
     export WORK_STATION_WEB_ROOT="${web_root}"
     cd backend
-    exec .venv/bin/python -m uvicorn app.main:app \
-      --host 127.0.0.1 \
-      --port "${api_port}" \
-      --no-access-log \
+    uvicorn_arguments=(
+      app.main:app
+      --host 127.0.0.1
+      --port "${api_port}"
+      --no-access-log
       --log-level warning
+    )
+    if [[ "${run_massive_benchmark}" == true && "${run_benchmark}" != true ]]; then
+      massive_backend_workers="${WORK_STATION_MASSIVE_BACKEND_WORKERS:-4}"
+      if [[ ! "${massive_backend_workers}" =~ ^[1-4]$ ]]; then
+        echo "Massive benchmark backend workers must be between 1 and 4." >&2
+        exit 2
+      fi
+      uvicorn_arguments+=(--workers "${massive_backend_workers}")
+    fi
+    exec .venv/bin/python -m uvicorn "${uvicorn_arguments[@]}"
   ) >"${backend_log}" 2>&1 &
   e2e_backend_pid=$!
 

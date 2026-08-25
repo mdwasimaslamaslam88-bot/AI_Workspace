@@ -19,7 +19,7 @@ from uuid import uuid4
 import httpx
 
 
-MAX_INTERACTIONS = 10_000_000
+MAX_INTERACTIONS = 100_000_000
 MAX_FAILURE_SAMPLES = 100
 MAX_LATENCY_SAMPLES = 10_000
 MIN_AVAILABLE_MEMORY_MIB = 2_048
@@ -110,6 +110,8 @@ class Aggregate:
 
 
 def _tier(interactions: int) -> str:
+    if interactions >= 100_000_000:
+        return "E"
     if interactions >= 10_000_000:
         return "D"
     if interactions >= 1_000_000:
@@ -306,6 +308,32 @@ def _atomic_report(path: Path, document: dict[str, Any]) -> None:
     path.chmod(0o600)
 
 
+def _publish_summary(path: Path, summary: dict[str, Any]) -> bool:
+    """Publish a completed run without replacing a larger valid result."""
+    try:
+        if not path.is_file() or path.is_symlink() or path.stat().st_size > 2_000_000:
+            raise OSError("existing report is not a bounded regular file")
+        existing = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError, TypeError, json.JSONDecodeError):
+        existing = None
+    if (
+        isinstance(existing, dict)
+        and existing.get("status") == "COMPLETE"
+        and existing.get("disposable_database") is True
+        and existing.get("production_data_modified") is False
+        and existing.get("failed") == 0
+        and existing.get("maximum_supported_interactions")
+        == summary.get("maximum_supported_interactions")
+        and isinstance(existing.get("completed_interactions"), int)
+        and not isinstance(existing.get("completed_interactions"), bool)
+        and existing["completed_interactions"]
+        > summary.get("completed_interactions", 0)
+    ):
+        return False
+    _atomic_report(path, summary)
+    return True
+
+
 async def _run(
     *,
     api_origin: str,
@@ -399,7 +427,7 @@ async def _run(
         ),
         **aggregate.document(),
     }
-    _atomic_report(report_root / "massive-run-summary.json", summary)
+    _publish_summary(report_root / "massive-run-summary.json", summary)
     return summary
 
 

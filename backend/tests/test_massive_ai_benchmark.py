@@ -1,9 +1,12 @@
+import json
+
 import httpx
 
 from scripts.massive_ai_benchmark import (
     Aggregate,
     MAX_LATENCY_SAMPLES,
     _interaction,
+    _publish_summary,
     _tier,
     _validate_response,
 )
@@ -67,3 +70,44 @@ def test_massive_tiers_match_declared_pyramid():
     assert _tier(100_000) == "B"
     assert _tier(1_000_000) == "C"
     assert _tier(10_000_000) == "D"
+    assert _tier(100_000_000) == "E"
+
+
+def test_smoke_run_does_not_replace_larger_completed_report(tmp_path):
+    report_path = tmp_path / "massive-run-summary.json"
+    larger = {
+        "status": "COMPLETE",
+        "disposable_database": True,
+        "production_data_modified": False,
+        "failed": 0,
+        "completed_interactions": 1_000_000,
+        "maximum_supported_interactions": 100_000_000,
+    }
+    smaller = {
+        **larger,
+        "completed_interactions": 10_000,
+    }
+
+    assert _publish_summary(report_path, larger) is True
+    assert _publish_summary(report_path, smaller) is False
+    assert json.loads(report_path.read_text()) == larger
+
+
+def test_larger_completed_report_replaces_smaller_report(tmp_path):
+    report_path = tmp_path / "massive-run-summary.json"
+    smaller = {
+        "status": "COMPLETE",
+        "disposable_database": True,
+        "production_data_modified": False,
+        "failed": 0,
+        "completed_interactions": 10_000,
+        "maximum_supported_interactions": 100_000_000,
+    }
+    larger = {
+        **smaller,
+        "completed_interactions": 1_000_000,
+    }
+
+    assert _publish_summary(report_path, smaller) is True
+    assert _publish_summary(report_path, larger) is True
+    assert json.loads(report_path.read_text()) == larger
