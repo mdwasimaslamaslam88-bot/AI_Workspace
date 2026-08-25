@@ -25,7 +25,24 @@ import zlib
 import httpx
 from docx import Document
 
+from app.ai.future_models import (
+    FUTURE_MODEL_CONTRACTS,
+    hardware_admission_matrix,
+)
+from app.ai.catalog import (
+    ModelAvailability,
+    ModelCapability,
+    ModelDescriptor,
+    ModelModality,
+    ModelScaleClass,
+)
+from app.ai.routing import ModelRoutingUnavailableError, ModelTask, TaskAwareModelRouter
 from app.core.config import settings
+from app.hardware.planner import (
+    HardwareClass,
+    HardwarePlanner,
+    detect_hardware,
+)
 from scripts.ai_benchmark_cases import BenchmarkCase, build_text_matrix, validate_matrix
 from scripts.code_generation_benchmark import (
     build_code_generation_cases,
@@ -51,8 +68,8 @@ SECRET_SIGNATURES = (
 )
 DOCUMENT_SEARCH_LIMIT = 4
 MALFORMED_PNG = b"\x89PNG\r\n\x1a\ntruncated"
-QUALITY_ENGINE_BASELINE_SCORE = 94.24
-QUALITY_ENGINE_BASELINE_TESTS = 401
+QUALITY_ENGINE_BASELINE_SCORE = 95.31
+QUALITY_ENGINE_BASELINE_TESTS = 421
 
 
 def _latency_score(seconds: float) -> float:
@@ -81,6 +98,78 @@ def _weighted_score(dimensions: dict[str, float]) -> float:
 
 def _safe_json(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
+
+def _future_model_contract_record(profile) -> dict[str, Any]:
+    return {
+        "profile_id": profile.profile_id,
+        "model_family": profile.model_family,
+        "architecture": profile.architecture.value,
+        "parameter_class": profile.parameter_class,
+        "active_parameter_class": profile.active_parameter_class,
+        "scale_class": profile.scale_class.value,
+        "quantization": profile.quantization,
+        "runtime": profile.runtime,
+        "required_vram_bytes": profile.required_vram_bytes,
+        "minimum_vram_bytes": profile.minimum_vram_bytes,
+        "required_ram_bytes": profile.required_ram_bytes,
+        "offload_required_ram_bytes": profile.offload_required_ram_bytes,
+        "offload_policy": profile.offload_policy.value,
+        "tensor_parallel_gpu_count": profile.tensor_parallel_gpu_count,
+        "context_window": profile.context_window,
+        "modalities": [item.value for item in profile.modalities],
+        "capabilities": [item.value for item in profile.capabilities],
+        "fallback_role": profile.fallback_role,
+    }
+
+
+def _public_model_descriptor(item: dict[str, Any]) -> ModelDescriptor:
+    return ModelDescriptor(
+        model_id=item["model_id"],
+        display_name=item["display_name"],
+        runtime_id=item["runtime_id"],
+        modality=ModelModality(item["modality"]),
+        family=item.get("family"),
+        parameter_class=item.get("parameter_class"),
+        capabilities=tuple(
+            ModelCapability(value) for value in item["capabilities"]
+        ),
+        context_window=item.get("context_window"),
+        quantization=item.get("quantization"),
+        estimated_vram_bytes=item.get("estimated_vram_bytes"),
+        availability=ModelAvailability(item["availability"]),
+        scale_class=(
+            ModelScaleClass(item["scale_class"])
+            if item.get("scale_class") is not None
+            else None
+        ),
+        required_vram_bytes=item.get("required_vram_bytes"),
+        required_ram_bytes=item.get("required_ram_bytes"),
+        installed=item["installed"],
+        runnable_now=item["runnable_now"],
+        future_capable=item["future_capable"],
+        hardware_class=(
+            HardwareClass(item["hardware_class"])
+            if item.get("hardware_class") is not None
+            else None
+        ),
+        fallback_model_id=item.get("fallback_model_id"),
+    )
+
+
+def _failure_limitation_classification(item: dict[str, Any]) -> str:
+    if item.get("safety_failure"):
+        return "product_security_failure"
+    if not item.get("actual_answer") and "request failed" in str(
+        item.get("failure_reason", "")
+    ):
+        return "runtime_or_product_failure"
+    retry = item.get("retry_result")
+    if isinstance(retry, dict) and retry.get("deterministic_failure") is True:
+        return "installed_model_capability_limitation"
+    if item.get("result") == "PARTIAL":
+        return "installed_model_quality_limitation"
+    return "installed_model_variability"
 
 
 def _bounded_noisy_audio_command(source: Path, target: Path) -> list[str]:
@@ -888,13 +977,18 @@ class BenchmarkRunner:
         conversation_id = create.json()["id"]
         self.conversation_ids.append(conversation_id)
         role = model_role or case.model_role
+        routing_task = case.metadata.get("routing_task")
         model_id = self.model_ids[role]
         response, latency = self._request(
             "POST",
             f"/api/v1/conversations/{conversation_id}/messages/generate",
             headers=self.owner_headers,
             json={
-                "model_id": model_id,
+                **(
+                    {"task": routing_task}
+                    if isinstance(routing_task, str)
+                    else {"model_id": model_id}
+                ),
                 **(
                     {
                         "user_message": effective_prompt,
@@ -909,8 +1003,14 @@ class BenchmarkRunner:
             },
         )
         response.raise_for_status()
-        message = response.json()["message"]
-        return message["content"], latency, message.get("citations", []), model_id
+        payload = response.json()
+        message = payload["message"]
+        return (
+            message["content"],
+            latency,
+            message.get("citations", []),
+            payload["model_id"],
+        )
 
     def run_text_matrix(self) -> None:
         cases = build_text_matrix()
@@ -1082,6 +1182,7 @@ class BenchmarkRunner:
                 model_role=code_case.model_role,
                 max_output_tokens=1_024,
                 metadata={
+                    "routing_task": "code_generation",
                     "system_prompt_suffix": (
                         " For code generation, silently simulate every stated edge "
                         "case before answering. Preserve the requested module and "
@@ -2979,6 +3080,7 @@ class BenchmarkRunner:
             expected_behavior="A safe retry succeeds after prior failures.",
             exact="RECOVERED",
             max_output_tokens=32,
+            metadata={"routing_task": "exact_output"},
         )
         answer, latency, citations, model_id = self._generate_case(retry_case)
         evaluation = _evaluate_answer(retry_case, answer, latency)
@@ -3355,6 +3457,17 @@ class BenchmarkRunner:
             }
             record["reproducibility"] = reproducibility
             record["failure_group"] = _failure_group(item)
+            record["limitation_classification"] = (
+                _failure_limitation_classification(item)
+            )
+            record["upgrade_guidance"] = (
+                "A larger hardware-admitted model may improve this case, but "
+                "the gain must be confirmed by the same objective benchmark."
+                if record["limitation_classification"].startswith(
+                    "installed_model"
+                )
+                else "Resolve the runtime or product defect before model comparison."
+            )
             inventory_records.append(record)
             grouped_inventory.setdefault(record["failure_group"], []).append(record)
         failure_inventory = {
@@ -3466,6 +3579,173 @@ class BenchmarkRunner:
             ],
         }
 
+        hardware_inventory = detect_hardware()
+        hardware_planner = HardwarePlanner(hardware_inventory)
+        cpu_model = "unknown"
+        try:
+            for line in Path("/proc/cpuinfo").read_text(
+                encoding="utf-8"
+            ).splitlines():
+                if line.startswith("model name"):
+                    cpu_model = line.partition(":")[2].strip()[:160]
+                    break
+        except OSError:
+            pass
+        repository_storage = shutil.disk_usage(Path(__file__).parents[2])
+        try:
+            ollama_version = subprocess.run(
+                ["ollama", "--version"],
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=5,
+            ).stdout.strip()[:160]
+        except (FileNotFoundError, subprocess.SubprocessError, OSError):
+            ollama_version = "unavailable"
+        future_contract_records = [
+            _future_model_contract_record(profile)
+            for profile in FUTURE_MODEL_CONTRACTS
+        ]
+        current_profile_admissions = []
+        for profile in FUTURE_MODEL_CONTRACTS:
+            admission = hardware_planner.admit(
+                installed=True,
+                available=True,
+                required_vram_bytes=profile.required_vram_bytes,
+                minimum_vram_bytes=profile.minimum_vram_bytes,
+                required_ram_bytes=profile.required_ram_bytes,
+                offload_required_ram_bytes=(
+                    profile.offload_required_ram_bytes
+                ),
+                offload_policy=profile.offload_policy,
+                supports_multi_gpu=(profile.tensor_parallel_gpu_count > 1),
+            )
+            current_profile_admissions.append(
+                {
+                    "profile_id": profile.profile_id,
+                    "status": admission.status.value,
+                    "profile_installed_for_simulation": True,
+                    "actual_execution_claimed": False,
+                }
+            )
+        hardware_admission = hardware_admission_matrix()
+        hardware_admission.update(
+            {
+                "benchmark_commit": commit,
+                "current_hardware": {
+                    "total_ram_bytes": hardware_inventory.total_ram_bytes,
+                    "gpu_names": list(hardware_inventory.gpu_names),
+                    "gpu_vram_bytes": list(
+                        hardware_inventory.gpu_vram_bytes
+                    ),
+                    "gpu_compute_capabilities": list(
+                        hardware_inventory.gpu_compute_capabilities
+                    ),
+                    "hardware_class": (
+                        hardware_inventory.hardware_class.value
+                    ),
+                    "cpu_model": cpu_model,
+                    "logical_cpu_count": os.cpu_count(),
+                    "storage_total_bytes": repository_storage.total,
+                    "storage_free_bytes": repository_storage.free,
+                },
+                "current_hardware_profile_admissions": (
+                    current_profile_admissions
+                ),
+                "future_model_contracts": future_contract_records,
+            }
+        )
+
+        public_descriptors = tuple(
+            _public_model_descriptor(item) for item in self.models
+        )
+        route_records = []
+        task_router = TaskAwareModelRouter()
+        for task in ModelTask:
+            try:
+                decision = task_router.select(public_descriptors, task)
+                route_records.append(
+                    {
+                        "task": task.value,
+                        "status": "runnable_now",
+                        "model_id": decision.model_id,
+                        "fallback_model_ids": list(
+                            decision.fallback_model_ids
+                        ),
+                        "inference_mode": decision.inference_mode.value,
+                    }
+                )
+            except ModelRoutingUnavailableError:
+                route_records.append(
+                    {
+                        "task": task.value,
+                        "status": "unavailable",
+                        "model_id": None,
+                        "fallback_model_ids": [],
+                        "inference_mode": None,
+                    }
+                )
+        role_by_model: dict[str, list[str]] = {}
+        for role, model_id in self.model_ids.items():
+            role_by_model.setdefault(model_id, []).append(role)
+        current_model_matrix = {
+            "benchmark_commit": commit,
+            "measurement_source": (
+                "authenticated real model catalog plus local bounded hardware "
+                "discovery"
+            ),
+            "hardware": hardware_admission["current_hardware"],
+            "runtime_versions": {"ollama": ollama_version},
+            "models": [
+                {
+                    "exact_model_id": item["model_id"],
+                    "display_name": item["display_name"],
+                    "runtime": item["runtime_id"],
+                    "model_family": item.get("family"),
+                    "parameter_class": item.get("parameter_class"),
+                    "quantization": item.get("quantization"),
+                    "vram_estimate_bytes": (
+                        item.get("required_vram_bytes")
+                        or item.get("estimated_vram_bytes")
+                    ),
+                    "ram_estimate_bytes": item.get("required_ram_bytes"),
+                    "context_window": item.get("context_window"),
+                    "capabilities": item["capabilities"],
+                    "coding_capability": (
+                        "code" in item["capabilities"]
+                        or "coder" in item["display_name"].casefold()
+                    ),
+                    "reasoning_capability": (
+                        "text_generation" in item["capabilities"]
+                    ),
+                    "vision_capability": (
+                        "vision_input" in item["capabilities"]
+                    ),
+                    "tools_capability": (
+                        "tool_calling" in item["capabilities"]
+                    ),
+                    "installed": item["installed"],
+                    "currently_runnable": item["runnable_now"],
+                    "future_capable": item["future_capable"],
+                    "hardware_eligibility": (
+                        "runnable_now"
+                        if item["runnable_now"]
+                        else "insufficient_hardware"
+                        if item["future_capable"]
+                        else item["availability"]
+                    ),
+                    "fallback_role": sorted(
+                        role_by_model.get(item["model_id"], [])
+                    ),
+                }
+                for item in self.models
+            ],
+            "task_routes": route_records,
+            "future_contract_profile_ids": [
+                item["profile_id"] for item in future_contract_records
+            ],
+        }
+
         baseline_results = (
             baseline_document.get("results", [])
             if baseline_document is not None
@@ -3520,6 +3800,20 @@ class BenchmarkRunner:
             ],
             "transitions": transitions,
         }
+        gpu_summary = ", ".join(
+            f"{name} ({vram // (1024**2)} MiB, compute {compute})"
+            for name, vram, compute in zip(
+                hardware_inventory.gpu_names,
+                hardware_inventory.gpu_vram_bytes,
+                hardware_inventory.gpu_compute_capabilities,
+                strict=False,
+            )
+        ) or "CPU only"
+        current_200b_status = next(
+            item["status"]
+            for item in current_profile_admissions
+            if item["profile_id"] == "dense-200b-q4"
+        )
         report_lines = [
             "# WORK STATION — AI CAPABILITY BENCHMARK REPORT",
             "",
@@ -3528,6 +3822,7 @@ class BenchmarkRunner:
             f"- Status: **{summary['status']}**",
             f"- System version: `{product_version}`",
             f"- Git commit: `{commit}`",
+            f"- Current accelerator: **{gpu_summary}**",
             f"- Tests: **{total}**",
             f"- Initial score: **{initial_score if initial_score is not None else 'not available'}**",
             f"- Quality-engine cycle baseline: **{QUALITY_ENGINE_BASELINE_SCORE}/100 ({QUALITY_ENGINE_BASELINE_TESTS} tests)**",
@@ -3572,7 +3867,15 @@ class BenchmarkRunner:
             "",
             *([f"- {item['id']}: {', '.join(item['blocking_reasons'])}" for item in summary["unavailable_capabilities"]] or ["- All configured capability classes were available during discovery."]),
             "- Scores reflect installed local models and this RTX 3060 runtime; they are not claims of perfect AI behavior.",
+            f"- The simulated dense 200B Q4 profile is `{current_200b_status}` on current hardware; no giant-model execution is claimed.",
             "- Subjective artistic preference was excluded; image scoring used artifact validity and explicit visual constraints.",
+            "",
+            "## Future hardware admission",
+            "",
+            "- The registry covers dense 7B/8B through 2000B plus a frontier MoE profile.",
+            "- Admission was simulated at 12, 16, 24, 48, 80, 96, 128, 256, 512, and 1024 GiB VRAM without downloading or executing giant models.",
+            "- Hardware discovery recalculates eligibility from detected RAM, per-GPU VRAM, compute capability, context, runtime, and offload metadata; it contains no RTX 3060 model-name dependency.",
+            "- Detailed current and hypothetical decisions are in `current-model-capability-matrix.json` and `hardware-admission-matrix.json`.",
             "",
             "## Model-specific differences",
             "",
@@ -3601,6 +3904,8 @@ class BenchmarkRunner:
             "regression-results.json": json.dumps(regression_results, ensure_ascii=False, indent=2) + "\n",
             "code-generation-results.json": json.dumps(code_generation_results, ensure_ascii=False, indent=2) + "\n",
             "deep-chat-results.json": json.dumps(deep_chat_results, ensure_ascii=False, indent=2) + "\n",
+            "current-model-capability-matrix.json": json.dumps(current_model_matrix, ensure_ascii=False, indent=2) + "\n",
+            "hardware-admission-matrix.json": json.dumps(hardware_admission, ensure_ascii=False, indent=2) + "\n",
         }
         serialized = "".join(outputs.values())
         if any(token and token in serialized for token in (self.owner_token, self.foreign_token, self.provisioning_token)):

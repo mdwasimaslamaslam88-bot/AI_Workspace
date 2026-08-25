@@ -531,7 +531,8 @@ class ModelCatalog:
                 raise ValueError(f"duplicate public model_id: {model_id}")
             public_ids.add(model_id)
             runnable_now = (
-                self.hardware_planner.runnable_now(
+                model.availability is ModelAvailability.AVAILABLE
+                and self.hardware_planner.runnable_now(
                     installed=model.installed,
                     required_vram_bytes=model.required_vram_bytes,
                     required_ram_bytes=model.required_ram_bytes,

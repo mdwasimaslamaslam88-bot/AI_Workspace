@@ -57,6 +57,30 @@ def test_ollama_scale_class_preserves_future_model_tracks(
     assert ollama_runtime_module._scale_class(parameter_count).value == expected
 
 
+def test_ollama_large_model_host_ram_estimate_allows_full_gpu_admission():
+    installed_size = 120 * 1024**3
+
+    (model,) = ollama_runtime_module._parse_inventory(
+        {
+            "models": [
+                {
+                    "model": "future:200b",
+                    "size": installed_size,
+                    "details": {
+                        "family": "FutureDense",
+                        "parameter_size": "200B",
+                        "quantization_level": "Q4_K_M",
+                    },
+                }
+            ]
+        },
+        frozenset({"future:200b"}),
+    )
+
+    assert model.required_vram_bytes == 144 * 1024**3
+    assert model.required_ram_bytes == 64 * 1024**3
+
+
 class _CatalogRecordingStream(httpx.AsyncByteStream):
     def __init__(
         self,
@@ -2728,6 +2752,29 @@ def test_qwen3_preflight_caps_total_predict_tokens():
 
     assert payload["think"] is True
     assert payload["options"]["num_predict"] == 1_792
+
+
+def test_qwen3_task_profile_can_disable_thinking_without_extra_headroom():
+    runtime = OllamaTextGenerationRuntime(
+        object(),
+        37,
+        (QWEN3_MODEL_REFERENCE,),
+    )
+
+    payload = runtime._generation_payload(
+        QWEN3_MODEL_REFERENCE,
+        (
+            TextGenerationMessage(
+                role=TextGenerationRole.USER,
+                content="Generate a bounded artifact.",
+            ),
+        ),
+        max_output_tokens=1_024,
+        thinking=False,
+    )
+
+    assert payload["think"] is False
+    assert payload["options"]["num_predict"] == 1_024
 
 
 @pytest.mark.parametrize("temperature", [0, 1, 2, 0.5, 2.0])

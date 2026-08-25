@@ -284,6 +284,29 @@ async def test_router_forwards_exact_valid_temperature(temperature):
     )
 
 
+@pytest.mark.asyncio
+async def test_router_forwards_explicit_task_inference_mode():
+    generated = TextGenerationResult(content="answer")
+    generate_text = AsyncMock(return_value=generated)
+    runtime = Mock(runtime_id="local-runtime", generate_text=generate_text)
+    messages = (
+        TextGenerationMessage(
+            role=TextGenerationRole.USER,
+            content="prompt",
+        ),
+    )
+
+    result = await TextGenerationRouter((runtime,)).generate(
+        _resolved_model(),
+        messages,
+        max_output_tokens=1_024,
+        thinking=False,
+    )
+
+    assert result is generated
+    assert generate_text.await_args.kwargs["thinking"] is False
+
+
 @pytest.mark.parametrize("seed", [0, 42, 2_147_483_647])
 @pytest.mark.asyncio
 async def test_router_forwards_exact_valid_seed(seed):

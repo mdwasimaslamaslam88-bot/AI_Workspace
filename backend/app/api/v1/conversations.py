@@ -10,6 +10,10 @@ from app.ai.generation import (
     TextGenerationRuntimeUnavailableError,
     TextGenerationRuntimeUnsupportedError,
 )
+from app.ai.routing import (
+    InferenceMode,
+    ModelRoutingUnavailableError,
+)
 from app.api.dependencies import get_current_user
 from app.db.dependencies import get_db_session
 from app.models.message import MessageContentTooLargeError, MessageRole
@@ -434,6 +438,7 @@ async def generate_assistant_message(
         "text_generation_router",
         None,
     )
+    task_model_router = getattr(request.app.state, "task_model_router", None)
     admission_controller = getattr(
         request.app.state,
         "generation_admission_controller",
@@ -460,6 +465,31 @@ async def generate_assistant_message(
         or generation_max_duration_seconds is None
     ):
         raise RuntimeError("Local text generation is not configured")
+
+    selected_model_id = generation_request.model_id
+    thinking: bool | None = None
+    if selected_model_id is None:
+        if task_model_router is None:  # pragma: no cover - lifespan invariant
+            raise RuntimeError("Task-aware model routing is not configured")
+        task = generation_request.task
+        if task is None:  # pragma: no cover - schema invariant
+            raise RuntimeError("Automatic model routing task is not configured")
+        try:
+            decision = task_model_router.select(
+                await catalog.list_models(),
+                task,
+            )
+        except (ModelRoutingUnavailableError, ModelRuntimeUnavailableError):
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="No local model is available for the requested task",
+            ) from None
+        selected_model_id = decision.model_id
+        thinking = (
+            False
+            if decision.inference_mode is InferenceMode.THINKING_DISABLED
+            else None
+        )
 
     generation_task = asyncio.current_task()
     if generation_task is None:  # pragma: no cover
@@ -494,7 +524,7 @@ async def generate_assistant_message(
         ).generate_for_owner(
             current_user.id,
             conversation_id,
-            generation_request.model_id,
+            selected_model_id,
             user_message=generation_request.user_message,
             **(
                 {"attachment_ids": tuple(generation_request.attachment_ids)}
@@ -513,6 +543,7 @@ async def generate_assistant_message(
             presence_penalty=generation_request.presence_penalty,
             frequency_penalty=generation_request.frequency_penalty,
             stop_sequences=generation_request.stop_sequences,
+            **({"thinking": thinking} if thinking is not None else {}),
         )
     except ConversationGenerationNotFoundError:
         raise HTTPException(
@@ -598,7 +629,7 @@ async def generate_assistant_message(
         await asyncio.gather(disconnect_watcher, return_exceptions=True)
 
     return ConversationTextGenerationResponse(
-        model_id=generation_request.model_id,
+        model_id=selected_model_id,
         message=MessageResponse.model_validate(message),
     )
 

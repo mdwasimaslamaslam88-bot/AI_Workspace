@@ -70,6 +70,7 @@ async def test_lifespan_exposes_unconfigured_database_factory(monkeypatch):
         assert app.state.model_list_max_response_bytes == 1_048_576
         assert app.state.model_catalog.max_list_discovery_seconds == 60.0
         assert await app.state.model_catalog.list_models() == ()
+        assert app.state.task_model_router is not None
         assert app.state.text_generation_router._runtimes == {}
 
     create_session_factory.assert_called_once_with(None)
@@ -496,6 +497,7 @@ async def test_app_state_publication_failure_closes_all_resources(monkeypatch):
         "GenerationAdmissionController",
         "ModelCatalog",
         "OllamaTextGenerationRuntime",
+        "TaskAwareModelRouter",
         "TextGenerationRouter",
     ],
 )

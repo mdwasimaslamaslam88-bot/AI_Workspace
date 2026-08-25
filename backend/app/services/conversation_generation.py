@@ -133,11 +133,14 @@ class ConversationGenerationService:
         presence_penalty: float | None = None,
         frequency_penalty: float | None = None,
         stop_sequences: list[str] | None = None,
+        thinking: bool | None = None,
     ) -> Message:
         if user_message is not None:
             validate_message_content(user_message)
         if attachment_ids and user_message is None:
             raise ValueError("attachment_ids require a user_message")
+        if thinking is not None and not isinstance(thinking, bool):
+            raise TypeError("thinking must be a boolean or None")
         if len(attachment_ids) != len(set(attachment_ids)):
             raise ValueError("attachment_ids must be unique")
         if isinstance(max_output_tokens, bool) or not isinstance(
@@ -492,6 +495,7 @@ class ConversationGenerationService:
                 "presence_penalty": presence_penalty,
                 "frequency_penalty": frequency_penalty,
                 "stop_sequences": stop_sequences,
+                **({"thinking": thinking} if thinking is not None else {}),
             }
             images: tuple[str, ...] = ()
             if vision_metadata:

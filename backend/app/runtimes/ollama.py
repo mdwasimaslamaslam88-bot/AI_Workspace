@@ -522,6 +522,7 @@ class OllamaTextGenerationRuntime:
         presence_penalty: float | None = None,
         frequency_penalty: float | None = None,
         stop_sequences: list[str] | None = None,
+        thinking: bool | None = None,
     ) -> None:
         if not messages:
             raise ValueError("generation messages must not be empty")
@@ -540,6 +541,7 @@ class OllamaTextGenerationRuntime:
             presence_penalty=presence_penalty,
             frequency_penalty=frequency_penalty,
             stop_sequences=stop_sequences,
+            thinking=thinking,
         )
         _measure_bounded_json_request(payload, self.max_request_bytes)
 
@@ -560,6 +562,7 @@ class OllamaTextGenerationRuntime:
         presence_penalty: float | None = None,
         frequency_penalty: float | None = None,
         stop_sequences: list[str] | None = None,
+        thinking: bool | None = None,
     ) -> TextGenerationResult:
         if temperature is not None:
             if isinstance(temperature, bool) or not isinstance(
@@ -703,6 +706,8 @@ class OllamaTextGenerationRuntime:
                         "stop_sequences entries must contain between 1 and "
                         "128 characters"
                     )
+        if thinking is not None and not isinstance(thinking, bool):
+            raise TypeError("thinking must be a boolean or None")
 
         payload = self._generation_payload(
             runtime_reference,
@@ -719,6 +724,7 @@ class OllamaTextGenerationRuntime:
             presence_penalty=presence_penalty,
             frequency_penalty=frequency_penalty,
             stop_sequences=stop_sequences,
+            thinking=thinking,
         )
         try:
             response_payload = await self._request_generation_payload(payload)
@@ -870,8 +876,14 @@ def _parse_inventory(
             if installed_size is not None
             else None
         )
+        # This is host/runtime RAM for a model whose weights fit in GPU VRAM,
+        # not a CPU-offload budget. Capping the mmap/staging estimate keeps a
+        # future full-GPU upgrade independent of the model's total weight size.
         required_ram_bytes = (
-            installed_size + max(2 * 1024**3, installed_size // 4)
+            min(
+                installed_size + max(2 * 1024**3, installed_size // 4),
+                64 * 1024**3,
+            )
             if installed_size is not None
             else None
         )

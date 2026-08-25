@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import app.api.dependencies as authentication_module
 import app.api.v1.conversations as conversations_module
 from app.api.dependencies import get_current_user
+from app.ai.routing import InferenceMode, ModelRoutingDecision, ModelTask
 from app.core.security import digest_access_token
 from app.db.dependencies import get_db_session
 from app.main import app
@@ -3083,6 +3084,61 @@ def test_authenticated_generation_returns_exact_safe_created_message(
         "access_token",
     ):
         assert unsafe not in response_text
+
+
+def test_generation_routes_task_to_hardware_eligible_model(
+    conversation_generation_api,
+):
+    api = conversation_generation_api
+    discovered = object()
+    catalog = Mock(list_models=AsyncMock(return_value=(discovered,)))
+    decision = ModelRoutingDecision(
+        task=ModelTask.CODE_GENERATION,
+        model_id=GENERATION_MODEL_ID,
+        fallback_model_ids=(),
+        inference_mode=InferenceMode.THINKING_DISABLED,
+        required_context_tokens=0,
+    )
+    task_router = Mock(select=Mock(return_value=decision))
+    previous_catalog = app.state.model_catalog
+    previous_task_router = app.state.task_model_router
+    app.state.model_catalog = catalog
+    app.state.task_model_router = task_router
+    try:
+        response = api["client"].post(
+            f"/api/v1/conversations/{api['conversation_id']}/messages/generate",
+            json={"task": "code_generation"},
+        )
+    finally:
+        app.state.model_catalog = previous_catalog
+        app.state.task_model_router = previous_task_router
+
+    assert response.status_code == 201
+    assert response.json()["model_id"] == GENERATION_MODEL_ID
+    catalog.list_models.assert_awaited_once_with()
+    task_router.select.assert_called_once_with(
+        (discovered,),
+        ModelTask.CODE_GENERATION,
+    )
+    api["generate"].assert_awaited_once_with(
+        api["current_user"].id,
+        api["conversation_id"],
+        GENERATION_MODEL_ID,
+        user_message=None,
+        max_output_tokens=1024,
+        temperature=None,
+        seed=None,
+        top_p=None,
+        top_k=None,
+        min_p=None,
+        repeat_penalty=None,
+        repeat_last_n=None,
+        typical_p=None,
+        presence_penalty=None,
+        frequency_penalty=None,
+        stop_sequences=None,
+        thinking=False,
+    )
 
 
 def test_generation_injects_private_asset_storage_when_configured(

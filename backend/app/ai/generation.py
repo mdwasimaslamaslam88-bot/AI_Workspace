@@ -85,6 +85,7 @@ class TextGenerationRuntime(Protocol):
         presence_penalty: float | None = None,
         frequency_penalty: float | None = None,
         stop_sequences: list[str] | None = None,
+        thinking: bool | None = None,
     ) -> None: ...
 
     async def generate_text(
@@ -104,6 +105,7 @@ class TextGenerationRuntime(Protocol):
         presence_penalty: float | None = None,
         frequency_penalty: float | None = None,
         stop_sequences: list[str] | None = None,
+        thinking: bool | None = None,
     ) -> TextGenerationResult: ...
 
 
@@ -150,6 +152,7 @@ class TextGenerationRouter:
         presence_penalty: float | None = None,
         frequency_penalty: float | None = None,
         stop_sequences: list[str] | None = None,
+        thinking: bool | None = None,
     ) -> None:
         runtime = self._runtime_for(model)
         preflight = getattr(runtime, "preflight_text", None)
@@ -172,6 +175,7 @@ class TextGenerationRouter:
             presence_penalty=presence_penalty,
             frequency_penalty=frequency_penalty,
             stop_sequences=stop_sequences,
+            **({"thinking": thinking} if thinking is not None else {}),
         )
 
     def _runtime_for(self, model: ResolvedModel) -> TextGenerationRuntime:
@@ -205,6 +209,7 @@ class TextGenerationRouter:
         presence_penalty: float | None = None,
         frequency_penalty: float | None = None,
         stop_sequences: list[str] | None = None,
+        thinking: bool | None = None,
     ) -> TextGenerationResult:
         if not isinstance(model, ResolvedModel):
             raise TypeError("model must be a ResolvedModel")
@@ -223,6 +228,8 @@ class TextGenerationRouter:
             raise TypeError("max_output_tokens must be an integer")
         if max_output_tokens < 1:
             raise ValueError("max_output_tokens must be positive")
+        if thinking is not None and not isinstance(thinking, bool):
+            raise TypeError("thinking must be a boolean or None")
         if temperature is not None:
             if isinstance(temperature, bool) or not isinstance(
                 temperature,
@@ -382,4 +389,5 @@ class TextGenerationRouter:
             presence_penalty=presence_penalty,
             frequency_penalty=frequency_penalty,
             stop_sequences=stop_sequences,
+            **({"thinking": thinking} if thinking is not None else {}),
         )

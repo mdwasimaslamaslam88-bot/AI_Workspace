@@ -7,6 +7,7 @@ from fastapi import FastAPI
 
 from app.ai.catalog import ModelCapability, ModelCatalog, ModelModality
 from app.ai.generation import TextGenerationRouter
+from app.ai.routing import TaskAwareModelRouter
 from app.clients.comfyui import close_comfyui, create_comfyui_client
 from app.clients.ollama import close_ollama, create_ollama_client
 from app.clients.postgres import create_postgres_engine, dispose_postgres
@@ -275,6 +276,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             ),
             hardware_inventory=hardware_inventory,
         )
+        app.state.task_model_router = TaskAwareModelRouter()
         app.state.text_generation_router = TextGenerationRouter(
             (
                 OllamaTextGenerationRuntime(

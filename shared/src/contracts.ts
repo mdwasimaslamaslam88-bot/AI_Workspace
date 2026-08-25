@@ -488,7 +488,8 @@ export interface ConversationCreateResponse extends ConversationSummary {
 }
 
 export interface ConversationTextGenerationRequest {
-  model_id: string;
+  model_id?: string;
+  task?: ModelTask;
   user_message?: string;
   attachment_ids?: UUID[];
   max_output_tokens?: number;
@@ -504,6 +505,24 @@ export interface ConversationTextGenerationRequest {
   frequency_penalty?: number;
   stop_sequences?: string[];
 }
+
+export type ModelTask =
+  | "general_chat"
+  | "reasoning"
+  | "coding"
+  | "code_generation"
+  | "vision"
+  | "rag"
+  | "summarization"
+  | "tool_calling"
+  | "workflow_planning"
+  | "long_context"
+  | "exact_output"
+  | "embedding"
+  | "image_generation"
+  | "image_editing"
+  | "voice_input"
+  | "voice_output";
 
 export interface ConversationTextGenerationResponse {
   model_id: string;

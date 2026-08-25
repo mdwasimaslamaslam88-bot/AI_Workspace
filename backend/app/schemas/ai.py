@@ -11,6 +11,7 @@ from app.ai.catalog import (
     ModelModality,
     ModelScaleClass,
 )
+from app.ai.routing import ModelTask
 from app.hardware import HardwareClass
 from app.schemas.message import MessageResponse
 
@@ -117,9 +118,11 @@ class ProductCapabilityPageResponse(BaseModel):
 class ConversationTextGenerationRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    model_id: str = Field(
+    model_id: str | None = Field(
+        default=None,
         pattern=r"^[a-z0-9][a-z0-9_-]{0,63}:[a-f0-9]{24}$"
     )
+    task: ModelTask | None = None
     user_message: str | None = Field(default=None, pattern=r"\S")
     attachment_ids: list[UUID] = Field(default_factory=list)
     max_output_tokens: int = Field(default=1024, strict=True, ge=1, le=1024)
@@ -206,6 +209,11 @@ class ConversationTextGenerationRequest(BaseModel):
 
     @model_validator(mode="after")
     def require_user_message_for_attachments(self):
+        if self.model_id is None and self.task is None:
+            raise PydanticCustomError(
+                "missing_model_selection",
+                "model_id or task is required",
+            )
         if self.attachment_ids and self.user_message is None:
             raise PydanticCustomError(
                 "attachments_without_user_message",

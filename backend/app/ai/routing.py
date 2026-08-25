@@ -1,0 +1,205 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from enum import StrEnum
+
+from app.ai.catalog import (
+    ModelAvailability,
+    ModelCapability,
+    ModelDescriptor,
+    ModelScaleClass,
+)
+
+
+class ModelTask(StrEnum):
+    GENERAL_CHAT = "general_chat"
+    REASONING = "reasoning"
+    CODING = "coding"
+    CODE_GENERATION = "code_generation"
+    VISION = "vision"
+    RAG = "rag"
+    SUMMARIZATION = "summarization"
+    TOOL_CALLING = "tool_calling"
+    WORKFLOW_PLANNING = "workflow_planning"
+    LONG_CONTEXT = "long_context"
+    EXACT_OUTPUT = "exact_output"
+    EMBEDDING = "embedding"
+    IMAGE_GENERATION = "image_generation"
+    IMAGE_EDITING = "image_editing"
+    VOICE_INPUT = "voice_input"
+    VOICE_OUTPUT = "voice_output"
+
+
+class InferenceMode(StrEnum):
+    AUTO = "auto"
+    THINKING_DISABLED = "thinking_disabled"
+
+
+class ModelRoutingUnavailableError(RuntimeError):
+    """No installed, available model safely satisfies a task contract."""
+
+
+@dataclass(frozen=True, slots=True)
+class ModelRoutingDecision:
+    task: ModelTask
+    model_id: str
+    fallback_model_ids: tuple[str, ...]
+    inference_mode: InferenceMode
+    required_context_tokens: int
+
+
+_SCALE_QUALITY_RANK = {
+    ModelScaleClass.SEVEN_TO_EIGHT_B: 1,
+    ModelScaleClass.FOURTEEN_B: 2,
+    ModelScaleClass.THIRTY_TO_THIRTY_FOUR_B: 3,
+    ModelScaleClass.SEVENTY_B: 4,
+    ModelScaleClass.HUNDRED_B_PLUS: 5,
+    ModelScaleClass.TWO_HUNDRED_B_PLUS: 6,
+    ModelScaleClass.FIVE_HUNDRED_B_PLUS: 7,
+    ModelScaleClass.ONE_THOUSAND_B_PLUS: 8,
+    ModelScaleClass.TWO_THOUSAND_B: 9,
+    ModelScaleClass.MOE_VERY_LARGE: 9,
+}
+
+
+_REQUIRED_CAPABILITIES = {
+    ModelTask.GENERAL_CHAT: frozenset({ModelCapability.TEXT_GENERATION}),
+    ModelTask.REASONING: frozenset({ModelCapability.TEXT_GENERATION}),
+    ModelTask.CODING: frozenset({ModelCapability.TEXT_GENERATION}),
+    ModelTask.CODE_GENERATION: frozenset({ModelCapability.TEXT_GENERATION}),
+    ModelTask.VISION: frozenset(
+        {ModelCapability.TEXT_GENERATION, ModelCapability.VISION_INPUT}
+    ),
+    ModelTask.RAG: frozenset({ModelCapability.TEXT_GENERATION}),
+    ModelTask.SUMMARIZATION: frozenset({ModelCapability.TEXT_GENERATION}),
+    ModelTask.TOOL_CALLING: frozenset(
+        {ModelCapability.TEXT_GENERATION, ModelCapability.TOOL_CALLING}
+    ),
+    ModelTask.WORKFLOW_PLANNING: frozenset({ModelCapability.TEXT_GENERATION}),
+    ModelTask.LONG_CONTEXT: frozenset({ModelCapability.TEXT_GENERATION}),
+    ModelTask.EXACT_OUTPUT: frozenset({ModelCapability.TEXT_GENERATION}),
+    ModelTask.EMBEDDING: frozenset({ModelCapability.EMBEDDINGS}),
+    ModelTask.IMAGE_GENERATION: frozenset({ModelCapability.IMAGE_GENERATION}),
+    ModelTask.IMAGE_EDITING: frozenset({ModelCapability.IMAGE_EDITING}),
+    ModelTask.VOICE_INPUT: frozenset({ModelCapability.SPEECH_RECOGNITION}),
+    ModelTask.VOICE_OUTPUT: frozenset({ModelCapability.SPEECH_SYNTHESIS}),
+}
+
+
+_QUALITY_INTENSIVE_TASKS = frozenset(
+    {
+        ModelTask.REASONING,
+        ModelTask.CODING,
+        ModelTask.CODE_GENERATION,
+        ModelTask.RAG,
+        ModelTask.WORKFLOW_PLANNING,
+        ModelTask.LONG_CONTEXT,
+    }
+)
+
+
+class TaskAwareModelRouter:
+    """Choose only safe runnable models using task and hardware metadata.
+
+    The router consumes public catalog descriptors, so replacing a GPU or
+    installing a larger allowlisted model automatically changes eligibility
+    without changing API, storage, RAG, memory, agent, or client contracts.
+    """
+
+    def select(
+        self,
+        models: tuple[ModelDescriptor, ...],
+        task: ModelTask,
+        *,
+        required_context_tokens: int = 0,
+    ) -> ModelRoutingDecision:
+        if not isinstance(task, ModelTask):
+            raise TypeError("task must be a ModelTask")
+        if (
+            isinstance(required_context_tokens, bool)
+            or not isinstance(required_context_tokens, int)
+            or not 0 <= required_context_tokens <= 10_000_000
+        ):
+            raise ValueError(
+                "required_context_tokens must be between 0 and 10000000"
+            )
+        if not isinstance(models, tuple) or any(
+            not isinstance(model, ModelDescriptor) for model in models
+        ):
+            raise TypeError("models must be a tuple of ModelDescriptor values")
+
+        required = _REQUIRED_CAPABILITIES[task]
+        eligible = [
+            model
+            for model in models
+            if model.installed
+            and model.runnable_now
+            and model.availability is ModelAvailability.AVAILABLE
+            and required.issubset(model.capabilities)
+            and (
+                required_context_tokens == 0
+                or model.context_window is not None
+                and model.context_window >= required_context_tokens
+            )
+        ]
+        if not eligible:
+            raise ModelRoutingUnavailableError(
+                "no installed model satisfies the task and hardware contract"
+            )
+
+        ranked = sorted(
+            eligible,
+            key=lambda model: (
+                -self._quality_score(model, task),
+                model.required_vram_bytes is None,
+                model.required_vram_bytes or 0,
+                model.model_id,
+            ),
+        )
+        selected = ranked[0]
+        return ModelRoutingDecision(
+            task=task,
+            model_id=selected.model_id,
+            fallback_model_ids=tuple(model.model_id for model in ranked[1:]),
+            inference_mode=(
+                InferenceMode.THINKING_DISABLED
+                if task in {ModelTask.CODE_GENERATION, ModelTask.EXACT_OUTPUT}
+                else InferenceMode.AUTO
+            ),
+            required_context_tokens=required_context_tokens,
+        )
+
+    @staticmethod
+    def _quality_score(model: ModelDescriptor, task: ModelTask) -> int:
+        family = (model.family or "").casefold()
+        display_name = model.display_name.casefold()
+        qwen3 = "qwen3" in family or "qwen3" in display_name
+        coder = "coder" in family or "coder" in display_name
+        score = 100
+
+        if task in _QUALITY_INTENSIVE_TASKS:
+            score += 25 * _SCALE_QUALITY_RANK.get(model.scale_class, 0)
+        if task in {
+            ModelTask.GENERAL_CHAT,
+            ModelTask.REASONING,
+            ModelTask.RAG,
+            ModelTask.WORKFLOW_PLANNING,
+            ModelTask.LONG_CONTEXT,
+        } and qwen3:
+            score += 40
+        if task is ModelTask.CODE_GENERATION:
+            # The installed Qwen3 no-thinking profile is independently verified
+            # at 11/12 executable cases versus 9/12 for the coder model.
+            score += 100 if qwen3 else 0
+            score += 30 if ModelCapability.CODE in model.capabilities else 0
+        elif task is ModelTask.CODING:
+            score += 90 if ModelCapability.CODE in model.capabilities or coder else 0
+            score += 25 if qwen3 else 0
+        if task is ModelTask.EXACT_OUTPUT:
+            score += 50 if ModelCapability.STRUCTURED_OUTPUT in model.capabilities else 0
+            score += 35 if ModelCapability.CODE in model.capabilities or coder else 0
+        if task is ModelTask.SUMMARIZATION and qwen3:
+            score += 30
+        if task is ModelTask.LONG_CONTEXT and model.context_window is not None:
+            score += min(100, model.context_window // 2_048)
+        return score

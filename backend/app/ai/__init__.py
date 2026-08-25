@@ -20,6 +20,13 @@ from app.ai.generation import (
     TextGenerationRuntimeUnavailableError,
     TextGenerationRuntimeUnsupportedError,
 )
+from app.ai.routing import (
+    InferenceMode,
+    ModelRoutingDecision,
+    ModelRoutingUnavailableError,
+    ModelTask,
+    TaskAwareModelRouter,
+)
 
 __all__ = [
     "ModelAvailability",
@@ -31,6 +38,11 @@ __all__ = [
     "ModelRuntimeUnavailableError",
     "ResolvedModel",
     "RuntimeModel",
+    "InferenceMode",
+    "ModelRoutingDecision",
+    "ModelRoutingUnavailableError",
+    "ModelTask",
+    "TaskAwareModelRouter",
     "TextGenerationMessage",
     "TextGenerationResult",
     "TextGenerationRole",

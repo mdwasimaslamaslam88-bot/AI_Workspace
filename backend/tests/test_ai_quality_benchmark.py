@@ -522,7 +522,10 @@ def test_multimodal_case_attaches_image_to_the_generated_user_message():
             return response, 0.1
         response = httpx.Response(
             201,
-            json={"message": {"content": "BLUE", "citations": []}},
+            json={
+                "model_id": "vision-model-id",
+                "message": {"content": "BLUE", "citations": []},
+            },
             request=httpx.Request(method, "http://benchmark.invalid" + path),
         )
         return response, 0.2

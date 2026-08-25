@@ -23,11 +23,27 @@ class HardwareClass(StrEnum):
     MULTI_GPU = "multi_gpu"
 
 
+class OffloadPolicy(StrEnum):
+    NONE = "none"
+    CPU = "cpu"
+    TENSOR_PARALLEL = "tensor_parallel"
+    CPU_OR_TENSOR_PARALLEL = "cpu_or_tensor_parallel"
+
+
+class HardwareAdmissionStatus(StrEnum):
+    RUNNABLE = "runnable"
+    OFFLOAD_REQUIRED = "offload_required"
+    INSUFFICIENT_HARDWARE = "insufficient_hardware"
+    NOT_INSTALLED = "not_installed"
+    UNAVAILABLE = "unavailable"
+
+
 @dataclass(frozen=True, slots=True)
 class HardwareInventory:
     total_ram_bytes: int
     gpu_vram_bytes: tuple[int, ...] = ()
     gpu_names: tuple[str, ...] = ()
+    gpu_compute_capabilities: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if (
@@ -43,6 +59,12 @@ class HardwareInventory:
             raise ValueError("GPU VRAM values must be positive integers")
         if self.gpu_names and len(self.gpu_names) != len(self.gpu_vram_bytes):
             raise ValueError("GPU names must match detected GPU capacity entries")
+        if self.gpu_compute_capabilities and len(
+            self.gpu_compute_capabilities
+        ) != len(self.gpu_vram_bytes):
+            raise ValueError(
+                "GPU compute capabilities must match detected GPU capacity entries"
+            )
         if any(
             not name
             or name != name.strip()
@@ -51,10 +73,25 @@ class HardwareInventory:
             for name in self.gpu_names
         ):
             raise ValueError("GPU names must be bounded printable identifiers")
+        if any(
+            not capability
+            or capability != capability.strip()
+            or len(capability) > 16
+            or any(
+                character not in "0123456789."
+                for character in capability
+            )
+            for capability in self.gpu_compute_capabilities
+        ):
+            raise ValueError("GPU compute capabilities must be bounded numeric labels")
 
     @property
     def largest_gpu_vram_bytes(self) -> int:
         return max(self.gpu_vram_bytes, default=0)
+
+    @property
+    def aggregate_gpu_vram_bytes(self) -> int:
+        return sum(self.gpu_vram_bytes)
 
     @property
     def hardware_class(self) -> HardwareClass:
@@ -90,12 +127,12 @@ def _total_ram_bytes() -> int:
     return total if total > 0 else GIBIBYTE
 
 
-def _nvidia_gpu_details() -> tuple[tuple[str, int], ...]:
+def _nvidia_gpu_details() -> tuple[tuple[str, int, str], ...]:
     try:
         completed = subprocess.run(
             [
                 "nvidia-smi",
-                "--query-gpu=name,memory.total",
+                "--query-gpu=name,memory.total,compute_cap",
                 "--format=csv,noheader,nounits",
             ],
             check=True,
@@ -106,23 +143,31 @@ def _nvidia_gpu_details() -> tuple[tuple[str, int], ...]:
     except (FileNotFoundError, subprocess.SubprocessError, OSError):
         return ()
 
-    values: list[tuple[str, int]] = []
+    values: list[tuple[str, int, str]] = []
     for line in completed.stdout.splitlines():
-        name, separator, memory = line.partition(",")
-        normalized_name = name.strip()
-        normalized_memory = memory.strip()
+        parts = [part.strip() for part in line.split(",")]
+        if len(parts) != 3:
+            return ()
+        normalized_name, normalized_memory, compute_capability = parts
         if (
-            separator != ","
-            or not normalized_name
+            not normalized_name
             or len(normalized_name) > 96
             or any(ord(character) < 0x20 for character in normalized_name)
             or not normalized_memory.isdecimal()
+            or not compute_capability
+            or len(compute_capability) > 16
+            or any(
+                character not in "0123456789."
+                for character in compute_capability
+            )
         ):
             return ()
         mebibytes = int(normalized_memory)
         if mebibytes < 1:
             return ()
-        values.append((normalized_name, mebibytes * 1024**2))
+        values.append(
+            (normalized_name, mebibytes * 1024**2, compute_capability)
+        )
     return tuple(values)
 
 
@@ -133,9 +178,30 @@ def detect_hardware() -> HardwareInventory:
 
     return HardwareInventory(
         total_ram_bytes=_total_ram_bytes(),
-        gpu_vram_bytes=tuple(vram_bytes for _name, vram_bytes in gpu_details),
-        gpu_names=tuple(name for name, _vram_bytes in gpu_details),
+        gpu_vram_bytes=tuple(
+            vram_bytes for _name, vram_bytes, _compute in gpu_details
+        ),
+        gpu_names=tuple(name for name, _vram_bytes, _compute in gpu_details),
+        gpu_compute_capabilities=tuple(
+            compute for _name, _vram_bytes, compute in gpu_details
+        ),
     )
+
+
+@dataclass(frozen=True, slots=True)
+class HardwareAdmission:
+    status: HardwareAdmissionStatus
+    usable_vram_bytes: int
+    usable_ram_bytes: int
+    required_vram_bytes: int | None
+    minimum_vram_bytes: int | None
+    required_ram_bytes: int | None
+    offload_required_ram_bytes: int | None
+    offload_policy: OffloadPolicy
+
+    @property
+    def runnable_now(self) -> bool:
+        return self.status is HardwareAdmissionStatus.RUNNABLE
 
 
 @dataclass(frozen=True, slots=True)
@@ -180,6 +246,104 @@ class HardwarePlanner:
             for value in self.inventory.gpu_vram_bytes
         )
         return required_vram_bytes <= aggregate_usable_vram
+
+    def admit(
+        self,
+        *,
+        installed: bool,
+        available: bool,
+        required_vram_bytes: int | None,
+        required_ram_bytes: int | None,
+        offload_required_ram_bytes: int | None = None,
+        minimum_vram_bytes: int | None = None,
+        offload_policy: OffloadPolicy = OffloadPolicy.NONE,
+        supports_multi_gpu: bool = False,
+    ) -> HardwareAdmission:
+        if not isinstance(installed, bool):
+            raise TypeError("model installation state must be a boolean")
+        if not isinstance(available, bool):
+            raise TypeError("model availability must be a boolean")
+        if not isinstance(offload_policy, OffloadPolicy):
+            raise TypeError("offload_policy must be an OffloadPolicy")
+        if minimum_vram_bytes is not None and (
+            isinstance(minimum_vram_bytes, bool)
+            or not isinstance(minimum_vram_bytes, int)
+            or minimum_vram_bytes < 0
+        ):
+            raise ValueError("minimum VRAM must be a non-negative integer")
+        for field_name, value in (
+            ("required VRAM", required_vram_bytes),
+            ("required RAM", required_ram_bytes),
+            ("offload required RAM", offload_required_ram_bytes),
+        ):
+            if value is not None and (
+                isinstance(value, bool)
+                or not isinstance(value, int)
+                or value < 0
+            ):
+                raise ValueError(f"{field_name} must be a non-negative integer")
+
+        usable_ram = max(0, self.inventory.total_ram_bytes - self.ram_reserve_bytes)
+        largest_usable_vram = max(
+            0,
+            self.inventory.largest_gpu_vram_bytes - self.gpu_reserve_bytes,
+        )
+        aggregate_usable_vram = sum(
+            max(0, value - self.gpu_reserve_bytes)
+            for value in self.inventory.gpu_vram_bytes
+        )
+        usable_vram = (
+            aggregate_usable_vram
+            if supports_multi_gpu and len(self.inventory.gpu_vram_bytes) > 1
+            else largest_usable_vram
+        )
+
+        def result(status: HardwareAdmissionStatus) -> HardwareAdmission:
+            return HardwareAdmission(
+                status=status,
+                usable_vram_bytes=usable_vram,
+                usable_ram_bytes=usable_ram,
+                required_vram_bytes=required_vram_bytes,
+                minimum_vram_bytes=minimum_vram_bytes,
+                required_ram_bytes=required_ram_bytes,
+                offload_required_ram_bytes=offload_required_ram_bytes,
+                offload_policy=offload_policy,
+            )
+
+        if not installed:
+            return result(HardwareAdmissionStatus.NOT_INSTALLED)
+        if not available:
+            return result(HardwareAdmissionStatus.UNAVAILABLE)
+        if required_vram_bytes is None or required_ram_bytes is None:
+            return result(HardwareAdmissionStatus.INSUFFICIENT_HARDWARE)
+        if required_vram_bytes <= usable_vram:
+            return result(
+                HardwareAdmissionStatus.RUNNABLE
+                if required_ram_bytes <= usable_ram
+                else HardwareAdmissionStatus.INSUFFICIENT_HARDWARE
+            )
+
+        cpu_offload_allowed = offload_policy in {
+            OffloadPolicy.CPU,
+            OffloadPolicy.CPU_OR_TENSOR_PARALLEL,
+        }
+        required_minimum = (
+            required_vram_bytes
+            if minimum_vram_bytes is None
+            else minimum_vram_bytes
+        )
+        offload_ram = (
+            required_ram_bytes
+            if offload_required_ram_bytes is None
+            else offload_required_ram_bytes
+        )
+        if (
+            cpu_offload_allowed
+            and required_minimum <= largest_usable_vram
+            and offload_ram <= usable_ram
+        ):
+            return result(HardwareAdmissionStatus.OFFLOAD_REQUIRED)
+        return result(HardwareAdmissionStatus.INSUFFICIENT_HARDWARE)
 
     def required_hardware_class(
         self,
