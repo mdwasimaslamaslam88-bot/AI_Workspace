@@ -3138,6 +3138,7 @@ def test_generation_routes_task_to_hardware_eligible_model(
         frequency_penalty=None,
         stop_sequences=None,
         thinking=False,
+        task_profile=ModelTask.CODE_GENERATION,
     )
 
 

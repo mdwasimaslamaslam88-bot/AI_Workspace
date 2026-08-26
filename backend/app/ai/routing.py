@@ -15,7 +15,9 @@ class ModelTask(StrEnum):
     GENERAL_CHAT = "general_chat"
     REASONING = "reasoning"
     CODING = "coding"
+    DEBUGGING = "debugging"
     CODE_GENERATION = "code_generation"
+    EXPERT_ANALYSIS = "expert_analysis"
     VISION = "vision"
     RAG = "rag"
     SUMMARIZATION = "summarization"
@@ -66,7 +68,9 @@ _REQUIRED_CAPABILITIES = {
     ModelTask.GENERAL_CHAT: frozenset({ModelCapability.TEXT_GENERATION}),
     ModelTask.REASONING: frozenset({ModelCapability.TEXT_GENERATION}),
     ModelTask.CODING: frozenset({ModelCapability.TEXT_GENERATION}),
+    ModelTask.DEBUGGING: frozenset({ModelCapability.TEXT_GENERATION}),
     ModelTask.CODE_GENERATION: frozenset({ModelCapability.TEXT_GENERATION}),
+    ModelTask.EXPERT_ANALYSIS: frozenset({ModelCapability.TEXT_GENERATION}),
     ModelTask.VISION: frozenset(
         {ModelCapability.TEXT_GENERATION, ModelCapability.VISION_INPUT}
     ),
@@ -90,7 +94,9 @@ _QUALITY_INTENSIVE_TASKS = frozenset(
     {
         ModelTask.REASONING,
         ModelTask.CODING,
+        ModelTask.DEBUGGING,
         ModelTask.CODE_GENERATION,
+        ModelTask.EXPERT_ANALYSIS,
         ModelTask.RAG,
         ModelTask.WORKFLOW_PLANNING,
         ModelTask.LONG_CONTEXT,
@@ -182,6 +188,7 @@ class TaskAwareModelRouter:
         if task in {
             ModelTask.GENERAL_CHAT,
             ModelTask.REASONING,
+            ModelTask.EXPERT_ANALYSIS,
             ModelTask.RAG,
             ModelTask.WORKFLOW_PLANNING,
             ModelTask.LONG_CONTEXT,
@@ -193,13 +200,60 @@ class TaskAwareModelRouter:
             score += 100 if qwen3 else 0
             score += 30 if ModelCapability.CODE in model.capabilities else 0
         elif task is ModelTask.CODING:
-            score += 90 if ModelCapability.CODE in model.capabilities or coder else 0
-            score += 25 if qwen3 else 0
+            # Both installed text models advertise generic code capability, but
+            # the complete coding category favors the dedicated coder family.
+            # Keep the capability bonus secondary to measured family fit.
+            score += 110 if coder else 0
+            score += 30 if ModelCapability.CODE in model.capabilities else 0
+            score += 10 if qwen3 else 0
+        elif task is ModelTask.DEBUGGING:
+            # The current complete debugging contract scores higher on Qwen3;
+            # the coder profile misses base-case and idempotency terminology.
+            score += 100 if qwen3 else 0
+            score += 25 if coder else 0
+            score += 20 if ModelCapability.CODE in model.capabilities else 0
         if task is ModelTask.EXACT_OUTPUT:
             score += 50 if ModelCapability.STRUCTURED_OUTPUT in model.capabilities else 0
-            score += 35 if ModelCapability.CODE in model.capabilities or coder else 0
+            score += 65 if coder else 0
+            score += 20 if ModelCapability.CODE in model.capabilities else 0
         if task is ModelTask.SUMMARIZATION and qwen3:
             score += 30
         if task is ModelTask.LONG_CONTEXT and model.context_window is not None:
             score += min(100, model.context_window // 2_048)
         return score
+
+
+_TASK_SYSTEM_INSTRUCTIONS = {
+    ModelTask.CODE_GENERATION: (
+        "For code generation, silently simulate every stated edge case before "
+        "answering. Preserve the requested module and export shape. Return one "
+        "complete artifact only, with no examples, test calls, or afterword."
+    ),
+    ModelTask.DEBUGGING: (
+        "Use the standard canonical name for the defect. State the direct root "
+        "cause and concrete correction requested, while obeying every concise or "
+        "name-only output constraint."
+    ),
+    ModelTask.EXACT_OUTPUT: (
+        "The user's exact-output requirement is literal. Return only the requested "
+        "token, JSON value, delimiter form, or line, with no added punctuation, "
+        "labels, code fences, explanation, or surrounding whitespace."
+    ),
+    ModelTask.EXPERT_ANALYSIS: (
+        "Treat every explicitly named checklist item as mandatory. Before answering, "
+        "silently verify that each is covered within the requested bullet and word "
+        "limits. Do not invent implementation facts."
+    ),
+    ModelTask.WORKFLOW_PLANNING: (
+        "Treat every explicitly named rollout or recovery checkpoint as mandatory. "
+        "Preserve the requested order, item count, and word limits."
+    ),
+}
+
+
+def task_system_instruction(task: ModelTask | None) -> str | None:
+    """Return a bounded trusted response contract for an automatic task route."""
+
+    if task is not None and not isinstance(task, ModelTask):
+        raise TypeError("task must be a ModelTask or None")
+    return _TASK_SYSTEM_INSTRUCTIONS.get(task)

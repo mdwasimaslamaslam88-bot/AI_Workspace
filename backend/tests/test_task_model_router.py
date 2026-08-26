@@ -12,6 +12,7 @@ from app.ai.routing import (
     ModelRoutingUnavailableError,
     ModelTask,
     TaskAwareModelRouter,
+    task_system_instruction,
 )
 from app.hardware.planner import GIBIBYTE
 
@@ -49,8 +50,12 @@ def _model(
 
 
 def test_router_uses_measured_task_profiles_on_current_hardware():
-    qwen3 = _model(1, "Qwen3 8B", context=40_960)
-    coder = _model(2, "Qwen2.5 Coder 7B")
+    capabilities = (
+        ModelCapability.TEXT_GENERATION,
+        ModelCapability.CODE,
+    )
+    qwen3 = _model(1, "Qwen3 8B", capabilities=capabilities, context=40_960)
+    coder = _model(2, "Qwen2.5 Coder 7B", capabilities=capabilities)
     models = (qwen3, coder)
     router = TaskAwareModelRouter()
 
@@ -63,6 +68,11 @@ def test_router_uses_measured_task_profiles_on_current_hardware():
     assert exact.model_id == coder.model_id
     assert exact.inference_mode is InferenceMode.THINKING_DISABLED
     assert coding.model_id == coder.model_id
+
+    debugging = router.select(models, ModelTask.DEBUGGING)
+    expert = router.select(models, ModelTask.EXPERT_ANALYSIS)
+    assert debugging.model_id == qwen3.model_id
+    assert expert.model_id == qwen3.model_id
 
 
 def test_router_requires_capability_context_and_live_hardware_admission():
@@ -138,3 +148,15 @@ def test_every_declared_task_has_a_capability_contract():
 
     assert set(decisions) == set(ModelTask)
     assert all(item.model_id == universal.model_id for item in decisions.values())
+
+
+def test_bounded_task_contracts_are_generic_and_do_not_contain_answers():
+    exact = task_system_instruction(ModelTask.EXACT_OUTPUT)
+    code = task_system_instruction(ModelTask.CODE_GENERATION)
+    expert = task_system_instruction(ModelTask.EXPERT_ANALYSIS)
+
+    assert exact is not None and "literal" in exact
+    assert code is not None and "simulate every stated edge case" in code
+    assert expert is not None and "explicitly named" in expert
+    assert task_system_instruction(ModelTask.GENERAL_CHAT) is None
+    assert all("RECOVERED" not in value for value in (exact, code, expert))

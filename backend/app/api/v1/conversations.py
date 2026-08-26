@@ -468,6 +468,7 @@ async def generate_assistant_message(
 
     selected_model_id = generation_request.model_id
     thinking: bool | None = None
+    task_profile: ModelTask | None = None
     if selected_model_id is None:
         if task_model_router is None:  # pragma: no cover - lifespan invariant
             raise RuntimeError("Task-aware model routing is not configured")
@@ -485,6 +486,7 @@ async def generate_assistant_message(
                 detail="No local model is available for the requested task",
             ) from None
         selected_model_id = decision.model_id
+        task_profile = decision.task
         thinking = (
             False
             if decision.inference_mode is InferenceMode.THINKING_DISABLED
@@ -544,6 +546,11 @@ async def generate_assistant_message(
             frequency_penalty=generation_request.frequency_penalty,
             stop_sequences=generation_request.stop_sequences,
             **({"thinking": thinking} if thinking is not None else {}),
+            **(
+                {"task_profile": task_profile}
+                if task_profile is not None
+                else {}
+            ),
         )
     except ConversationGenerationNotFoundError:
         raise HTTPException(

@@ -357,6 +357,288 @@ INSERT INTO readings VALUES ('a',1),('a',NULL),('b',NULL),('c',2),('c',3);
             (("/usr/bin/sqlite3", ":memory:"),),
             "a|1\nb|0\nc|2",
         ),
+        CodeGenerationCase(
+            "codegen-python-parse-uint",
+            "python",
+            """Write Python code only. Implement `parse_uint(text)` accepting only
+canonical ASCII decimal strings from 0 through 9999. Accept `0`, reject leading
+zeroes, signs, whitespace, non-ASCII digits, and out-of-range values with
+ValueError; reject non-strings with TypeError. Do not access files, network, or
+processes.""",
+            "artifact.py",
+            "verify.py",
+            """from artifact import parse_uint
+assert parse_uint("0") == 0
+assert parse_uint("9999") == 9999
+for value in ("", "00", "01", "+1", "-1", " 1", "1 ", "10000", "١"):
+    try:
+        parse_uint(value)
+    except ValueError:
+        pass
+    else:
+        raise AssertionError(f"accepted {value!r}")
+try:
+    parse_uint(1)
+except TypeError:
+    pass
+else:
+    raise AssertionError("accepted non-string")
+print("PASS")
+""",
+            (
+                ("/usr/bin/python3", "-I", "-m", "py_compile", "artifact.py"),
+                ("/usr/bin/python3", "verify.py"),
+            ),
+        ),
+        CodeGenerationCase(
+            "codegen-python-transpose",
+            "python",
+            """Write Python code only. Implement `transpose(rows)` for a list of
+equally sized lists. Return a new list of new lists, preserve input, return []
+for [], and raise ValueError for ragged rows. Do not access files, network, or
+processes.""",
+            "artifact.py",
+            "verify.py",
+            """from artifact import transpose
+source = [[1, 2, 3], [4, 5, 6]]
+assert transpose(source) == [[1, 4], [2, 5], [3, 6]]
+assert source == [[1, 2, 3], [4, 5, 6]]
+assert transpose([]) == []
+assert transpose([[]]) == []
+try:
+    transpose([[1], [2, 3]])
+except ValueError:
+    pass
+else:
+    raise AssertionError("accepted ragged rows")
+print("PASS")
+""",
+            (
+                ("/usr/bin/python3", "-I", "-m", "py_compile", "artifact.py"),
+                ("/usr/bin/python3", "verify.py"),
+            ),
+        ),
+        CodeGenerationCase(
+            "codegen-javascript-partition",
+            "javascript",
+            """Write a complete CommonJS JavaScript module only. Export
+`partition(values, predicate)`, returning `[matches, nonMatches]` while
+preserving order and input. Throw TypeError unless values is an array and
+predicate is a function. Export `module.exports = { partition }`. Do not access
+files, network, or child processes.""",
+            "artifact.cjs",
+            "verify.cjs",
+            """const { partition } = require('./artifact.cjs');
+const source = [1, 2, 3, 4];
+if (JSON.stringify(partition(source, x => x % 2 === 0)) !== '[[2,4],[1,3]]') throw Error('value');
+if (JSON.stringify(source) !== '[1,2,3,4]') throw Error('mutation');
+for (const args of [[null, x => x], [[], null]]) {
+  try { partition(...args); throw Error('accepted'); } catch (error) {
+    if (error.message === 'accepted') throw error;
+  }
+}
+console.log('PASS');
+""",
+            ((node, "--check", "artifact.cjs"), (node, "verify.cjs")),
+        ),
+        CodeGenerationCase(
+            "codegen-javascript-parse-boolean",
+            "javascript",
+            """Write a complete CommonJS JavaScript module only. Export
+`parseBoolean(value)`. Return true only for string `true` and false only for
+string `false`; throw TypeError for non-strings and RangeError for every other
+string without trimming or case folding. Export it as
+`module.exports = { parseBoolean }`. No files, network, or child processes.""",
+            "artifact.cjs",
+            "verify.cjs",
+            """const { parseBoolean } = require('./artifact.cjs');
+if (parseBoolean('true') !== true || parseBoolean('false') !== false) throw Error('valid');
+for (const value of ['True', ' false', 'false ', '', '0']) {
+  try { parseBoolean(value); throw Error('accepted'); } catch (error) {
+    if (error.message === 'accepted' || !(error instanceof RangeError)) throw error;
+  }
+}
+try { parseBoolean(true); throw Error('accepted'); } catch (error) {
+  if (error.message === 'accepted' || !(error instanceof TypeError)) throw error;
+}
+console.log('PASS');
+""",
+            ((node, "--check", "artifact.cjs"), (node, "verify.cjs")),
+        ),
+        CodeGenerationCase(
+            "codegen-typescript-index-by-id",
+            "typescript",
+            """Write TypeScript code only. Export generic function
+`indexById<T extends { readonly id: string }>(values: readonly T[]): Map<string,T>`.
+Preserve input and object identity, and throw Error on a duplicate id. Do not
+access files, network, or processes.""",
+            "artifact.ts",
+            "verify.ts",
+            """import { indexById } from './artifact';
+const a = {id: 'a', value: 1}; const b = {id: 'b', value: 2};
+const source = [a, b] as const; const result = indexById(source);
+if (result.size !== 2 || result.get('a') !== a || result.get('b') !== b) throw Error('value');
+if (source[0] !== a || source[1] !== b) throw Error('mutation');
+try { indexById([a, a]); throw Error('accepted'); } catch (error) {
+  if (error instanceof Error && error.message === 'accepted') throw error;
+}
+console.log('PASS');
+""",
+            (
+                (node, tsc, "--strict", "--target", "ES2022", "--module", "commonjs", "--outDir", "out", "artifact.ts", "verify.ts"),
+                (node, "out/verify.js"),
+            ),
+        ),
+        CodeGenerationCase(
+            "codegen-typescript-parse-integer",
+            "typescript",
+            """Write TypeScript code only. Export `parseInteger(value: string): number`.
+Accept canonical signed decimal integers from -1000 through 1000, including 0.
+Reject plus signs, whitespace, leading zeroes, negative zero, decimals, and
+out-of-range values with RangeError. Do not access files, network, or processes.""",
+            "artifact.ts",
+            "verify.ts",
+            """import { parseInteger } from './artifact';
+for (const [value, expected] of [['0',0], ['-1',-1], ['1000',1000], ['-1000',-1000]] as const) {
+  if (parseInteger(value) !== expected) throw Error('valid');
+}
+for (const value of ['+1','01','-0',' 1','1 ','1.0','1001','-1001','']) {
+  try { parseInteger(value); throw Error('accepted'); } catch (error) {
+    if (error instanceof Error && error.message === 'accepted') throw error;
+  }
+}
+console.log('PASS');
+""",
+            (
+                (node, tsc, "--strict", "--target", "ES2022", "--module", "commonjs", "--outDir", "out", "artifact.ts", "verify.ts"),
+                (node, "out/verify.js"),
+            ),
+        ),
+        CodeGenerationCase(
+            "codegen-rust-checked-sum",
+            "rust",
+            """Write Rust code only. Implement
+`fn checked_sum(values: &[u64]) -> Option<u64>` using checked arithmetic. Return
+Some(0) for an empty slice and None on overflow. Perform no I/O, filesystem,
+network, or process operations.""",
+            "artifact.rs",
+            None,
+            """
+#[cfg(test)]
+mod codex_verifier {
+    use super::*;
+    #[test]
+    fn objective_cases() {
+        assert_eq!(checked_sum(&[]), Some(0));
+        assert_eq!(checked_sum(&[1, 2, 3]), Some(6));
+        assert_eq!(checked_sum(&[u64::MAX, 1]), None);
+    }
+}
+""",
+            ((rustc, "--edition=2021", "--test", "combined.rs", "-o", "rust-tests"), ("./rust-tests", "--quiet")),
+            "",
+        ),
+        CodeGenerationCase(
+            "codegen-rust-dedupe-sorted",
+            "rust",
+            """Write Rust code only. Implement
+`fn dedupe_sorted(values: &[i32]) -> Vec<i32>`. Return ascending unique values,
+do not mutate input, and handle empty input. Perform no I/O, filesystem,
+network, or process operations.""",
+            "artifact.rs",
+            None,
+            """
+#[cfg(test)]
+mod codex_verifier {
+    use super::*;
+    #[test]
+    fn objective_cases() {
+        let source = [3, 1, 3, -1, 2];
+        assert_eq!(dedupe_sorted(&source), vec![-1, 1, 2, 3]);
+        assert_eq!(source, [3, 1, 3, -1, 2]);
+        assert_eq!(dedupe_sorted(&[]), Vec::<i32>::new());
+    }
+}
+""",
+            ((rustc, "--edition=2021", "--test", "combined.rs", "-o", "rust-tests"), ("./rust-tests", "--quiet")),
+            "",
+        ),
+        CodeGenerationCase(
+            "codegen-bash-print-lines",
+            "bash",
+            """Write Bash code only defining `print_lines`. Print each argument
+literally on its own line. With no arguments produce no output. Preserve spaces,
+empty strings, and glob characters. Use only Bash builtins; include no examples
+or test invocations; and do not access files, network, eval, or subprocesses.""",
+            "artifact.sh",
+            "verify.sh",
+            """set -euo pipefail
+source ./artifact.sh
+[[ "$(print_lines alpha 'two words' '*')" == $'alpha\ntwo words\n*' ]]
+[[ "$(print_lines '')" == '' ]]
+print_lines > output
+[[ ! -s output ]]
+printf 'PASS\n'
+""",
+            (("/usr/bin/bash", "--noprofile", "--norc", "-n", "artifact.sh"), ("/usr/bin/bash", "--noprofile", "--norc", "verify.sh")),
+        ),
+        CodeGenerationCase(
+            "codegen-bash-uint",
+            "bash",
+            """Write Bash code only defining `is_uint`. Return success only for
+exactly one argument that is canonical ASCII decimal zero or a nonzero integer
+without leading zeroes. Reject empty, signs, whitespace, non-ASCII digits,
+leading zeroes, and extra arguments. Use only Bash builtins; include no examples
+or test invocations; and do not access files, network, eval, or subprocesses.""",
+            "artifact.sh",
+            "verify.sh",
+            """set -euo pipefail
+source ./artifact.sh
+for value in 0 1 42 9999; do is_uint "$value"; done
+for value in '' 00 01 +1 -1 ' 1' '1 ' '١'; do
+  if is_uint "$value"; then exit 41; fi
+done
+if is_uint 1 2; then exit 42; fi
+printf 'PASS\n'
+""",
+            (("/usr/bin/bash", "--noprofile", "--norc", "-n", "artifact.sh"), ("/usr/bin/bash", "--noprofile", "--norc", "verify.sh")),
+        ),
+        CodeGenerationCase(
+            "codegen-sql-latest-event",
+            "sql",
+            """Write one SQLite SELECT statement only. Table events(user_id TEXT,
+sequence INTEGER, payload TEXT) exists. Return user_id and payload for the row
+with greatest sequence per user, ordered by user_id. Use ROW_NUMBER for ranking.
+Do not modify schema/data, attach databases, load extensions, or access files.""",
+            "artifact.sql",
+            None,
+            """CREATE TABLE events(user_id TEXT, sequence INTEGER, payload TEXT);
+INSERT INTO events VALUES ('b',1,'old-b'),('a',1,'old-a'),('a',3,'new-a'),('b',2,'new-b');
+.mode list
+.separator |
+""",
+            (("/usr/bin/sqlite3", ":memory:"),),
+            "a|new-a\nb|new-b",
+        ),
+        CodeGenerationCase(
+            "codegen-sql-anti-join",
+            "sql",
+            """Write one SQLite SELECT statement only. Tables users(id INTEGER,
+name TEXT) and sessions(user_id INTEGER) exist. Return id and name for users
+with no sessions, ordered by id, using NOT EXISTS. Do not modify schema/data,
+attach databases, load extensions, or access files.""",
+            "artifact.sql",
+            None,
+            """CREATE TABLE users(id INTEGER, name TEXT);
+CREATE TABLE sessions(user_id INTEGER);
+INSERT INTO users VALUES (1,'Ada'),(2,'Ben'),(3,'Cy');
+INSERT INTO sessions VALUES (2),(2);
+.mode list
+.separator |
+""",
+            (("/usr/bin/sqlite3", ":memory:"),),
+            "1|Ada\n3|Cy",
+        ),
     )
 
 

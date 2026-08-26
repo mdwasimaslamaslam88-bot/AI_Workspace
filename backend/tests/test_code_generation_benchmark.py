@@ -17,10 +17,10 @@ def _cases():
     }
 
 
-def test_code_generation_matrix_covers_every_supported_language_twice():
+def test_code_generation_matrix_covers_every_supported_language_four_times():
     cases = build_code_generation_cases(REPOSITORY_ROOT)
 
-    assert len(cases) == 12
+    assert len(cases) == 24
     assert {case.language for case in cases} == {
         "bash",
         "javascript",
@@ -30,7 +30,7 @@ def test_code_generation_matrix_covers_every_supported_language_twice():
         "typescript",
     }
     assert all(
-        sum(item.language == case.language for item in cases) == 2
+        sum(item.language == case.language for item in cases) == 4
         for case in cases
     )
     assert {

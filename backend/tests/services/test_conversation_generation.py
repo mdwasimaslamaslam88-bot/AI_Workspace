@@ -20,6 +20,7 @@ from app.ai.generation import (
     TextGenerationRuntimeUnavailableError,
     TextGenerationRuntimeUnsupportedError,
 )
+from app.ai.routing import ModelTask
 from app.models import Conversation, Message, MessageRole
 from app.models.memory import MemoryCategory
 from app.models.message import (
@@ -71,6 +72,34 @@ from app.services.vision_input import (
 
 
 MODEL_ID = f"local-runtime:{'a' * 24}"
+
+
+def test_generation_context_injects_only_the_selected_trusted_task_contract():
+    snapshot = (
+        GenerationContextMessage(
+            role=MessageRole.USER,
+            content="Reply exactly READY.",
+            sequence_number=1,
+        ),
+    )
+
+    context = ConversationGenerationService._generation_context(
+        snapshot,
+        image_sequence=None,
+        images=(),
+        task_profile=ModelTask.EXACT_OUTPUT,
+    )
+
+    assert [(message.role.value, message.content) for message in context] == [
+        (
+            "system",
+            "The user's exact-output requirement is literal. Return only the "
+            "requested token, JSON value, delimiter form, or line, with no added "
+            "punctuation, labels, code fences, explanation, or surrounding "
+            "whitespace.",
+        ),
+        ("user", "Reply exactly READY."),
+    ]
 
 
 def _conversation(owner_id, conversation_id, next_sequence: int) -> Conversation:

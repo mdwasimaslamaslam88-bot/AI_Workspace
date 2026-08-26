@@ -107,6 +107,30 @@ def test_dijkstra_auxiliary_space_is_an_explicit_case_scoped_alias():
     assert evaluation["result"] == "PASS"
 
 
+def test_case_scoped_semantic_aliases_accept_correct_technical_language():
+    cases = {case.test_id: case for case in build_text_matrix()}
+    answers = {
+        "medium-debugging-08": "Catch a specific exception and propagate it.",
+        "hard-advanced_coding-07": (
+            "import secrets\ndef equal(a, b): return secrets.compare_digest(a, b)"
+        ),
+        "expert-performance_analysis-06": (
+            "- Baseline\n- Profiling\n- Queue depth\n- Token budgets\n- Regression"
+        ),
+        "expert-advanced_algorithms-07": (
+            "Time O(E \\log V); auxiliary space O(V)."
+        ),
+        "hard-ambiguous_resolvable-03": (
+            "Provide the original format and target format."
+        ),
+    }
+
+    assert all(
+        _evaluate_answer(cases[test_id], answer, 0.5)["result"] == "PASS"
+        for test_id, answer in answers.items()
+    )
+
+
 def test_text_matrix_meets_every_required_easy_medium_and_hard_minimum():
     cases = build_text_matrix()
     validate_matrix(cases)
@@ -156,7 +180,17 @@ def test_strict_oracle_prompts_state_the_operation_and_exact_format():
 
     assert "revised phrase" in cases["easy-rewriting-08"].prompt
     assert "comma and one space" in cases["easy-instruction_following-02"].prompt
-    assert "terminating concept" in cases["medium-debugging-10"].prompt
+    assert "standard recursion term" in cases["medium-debugging-10"].prompt
+    assert "parent-directory" in cases["hard-difficult_debugging-06"].prompt
+    assert all(
+        cases[test_id].metadata["routing_task"] == "expert_analysis"
+        for test_id in (
+            "expert-architecture_design-01",
+            "expert-security_analysis-05",
+            "expert-performance_analysis-06",
+            "expert-large_codebase_reasoning-08",
+        )
+    )
     assert cases["expert-discrete_math-10"].prompt.startswith("How many")
 
 

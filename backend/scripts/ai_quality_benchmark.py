@@ -68,7 +68,7 @@ SECRET_SIGNATURES = (
 )
 DOCUMENT_SEARCH_LIMIT = 4
 MALFORMED_PNG = b"\x89PNG\r\n\x1a\ntruncated"
-QUALITY_ENGINE_BASELINE_SCORE = 95.31
+QUALITY_ENGINE_BASELINE_SCORE = 95.67
 QUALITY_ENGINE_BASELINE_TESTS = 421
 
 
@@ -1181,15 +1181,7 @@ class BenchmarkRunner:
                 ),
                 model_role=code_case.model_role,
                 max_output_tokens=1_024,
-                metadata={
-                    "routing_task": "code_generation",
-                    "system_prompt_suffix": (
-                        " For code generation, silently simulate every stated edge "
-                        "case before answering. Preserve the requested module and "
-                        "export shape. Return one complete artifact only, with no "
-                        "examples, test calls, or afterword."
-                    )
-                },
+                metadata={"routing_task": "code_generation"},
             )
             try:
                 answer, latency, citations, model_id = self._generate_case(
@@ -2266,26 +2258,98 @@ class BenchmarkRunner:
         )
 
     def run_model_comparison(self) -> None:
-        comparisons = (
-            ("Compute 37*19. Integer only.", "703"),
-            ("Return the next number only: 2, 6, 12, 20, 30, ?", "42"),
-            ("Python expression for the sorted unique values of items. Expression only.", None),
-            ("What concurrency bug occurs when two threads increment without synchronization? Two words only.", "race condition"),
-            ("Return JSON only with ok true.", '{"ok":true}'),
+        comparisons = [
+            BenchmarkCase(
+                "comparison-arithmetic",
+                "model_comparison",
+                "expert",
+                "Compute 37*19. Integer only.",
+                "Solve the same objective task for cross-model comparison.",
+                exact="703",
+                max_output_tokens=80,
+            ),
+            BenchmarkCase(
+                "comparison-sequence",
+                "model_comparison",
+                "expert",
+                "Return the next number only: 2, 6, 12, 20, 30, ?",
+                "Solve the same objective task for cross-model comparison.",
+                exact="42",
+                max_output_tokens=80,
+            ),
+            BenchmarkCase(
+                "comparison-code-expression",
+                "model_comparison",
+                "expert",
+                "Python expression for the sorted unique values of items. Expression only.",
+                "Solve the same objective task for cross-model comparison.",
+                required=("sorted", "set", "items"),
+                max_output_tokens=80,
+            ),
+            BenchmarkCase(
+                "comparison-concurrency",
+                "model_comparison",
+                "expert",
+                "What concurrency bug occurs when two threads increment without synchronization? Two words only.",
+                "Solve the same objective task for cross-model comparison.",
+                exact="race condition",
+                max_output_tokens=80,
+            ),
+            BenchmarkCase(
+                "comparison-json",
+                "model_comparison",
+                "expert",
+                "Return JSON only with ok true.",
+                "Solve the same objective task for cross-model comparison.",
+                exact='{"ok":true}',
+                max_output_tokens=80,
+            ),
+        ]
+        source_cases = {case.test_id: case for case in build_text_matrix()}
+        comparisons.extend(
+            source_cases[test_id]
+            for test_id in (
+                "medium-debugging-10",
+                "hard-difficult_debugging-06",
+                "expert-security_analysis-05",
+                "expert-architecture_design-01",
+                "expert-large_codebase_reasoning-08",
+                "expert-performance_analysis-06",
+            )
         )
-        for role in ("general", "coder"):
-            for index, (prompt, exact) in enumerate(comparisons, 1):
-                required = ("sorted", "set", "items") if exact is None else ()
+        comparisons.append(
+            BenchmarkCase(
+                "comparison-recovered",
+                "model_comparison",
+                "expert",
+                "Reply exactly RECOVERED.",
+                "Solve the same objective task for cross-model comparison.",
+                exact="RECOVERED",
+                max_output_tokens=32,
+            )
+        )
+        for role in ("general", "coder", "vision"):
+            if role not in self.model_ids:
+                continue
+            for index, source_case in enumerate(comparisons, 1):
                 case = BenchmarkCase(
                     test_id=f"model-comparison-{role}-{index:02d}",
                     category="model_comparison",
                     difficulty="expert",
-                    prompt=prompt,
+                    prompt=source_case.prompt,
                     expected_behavior="Solve the same objective task for cross-model comparison.",
-                    model_role=role,
-                    exact=exact,
-                    required=required,
-                    max_output_tokens=80,
+                    exact=source_case.exact,
+                    required=source_case.required,
+                    forbidden=source_case.forbidden,
+                    regex=source_case.regex,
+                    expected_json=source_case.expected_json,
+                    max_words=source_case.max_words,
+                    max_output_tokens=source_case.max_output_tokens,
+                    metadata={
+                        key: value
+                        for key, value in source_case.metadata.items()
+                        if key != "routing_task"
+                    },
                 )
                 answer, latency, citations, model_id = self._generate_case(case, model_role=role)
                 evaluation = _evaluate_answer(case, answer, latency)
@@ -2293,7 +2357,7 @@ class BenchmarkRunner:
                     test_id=case.test_id,
                     category="model_comparison",
                     difficulty="expert",
-                    prompt=prompt,
+                    prompt=case.prompt,
                     expected_behavior=case.expected_behavior,
                     actual_answer=answer,
                     latency=latency,
@@ -2304,7 +2368,15 @@ class BenchmarkRunner:
                     hallucination=evaluation["hallucination"],
                     model_id=model_id,
                     citations=citations,
-                    metadata={"model_role": role},
+                    metadata={
+                        "model_role": role,
+                        "source_case_id": source_case.test_id,
+                        "thinking_mode": (
+                            "enabled"
+                            if role == "general"
+                            else "unsupported_or_disabled"
+                        ),
+                    },
                 )
 
     def _start_comfy(self) -> None:

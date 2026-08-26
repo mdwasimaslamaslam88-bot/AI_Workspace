@@ -17,6 +17,7 @@ from app.ai.generation import (
     TextGenerationRuntimeUnavailableError,
     TextGenerationRuntimeUnsupportedError,
 )
+from app.ai.routing import ModelTask, task_system_instruction
 from app.documents.embedding import EmbeddingRuntime
 from app.models.message import (
     Message,
@@ -134,6 +135,7 @@ class ConversationGenerationService:
         frequency_penalty: float | None = None,
         stop_sequences: list[str] | None = None,
         thinking: bool | None = None,
+        task_profile: ModelTask | None = None,
     ) -> Message:
         if user_message is not None:
             validate_message_content(user_message)
@@ -141,6 +143,8 @@ class ConversationGenerationService:
             raise ValueError("attachment_ids require a user_message")
         if thinking is not None and not isinstance(thinking, bool):
             raise TypeError("thinking must be a boolean or None")
+        if task_profile is not None and not isinstance(task_profile, ModelTask):
+            raise TypeError("task_profile must be a ModelTask or None")
         if len(attachment_ids) != len(set(attachment_ids)):
             raise ValueError("attachment_ids must be unique")
         if isinstance(max_output_tokens, bool) or not isinstance(
@@ -460,6 +464,7 @@ class ConversationGenerationService:
                 images=(),
                 retrieved_chunks=retrieved_chunks,
                 retrieved_memories=retrieved_memories,
+                task_profile=task_profile,
             )
 
             model = await self.catalog.resolve_model(model_id)
@@ -522,6 +527,7 @@ class ConversationGenerationService:
                             images=placeholder_images,
                             retrieved_chunks=retrieved_chunks,
                             retrieved_memories=retrieved_memories,
+                            task_profile=task_profile,
                         ),
                         **generation_options,
                     )
@@ -538,6 +544,7 @@ class ConversationGenerationService:
                     images=images,
                     retrieved_chunks=retrieved_chunks,
                     retrieved_memories=retrieved_memories,
+                    task_profile=task_profile,
                 )
             try:
                 generated = await self.generation_router.generate(
@@ -587,6 +594,7 @@ class ConversationGenerationService:
         images: tuple[str, ...],
         retrieved_chunks: tuple[RetrievedDocumentChunk, ...] = (),
         retrieved_memories: tuple[RetrievedMemory, ...] = (),
+        task_profile: ModelTask | None = None,
     ) -> tuple[TextGenerationMessage, ...]:
         context: list[TextGenerationMessage] = []
         if retrieved_chunks:
@@ -621,6 +629,14 @@ class ConversationGenerationService:
                         "that is unrelated to the current request.\n\n"
                         + "\n\n".join(memory_sections)
                     ),
+                )
+            )
+        instruction = task_system_instruction(task_profile)
+        if instruction is not None:
+            context.append(
+                TextGenerationMessage(
+                    role=TextGenerationRole.SYSTEM,
+                    content=instruction,
                 )
             )
         for message in snapshot:
