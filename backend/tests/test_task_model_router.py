@@ -75,6 +75,30 @@ def test_router_uses_measured_task_profiles_on_current_hardware():
     assert expert.model_id == qwen3.model_id
 
 
+def test_router_uses_code_capability_when_runtime_normalizes_coder_family():
+    qwen3 = _model(1, "Qwen3 8B", context=40_960)
+    normalized_coder = _model(
+        2,
+        "qwen2 7.6B",
+        capabilities=(
+            ModelCapability.TEXT_GENERATION,
+            ModelCapability.CODE,
+        ),
+    )
+    models = (qwen3, normalized_coder)
+
+    coding = TaskAwareModelRouter().select(models, ModelTask.CODING)
+    exact = TaskAwareModelRouter().select(models, ModelTask.EXACT_OUTPUT)
+    code_generation = TaskAwareModelRouter().select(
+        models,
+        ModelTask.CODE_GENERATION,
+    )
+
+    assert coding.model_id == normalized_coder.model_id
+    assert exact.model_id == normalized_coder.model_id
+    assert code_generation.model_id == qwen3.model_id
+
+
 def test_router_requires_capability_context_and_live_hardware_admission():
     text = _model(1, "Qwen3 8B", context=40_960)
     vision = _model(

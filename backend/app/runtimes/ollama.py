@@ -30,6 +30,7 @@ from app.core.config import (
 
 
 _SAFE_METADATA_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ +()-]{0,254}$")
+_CODER_MODEL_NAME_PATTERN = re.compile(r"(?:^|[^a-z0-9])coder(?:[^a-z0-9]|$)")
 QWEN3_REASONING_HEADROOM_TOKENS = 768
 MAX_QWEN3_PREDICT_TOKENS = 1_792
 
@@ -37,6 +38,25 @@ MAX_QWEN3_PREDICT_TOKENS = 1_792
 def _supports_hidden_thinking(runtime_reference: str) -> bool:
     model_name = runtime_reference.rsplit("/", 1)[-1].casefold()
     return model_name == "qwen3" or model_name.startswith("qwen3:")
+
+
+def _augment_specialized_capabilities(
+    runtime_reference: str,
+    capabilities: tuple[ModelCapability, ...],
+) -> tuple[ModelCapability, ...]:
+    """Preserve an allowlisted model's specialization after metadata normalization.
+
+    Ollama's documented capability list describes runtime interfaces but does not
+    identify code-specialized models.  Its public family metadata can also reduce
+    a coder variant to the base family, so use only the final allowlisted model
+    name to retain that specialization without exposing the private reference.
+    """
+
+    model_name = runtime_reference.rsplit("/", 1)[-1].casefold()
+    augmented = set(capabilities)
+    if _CODER_MODEL_NAME_PATTERN.search(model_name):
+        augmented.add(ModelCapability.CODE)
+    return tuple(sorted(augmented, key=lambda capability: capability.value))
 
 
 def _reasoning_exhausted(payload: Any) -> bool:
@@ -299,7 +319,10 @@ class OllamaModelDiscoveryRuntime:
                 discovered.append(
                     replace(
                         model,
-                        capabilities=detail.capabilities,
+                        capabilities=_augment_specialized_capabilities(
+                            model.reference,
+                            detail.capabilities,
+                        ),
                         context_window=detail.context_window,
                         scale_class=detail.scale_class,
                     )

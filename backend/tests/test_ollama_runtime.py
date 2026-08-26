@@ -273,6 +273,67 @@ async def test_ollama_discovery_uses_documented_capabilities_and_hides_reference
 
 
 @pytest.mark.asyncio
+async def test_ollama_discovery_retains_allowlisted_coder_specialization():
+    private_reference = "/private/models/qwen2.5-coder:7b"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/show":
+            return httpx.Response(
+                200,
+                json={"capabilities": ["completion", "tools"]},
+            )
+        return httpx.Response(
+            200,
+            json={
+                "models": [
+                    {
+                        "name": private_reference,
+                        "details": {
+                            "family": "qwen2",
+                            "parameter_size": "7.6B",
+                            "quantization_level": "Q4_K_M",
+                        },
+                    }
+                ]
+            },
+        )
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(handler),
+        base_url="http://127.0.0.1:11434",
+        trust_env=False,
+        follow_redirects=False,
+    ) as client:
+        (model,) = await OllamaModelDiscoveryRuntime(
+            client,
+            (private_reference,),
+        ).discover_models()
+
+    assert model.display_name == "qwen2 7.6B"
+    assert model.family == "qwen2"
+    assert model.capabilities == (
+        ModelCapability.CODE,
+        ModelCapability.TEXT_GENERATION,
+        ModelCapability.TOOL_CALLING,
+    )
+
+
+@pytest.mark.parametrize(
+    "reference",
+    (
+        "/private/coder/model:7b",
+        "/private/models/decoder:7b",
+        "/private/models/coderish:7b",
+    ),
+)
+def test_ollama_specialization_does_not_match_path_or_partial_name(reference):
+    assert ollama_runtime_module._augment_specialized_capabilities(
+        reference,
+        (ModelCapability.TEXT_GENERATION,),
+    ) == (ModelCapability.TEXT_GENERATION,)
+
+
+@pytest.mark.asyncio
 async def test_ollama_duplicate_first_fails_before_any_show_request():
     later_reference = "/private/runtime/later:7b"
     await _assert_duplicate_inventory_rejected_before_show(

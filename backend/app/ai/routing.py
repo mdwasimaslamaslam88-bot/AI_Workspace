@@ -200,9 +200,9 @@ class TaskAwareModelRouter:
             score += 100 if qwen3 else 0
             score += 30 if ModelCapability.CODE in model.capabilities else 0
         elif task is ModelTask.CODING:
-            # Both installed text models advertise generic code capability, but
-            # the complete coding category favors the dedicated coder family.
-            # Keep the capability bonus secondary to measured family fit.
+            # The complete coding category favors a dedicated coder family.
+            # Discovery retains that specialization as a code capability even
+            # when runtime metadata normalizes its public family name.
             score += 110 if coder else 0
             score += 30 if ModelCapability.CODE in model.capabilities else 0
             score += 10 if qwen3 else 0
