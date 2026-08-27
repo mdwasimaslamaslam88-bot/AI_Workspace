@@ -9,6 +9,7 @@ run_runtime=false
 run_browser=false
 run_benchmark=false
 run_massive_benchmark=false
+run_model_candidate_benchmark=false
 e2e_backend_pid=""
 
 usage() {
@@ -26,6 +27,7 @@ the same disposable database before exercising real clients and runtimes.
   --browser-only  Skip integration and run real browser E2E.
   --benchmark     Skip integration and run the full real-HTTP AI benchmark.
   --massive-benchmark  Run only the disposable adaptive massive benchmark.
+  --model-candidate-benchmark  Run one isolated real-HTTP model comparison.
 EOF
 }
 
@@ -37,6 +39,7 @@ for argument in "$@"; do
     --browser-only) run_integration=false; run_browser=true ;;
     --benchmark) run_integration=false; run_benchmark=true; run_massive_benchmark=true ;;
     --massive-benchmark) run_integration=false; run_massive_benchmark=true ;;
+    --model-candidate-benchmark) run_integration=false; run_model_candidate_benchmark=true ;;
     --help|-h) usage; exit 0 ;;
     *) echo "Unknown PostgreSQL check option: ${argument}" >&2; usage >&2; exit 2 ;;
   esac
@@ -149,7 +152,8 @@ if [[ "${run_integration}" == true ]]; then
 fi
 
 if [[ "${run_runtime}" == true || "${run_browser}" == true ||
-  "${run_benchmark}" == true || "${run_massive_benchmark}" == true ]]; then
+  "${run_benchmark}" == true || "${run_massive_benchmark}" == true ||
+  "${run_model_candidate_benchmark}" == true ]]; then
   (
     export RUN_DATABASE_INTEGRATION_TESTS=true
     export TEST_DATABASE_URL="${ephemeral_url}"
@@ -159,7 +163,8 @@ if [[ "${run_runtime}" == true || "${run_browser}" == true ||
 fi
 
 if [[ "${run_browser}" == true || "${run_benchmark}" == true ||
-  "${run_massive_benchmark}" == true ]]; then
+  "${run_massive_benchmark}" == true ||
+  "${run_model_candidate_benchmark}" == true ]]; then
   playwright_browsers_path="${WORK_STATION_PLAYWRIGHT_BROWSERS_PATH:-${repository_root}/../../AI_Workspace_Runtimes/playwright}"
   if [[ "${run_browser}" == true ]]; then
     if [[ "${playwright_browsers_path}" != /* || ! -d "${playwright_browsers_path}" ]]; then
@@ -303,6 +308,21 @@ PY
       exec .venv/bin/python -m scripts.massive_ai_benchmark
     )
   fi
+  if [[ "${run_model_candidate_benchmark}" == true ]]; then
+    candidate_output="${WORK_STATION_MODEL_EXPERIMENT_OUTPUT:-}"
+    candidate_reference="${WORK_STATION_MODEL_EXPERIMENT_REFERENCE:-}"
+    if [[ "${candidate_output}" != /* || -z "${candidate_reference}" ]]; then
+      echo "The isolated model candidate benchmark configuration is invalid." >&2
+      exit 2
+    fi
+    printf '%s' "${e2e_provisioning_token}" | (
+      export WORK_STATION_BENCHMARK_API_ORIGIN="${api_origin}"
+      export WORK_STATION_MODEL_EXPERIMENT_OUTPUT="${candidate_output}"
+      export WORK_STATION_MODEL_EXPERIMENT_REFERENCE="${candidate_reference}"
+      cd backend
+      exec .venv/bin/python -m scripts.model_candidate_benchmark
+    )
+  fi
   e2e_provisioning_token=""
   stop_e2e_backend
 fi
@@ -322,6 +342,8 @@ fi
 
 if [[ "${run_benchmark}" == true ]]; then
   echo "ephemeral PostgreSQL validation: real-HTTP AI and massive benchmarks passed"
+elif [[ "${run_model_candidate_benchmark}" == true ]]; then
+  echo "ephemeral PostgreSQL validation: isolated model candidate benchmark passed"
 elif [[ "${run_massive_benchmark}" == true ]]; then
   echo "ephemeral PostgreSQL validation: massive benchmark passed"
 elif [[ "${run_integration}" == true && "${run_browser}" == true && "${run_runtime}" == true ]]; then

@@ -514,6 +514,51 @@ def _baseline_initial_score(summary: dict[str, Any] | None) -> float | None:
     return None
 
 
+def _model_upgrade_summary(document: dict[str, Any] | None) -> dict[str, Any] | None:
+    """Retain measured candidate evidence without duplicating raw answers."""
+
+    if document is None or not isinstance(document.get("models"), list):
+        return None
+    models = []
+    for item in document["models"]:
+        if not isinstance(item, dict) or not isinstance(
+            item.get("model_reference"), str
+        ):
+            return None
+        metadata = item.get("model_metadata", {})
+        summary = item.get("summary", {})
+        if not isinstance(metadata, dict) or not isinstance(summary, dict):
+            return None
+        models.append(
+            {
+                "model_reference": item["model_reference"],
+                "model_id": item.get("model_id"),
+                "model_metadata": metadata,
+                "summary": summary,
+            }
+        )
+    profiles = []
+    for item in document.get("profile_experiments", []):
+        if not isinstance(item, dict):
+            return None
+        profiles.append(
+            {
+                "model_reference": item.get("model_reference"),
+                "profile": item.get("profile"),
+                "summary": item.get("summary"),
+            }
+        )
+    return {
+        "benchmark_commit": document.get("benchmark_commit"),
+        "models": models,
+        "category_winners": document.get("category_winners", {}),
+        "profile_experiments": profiles,
+        "installation_verification": document.get("installation_verification"),
+        "routing_decision": document.get("routing_decision"),
+        "raw_answers_location": "model-upgrade-experiment.json",
+    }
+
+
 def _evaluate_answer(case: BenchmarkCase, answer: str, latency: float) -> dict[str, Any]:
     normalized = _normalize_exact(answer)
     checks: list[tuple[str, bool]] = []
@@ -3344,6 +3389,11 @@ class BenchmarkRunner:
         baseline_document = _read_existing_report(
             self.report_root / "benchmark-results.json"
         )
+        model_upgrade = _model_upgrade_summary(
+            _read_existing_report(
+                self.report_root / "model-upgrade-experiment.json"
+            )
+        )
         latencies = sorted(item["latency_seconds"] for item in self.results if item["latency_seconds"] > 0)
         counts = {state: sum(item["result"] == state for item in self.results) for state in ("PASS", "PARTIAL", "FAIL")}
         total = len(self.results)
@@ -3599,6 +3649,7 @@ class BenchmarkRunner:
                 "languages": code_language_summary,
             },
             "results": code_records,
+            "model_candidate_comparison": model_upgrade,
         }
         deep_records = [
             item for item in self.results if item["category"] == "deep_chat"
@@ -3649,6 +3700,7 @@ class BenchmarkRunner:
                 }
                 for model_id, items in sorted(comparison_groups.items())
             ],
+            "upgrade_experiments": model_upgrade,
         }
 
         hardware_inventory = detect_hardware()
@@ -3812,6 +3864,27 @@ class BenchmarkRunner:
                 }
                 for item in self.models
             ],
+            "isolated_candidate_models": (
+                [
+                    {
+                        "exact_model_id": item["model_reference"],
+                        **item["model_metadata"],
+                        "production_allowlisted": False,
+                        "production_routed": False,
+                        "isolated_benchmark_summary": item["summary"],
+                    }
+                    for item in model_upgrade["models"]
+                    if item["model_reference"]
+                    == "qwen2.5-coder:14b-instruct-q3_K_L"
+                ]
+                if model_upgrade is not None
+                else []
+            ),
+            "candidate_installation_verification": (
+                model_upgrade.get("installation_verification")
+                if model_upgrade is not None
+                else None
+            ),
             "task_routes": route_records,
             "future_contract_profile_ids": [
                 item["profile_id"] for item in future_contract_records
@@ -3952,6 +4025,19 @@ class BenchmarkRunner:
             "## Model-specific differences",
             "",
             *([f"- {name}: {score}" for name, score in sorted(model_differences.items())] or ["- No comparable model group completed."]),
+            "",
+            "## Isolated 14B model experiment",
+            "",
+            *(
+                [
+                    "- Complete isolated comparison evidence is preserved in `model-upgrade-experiment.json`.",
+                    f"- Production admission: {model_upgrade['routing_decision'].get('candidate_production_admission', 'not recorded')}.",
+                    "- The experiment did not expose the candidate through the production allowlist before validation.",
+                ]
+                if model_upgrade is not None
+                and isinstance(model_upgrade.get("routing_decision"), dict)
+                else ["- No completed isolated candidate experiment was available."]
+            ),
             "",
             "## Recommended fixes",
             "",

@@ -213,6 +213,11 @@ class TaskAwareModelRouter:
             score += 25 if coder else 0
             score += 20 if ModelCapability.CODE in model.capabilities else 0
         if task is ModelTask.EXACT_OUTPUT:
+            # A complete deterministic 34-case exact-output comparison scored
+            # Qwen3 97.65 versus 80.97 for the installed 7B coder.  Keep this
+            # evidence-backed specialization separate from general scale
+            # ranking so a future model still has to earn its task route.
+            score += 100 if qwen3 else 0
             score += 50 if ModelCapability.STRUCTURED_OUTPUT in model.capabilities else 0
             score += 65 if coder else 0
             score += 20 if ModelCapability.CODE in model.capabilities else 0

@@ -65,7 +65,7 @@ def test_router_uses_measured_task_profiles_on_current_hardware():
 
     assert code.model_id == qwen3.model_id
     assert code.inference_mode is InferenceMode.THINKING_DISABLED
-    assert exact.model_id == coder.model_id
+    assert exact.model_id == qwen3.model_id
     assert exact.inference_mode is InferenceMode.THINKING_DISABLED
     assert coding.model_id == coder.model_id
 
@@ -95,7 +95,7 @@ def test_router_uses_code_capability_when_runtime_normalizes_coder_family():
     )
 
     assert coding.model_id == normalized_coder.model_id
-    assert exact.model_id == normalized_coder.model_id
+    assert exact.model_id == qwen3.model_id
     assert code_generation.model_id == qwen3.model_id
 
 

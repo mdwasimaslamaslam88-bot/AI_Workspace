@@ -15,6 +15,7 @@ from scripts.ai_quality_benchmark import (
     _bounded_judge_image_command,
     _bounded_noisy_audio_command,
     _evaluate_answer,
+    _model_upgrade_summary,
     _normalized_transcript_words,
     _refresh_text_record,
     _transcript_metrics,
@@ -412,6 +413,30 @@ def test_repeated_report_preserves_original_improvement_baseline():
     ) == 84.57
     assert _baseline_initial_score({"total_score": 84.57}) == 84.57
     assert _baseline_initial_score(None) is None
+
+
+def test_model_upgrade_summary_preserves_metrics_but_not_raw_answers():
+    summary = _model_upgrade_summary(
+        {
+            "benchmark_commit": "abc",
+            "models": [
+                {
+                    "model_reference": "qwen2.5-coder:14b-instruct-q3_K_L",
+                    "model_id": "ollama-local:opaque",
+                    "model_metadata": {"installed": True},
+                    "summary": {"tests": 221, "score": 84.83},
+                    "results": [{"actual_answer": "untouched answer"}],
+                }
+            ],
+            "routing_decision": {"candidate_production_admission": "rejected"},
+        }
+    )
+
+    assert summary is not None
+    assert summary["models"][0]["summary"]["score"] == 84.83
+    assert "results" not in summary["models"][0]
+    assert "untouched answer" not in str(summary)
+    assert _model_upgrade_summary({"models": ["invalid"]}) is None
 
 
 def test_evaluator_keeps_genuinely_wrong_numeric_answer_failing():
