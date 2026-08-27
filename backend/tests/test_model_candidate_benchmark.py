@@ -1,7 +1,11 @@
 from scripts.model_candidate_benchmark import (
     BASELINE_PROFILE,
+    BASELINE_MODEL_REFERENCES,
+    CURRENT_HARDWARE_DISCOVERY_REFERENCES,
+    CURRENT_HARDWARE_VISION_REFERENCES,
     MODEL_REFERENCES,
     QWEN3_THINKING_AUTO_PROFILE,
+    VISION_PROFILE,
     _percentile,
     build_comparison_cases,
     comparison_cases_for_profile,
@@ -42,14 +46,28 @@ def test_thinking_auto_profile_runs_complete_exact_output_category():
     assert len(cases) == 34
     assert {item.category for item in cases} == {"exact_output"}
     assert comparison_cases_for_profile(BASELINE_PROFILE) == build_comparison_cases()
+    assert comparison_cases_for_profile(VISION_PROFILE) == ()
 
 
 def test_candidate_models_are_exact_fixed_local_references():
-    assert MODEL_REFERENCES == (
+    assert BASELINE_MODEL_REFERENCES == (
         "qwen3:8b",
         "qwen2.5-coder:7b",
         "qwen2.5-coder:14b-instruct-q3_K_L",
     )
+    assert CURRENT_HARDWARE_DISCOVERY_REFERENCES == (
+        "qwen3:14b-q4_K_M",
+        "deepcoder:14b-preview-q4_K_M",
+        "gemma4:12b-it-q4_K_M",
+        "qwen3.5:9b-q4_K_M",
+        "ministral-3:14b-instruct-2512-q4_K_M",
+    )
+    assert MODEL_REFERENCES == (
+        *BASELINE_MODEL_REFERENCES,
+        *CURRENT_HARDWARE_DISCOVERY_REFERENCES,
+        "qwen2.5vl:7b",
+    )
+    assert "phi4-reasoning:14b-q4_K_M" not in MODEL_REFERENCES
 
 
 def test_percentile_is_bounded_and_deterministic():

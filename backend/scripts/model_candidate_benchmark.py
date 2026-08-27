@@ -11,8 +11,10 @@ import re
 import statistics
 import subprocess
 import sys
+import tempfile
 import time
 from typing import Any
+from uuid import uuid4
 
 import httpx
 
@@ -27,16 +29,40 @@ from scripts.code_generation_benchmark import (
 )
 
 
-MODEL_REFERENCES = (
+BASELINE_MODEL_REFERENCES = (
     "qwen3:8b",
     "qwen2.5-coder:7b",
     "qwen2.5-coder:14b-instruct-q3_K_L",
 )
+CURRENT_HARDWARE_DISCOVERY_REFERENCES = (
+    "qwen3:14b-q4_K_M",
+    "deepcoder:14b-preview-q4_K_M",
+    "gemma4:12b-it-q4_K_M",
+    "qwen3.5:9b-q4_K_M",
+    "ministral-3:14b-instruct-2512-q4_K_M",
+)
+CURRENT_HARDWARE_VISION_REFERENCES = (
+    "qwen2.5vl:7b",
+    "gemma4:12b-it-q4_K_M",
+    "qwen3.5:9b-q4_K_M",
+    "ministral-3:14b-instruct-2512-q4_K_M",
+)
+MODEL_REFERENCES = (
+    *BASELINE_MODEL_REFERENCES,
+    *CURRENT_HARDWARE_DISCOVERY_REFERENCES,
+    *(
+        reference
+        for reference in CURRENT_HARDWARE_VISION_REFERENCES
+        if reference not in BASELINE_MODEL_REFERENCES
+        and reference not in CURRENT_HARDWARE_DISCOVERY_REFERENCES
+    ),
+)
 EXPERIMENT_SEED = 20260827
 BASELINE_PROFILE = "baseline"
 QWEN3_THINKING_AUTO_PROFILE = "qwen3_thinking_auto"
+VISION_PROFILE = "vision"
 EXPERIMENT_PROFILES = frozenset(
-    {BASELINE_PROFILE, QWEN3_THINKING_AUTO_PROFILE}
+    {BASELINE_PROFILE, QWEN3_THINKING_AUTO_PROFILE, VISION_PROFILE}
 )
 MAX_GPU_TEMPERATURE_C = 85
 MIN_AVAILABLE_RAM_BYTES = 8 * 1024**3
@@ -188,6 +214,8 @@ def comparison_cases_for_profile(profile: str) -> tuple[ComparisonCase, ...]:
         return cases
     if profile == QWEN3_THINKING_AUTO_PROFILE:
         return tuple(item for item in cases if item.category == "exact_output")
+    if profile == VISION_PROFILE:
+        return ()
     raise ValueError("unsupported model experiment profile")
 
 
@@ -393,6 +421,10 @@ class CandidateBenchmarkRunner:
             "runnable_now"
         ):
             raise RuntimeError("isolated candidate model is not hardware admitted")
+        if self.profile == VISION_PROFILE and "vision_input" not in self.model_metadata.get(
+            "capabilities", []
+        ):
+            raise RuntimeError("isolated vision candidate has no vision capability")
         other_text_models = [
             item
             for item in items
@@ -448,6 +480,7 @@ class CandidateBenchmarkRunner:
         *,
         prompt: str | None = None,
         max_output_tokens: int | None = None,
+        attachments: list[str] | None = None,
     ) -> tuple[str, float, str]:
         effective_prompt = prompt or case.prompt
         profile_instruction = (
@@ -466,7 +499,11 @@ class CandidateBenchmarkRunner:
                     for item in (BASE_SYSTEM_PROMPT, profile_instruction)
                     if item
                 ),
-                "initial_message": effective_prompt,
+                "initial_message": (
+                    "Initialize a disposable synthetic multimodal benchmark."
+                    if attachments
+                    else effective_prompt
+                ),
             },
         )
         create.raise_for_status()
@@ -479,8 +516,16 @@ class CandidateBenchmarkRunner:
             json={
                 **(
                     {"model_id": self.model_id}
-                    if self.profile == QWEN3_THINKING_AUTO_PROFILE
+                    if self.profile in {QWEN3_THINKING_AUTO_PROFILE, VISION_PROFILE}
                     else {"task": task.value}
+                ),
+                **(
+                    {
+                        "user_message": effective_prompt,
+                        "attachment_ids": attachments,
+                    }
+                    if attachments
+                    else {}
                 ),
                 "max_output_tokens": max_output_tokens or case.max_output_tokens,
                 "temperature": 0.0,
@@ -497,6 +542,120 @@ class CandidateBenchmarkRunner:
             raise RuntimeError("generation returned an invalid answer")
         self._sample_resources()
         return answer, latency, payload["model_id"]
+
+    def _upload(self, filename: str, content: bytes) -> tuple[str, float]:
+        started = time.perf_counter()
+        response = self._request(
+            "POST",
+            "/api/v1/assets",
+            headers={**self.owner_headers, "Idempotency-Key": str(uuid4())},
+            files={"file": (filename, content, "image/png")},
+        )
+        latency = time.perf_counter() - started
+        response.raise_for_status()
+        return response.json()["id"], latency
+
+    @staticmethod
+    def _ffmpeg_image(path: Path, filters: str) -> bytes:
+        subprocess.run(
+            (
+                "/usr/bin/ffmpeg",
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-y",
+                "-f",
+                "lavfi",
+                "-i",
+                "color=c=white:s=512x512:d=1",
+                "-vf",
+                filters,
+                "-frames:v",
+                "1",
+                str(path),
+            ),
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=20,
+        )
+        return path.read_bytes()
+
+    def run_vision_cases(self) -> None:
+        font = subprocess.run(
+            ("fc-match", "-f", "%{file}", "Noto Sans"),
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        ).stdout.strip()
+        definitions = (
+            ("ocr", f"drawtext=fontfile='{font}':text='ORBIT 731':fontcolor=black:fontsize=64:x=80:y=210", "Read the large text. Reply exactly as shown.", ("ORBIT 731",)),
+            ("chart", "drawbox=x=80:y=270:w=110:h=170:color=red:t=fill,drawbox=x=300:y=150:w=110:h=290:color=blue:t=fill", "Which colored bar is taller? One color only.", ("blue",)),
+            ("table", f"drawtext=fontfile='{font}':text='Quarter   Value':fontcolor=black:fontsize=34:x=80:y=120,drawtext=fontfile='{font}':text='Q1        31':fontcolor=black:fontsize=34:x=80:y=220,drawtext=fontfile='{font}':text='Q2        47':fontcolor=black:fontsize=34:x=80:y=300", "What value is shown for Q2? Integer only.", ("47",)),
+            ("screenshot", f"drawbox=x=120:y=190:w=280:h=100:color=0x2563eb:t=fill,drawtext=fontfile='{font}':text='SAVE CHANGES':fontcolor=white:fontsize=34:x=145:y=225", "What action is written on the blue button? Words only.", ("save changes",)),
+            ("object_count", "drawbox=x=70:y=180:w=90:h=90:color=green:t=fill,drawbox=x=210:y=180:w=90:h=90:color=green:t=fill,drawbox=x=350:y=180:w=90:h=90:color=green:t=fill", "How many green squares are present? Integer only.", ("3",)),
+            ("combined", f"drawtext=fontfile='{font}':text='ZONE B':fontcolor=black:fontsize=64:x=145:y=190,drawbox=x=190:y=300:w=130:h=80:color=orange:t=fill", "Return the zone label, then the object color, separated by ` | `.", ("zone b", "orange")),
+            ("reasoning", "drawbox=x=80:y=190:w=120:h=120:color=red:t=fill,drawbox=x=320:y=190:w=120:h=120:color=blue:t=fill", "The red square is left of which colored square? Color only.", ("blue",)),
+        )
+        with tempfile.TemporaryDirectory(prefix="work-station-model-vision.") as root:
+            root_path = Path(root)
+            for index, (name, filters, prompt, required) in enumerate(definitions, 1):
+                content = self._ffmpeg_image(root_path / f"{name}.png", filters)
+                asset_id, upload_latency = self._upload(f"synthetic-{name}.png", content)
+                case = BenchmarkCase(
+                    test_id=f"vision-{index:02d}-{name}",
+                    category="vision",
+                    difficulty="hard",
+                    prompt=prompt,
+                    expected_behavior=(
+                        "Interpret only the synthetic image and obey the output constraint."
+                    ),
+                    required=required,
+                    max_output_tokens=64,
+                )
+                try:
+                    answer, generation_latency, model_id = self._generate(
+                        case,
+                        ModelTask.VISION,
+                        attachments=[asset_id],
+                    )
+                    evaluation = _evaluate_answer(case, answer, generation_latency)
+                    request_error = None
+                except (httpx.HTTPError, KeyError) as exc:
+                    answer = ""
+                    generation_latency = 0.0
+                    model_id = self.model_id
+                    evaluation = {
+                        "score": 0.0,
+                        "result": "FAIL",
+                        "dimensions": {},
+                        "failure_reason": f"generation_request_failed:{type(exc).__name__}",
+                        "hallucination": False,
+                    }
+                    request_error = type(exc).__name__
+                self.results.append(
+                    {
+                        "test_id": case.test_id,
+                        "comparison_category": "vision",
+                        "source_category": "vision",
+                        "task": ModelTask.VISION.value,
+                        "prompt": prompt,
+                        "expected_behavior": case.expected_behavior,
+                        "actual_answer": answer,
+                        "score": evaluation["score"],
+                        "result": evaluation["result"],
+                        "latency_seconds": round(upload_latency + generation_latency, 4),
+                        "failure_reason": evaluation["failure_reason"],
+                        "dimensions": evaluation["dimensions"],
+                        "hallucination": evaluation["hallucination"],
+                        "model_id": model_id,
+                        "request_error": request_error,
+                        "retry_result": None,
+                        "synthetic_non_sensitive_asset": True,
+                    }
+                )
+                print(f"MODEL_CANDIDATE_VISION_PROGRESS={index}/{len(definitions)}", flush=True)
 
     def run_text_cases(self) -> None:
         cases = comparison_cases_for_profile(self.profile)
@@ -802,6 +961,8 @@ class CandidateBenchmarkRunner:
                 "thinking": (
                     "automatic for the qwen3 exact-output/code-generation profile"
                     if self.profile == QWEN3_THINKING_AUTO_PROFILE
+                    else "disabled for the deterministic vision profile"
+                    if self.profile == VISION_PROFILE
                     else "disabled for code_generation/exact_output; automatic elsewhere"
                 ),
                 "output_budget": "existing per-case bounded budget",
@@ -879,7 +1040,7 @@ def aggregate_reports(report_root: Path, inputs: list[Path]) -> dict[str, Any]:
     ]
     profile_reports = [report for report in reports if report not in baseline_reports]
     references = [report.get("model_reference") for report in baseline_reports]
-    if sorted(references) != sorted(MODEL_REFERENCES):
+    if sorted(references) != sorted(BASELINE_MODEL_REFERENCES):
         raise RuntimeError("candidate benchmark aggregation requires all three models")
     if any(
         report.get("profile", {}).get("id") != QWEN3_THINKING_AUTO_PROFILE
@@ -984,6 +1145,8 @@ def main() -> None:
         and model_reference != "qwen3:8b"
     ):
         raise RuntimeError("thinking-auto profile is approved only for qwen3:8b")
+    if profile == VISION_PROFILE and model_reference not in CURRENT_HARDWARE_VISION_REFERENCES:
+        raise RuntimeError("vision profile is approved only for vision candidates")
     if not provisioning_token:
         raise RuntimeError("candidate benchmark provisioning token is missing")
     runner = CandidateBenchmarkRunner(
@@ -995,8 +1158,11 @@ def main() -> None:
     )
     try:
         runner.initialize()
-        runner.run_text_cases()
-        runner.run_code_cases()
+        if profile == VISION_PROFILE:
+            runner.run_vision_cases()
+        else:
+            runner.run_text_cases()
+            runner.run_code_cases()
         report = runner.write_report()
     finally:
         runner.close()
