@@ -6,6 +6,7 @@ from scripts.model_candidate_benchmark import (
     build_comparison_cases,
     comparison_cases_for_profile,
     CandidateBenchmarkRunner,
+    _routing_decision,
 )
 
 
@@ -94,3 +95,13 @@ def test_zero_keep_alive_resource_summary_does_not_report_zero_model_vram():
     assert resources["peak_model_vram_bytes"] is None
     assert resources["ollama_process_visible_samples"] == 0
     assert "zero-second keep-alive" in resources["ollama_process_telemetry_note"]
+
+
+def test_routing_decision_does_not_overstate_latency_or_long_context_route():
+    decision = _routing_decision()
+
+    assert decision["candidate_production_admission"] == "rejected"
+    assert "lower latency in some" in decision["candidate_reason"]
+    assert "slower than" not in decision["candidate_reason"]
+    assert "long_context" not in decision["unchanged_routes"]
+    assert "hardware-aware catalog route" in decision["long_context_note"]

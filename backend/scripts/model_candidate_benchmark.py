@@ -199,6 +199,52 @@ def _percentile(values: list[float], percentile: float) -> float:
     return ordered[rank]
 
 
+def _routing_decision() -> dict[str, Any]:
+    return {
+        "review_status": "complete",
+        "candidate_production_admission": "rejected",
+        "candidate_reason": (
+            "The 14B candidate won zero complete categories and tied the 7B "
+            "coder at 16/24 executable artifacts. Its lower latency in some "
+            "quality-losing categories did not offset the whole-category "
+            "quality regressions."
+        ),
+        "production_allowlist_change": False,
+        "production_route_changes": {
+            "exact_output": {
+                "from": "qwen2.5-coder:7b",
+                "to": "qwen3:8b",
+                "evidence": "97.65 versus 80.97 across all 34 cases",
+            }
+        },
+        "unchanged_routes": {
+            "coding": "qwen2.5-coder:7b",
+            "debugging": "qwen3:8b",
+            "reasoning": "qwen3:8b",
+            "mathematics": "qwen3:8b",
+            "expert_analysis": "qwen3:8b",
+            "code_generation": "qwen3:8b",
+        },
+        "long_context_note": (
+            "The 7B coder's 0.75-point advantage inside the isolated "
+            "three-model comparison was below the material quality threshold "
+            "and did not justify a production route change. The existing "
+            "hardware-aware catalog route remains authoritative for long "
+            "context and still excludes models below the request's required "
+            "token count."
+        ),
+        "inference_profile": {
+            "selected": "thinking_disabled for exact_output/code_generation",
+            "rejected": "qwen3_thinking_auto",
+            "evidence": (
+                "Thinking-auto scored 97.09 exact and 16/24 executable code "
+                "versus 97.65 and 19/24 with thinking disabled, with materially "
+                "higher latency."
+            ),
+        },
+    }
+
+
 def _read_memory_snapshot() -> dict[str, int]:
     values: dict[str, int] = {}
     for line in Path("/proc/meminfo").read_text(encoding="utf-8").splitlines():
@@ -879,54 +925,14 @@ def aggregate_reports(report_root: Path, inputs: list[Path]) -> dict[str, Any]:
             timeout=5,
             check=True,
         ).stdout.strip(),
-        "production_changed": False,
+        "production_changed_during_isolated_benchmark": False,
         "models": baseline_reports,
         "profile_experiments": profile_reports,
         "installation_verification": _installed_model_blob_verification(
             "qwen2.5-coder:14b-instruct-q3_K_L"
         ),
         "category_winners": category_winners,
-        "routing_decision": {
-            "review_status": "complete",
-            "candidate_production_admission": "rejected",
-            "candidate_reason": (
-                "The 14B candidate won zero complete categories, tied the 7B "
-                "coder at 16/24 executable artifacts, and was slower than the "
-                "winning model in every measured category."
-            ),
-            "production_allowlist_change": False,
-            "production_route_changes": {
-                "exact_output": {
-                    "from": "qwen2.5-coder:7b",
-                    "to": "qwen3:8b",
-                    "evidence": "97.65 versus 80.97 across all 34 cases",
-                }
-            },
-            "unchanged_routes": {
-                "coding": "qwen2.5-coder:7b",
-                "debugging": "qwen3:8b",
-                "reasoning": "qwen3:8b",
-                "mathematics": "qwen3:8b",
-                "expert_analysis": "qwen3:8b",
-                "code_generation": "qwen3:8b",
-                "long_context": "qwen3:8b",
-            },
-            "long_context_note": (
-                "The 7B coder's 0.75-point advantage was below the material "
-                "quality threshold and did not justify replacing the stronger "
-                "reasoning model; context admission still excludes models below "
-                "the request's required token count."
-            ),
-            "inference_profile": {
-                "selected": "thinking_disabled for exact_output/code_generation",
-                "rejected": "qwen3_thinking_auto",
-                "evidence": (
-                    "Thinking-auto scored 97.09 exact and 16/24 executable code "
-                    "versus 97.65 and 19/24 with thinking disabled, with materially "
-                    "higher latency."
-                ),
-            },
-        },
+        "routing_decision": _routing_decision(),
     }
     serialized = json.dumps(aggregate, ensure_ascii=False, indent=2) + "\n"
     output = report_root / "model-upgrade-experiment.json"
