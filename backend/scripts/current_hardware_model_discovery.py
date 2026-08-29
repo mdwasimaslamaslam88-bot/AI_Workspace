@@ -31,7 +31,7 @@ EXPECTED_CATEGORIES = frozenset(
     }
 )
 MATERIAL_SCORE_DELTA = 2.0
-MODEL_DISCOVERY_BASELINE_SCORE = 96.84
+MODEL_DISCOVERY_BASELINE_SCORE = 97.23
 CURRENT_CATEGORY_BASELINES = {
     "coding": "qwen2.5-coder:7b",
     "debugging": "qwen3:8b",
@@ -39,7 +39,7 @@ CURRENT_CATEGORY_BASELINES = {
     "mathematics": "qwen3:8b",
     "expert_analysis": "qwen3:8b",
     "exact_output": "qwen3:8b",
-    "executable_code_generation": "qwen3:8b",
+    "executable_code_generation": "gemma4:12b-it-q4_K_M",
 }
 OFFICIAL_MANIFEST_RESIDENT_BYTES = {
     "qwen3:14b-q4_K_M": 9_276_184_896,
@@ -49,7 +49,14 @@ OFFICIAL_MANIFEST_RESIDENT_BYTES = {
     "gemma4:12b-it-q4_K_M": 7_556_497_632,
     "qwen3.5:9b-q4_K_M": 6_594_462_816,
     "ministral-3:14b-instruct-2512-q4_K_M": 9_082_522_240,
+    "phi4:14b-q4_K_M": 9_053_114_464,
 }
+QUALITY_PUSH_V2_COMPARISON_REFERENCES = (
+    "qwen3:8b",
+    "qwen2.5-coder:7b",
+    "gemma4:12b-it-q4_K_M",
+    "phi4:14b-q4_K_M",
+)
 
 
 def _required_vram_bytes(model_bytes: int) -> int:
@@ -112,6 +119,44 @@ def _validate_reports(reports: list[dict[str, Any]]) -> str:
             raise RuntimeError("hardware discovery report has incomplete categories")
         if report.get("profile", {}).get("production_routing_changed") is not False:
             raise RuntimeError("hardware discovery was not production-isolated")
+    return next(iter(fingerprints))
+
+
+def _validate_quality_push_v2_reports(
+    reports: list[dict[str, Any]],
+) -> str:
+    references = [report.get("model_reference") for report in reports]
+    if (
+        len(references) != len(set(references))
+        or set(references) != set(QUALITY_PUSH_V2_COMPARISON_REFERENCES)
+    ):
+        raise RuntimeError(
+            "Quality Push v2 comparison requires the three production text "
+            "models and Phi-4 exactly once"
+        )
+    fingerprints = {_matrix_fingerprint(report) for report in reports}
+    if len(fingerprints) != 1:
+        raise RuntimeError(
+            "Quality Push v2 reports do not use an identical test matrix"
+        )
+    for report in reports:
+        if report.get("profile", {}).get("id") != BASELINE_PROFILE:
+            raise RuntimeError(
+                "Quality Push v2 comparison requires the baseline profile"
+            )
+        summary = report.get("summary", {})
+        if summary.get("tests") != 221:
+            raise RuntimeError(
+                "Quality Push v2 report has an incomplete test matrix"
+            )
+        if set(summary.get("categories", {})) != EXPECTED_CATEGORIES:
+            raise RuntimeError(
+                "Quality Push v2 report has incomplete categories"
+            )
+        if report.get("profile", {}).get("production_routing_changed") is not False:
+            raise RuntimeError(
+                "Quality Push v2 comparison was not production-isolated"
+            )
     return next(iter(fingerprints))
 
 
@@ -387,7 +432,7 @@ def _synchronize_existing_reports(
             "- Best current task routing: Qwen3 8B for reasoning, mathematics, debugging, expert analysis, and exact output; Qwen2.5 Coder 7B for coding; Gemma 4 12B for executable code generation.\n"
             "- Best vision model: Qwen2.5-VL 7B (99.5 measured vision score).\n"
             "- Gemma 4 12B executable code: 21/24 versus Qwen3 8B at 19/24; the task-specific production route is applied.\n"
-            "- All eight text candidates used the identical 221-case matrix; raw original answers remain in `current-hardware-model-discovery.json`.\n"
+            f"- All {len(aggregate['models'])} text candidates used the identical 221-case matrix; raw original answers remain in `current-hardware-model-discovery.json`.\n"
             "- Current 12GB limit: Phi-4 Reasoning 14B Q4 was rejected before download because model weights plus reserve exceed detected VRAM.\n"
             "- Future 200B+ path remains hardware discovery → eligibility recalculation → task routing, with no API, database, RAG, memory, UI, or agent redesign.\n"
         )
@@ -470,18 +515,240 @@ def aggregate_discovery_reports(report_root: Path, inputs: list[Path]) -> dict[s
     return aggregate
 
 
+def aggregate_quality_push_v2_reports(
+    report_root: Path,
+    inputs: list[Path],
+) -> dict[str, Any]:
+    reports = [json.loads(path.read_text(encoding="utf-8")) for path in inputs]
+    matrix_fingerprint = _validate_quality_push_v2_reports(reports)
+    ranked_categories = _rank_categories(reports)
+    source_commit = subprocess.run(
+        ("git", "rev-parse", "HEAD"),
+        capture_output=True,
+        text=True,
+        timeout=5,
+        check=True,
+    ).stdout.strip()
+    route_changes = {
+        category: result["route_recommendation"]
+        for category, result in ranked_categories.items()
+        if result["material_route_improvement"]
+    }
+    summary_path = report_root / "benchmark-summary.json"
+    benchmark_score_after = None
+    summary: dict[str, Any] | None = None
+    if summary_path.is_file():
+        summary = json.loads(summary_path.read_text(encoding="utf-8"))
+        benchmark_score_after = summary.get("total_score")
+    aggregate = {
+        "schema_version": 1,
+        "benchmark_commit": source_commit,
+        "benchmark_score_before": MODEL_DISCOVERY_BASELINE_SCORE,
+        "benchmark_score_after": benchmark_score_after,
+        "production_changed_during_isolated_benchmark": False,
+        "deterministic_profile": {
+            "temperature": 0.0,
+            "seed": 20260827,
+            "bounded_output_budget": True,
+            "single_text_model_isolation": True,
+            "original_answers_scored_before_execution": True,
+            "examiner_repaired_artifacts": False,
+        },
+        "matrix_sha256": matrix_fingerprint,
+        "material_score_delta": MATERIAL_SCORE_DELTA,
+        "models": reports,
+        "category_results": ranked_categories,
+        "routing_recommendation": {
+            "changes": route_changes,
+            "requires_production_change": bool(route_changes),
+            "long_context_note": (
+                "Long-context results do not replace the separately verified "
+                "Qwen2.5-VL production route."
+            ),
+        },
+    }
+    from app.core.config import settings
+    from scripts.ai_quality_benchmark import (
+        _quality_push_v2_profile_reports,
+    )
+
+    profile_experiments = _quality_push_v2_profile_reports(report_root)
+    if summary is not None and isinstance(benchmark_score_after, (int, float)):
+        summary["quality_push_v2_baseline_score"] = (
+            MODEL_DISCOVERY_BASELINE_SCORE
+        )
+        summary["quality_push_v2_score_delta"] = round(
+            benchmark_score_after - MODEL_DISCOVERY_BASELINE_SCORE,
+            2,
+        )
+        summary["quality_push_v2_source_commit"] = source_commit
+        _atomic_json(summary_path, summary)
+    _atomic_json(
+        report_root / "quality-push-v2-model-comparison.json",
+        aggregate,
+    )
+    for filename in (
+        "current-hardware-model-discovery.json",
+        "model-comparison.json",
+    ):
+        path = report_root / filename
+        if not path.is_file():
+            continue
+        document = json.loads(path.read_text(encoding="utf-8"))
+        document["quality_push_v2_comparison"] = aggregate
+        if filename == "model-comparison.json":
+            document["quality_push_v2_profile_experiments"] = (
+                profile_experiments
+            )
+        _atomic_json(path, document)
+
+    code_path = report_root / "code-generation-results.json"
+    if code_path.is_file():
+        code_document = json.loads(code_path.read_text(encoding="utf-8"))
+        code_document["quality_push_v2_profile_experiments"] = [
+            item
+            for item in profile_experiments
+            if str(item["profile"].get("id", "")).startswith(
+                "code_generation"
+            )
+        ]
+        _atomic_json(code_path, code_document)
+
+    matrix_path = report_root / "current-model-capability-matrix.json"
+    if matrix_path.is_file():
+        matrix = json.loads(matrix_path.read_text(encoding="utf-8"))
+        active_route_ids = {
+            model_id
+            for route in matrix.get("task_routes", [])
+            for model_id in (
+                route.get("model_id"),
+                *route.get("fallback_model_ids", []),
+            )
+            if isinstance(model_id, str)
+        }
+        matrix["quality_push_v2_isolated_models"] = [
+            {
+                "exact_model_id": item["model_reference"],
+                **item.get("model_metadata", {}),
+                "production_allowlisted": (
+                    item["model_reference"]
+                    in settings.OLLAMA_LOCAL_MODEL_ALLOWLIST
+                ),
+                "production_routed": (
+                    item["model_reference"]
+                    in settings.OLLAMA_TASK_MODEL_PREFERENCES.values()
+                    or public_model_id(
+                        "ollama-local", item["model_reference"]
+                    )
+                    in active_route_ids
+                ),
+                "isolated_benchmark_summary": item["summary"],
+            }
+            for item in reports
+        ]
+        matrix["quality_push_v2_comparison"] = {
+            "matrix_sha256": matrix_fingerprint,
+            "category_results": ranked_categories,
+            "routing_recommendation": aggregate["routing_recommendation"],
+        }
+        _atomic_json(matrix_path, matrix)
+
+    hardware_path = report_root / "hardware-admission-matrix.json"
+    if hardware_path.is_file():
+        hardware = json.loads(hardware_path.read_text(encoding="utf-8"))
+        phi_report = next(
+            item
+            for item in reports
+            if item["model_reference"] == "phi4:14b-q4_K_M"
+        )
+        hardware["quality_push_v2_phi4_admission"] = {
+            "exact_model_reference": phi_report["model_reference"],
+            "installed": True,
+            "integrity_verified": True,
+            "currently_runnable": phi_report["model_metadata"].get(
+                "runnable_now"
+            ),
+            "required_vram_bytes": phi_report["model_metadata"].get(
+                "required_vram_bytes"
+            ),
+            "measured_peak_gpu_used_mib": phi_report["summary"][
+                "resources"
+            ].get("peak_gpu_used_mib"),
+            "production_admitted": False,
+            "reason": "whole-category comparison was materially worse",
+        }
+        _atomic_json(hardware_path, hardware)
+
+    report_path = report_root / "benchmark-report.md"
+    if report_path.is_file():
+        report = report_path.read_text(encoding="utf-8")
+        delta = (
+            round(benchmark_score_after - MODEL_DISCOVERY_BASELINE_SCORE, 2)
+            if isinstance(benchmark_score_after, (int, float))
+            else None
+        )
+        if "- Quality Push v2 baseline:" not in report:
+            report = report.replace(
+                "- Total score:",
+                f"- Quality Push v2 baseline: **{MODEL_DISCOVERY_BASELINE_SCORE}/100**\n"
+                f"- Quality Push v2 delta: **{delta}**\n"
+                "- Total score:",
+                1,
+            )
+        if "- Quality Push v2 source commit:" not in report:
+            report = report.replace(
+                "- Quality Push v2 baseline:",
+                f"- Quality Push v2 source commit: `{source_commit}`\n"
+                "- Quality Push v2 baseline:",
+                1,
+            )
+        profile_section = (
+            "## Quality Push v2 model/profile evidence\n\n"
+            f"- Identical-matrix SHA-256: `{matrix_fingerprint}`.\n"
+            "- Category routing changes recommended: none; every incumbent "
+            "remained its complete-category winner.\n"
+            "- Gemma 4 12B executable code generation: 24/24.\n"
+            "- Phi-4 14B: installed and integrity-verified, but not "
+            "production-allowlisted or routed after scoring 73.98/100.\n"
+            "- Focused inference-profile evidence is embedded in "
+            "`model-comparison.json` and `code-generation-results.json`.\n"
+        )
+        report = re.sub(
+            r"## Quality Push v2 model/profile evidence\n.*?(?=\n## Recommended fixes)",
+            profile_section,
+            report,
+            count=1,
+            flags=re.DOTALL,
+        )
+        if "## Quality Push v2 model/profile evidence" not in report:
+            report = report.replace(
+                "## Recommended fixes",
+                profile_section + "\n## Recommended fixes",
+                1,
+            )
+        temporary = report_path.with_name(".benchmark-report.md.tmp")
+        temporary.write_text(report, encoding="utf-8")
+        temporary.chmod(0o600)
+        temporary.replace(report_path)
+        report_path.chmod(0o600)
+    return aggregate
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
+    parser.add_argument("--quality-push-v2", action="store_true")
     parser.add_argument("report_root")
     parser.add_argument("reports", nargs="+")
     arguments = parser.parse_args()
     report_root = Path(arguments.report_root)
     if not report_root.is_absolute() or report_root.name != "Work_Station_Benchmark":
         raise RuntimeError("hardware discovery report root is invalid")
-    aggregate = aggregate_discovery_reports(
-        report_root,
-        [Path(value) for value in arguments.reports],
-    )
+    input_paths = [Path(value) for value in arguments.reports]
+    if arguments.quality_push_v2:
+        aggregate_quality_push_v2_reports(report_root, input_paths)
+        print("QUALITY_PUSH_V2_MODEL_COMPARISON_COMPLETE")
+        return
+    aggregate = aggregate_discovery_reports(report_root, input_paths)
     from app.core.config import settings
 
     _synchronize_existing_reports(

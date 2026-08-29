@@ -23,6 +23,7 @@ references=(
   gemma4:12b-it-q4_K_M
   qwen3.5:9b-q4_K_M
   ministral-3:14b-instruct-2512-q4_K_M
+  phi4:14b-q4_K_M
 )
 outputs=(
   "${report_root}/.model-discovery-qwen3-14b.json"
@@ -30,6 +31,7 @@ outputs=(
   "${report_root}/.model-discovery-gemma4-12b.json"
   "${report_root}/.model-discovery-qwen35-9b.json"
   "${report_root}/.model-discovery-ministral3-14b.json"
+  "${report_root}/.model-discovery-phi4-14b.json"
 )
 vision_references=(
   qwen2.5vl:7b

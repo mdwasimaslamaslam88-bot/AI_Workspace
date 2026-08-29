@@ -1,14 +1,57 @@
+from app.ai.catalog import public_model_id
 from scripts.current_hardware_model_discovery import (
     CURRENT_CATEGORY_BASELINES,
     EXPECTED_CATEGORIES,
+    MODEL_DISCOVERY_BASELINE_SCORE,
     OFFICIAL_MANIFEST_RESIDENT_BYTES,
+    QUALITY_PUSH_V2_COMPARISON_REFERENCES,
     _matrix_fingerprint,
     _rank_categories,
     _required_vram_bytes,
     _apply_task_preferences_to_routes,
     _upgrade_experiment_document,
+    _validate_quality_push_v2_reports,
 )
-from app.ai.catalog import public_model_id
+
+
+def test_discovery_report_uses_the_latest_verified_routing_baseline():
+    assert MODEL_DISCOVERY_BASELINE_SCORE == 97.23
+
+
+def test_discovery_uses_gemma_as_the_current_code_generation_baseline():
+    assert CURRENT_CATEGORY_BASELINES["executable_code_generation"] == (
+        "gemma4:12b-it-q4_K_M"
+    )
+
+
+def test_quality_push_v2_comparison_requires_current_routes_and_phi4():
+    reports = []
+    for reference in QUALITY_PUSH_V2_COMPARISON_REFERENCES:
+        reports.append(
+            {
+                "model_reference": reference,
+                "profile": {
+                    "id": "baseline",
+                    "production_routing_changed": False,
+                },
+                "summary": {
+                    "tests": 221,
+                    "categories": {
+                        category: {} for category in EXPECTED_CATEGORIES
+                    },
+                },
+                "results": [
+                    {
+                        "test_id": "case-1",
+                        "comparison_category": "reasoning",
+                        "prompt": "same prompt",
+                        "expected_behavior": "same behavior",
+                    }
+                ],
+            }
+        )
+
+    assert len(_validate_quality_push_v2_reports(reports)) == 64
 
 
 def test_phi4_manifest_is_rejected_by_twelve_gibibyte_reserve_contract():
@@ -56,6 +99,7 @@ def test_complete_category_route_requires_material_nonregressing_candidate():
         ("gemma4:12b-it-q4_K_M", 90.0, 45),
         ("qwen3.5:9b-q4_K_M", 95.0, 48),
         ("ministral-3:14b-instruct-2512-q4_K_M", 91.0, 46),
+        ("phi4:14b-q4_K_M", 92.0, 47),
     ):
         reports.append(
             {

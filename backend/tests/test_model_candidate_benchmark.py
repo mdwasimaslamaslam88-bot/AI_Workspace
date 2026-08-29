@@ -6,6 +6,11 @@ import scripts.model_candidate_benchmark as candidate_benchmark
 from scripts.model_candidate_benchmark import (
     BASELINE_PROFILE,
     BASELINE_MODEL_REFERENCES,
+    CODE_GENERATION_PROFILE,
+    CODE_GENERATION_REQUIREMENTS_PROFILE,
+    CODING_REQUIREMENTS_PROFILE,
+    DEBUGGING_REQUIREMENTS_PROFILE,
+    DEBUGGING_PROFILE,
     CURRENT_HARDWARE_DISCOVERY_REFERENCES,
     CURRENT_HARDWARE_VISION_REFERENCES,
     MODEL_REFERENCES,
@@ -55,6 +60,26 @@ def test_thinking_auto_profile_runs_complete_exact_output_category():
     assert comparison_cases_for_profile(VISION_PROFILE) == ()
 
 
+def test_code_generation_profiles_skip_the_unrelated_text_matrix():
+    assert comparison_cases_for_profile(CODE_GENERATION_PROFILE) == ()
+    assert comparison_cases_for_profile(CODE_GENERATION_REQUIREMENTS_PROFILE) == ()
+
+
+def test_coding_requirements_profile_runs_only_the_complete_coding_category():
+    cases = comparison_cases_for_profile(CODING_REQUIREMENTS_PROFILE)
+
+    assert len(cases) == 20
+    assert {item.category for item in cases} == {"coding"}
+
+
+def test_debugging_requirements_profile_runs_only_complete_debugging_category():
+    cases = comparison_cases_for_profile(DEBUGGING_REQUIREMENTS_PROFILE)
+
+    assert len(cases) == 20
+    assert {item.category for item in cases} == {"debugging"}
+    assert comparison_cases_for_profile(DEBUGGING_PROFILE) == cases
+
+
 def test_candidate_models_are_exact_fixed_local_references():
     assert BASELINE_MODEL_REFERENCES == (
         "qwen3:8b",
@@ -67,6 +92,7 @@ def test_candidate_models_are_exact_fixed_local_references():
         "gemma4:12b-it-q4_K_M",
         "qwen3.5:9b-q4_K_M",
         "ministral-3:14b-instruct-2512-q4_K_M",
+        "phi4:14b-q4_K_M",
     )
     assert MODEL_REFERENCES == (
         *BASELINE_MODEL_REFERENCES,

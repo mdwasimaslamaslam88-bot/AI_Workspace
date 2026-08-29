@@ -117,8 +117,9 @@ console.log('PASS');
             "javascript",
             """Write a complete CommonJS JavaScript module only. Export
 `nextState(state, event)` for states idle/running/done. start moves idle to
-running; finish moves running to done; reset moves any state to idle. Throw
-Error for every other transition. No files, network, or child processes.""",
+running; finish moves running to done; reset moves any valid state to idle.
+Reject unknown states, including when the event is reset. Throw Error for every
+other transition. No files, network, or child processes.""",
             "artifact.cjs",
             "verify.cjs",
             """const { nextState } = require('./artifact.cjs');
@@ -395,8 +396,8 @@ print("PASS")
             "python",
             """Write Python code only. Implement `transpose(rows)` for a list of
 equally sized lists. Return a new list of new lists, preserve input, return []
-for [], and raise ValueError for ragged rows. Do not access files, network, or
-processes.""",
+for [] and for empty-width input such as [[]], and raise ValueError for ragged
+rows. Do not access files, network, or processes.""",
             "artifact.py",
             "verify.py",
             """from artifact import transpose
@@ -543,8 +544,8 @@ mod codex_verifier {
             "rust",
             """Write Rust code only. Implement
 `fn dedupe_sorted(values: &[i32]) -> Vec<i32>`. Return ascending unique values,
-do not mutate input, and handle empty input. Perform no I/O, filesystem,
-network, or process operations.""",
+including when the input is not already sorted; do not mutate input, and handle
+empty input. Perform no I/O, filesystem, network, or process operations.""",
             "artifact.rs",
             None,
             """

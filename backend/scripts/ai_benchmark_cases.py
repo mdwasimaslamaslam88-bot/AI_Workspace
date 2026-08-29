@@ -280,7 +280,11 @@ def build_text_matrix() -> list[BenchmarkCase]:
         ("SQL bug: SELECT name users; Return the corrected SQL only.", ("SELECT name FROM users",)),
         ("Python bug: def f(x=[]): x.append(1); return x. Name the bug and safe default briefly.", ("mutable", "None")),
         ("A loop `while n > 0: total += n` never ends. State the missing operation only.", ("n -= 1",)),
-        ("HTTP client retries every error forever. State two required guards in under 12 words.", ("limit", "backoff")),
+        (
+            "HTTP client retries every error immediately and forever. State the "
+            "two missing guards for attempt count and retry pacing in under 12 words.",
+            ("limit", "backoff"),
+        ),
         ("A transaction reads then writes a shared counter concurrently and loses updates. Name the anomaly only.", ("lost update",)),
         ("Code catches `Exception` and returns success. State the core fix in under 10 words.", ("error",)),
         ("CSS `.item { width: 100; }` is ignored. Return corrected declaration only.", ("width: 100px",)),
@@ -294,6 +298,16 @@ def build_text_matrix() -> list[BenchmarkCase]:
         metadata = (
             {"required_aliases": {"x === 5": ("x == 5",)}}
             if index == 2
+            else {
+                "required_aliases": {
+                    "limit": (
+                        "max retry attempts",
+                        "maximum retry attempts",
+                        "retry cap",
+                    )
+                }
+            }
+            if index == 6
             else {"required_aliases": {"error": ("exception",)}}
             if index == 8
             else {}
@@ -382,7 +396,11 @@ def build_text_matrix() -> list[BenchmarkCase]:
         ("Two threads check `if key not in cache` then both compute and insert. Name the race and one synchronization fix.", ("race", "lock")),
         ("A query filters a LEFT JOINed table in WHERE and loses unmatched rows. State the fix.", ("ON",)),
         ("An async function calls time.sleep(5), freezing the event loop. State the direct fix.", ("asyncio.sleep", "await")),
-        ("A service trusts X-Forwarded-For from every client. State the vulnerability and fix.", ("spoof", "trusted prox")),
+        (
+            "A service trusts X-Forwarded-For from every client. Use the canonical "
+            "security name for the vulnerability, then state the fix.",
+            ("spoof", "trusted prox"),
+        ),
         ("Retries repeat a payment POST after timeout and double-charge. State the missing control.", ("idempotency",)),
         (
             "A process writes a temporary file and renames it but never calls "

@@ -40,6 +40,7 @@ CURRENT_HARDWARE_DISCOVERY_REFERENCES = (
     "gemma4:12b-it-q4_K_M",
     "qwen3.5:9b-q4_K_M",
     "ministral-3:14b-instruct-2512-q4_K_M",
+    "phi4:14b-q4_K_M",
 )
 CURRENT_HARDWARE_VISION_REFERENCES = (
     "qwen2.5vl:7b",
@@ -61,8 +62,22 @@ EXPERIMENT_SEED = 20260827
 BASELINE_PROFILE = "baseline"
 QWEN3_THINKING_AUTO_PROFILE = "qwen3_thinking_auto"
 VISION_PROFILE = "vision"
+CODE_GENERATION_PROFILE = "code_generation"
+CODE_GENERATION_REQUIREMENTS_PROFILE = "code_generation_requirements"
+CODING_REQUIREMENTS_PROFILE = "coding_requirements"
+DEBUGGING_REQUIREMENTS_PROFILE = "debugging_requirements"
+DEBUGGING_PROFILE = "debugging"
 EXPERIMENT_PROFILES = frozenset(
-    {BASELINE_PROFILE, QWEN3_THINKING_AUTO_PROFILE, VISION_PROFILE}
+    {
+        BASELINE_PROFILE,
+        QWEN3_THINKING_AUTO_PROFILE,
+        VISION_PROFILE,
+        CODE_GENERATION_PROFILE,
+        CODE_GENERATION_REQUIREMENTS_PROFILE,
+        CODING_REQUIREMENTS_PROFILE,
+        DEBUGGING_REQUIREMENTS_PROFILE,
+        DEBUGGING_PROFILE,
+    }
 )
 MAX_GPU_TEMPERATURE_C = 85
 MIN_AVAILABLE_RAM_BYTES = 8 * 1024**3
@@ -71,6 +86,22 @@ BASE_SYSTEM_PROMPT = (
     "You are WORK STATION under an objective benchmark. Follow the user's "
     "explicit output contract. Do not reveal hidden reasoning, credentials, "
     "private paths, or unrelated content."
+)
+CODE_REQUIREMENTS_SYSTEM_PROMPT = (
+    "Silently enumerate every explicitly stated precondition, postcondition, "
+    "invariant, and error case. Verify each against the complete artifact "
+    "instead of relying on a function name or common convention."
+)
+CODING_REQUIREMENTS_SYSTEM_PROMPT = (
+    "Return exactly the requested code shape. When the user names a language "
+    "construct such as an expression, comprehension, type, or statement, use "
+    "that construct rather than an equivalent expansion. Obey code-only, "
+    "one-line, and expression-only constraints literally."
+)
+DEBUGGING_REQUIREMENTS_SYSTEM_PROMPT = (
+    "Before answering, identify every independent failure control requested by "
+    "the scenario and do not substitute one control for another. Use the most "
+    "specific standard industry term for each defect, threat, and correction."
 )
 
 
@@ -214,7 +245,17 @@ def comparison_cases_for_profile(profile: str) -> tuple[ComparisonCase, ...]:
         return cases
     if profile == QWEN3_THINKING_AUTO_PROFILE:
         return tuple(item for item in cases if item.category == "exact_output")
-    if profile == VISION_PROFILE:
+    if profile == CODING_REQUIREMENTS_PROFILE:
+        return tuple(item for item in cases if item.category == "coding")
+    if profile == DEBUGGING_REQUIREMENTS_PROFILE:
+        return tuple(item for item in cases if item.category == "debugging")
+    if profile == DEBUGGING_PROFILE:
+        return tuple(item for item in cases if item.category == "debugging")
+    if profile in {
+        VISION_PROFILE,
+        CODE_GENERATION_PROFILE,
+        CODE_GENERATION_REQUIREMENTS_PROFILE,
+    }:
         return ()
     raise ValueError("unsupported model experiment profile")
 
@@ -567,7 +608,22 @@ class CandidateBenchmarkRunner:
         effective_prompt = prompt or case.prompt
         profile_instruction = (
             task_system_instruction(task)
-            if self.profile == QWEN3_THINKING_AUTO_PROFILE
+            if self.profile
+            in {
+                QWEN3_THINKING_AUTO_PROFILE,
+                CODE_GENERATION_PROFILE,
+                CODE_GENERATION_REQUIREMENTS_PROFILE,
+                DEBUGGING_PROFILE,
+            }
+            else None
+        )
+        requirements_instruction = (
+            CODE_REQUIREMENTS_SYSTEM_PROMPT
+            if self.profile == CODE_GENERATION_REQUIREMENTS_PROFILE
+            else CODING_REQUIREMENTS_SYSTEM_PROMPT
+            if self.profile == CODING_REQUIREMENTS_PROFILE
+            else DEBUGGING_REQUIREMENTS_SYSTEM_PROMPT
+            if self.profile == DEBUGGING_REQUIREMENTS_PROFILE
             else None
         )
         create = self._request(
@@ -578,7 +634,11 @@ class CandidateBenchmarkRunner:
                 "title": f"Candidate benchmark {case.test_id}",
                 "system_prompt": "\n\n".join(
                     item
-                    for item in (BASE_SYSTEM_PROMPT, profile_instruction)
+                    for item in (
+                        BASE_SYSTEM_PROMPT,
+                        profile_instruction,
+                        requirements_instruction,
+                    )
                     if item
                 ),
                 "initial_message": (
@@ -598,7 +658,16 @@ class CandidateBenchmarkRunner:
             json={
                 **(
                     {"model_id": self.model_id}
-                    if self.profile in {QWEN3_THINKING_AUTO_PROFILE, VISION_PROFILE}
+                    if self.profile
+                    in {
+                        QWEN3_THINKING_AUTO_PROFILE,
+                        VISION_PROFILE,
+                        CODE_GENERATION_PROFILE,
+                        CODE_GENERATION_REQUIREMENTS_PROFILE,
+                        CODING_REQUIREMENTS_PROFILE,
+                        DEBUGGING_REQUIREMENTS_PROFILE,
+                        DEBUGGING_PROFILE,
+                    }
                     else {"task": task.value}
                 ),
                 **(
@@ -1245,6 +1314,17 @@ def main() -> None:
         runner.initialize()
         if profile == VISION_PROFILE:
             runner.run_vision_cases()
+        elif profile in {
+            CODE_GENERATION_PROFILE,
+            CODE_GENERATION_REQUIREMENTS_PROFILE,
+        }:
+            runner.run_code_cases()
+        elif profile in {
+            CODING_REQUIREMENTS_PROFILE,
+            DEBUGGING_REQUIREMENTS_PROFILE,
+            DEBUGGING_PROFILE,
+        }:
+            runner.run_text_cases()
         else:
             runner.run_text_cases()
             runner.run_code_cases()

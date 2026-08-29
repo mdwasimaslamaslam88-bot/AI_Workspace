@@ -10,6 +10,7 @@ from scripts.ai_benchmark_cases import BenchmarkCase, build_text_matrix, validat
 from scripts.ai_quality_benchmark import (
     DOCUMENT_SEARCH_LIMIT,
     MALFORMED_PNG,
+    QUALITY_PUSH_V2_BASELINE_SCORE,
     BenchmarkRunner,
     _baseline_initial_score,
     _bounded_judge_image_command,
@@ -17,9 +18,41 @@ from scripts.ai_quality_benchmark import (
     _evaluate_answer,
     _model_upgrade_summary,
     _normalized_transcript_words,
+    _quality_push_v2_profile_reports,
     _refresh_text_record,
     _transcript_metrics,
 )
+
+
+def test_quality_push_v2_uses_the_latest_verified_baseline():
+    assert QUALITY_PUSH_V2_BASELINE_SCORE == 97.23
+
+
+def test_quality_push_v2_profile_reports_copy_only_bounded_evidence(tmp_path):
+    (tmp_path / ".v2-gemma-code-clarified.json").write_text(
+        '{"model_reference":"gemma4:12b-it-q4_K_M",'
+        '"profile":{"id":"code_generation"},'
+        '"summary":{"tests":24,"pass":24,"partial":0,"fail":0,'
+        '"score":100.0},"private_token":"must-not-copy"}',
+        encoding="utf-8",
+    )
+
+    reports = _quality_push_v2_profile_reports(tmp_path)
+
+    assert reports == [
+        {
+            "artifact": ".v2-gemma-code-clarified.json",
+            "model_reference": "gemma4:12b-it-q4_K_M",
+            "profile": {"id": "code_generation"},
+            "summary": {
+                "tests": 24,
+                "pass": 24,
+                "partial": 0,
+                "fail": 0,
+                "score": 100.0,
+            },
+        }
+    ]
 
 
 def test_corrected_objective_cases_remove_ambiguous_oracles():
@@ -28,6 +61,8 @@ def test_corrected_objective_cases_remove_ambiguous_oracles():
     assert "nested object coordinates" in cases["medium-structured_data-09"].prompt
     assert "end of Friday" in cases["hard-cross_document_reasoning-04"].prompt
     assert "increment by one" in cases["expert-systems_reasoning-07"].prompt
+    assert "attempt count and retry pacing" in cases["medium-debugging-06"].prompt
+    assert "canonical security name" in cases["hard-difficult_debugging-04"].prompt
 
 
 def test_javascript_loose_equality_is_a_valid_comparison_fix():
@@ -111,6 +146,9 @@ def test_dijkstra_auxiliary_space_is_an_explicit_case_scoped_alias():
 def test_case_scoped_semantic_aliases_accept_correct_technical_language():
     cases = {case.test_id: case for case in build_text_matrix()}
     answers = {
+        "medium-debugging-06": (
+            "Set max retry attempts. Enforce exponential backoff."
+        ),
         "medium-debugging-08": "Catch a specific exception and propagate it.",
         "hard-advanced_coding-07": (
             "import secrets\ndef equal(a, b): return secrets.compare_digest(a, b)"

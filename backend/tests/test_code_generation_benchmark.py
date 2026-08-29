@@ -40,6 +40,22 @@ def test_code_generation_matrix_covers_every_supported_language_four_times():
     } == {"codegen-python-merge-intervals": "general"}
 
 
+def test_prompts_state_every_edge_case_enforced_by_their_verifiers():
+    cases = _cases()
+
+    state_machine = cases["codegen-javascript-state-machine"]
+    assert "Reject unknown states" in state_machine.prompt
+    assert "['bad','reset']" in state_machine.verifier_source
+
+    transpose = cases["codegen-python-transpose"]
+    assert "empty-width input such as [[]]" in transpose.prompt
+    assert "transpose([[]]) == []" in transpose.verifier_source
+
+    dedupe = cases["codegen-rust-dedupe-sorted"]
+    assert "input is not already sorted" in dedupe.prompt
+    assert "[3, 1, 3, -1, 2]" in dedupe.verifier_source
+
+
 def test_artifact_extraction_preserves_original_code_without_repair():
     answer = "Before\n```python\ndef add(a, b):\n    return a+b\n```\nAfter"
 

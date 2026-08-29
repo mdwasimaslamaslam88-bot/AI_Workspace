@@ -72,6 +72,19 @@ MALFORMED_PNG = b"\x89PNG\r\n\x1a\ntruncated"
 QUALITY_ENGINE_BASELINE_SCORE = 95.67
 QUALITY_ENGINE_BASELINE_TESTS = 421
 MODEL_DISCOVERY_BASELINE_SCORE = 96.84
+QUALITY_PUSH_V2_BASELINE_SCORE = 97.23
+QUALITY_PUSH_V2_PROFILE_REPORTS = (
+    ".v2-gemma-code-current.json",
+    ".v2-gemma-code-requirements.json",
+    ".v2-gemma-code-clarified.json",
+    ".v2-coder7-coding-requirements.json",
+    ".v2-qwen3-debugging-requirements.json",
+    ".v2-qwen3-debugging-clarified.json",
+    ".v2-model-qwen3-8b.json",
+    ".v2-model-qwen25-coder-7b.json",
+    ".v2-model-gemma4-12b.json",
+    ".model-discovery-phi4-14b.json",
+)
 
 
 def _latency_score(seconds: float) -> float:
@@ -100,6 +113,36 @@ def _weighted_score(dimensions: dict[str, float]) -> float:
 
 def _safe_json(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+
+
+def _quality_push_v2_profile_reports(report_root: Path) -> list[dict[str, Any]]:
+    reports: list[dict[str, Any]] = []
+    for filename in QUALITY_PUSH_V2_PROFILE_REPORTS:
+        path = report_root / filename
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(payload, dict):
+            continue
+        profile = payload.get("profile")
+        summary = payload.get("summary")
+        model_reference = payload.get("model_reference")
+        if (
+            not isinstance(profile, dict)
+            or not isinstance(summary, dict)
+            or not isinstance(model_reference, str)
+        ):
+            continue
+        reports.append(
+            {
+                "artifact": filename,
+                "model_reference": model_reference,
+                "profile": profile,
+                "summary": summary,
+            }
+        )
+    return reports
 
 
 def _future_model_contract_record(profile) -> dict[str, Any]:
@@ -3543,6 +3586,13 @@ class BenchmarkRunner:
             summary["total_score"] - MODEL_DISCOVERY_BASELINE_SCORE,
             2,
         )
+        summary["quality_push_v2_baseline_score"] = (
+            QUALITY_PUSH_V2_BASELINE_SCORE
+        )
+        summary["quality_push_v2_score_delta"] = round(
+            summary["total_score"] - QUALITY_PUSH_V2_BASELINE_SCORE,
+            2,
+        )
         results_document = {
             "benchmark": "WORK STATION AI CAPABILITY BENCHMARK",
             "scoring_weights": WEIGHTS,
@@ -3637,6 +3687,9 @@ class BenchmarkRunner:
                     2,
                 ),
             }
+        profile_experiments = _quality_push_v2_profile_reports(
+            self.report_root
+        )
         code_generation_results = {
             "benchmark_commit": commit,
             "execution_boundary": {
@@ -3662,6 +3715,13 @@ class BenchmarkRunner:
             },
             "results": code_records,
             "model_candidate_comparison": model_upgrade,
+            "quality_push_v2_profile_experiments": [
+                item
+                for item in profile_experiments
+                if str(item["profile"].get("id", "")).startswith(
+                    "code_generation"
+                )
+            ],
         }
         deep_records = [
             item for item in self.results if item["category"] == "deep_chat"
@@ -3713,6 +3773,7 @@ class BenchmarkRunner:
                 for model_id, items in sorted(comparison_groups.items())
             ],
             "upgrade_experiments": model_upgrade,
+            "quality_push_v2_profile_experiments": profile_experiments,
         }
 
         hardware_inventory = detect_hardware()
@@ -3993,9 +4054,11 @@ class BenchmarkRunner:
             f"- Initial score: **{initial_score if initial_score is not None else 'not available'}**",
             f"- Quality-engine cycle baseline: **{QUALITY_ENGINE_BASELINE_SCORE}/100 ({QUALITY_ENGINE_BASELINE_TESTS} tests)**",
             f"- Current-hardware discovery baseline: **{MODEL_DISCOVERY_BASELINE_SCORE}/100**",
+            f"- Quality Push v2 baseline: **{QUALITY_PUSH_V2_BASELINE_SCORE}/100**",
             f"- Total score: **{summary['total_score']}/100**",
             f"- Quality-engine cycle delta: **{summary['quality_engine_score_delta']}**",
             f"- Current-hardware discovery delta: **{summary['model_discovery_score_delta']}**",
+            f"- Quality Push v2 delta: **{summary['quality_push_v2_score_delta']}**",
             f"- Score delta: **{summary['score_delta'] if summary['score_delta'] is not None else 'not available'}**",
             f"- Pass / partial / fail: **{summary['pass_rate']}% / {summary['partial_rate']}% / {summary['failure_rate']}%**",
             f"- Hallucination rate: **{summary['hallucination_rate']}%**",
@@ -4061,6 +4124,22 @@ class BenchmarkRunner:
                 if model_upgrade is not None
                 and isinstance(model_upgrade.get("routing_decision"), dict)
                 else ["- No completed isolated candidate experiment was available."]
+            ),
+            "",
+            "## Quality Push v2 profile experiments",
+            "",
+            *(
+                [
+                    "- "
+                    f"`{item['model_reference']}` / `{item['profile'].get('id')}`: "
+                    f"{item['summary'].get('score')} across "
+                    f"{item['summary'].get('tests')} tests "
+                    f"({item['summary'].get('pass')} pass, "
+                    f"{item['summary'].get('partial')} partial, "
+                    f"{item['summary'].get('fail')} fail)."
+                    for item in profile_experiments
+                ]
+                or ["- No completed Quality Push v2 profile experiment was available."]
             ),
             "",
             "## Recommended fixes",
