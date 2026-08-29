@@ -35,6 +35,7 @@ from app.ai.catalog import (
     ModelDescriptor,
     ModelModality,
     ModelScaleClass,
+    public_model_id,
 )
 from app.ai.routing import ModelRoutingUnavailableError, ModelTask, TaskAwareModelRouter
 from app.core.config import settings
@@ -70,6 +71,7 @@ DOCUMENT_SEARCH_LIMIT = 4
 MALFORMED_PNG = b"\x89PNG\r\n\x1a\ntruncated"
 QUALITY_ENGINE_BASELINE_SCORE = 95.67
 QUALITY_ENGINE_BASELINE_TESTS = 421
+MODEL_DISCOVERY_BASELINE_SCORE = 96.84
 
 
 def _latency_score(seconds: float) -> float:
@@ -555,7 +557,10 @@ def _model_upgrade_summary(document: dict[str, Any] | None) -> dict[str, Any] | 
         "profile_experiments": profiles,
         "installation_verification": document.get("installation_verification"),
         "routing_decision": document.get("routing_decision"),
-        "raw_answers_location": "model-upgrade-experiment.json",
+        "raw_answers_location": document.get(
+            "raw_answers_location",
+            "model-upgrade-experiment.json",
+        ),
     }
 
 
@@ -3531,6 +3536,13 @@ class BenchmarkRunner:
             summary["total_score"] - QUALITY_ENGINE_BASELINE_SCORE,
             2,
         )
+        summary["model_discovery_baseline_score"] = (
+            MODEL_DISCOVERY_BASELINE_SCORE
+        )
+        summary["model_discovery_score_delta"] = round(
+            summary["total_score"] - MODEL_DISCOVERY_BASELINE_SCORE,
+            2,
+        )
         results_document = {
             "benchmark": "WORK STATION AI CAPABILITY BENCHMARK",
             "scoring_weights": WEIGHTS,
@@ -3784,7 +3796,12 @@ class BenchmarkRunner:
             _public_model_descriptor(item) for item in self.models
         )
         route_records = []
-        task_router = TaskAwareModelRouter()
+        task_router = TaskAwareModelRouter(
+            {
+                ModelTask(task): public_model_id("ollama-local", reference)
+                for task, reference in settings.OLLAMA_TASK_MODEL_PREFERENCES.items()
+            }
+        )
         for task in ModelTask:
             try:
                 decision = task_router.select(public_descriptors, task)
@@ -3869,13 +3886,17 @@ class BenchmarkRunner:
                     {
                         "exact_model_id": item["model_reference"],
                         **item["model_metadata"],
-                        "production_allowlisted": False,
-                        "production_routed": False,
+                        "production_allowlisted": (
+                            item["model_reference"]
+                            in settings.OLLAMA_LOCAL_MODEL_ALLOWLIST
+                        ),
+                        "production_routed": (
+                            item["model_reference"]
+                            in settings.OLLAMA_TASK_MODEL_PREFERENCES.values()
+                        ),
                         "isolated_benchmark_summary": item["summary"],
                     }
                     for item in model_upgrade["models"]
-                    if item["model_reference"]
-                    == "qwen2.5-coder:14b-instruct-q3_K_L"
                 ]
                 if model_upgrade is not None
                 else []
@@ -3971,8 +3992,10 @@ class BenchmarkRunner:
             f"- Tests: **{total}**",
             f"- Initial score: **{initial_score if initial_score is not None else 'not available'}**",
             f"- Quality-engine cycle baseline: **{QUALITY_ENGINE_BASELINE_SCORE}/100 ({QUALITY_ENGINE_BASELINE_TESTS} tests)**",
+            f"- Current-hardware discovery baseline: **{MODEL_DISCOVERY_BASELINE_SCORE}/100**",
             f"- Total score: **{summary['total_score']}/100**",
             f"- Quality-engine cycle delta: **{summary['quality_engine_score_delta']}**",
+            f"- Current-hardware discovery delta: **{summary['model_discovery_score_delta']}**",
             f"- Score delta: **{summary['score_delta'] if summary['score_delta'] is not None else 'not available'}**",
             f"- Pass / partial / fail: **{summary['pass_rate']}% / {summary['partial_rate']}% / {summary['failure_rate']}%**",
             f"- Hallucination rate: **{summary['hallucination_rate']}%**",
@@ -4026,13 +4049,14 @@ class BenchmarkRunner:
             "",
             *([f"- {name}: {score}" for name, score in sorted(model_differences.items())] or ["- No comparable model group completed."]),
             "",
-            "## Isolated 14B model experiment",
+            "## Current-hardware model discovery",
             "",
             *(
                 [
-                    "- Complete isolated comparison evidence is preserved in `model-upgrade-experiment.json`.",
+                    "- Complete isolated comparison evidence is preserved in `model-upgrade-experiment.json` and `current-hardware-model-discovery.json`.",
                     f"- Production admission: {model_upgrade['routing_decision'].get('candidate_production_admission', 'not recorded')}.",
-                    "- The experiment did not expose the candidate through the production allowlist before validation.",
+                    f"- Applied task routes: {json.dumps(model_upgrade['routing_decision'].get('applied_route_changes', {}), sort_keys=True)}.",
+                    "- Candidates were isolated from production until complete-category validation finished.",
                 ]
                 if model_upgrade is not None
                 and isinstance(model_upgrade.get("routing_decision"), dict)

@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 from scripts.current_hardware_vision_discovery import (
     CURRENT_VISION_REFERENCE,
@@ -25,3 +26,10 @@ def test_vision_fingerprint_preserves_matrix_but_not_answer():
 
 def test_existing_vision_model_is_explicit_comparison_baseline():
     assert CURRENT_VISION_REFERENCE == "qwen2.5vl:7b"
+
+
+def test_vision_discovery_keeps_configured_embedding_model_allowlisted():
+    repository_root = Path(__file__).resolve().parents[2]
+    wrapper = (repository_root / "scripts/current_hardware_model_discovery.sh").read_text()
+
+    assert 'OLLAMA_LOCAL_MODEL_ALLOWLIST="[\\"${reference}\\",\\"nomic-embed-text:latest\\"]"' in wrapper

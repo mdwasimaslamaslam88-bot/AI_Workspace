@@ -1,3 +1,8 @@
+import hashlib
+import json
+import subprocess
+
+import scripts.model_candidate_benchmark as candidate_benchmark
 from scripts.model_candidate_benchmark import (
     BASELINE_PROFILE,
     BASELINE_MODEL_REFERENCES,
@@ -10,6 +15,7 @@ from scripts.model_candidate_benchmark import (
     build_comparison_cases,
     comparison_cases_for_profile,
     CandidateBenchmarkRunner,
+    _installed_model_blob_verification,
     _routing_decision,
 )
 
@@ -113,6 +119,61 @@ def test_zero_keep_alive_resource_summary_does_not_report_zero_model_vram():
     assert resources["peak_model_vram_bytes"] is None
     assert resources["ollama_process_visible_samples"] == 0
     assert "zero-second keep-alive" in resources["ollama_process_telemetry_note"]
+
+
+def test_installed_model_verification_hashes_every_manifest_layer(
+    tmp_path, monkeypatch
+):
+    model_root = tmp_path / "models"
+    blob_root = model_root / "blobs"
+    manifest_path = (
+        model_root
+        / "manifests"
+        / "registry.ollama.ai"
+        / "library"
+        / "synthetic"
+        / "vision-q4"
+    )
+    blob_root.mkdir(parents=True)
+    manifest_path.parent.mkdir(parents=True)
+    layer_contents = (b"model weights", b"vision projector")
+    layers = []
+    for media_type, content in zip(
+        (
+            "application/vnd.ollama.image.model",
+            "application/vnd.ollama.image.projector",
+        ),
+        layer_contents,
+        strict=True,
+    ):
+        digest = hashlib.sha256(content).hexdigest()
+        (blob_root / f"sha256-{digest}").write_bytes(content)
+        layers.append(
+            {
+                "mediaType": media_type,
+                "digest": f"sha256:{digest}",
+                "size": len(content),
+            }
+        )
+    manifest_path.write_text(json.dumps({"layers": layers}), encoding="utf-8")
+    monkeypatch.setattr(
+        candidate_benchmark.subprocess,
+        "run",
+        lambda *args, **kwargs: subprocess.CompletedProcess(
+            args=args,
+            returncode=0,
+            stdout=f"FROM {blob_root / ('sha256-' + layers[0]['digest'][7:])}\n",
+            stderr="",
+        ),
+    )
+
+    result = _installed_model_blob_verification("synthetic:vision-q4")
+
+    assert result["verified"] is True
+    assert result["all_manifest_layers_verified"] is True
+    assert result["manifest_layer_count"] == 2
+    assert all(layer["verified"] is True for layer in result["manifest_layers"])
+    assert str(tmp_path) not in json.dumps(result)
 
 
 def test_routing_decision_does_not_overstate_latency_or_long_context_route():

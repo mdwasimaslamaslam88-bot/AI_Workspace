@@ -31,13 +31,22 @@ from app.core.config import (
 
 _SAFE_METADATA_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ +()-]{0,254}$")
 _CODER_MODEL_NAME_PATTERN = re.compile(r"(?:^|[^a-z0-9])coder(?:[^a-z0-9]|$)")
-QWEN3_REASONING_HEADROOM_TOKENS = 768
-MAX_QWEN3_PREDICT_TOKENS = 1_792
+HIDDEN_REASONING_HEADROOM_TOKENS = 768
+MAX_HIDDEN_REASONING_PREDICT_TOKENS = 1_792
+
+
+def _model_basename(runtime_reference: str) -> str:
+    return runtime_reference.rsplit("/", 1)[-1].split(":", 1)[0].casefold()
 
 
 def _supports_hidden_thinking(runtime_reference: str) -> bool:
-    model_name = runtime_reference.rsplit("/", 1)[-1].casefold()
-    return model_name == "qwen3" or model_name.startswith("qwen3:")
+    return _model_basename(runtime_reference) in {"deepcoder", "qwen3"}
+
+
+def _requires_hidden_thinking(runtime_reference: str) -> bool:
+    """Identify models that empirically ignore Ollama's thinking opt-out."""
+
+    return _model_basename(runtime_reference) == "deepcoder"
 
 
 def _augment_specialized_capabilities(
@@ -420,13 +429,13 @@ class OllamaTextGenerationRuntime:
         use_thinking = (
             _supports_hidden_thinking(runtime_reference)
             if thinking is None
-            else thinking
+            else thinking or _requires_hidden_thinking(runtime_reference)
         )
         predict_tokens = max_output_tokens
         if use_thinking:
             predict_tokens = min(
-                max_output_tokens + QWEN3_REASONING_HEADROOM_TOKENS,
-                MAX_QWEN3_PREDICT_TOKENS,
+                max_output_tokens + HIDDEN_REASONING_HEADROOM_TOKENS,
+                MAX_HIDDEN_REASONING_PREDICT_TOKENS,
             )
         options: dict[str, int | float | list[str]] = {
             "num_predict": predict_tokens,

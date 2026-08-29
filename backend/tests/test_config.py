@@ -78,6 +78,7 @@ def test_settings_preserve_application_defaults():
     assert settings.OLLAMA_GENERATION_MAX_REQUEST_BYTES == 1_048_576
     assert settings.OLLAMA_GENERATION_MAX_RESPONSE_BYTES == 262_144
     assert settings.OLLAMA_LOCAL_MODEL_ALLOWLIST == ()
+    assert settings.OLLAMA_TASK_MODEL_PREFERENCES == {}
     assert settings.OLLAMA_EMBEDDING_MODEL is None
     assert settings.OLLAMA_EMBEDDING_TIMEOUT_SECONDS == 60.0
     assert settings.OLLAMA_EMBEDDING_MAX_REQUEST_BYTES == 1_048_576
@@ -741,6 +742,32 @@ def test_embedding_model_must_be_in_exact_local_allowlist():
             OLLAMA_LOCAL_MODEL_ALLOWLIST=["nomic-embed-text:latest"],
             OLLAMA_EMBEDDING_MODEL="unapproved:latest",
         )
+
+
+def test_task_model_preferences_require_supported_tasks_and_allowlisted_references():
+    configured = Settings(
+        _env_file=None,
+        OLLAMA_LOCAL_MODEL_ALLOWLIST=["verified-local:latest"],
+        OLLAMA_TASK_MODEL_PREFERENCES={
+            "code_generation": "verified-local:latest"
+        },
+    )
+
+    assert configured.OLLAMA_TASK_MODEL_PREFERENCES == {
+        "code_generation": "verified-local:latest"
+    }
+
+    for preferences in (
+        {"unknown_task": "verified-local:latest"},
+        {"code_generation": "not-allowlisted:latest"},
+        {"code_generation": " whitespace"},
+    ):
+        with pytest.raises(ValidationError):
+            Settings(
+                _env_file=None,
+                OLLAMA_LOCAL_MODEL_ALLOWLIST=["verified-local:latest"],
+                OLLAMA_TASK_MODEL_PREFERENCES=preferences,
+            )
 
 
 @pytest.mark.parametrize(

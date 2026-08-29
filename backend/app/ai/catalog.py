@@ -491,7 +491,7 @@ class ModelCatalog:
         for model in await self._discover_runtime(
             runtime,
             reference_selector=lambda reference: (
-                _public_model_id(runtime.runtime_id, reference) == model_id
+                public_model_id(runtime.runtime_id, reference) == model_id
             ),
         ):
             if model.descriptor.model_id != model_id:
@@ -526,7 +526,7 @@ class ModelCatalog:
         for model in discovered:
             if not isinstance(model, RuntimeModel):
                 raise TypeError("runtime discovery must return RuntimeModel values")
-            model_id = _public_model_id(runtime.runtime_id, model.reference)
+            model_id = public_model_id(runtime.runtime_id, model.reference)
             if model_id in public_ids:
                 raise ValueError(f"duplicate public model_id: {model_id}")
             public_ids.add(model_id)
@@ -586,8 +586,14 @@ class ModelCatalog:
         return tuple(resolved)
 
 
-def _public_model_id(runtime_id: str, runtime_reference: str) -> str:
+def public_model_id(runtime_id: str, runtime_reference: str) -> str:
+    """Return the stable opaque ID for an internal runtime reference."""
+
     digest = hashlib.sha256(
         f"{runtime_id}\0{runtime_reference}".encode("utf-8")
     ).hexdigest()[:24]
     return f"{runtime_id}:{digest}"
+
+
+# Retain the private spelling for benchmark/report compatibility.
+_public_model_id = public_model_id

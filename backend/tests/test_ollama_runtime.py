@@ -36,6 +36,7 @@ LOCAL_MODEL_REFERENCE = "/private/runtime/model:14b"
 LOCAL_MODEL_ALLOWLIST = (LOCAL_MODEL_REFERENCE,)
 DUPLICATE_MODEL_REFERENCE = "/private/runtime/duplicate:14b"
 QWEN3_MODEL_REFERENCE = "qwen3:8b"
+DEEPCODER_MODEL_REFERENCE = "deepcoder:14b-preview-q4_K_M"
 
 
 @pytest.mark.parametrize(
@@ -2813,6 +2814,29 @@ def test_qwen3_preflight_caps_total_predict_tokens():
 
     assert payload["think"] is True
     assert payload["options"]["num_predict"] == 1_792
+
+
+def test_deepcoder_uses_bounded_reasoning_even_when_opt_out_is_requested():
+    runtime = OllamaTextGenerationRuntime(
+        object(),
+        37,
+        (DEEPCODER_MODEL_REFERENCE,),
+    )
+
+    payload = runtime._generation_payload(
+        DEEPCODER_MODEL_REFERENCE,
+        (
+            TextGenerationMessage(
+                role=TextGenerationRole.USER,
+                content="Generate a bounded artifact.",
+            ),
+        ),
+        max_output_tokens=64,
+        thinking=False,
+    )
+
+    assert payload["think"] is True
+    assert payload["options"]["num_predict"] == 832
 
 
 def test_qwen3_task_profile_can_disable_thinking_without_extra_headroom():

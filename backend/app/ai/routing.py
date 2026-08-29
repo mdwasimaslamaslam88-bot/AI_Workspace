@@ -112,6 +112,23 @@ class TaskAwareModelRouter:
     without changing API, storage, RAG, memory, agent, or client contracts.
     """
 
+    def __init__(
+        self,
+        preferred_model_ids: dict[ModelTask, str] | None = None,
+    ) -> None:
+        preferences = preferred_model_ids or {}
+        if not isinstance(preferences, dict) or any(
+            not isinstance(task, ModelTask)
+            or not isinstance(model_id, str)
+            or not model_id
+            for task, model_id in preferences.items()
+        ):
+            raise TypeError(
+                "preferred_model_ids must map ModelTask values to nonblank model IDs"
+            )
+        self.preferred_model_ids = dict(preferences)
+        self.reserved_model_ids = frozenset(preferences.values())
+
     def select(
         self,
         models: tuple[ModelDescriptor, ...],
@@ -153,9 +170,29 @@ class TaskAwareModelRouter:
                 "no installed model satisfies the task and hardware contract"
             )
 
+        preferred_model_id = self.preferred_model_ids.get(task)
+        preferred = next(
+            (
+                model
+                for model in eligible
+                if model.model_id == preferred_model_id
+            ),
+            None,
+        )
+        unreserved = [
+            model
+            for model in eligible
+            if model.model_id not in self.reserved_model_ids
+        ]
+        ranking_pool = (
+            [preferred, *unreserved]
+            if preferred is not None
+            else unreserved or eligible
+        )
         ranked = sorted(
-            eligible,
+            ranking_pool,
             key=lambda model: (
+                model.model_id != preferred_model_id,
                 -self._quality_score(model, task),
                 model.required_vram_bytes is None,
                 model.required_vram_bytes or 0,

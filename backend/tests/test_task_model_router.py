@@ -99,6 +99,47 @@ def test_router_uses_code_capability_when_runtime_normalizes_coder_family():
     assert code_generation.model_id == qwen3.model_id
 
 
+def test_router_limits_a_measured_preference_to_its_evidence_backed_task():
+    qwen3 = _model(1, "Qwen3 8B", context=40_960)
+    gemma = _model(
+        2,
+        "Gemma 4 12B",
+        scale=ModelScaleClass.FOURTEEN_B,
+    )
+    router = TaskAwareModelRouter({ModelTask.CODE_GENERATION: gemma.model_id})
+
+    code_generation = router.select(
+        (qwen3, gemma),
+        ModelTask.CODE_GENERATION,
+    )
+    reasoning = router.select((qwen3, gemma), ModelTask.REASONING)
+
+    assert code_generation.model_id == gemma.model_id
+    assert qwen3.model_id in code_generation.fallback_model_ids
+    assert reasoning.model_id == qwen3.model_id
+    assert gemma.model_id not in reasoning.fallback_model_ids
+
+
+def test_router_falls_back_when_a_task_preference_is_not_runnable():
+    qwen3 = _model(1, "Qwen3 8B", context=40_960)
+    unavailable = _model(
+        2,
+        "Candidate 14B",
+        scale=ModelScaleClass.FOURTEEN_B,
+        runnable=False,
+    )
+    router = TaskAwareModelRouter(
+        {ModelTask.CODE_GENERATION: unavailable.model_id}
+    )
+
+    decision = router.select(
+        (qwen3, unavailable),
+        ModelTask.CODE_GENERATION,
+    )
+
+    assert decision.model_id == qwen3.model_id
+
+
 def test_router_requires_capability_context_and_live_hardware_admission():
     text = _model(1, "Qwen3 8B", context=40_960)
     vision = _model(

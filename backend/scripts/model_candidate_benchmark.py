@@ -344,6 +344,85 @@ def _installed_model_blob_verification(model_reference: str) -> dict[str, Any]:
     actual_digest = digest.hexdigest()
     if actual_digest != expected_digest:
         raise RuntimeError("installed candidate model blob integrity check failed")
+    reference_match = re.fullmatch(
+        r"([A-Za-z0-9._-]+):([A-Za-z0-9._-]+)", model_reference
+    )
+    if reference_match is None:
+        raise RuntimeError("installed candidate model reference is unsafe")
+    model_name, model_tag = reference_match.groups()
+    model_root = blob_path.parent.parent
+    manifest_path = (
+        model_root
+        / "manifests"
+        / "registry.ollama.ai"
+        / "library"
+        / model_name
+        / model_tag
+    )
+    if (
+        not manifest_path.is_absolute()
+        or manifest_path.is_symlink()
+        or not manifest_path.is_file()
+    ):
+        raise RuntimeError("installed candidate model manifest is unavailable")
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise RuntimeError("installed candidate model manifest is invalid") from error
+    layers = manifest.get("layers") if isinstance(manifest, dict) else None
+    if not isinstance(layers, list) or not layers:
+        raise RuntimeError("installed candidate model manifest has no layers")
+    verified_layers: list[dict[str, Any]] = []
+    for layer in layers:
+        if not isinstance(layer, dict):
+            raise RuntimeError("installed candidate manifest layer is invalid")
+        layer_digest = layer.get("digest")
+        layer_size = layer.get("size")
+        layer_media_type = layer.get("mediaType")
+        digest_match = (
+            re.fullmatch(r"sha256:([0-9a-f]{64})", layer_digest)
+            if isinstance(layer_digest, str)
+            else None
+        )
+        if (
+            digest_match is None
+            or isinstance(layer_size, bool)
+            or not isinstance(layer_size, int)
+            or layer_size < 0
+            or not isinstance(layer_media_type, str)
+            or not layer_media_type
+        ):
+            raise RuntimeError("installed candidate manifest layer is invalid")
+        layer_expected_digest = digest_match.group(1)
+        layer_path = blob_path.parent / f"sha256-{layer_expected_digest}"
+        if (
+            not layer_path.is_absolute()
+            or layer_path.parent != blob_path.parent
+            or layer_path.is_symlink()
+            or not layer_path.is_file()
+            or layer_path.stat().st_size != layer_size
+        ):
+            raise RuntimeError("installed candidate manifest layer is unavailable")
+        layer_hash = hashlib.sha256()
+        with layer_path.open("rb") as source:
+            while chunk := source.read(8 * 1024 * 1024):
+                layer_hash.update(chunk)
+        layer_actual_digest = layer_hash.hexdigest()
+        if layer_actual_digest != layer_expected_digest:
+            raise RuntimeError("installed candidate manifest layer integrity check failed")
+        verified_layers.append(
+            {
+                "media_type": layer_media_type,
+                "expected_digest": layer_expected_digest,
+                "actual_digest": layer_actual_digest,
+                "size_bytes": layer_size,
+                "verified": True,
+            }
+        )
+    if expected_digest not in {
+        layer["expected_digest"] for layer in verified_layers
+    }:
+        raise RuntimeError("installed candidate model blob is absent from manifest")
     return {
         "model_reference": model_reference,
         "algorithm": "SHA-256",
@@ -351,6 +430,9 @@ def _installed_model_blob_verification(model_reference: str) -> dict[str, Any]:
         "actual_digest": actual_digest,
         "verified": True,
         "blob_size_bytes": blob_path.stat().st_size,
+        "manifest_layer_count": len(verified_layers),
+        "manifest_layers": verified_layers,
+        "all_manifest_layers_verified": True,
         "private_path_recorded": False,
     }
 
@@ -963,7 +1045,10 @@ class CandidateBenchmarkRunner:
                     if self.profile == QWEN3_THINKING_AUTO_PROFILE
                     else "disabled for the deterministic vision profile"
                     if self.profile == VISION_PROFILE
-                    else "disabled for code_generation/exact_output; automatic elsewhere"
+                    else (
+                        "runtime capability-aware; deterministic task opt-out "
+                        "where the model supports it"
+                    )
                 ),
                 "output_budget": "existing per-case bounded budget",
                 "keep_alive": "repository-configured bounded value",

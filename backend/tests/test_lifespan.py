@@ -172,6 +172,11 @@ async def test_lifespan_registers_configured_local_runtime_catalog(monkeypatch):
     )
     monkeypatch.setattr(
         lifespan_module.settings,
+        "OLLAMA_TASK_MODEL_PREFERENCES",
+        {"code_generation": "verified-local:latest"},
+    )
+    monkeypatch.setattr(
+        lifespan_module.settings,
         "OLLAMA_EMBEDDING_MODEL",
         "verified-local:latest",
     )
@@ -236,6 +241,14 @@ async def test_lifespan_registers_configured_local_runtime_catalog(monkeypatch):
         assert generation_runtime.max_response_bytes == 12_345
         assert generation_runtime.local_model_allowlist == {
             "verified-local:latest"
+        }
+        assert app.state.task_model_router.preferred_model_ids == {
+            lifespan_module.ModelTask.CODE_GENERATION: (
+                lifespan_module.public_model_id(
+                    "ollama-local",
+                    "verified-local:latest",
+                )
+            )
         }
         embedding_runtime = app.state.document_embedding_runtime
         assert embedding_runtime.client is ollama_client

@@ -23,6 +23,23 @@ from pydantic_settings import (
 
 
 DatabaseSslMode = Literal["disable", "require", "verify-ca", "verify-full"]
+OLLAMA_TASK_MODEL_PREFERENCE_KEYS = frozenset(
+    {
+        "general_chat",
+        "reasoning",
+        "coding",
+        "debugging",
+        "code_generation",
+        "expert_analysis",
+        "vision",
+        "rag",
+        "summarization",
+        "tool_calling",
+        "workflow_planning",
+        "long_context",
+        "exact_output",
+    }
+)
 MAX_GENERATION_ACTIVE_PER_PROCESS = 8
 MAX_GENERATION_DURATION_SECONDS = 600.0
 MAX_MODEL_LIST_DISCOVERY_SECONDS = 300.0
@@ -235,6 +252,7 @@ class Settings(BaseSettings):
         allow_inf_nan=False,
     )
     OLLAMA_LOCAL_MODEL_ALLOWLIST: tuple[str, ...] = ()
+    OLLAMA_TASK_MODEL_PREFERENCES: dict[str, str] = Field(default_factory=dict)
     OLLAMA_EMBEDDING_MODEL: str | None = Field(
         default=None,
         strict=True,
@@ -621,6 +639,24 @@ class Settings(BaseSettings):
             seen.add(reference)
         return value
 
+    @field_validator("OLLAMA_TASK_MODEL_PREFERENCES")
+    @classmethod
+    def validate_task_model_preferences(cls, value):
+        for task, reference in value.items():
+            if task not in OLLAMA_TASK_MODEL_PREFERENCE_KEYS:
+                raise ValueError(
+                    "OLLAMA_TASK_MODEL_PREFERENCES contains an unsupported task"
+                )
+            if (
+                not isinstance(reference, str)
+                or not reference
+                or reference != reference.strip()
+            ):
+                raise ValueError(
+                    "OLLAMA_TASK_MODEL_PREFERENCES values must be exact nonblank references"
+                )
+        return value
+
     @model_validator(mode="after")
     def require_allowlisted_embedding_model(self):
         if (
@@ -630,6 +666,17 @@ class Settings(BaseSettings):
         ):
             raise ValueError(
                 "OLLAMA_EMBEDDING_MODEL must be present in the exact local model allowlist"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def require_allowlisted_task_model_preferences(self):
+        if any(
+            reference not in self.OLLAMA_LOCAL_MODEL_ALLOWLIST
+            for reference in self.OLLAMA_TASK_MODEL_PREFERENCES.values()
+        ):
+            raise ValueError(
+                "OLLAMA_TASK_MODEL_PREFERENCES values must be present in the exact local model allowlist"
             )
         return self
 

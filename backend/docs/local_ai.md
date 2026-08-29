@@ -18,6 +18,17 @@ and aliases must never be added. The allowlist is enforced while parsing the
 inventory and again immediately before generation because a loopback Ollama
 endpoint alone does not prove that inference stays on the local machine.
 
+`OLLAMA_TASK_MODEL_PREFERENCES` is an optional JSON object mapping supported
+automatic task names to exact references already present in
+`OLLAMA_LOCAL_MODEL_ALLOWLIST`. Preferences are admitted only after model and
+hardware discovery confirms the referenced model is installed, available,
+runnable, capable, and large enough for the requested context. A model reserved
+by this mapping is excluded from unrelated automatic routes, preventing a
+specialized candidate from changing other task categories merely because it is
+larger. If the preferred model is unavailable, the router falls back to the
+remaining eligible models. Explicit authenticated model selection retains the
+existing opaque public-ID contract.
+
 Authenticated clients may call:
 
 ```http

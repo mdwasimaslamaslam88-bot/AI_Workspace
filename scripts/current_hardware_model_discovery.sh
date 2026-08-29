@@ -64,7 +64,7 @@ for index in "${!vision_references[@]}"; do
   reference="${vision_references[${index}]}"
   output="${vision_outputs[${index}]}"
   loaded_reference="${reference}"
-  OLLAMA_LOCAL_MODEL_ALLOWLIST="[\"${reference}\"]" \
+  OLLAMA_LOCAL_MODEL_ALLOWLIST="[\"${reference}\",\"nomic-embed-text:latest\"]" \
   WORK_STATION_MODEL_EXPERIMENT_REFERENCE="${reference}" \
   WORK_STATION_MODEL_EXPERIMENT_OUTPUT="${output}" \
   WORK_STATION_MODEL_EXPERIMENT_PROFILE=vision \
