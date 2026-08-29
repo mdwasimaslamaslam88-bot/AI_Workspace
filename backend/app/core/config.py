@@ -27,12 +27,14 @@ OLLAMA_TASK_MODEL_PREFERENCE_KEYS = frozenset(
     {
         "general_chat",
         "reasoning",
+        "mathematics",
         "coding",
         "debugging",
         "code_generation",
         "expert_analysis",
         "vision",
         "rag",
+        "memory",
         "summarization",
         "tool_calling",
         "workflow_planning",
@@ -144,6 +146,7 @@ class Settings(BaseSettings):
     REDIS_URL: RedisDsn | None = None
     OLLAMA_BASE_URL: AnyHttpUrl | None = None
     ASSET_STORAGE_ROOT: Path | None = None
+    HARDWARE_STATE_PATH: Path | None = None
     WORK_STATION_WEB_ROOT: Path | None = None
     REMOTE_GATEWAY_MODE: Literal["local", "tailscale"] = "local"
     COMFYUI_BASE_URL: AnyHttpUrl | None = None
@@ -155,6 +158,13 @@ class Settings(BaseSettings):
         strict=True,
         min_length=1,
         max_length=240,
+    )
+    COMFYUI_MODEL_PROFILE: str = Field(
+        default="sdxl-base-1.0",
+        strict=True,
+        min_length=1,
+        max_length=64,
+        pattern=r"^[a-z0-9][a-z0-9._-]{0,63}$",
     )
     COMFYUI_TIMEOUT_SECONDS: float = Field(
         default=300.0,
@@ -392,6 +402,7 @@ class Settings(BaseSettings):
         "OLLAMA_BASE_URL",
         "OLLAMA_EMBEDDING_MODEL",
         "ASSET_STORAGE_ROOT",
+        "HARDWARE_STATE_PATH",
         "WORK_STATION_WEB_ROOT",
         "COMFYUI_BASE_URL",
         "COMFYUI_CHECKPOINT",
@@ -462,7 +473,7 @@ class Settings(BaseSettings):
             normalized.append(exact_origin)
         return normalized
 
-    @field_validator("ASSET_STORAGE_ROOT")
+    @field_validator("ASSET_STORAGE_ROOT", "HARDWARE_STATE_PATH")
     @classmethod
     def require_private_absolute_asset_storage_root(cls, value):
         if value is None:
@@ -474,7 +485,7 @@ class Settings(BaseSettings):
         project_root = Path(__file__).resolve().parents[3]
         if candidate == project_root or project_root in candidate.parents:
             raise ValueError(
-                "ASSET_STORAGE_ROOT must be outside the project source tree"
+                "private state paths must be outside the project source tree"
             )
         return candidate
 

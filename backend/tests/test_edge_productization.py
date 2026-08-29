@@ -234,14 +234,13 @@ def test_private_diagnostics_require_auth_and_return_only_bounded_state(monkeypa
     payload = response.json()
     assert payload["mode"] == "local"
     assert len(payload["services"]) == 11
-    assert payload["gpus"] == [
-        {
-            "model": "NVIDIA Test GPU",
-            "vram_bytes": 12 * GIBIBYTE,
-            "hardware_class": "gpu_8_to_15gb",
-            "status": "ready",
-        }
-    ]
+    assert payload["gpus"][0]["model"] == "NVIDIA Test GPU"
+    assert payload["gpus"][0]["vram_bytes"] == 12 * GIBIBYTE
+    assert payload["gpus"][0]["hardware_class"] == "gpu_8_to_15gb"
+    assert payload["hardware"]["gpu_count"] == 1
+    assert payload["hardware"]["profile_gib"] == 12
+    assert payload["models"] == []
+    assert payload["routes"] == []
     serialized = response.text.lower()
     assert "127.0.0.1" not in serialized
     assert "/home/" not in serialized

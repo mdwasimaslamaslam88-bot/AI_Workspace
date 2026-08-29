@@ -409,14 +409,62 @@ export interface ServiceDiagnostic {
 export interface GpuDiagnostic {
   model: string;
   vram_bytes: number;
+  free_vram_bytes?: number | null;
+  vendor?: string | null;
+  compute_capability?: string | null;
+  driver_version?: string | null;
+  runtime?: string | null;
+  runtime_version?: string | null;
   hardware_class: HardwareClass;
   status: "ready";
+}
+
+export interface HardwareDiagnostic {
+  fingerprint: string;
+  profile_gib: number;
+  gpu_count: number;
+  total_ram_bytes: number;
+  available_ram_bytes: number | null;
+  swap_total_bytes: number;
+  swap_free_bytes: number;
+  storage_total_bytes: number | null;
+  storage_free_bytes: number | null;
+  cpu_model: string;
+  cpu_logical_count: number;
+  os_name: string;
+  os_version: string;
+  architecture: string;
+  upgrade_detected: boolean;
+  capability_cache_invalidated: boolean;
+  restart_required: boolean;
+  runtime_validated: boolean;
+}
+
+export interface ModelEligibilityDiagnostic {
+  model_id: string;
+  display_name: string;
+  runtime_id: string;
+  status: typeof modelEligibilityStatuses[number];
+  reasons: Array<typeof modelAdmissionReasons[number]>;
+  performance: typeof performanceClasses[number];
+  verified: boolean;
+  fallback_model_id: string | null;
+}
+
+export interface ModelRouteDiagnostic {
+  task: ModelTask;
+  model_id: string;
+  fallback_model_ids: string[];
+  inference_mode: "auto" | "thinking_disabled";
 }
 
 export interface SystemDiagnostics {
   mode: "local" | "remote";
   services: ServiceDiagnostic[];
   gpus: GpuDiagnostic[];
+  hardware?: HardwareDiagnostic | null;
+  models?: ModelEligibilityDiagnostic[];
+  routes?: ModelRouteDiagnostic[];
 }
 
 export interface ConversationSummary {
@@ -509,10 +557,14 @@ export interface ConversationTextGenerationRequest {
 export type ModelTask =
   | "general_chat"
   | "reasoning"
+  | "mathematics"
   | "coding"
+  | "debugging"
   | "code_generation"
+  | "expert_analysis"
   | "vision"
   | "rag"
+  | "memory"
   | "summarization"
   | "tool_calling"
   | "workflow_planning"
@@ -653,6 +705,61 @@ const diagnosticServiceIds = [
   "storage",
   "remote_gateway",
   "gpu",
+] as const;
+const modelTasks = [
+  "general_chat",
+  "reasoning",
+  "mathematics",
+  "coding",
+  "debugging",
+  "code_generation",
+  "expert_analysis",
+  "vision",
+  "rag",
+  "memory",
+  "summarization",
+  "tool_calling",
+  "workflow_planning",
+  "long_context",
+  "exact_output",
+  "embedding",
+  "image_generation",
+  "image_editing",
+  "voice_input",
+  "voice_output",
+] as const;
+const modelEligibilityStatuses = [
+  "runnable_now",
+  "runnable_with_offload",
+  "future_capable",
+  "hardware_insufficient",
+  "runtime_incompatible",
+  "not_installed",
+  "download_required",
+  "verification_required",
+  "disabled",
+] as const;
+const modelAdmissionReasons = [
+  "eligible",
+  "vram_insufficient",
+  "ram_insufficient",
+  "runtime_unsupported",
+  "compute_capability_unsupported",
+  "model_not_installed",
+  "download_required",
+  "multi_gpu_required",
+  "verification_required",
+  "model_disabled",
+  "metadata_incomplete",
+  "offload_too_slow",
+  "model_unavailable",
+] as const;
+const performanceClasses = [
+  "interactive",
+  "acceptable",
+  "slow",
+  "experimental",
+  "unsupported",
 ] as const;
 
 export function parseCurrentUser(value: unknown): CurrentUser {
@@ -814,17 +921,101 @@ export function parseSystemDiagnostics(value: unknown): SystemDiagnostics {
     ) {
       return invalidResponse();
     }
+    const freeVramBytes = gpu.free_vram_bytes === undefined
+      ? null
+      : integerOrNull(gpu.free_vram_bytes);
+    if (freeVramBytes !== null && freeVramBytes < 0) return invalidResponse();
     return {
       model,
       vram_bytes: vramBytes,
       hardware_class: enumField(gpu.hardware_class, hardwareClasses),
       status: enumField(gpu.status, ["ready"] as const),
+      ...(gpu.free_vram_bytes === undefined ? {} : { free_vram_bytes: freeVramBytes }),
+      ...(gpu.vendor === undefined ? {} : { vendor: nullableString(gpu.vendor) }),
+      ...(gpu.compute_capability === undefined ? {} : { compute_capability: nullableString(gpu.compute_capability) }),
+      ...(gpu.driver_version === undefined ? {} : { driver_version: nullableString(gpu.driver_version) }),
+      ...(gpu.runtime === undefined ? {} : { runtime: nullableString(gpu.runtime) }),
+      ...(gpu.runtime_version === undefined ? {} : { runtime_version: nullableString(gpu.runtime_version) }),
+    };
+  });
+  let hardware: HardwareDiagnostic | null | undefined;
+  if (snapshot.hardware !== undefined && snapshot.hardware !== null) {
+    const item = record(snapshot.hardware);
+    const fingerprint = stringField(item.fingerprint);
+    const profileGib = integerOrNull(item.profile_gib);
+    const gpuCount = integerOrNull(item.gpu_count);
+    const totalRam = integerOrNull(item.total_ram_bytes);
+    const swapTotal = integerOrNull(item.swap_total_bytes);
+    const swapFree = integerOrNull(item.swap_free_bytes);
+    const cpuCount = integerOrNull(item.cpu_logical_count);
+    if (
+      !/^[a-f0-9]{64}$/.test(fingerprint) ||
+      profileGib === null || profileGib < 0 ||
+      gpuCount === null || gpuCount < 0 || gpuCount > 16 ||
+      totalRam === null || totalRam < 1 ||
+      swapTotal === null || swapTotal < 0 ||
+      swapFree === null || swapFree < 0 || swapFree > swapTotal ||
+      cpuCount === null || cpuCount < 1
+    ) return invalidResponse();
+    hardware = {
+      fingerprint,
+      profile_gib: profileGib,
+      gpu_count: gpuCount,
+      total_ram_bytes: totalRam,
+      available_ram_bytes: integerOrNull(item.available_ram_bytes),
+      swap_total_bytes: swapTotal,
+      swap_free_bytes: swapFree,
+      storage_total_bytes: integerOrNull(item.storage_total_bytes),
+      storage_free_bytes: integerOrNull(item.storage_free_bytes),
+      cpu_model: stringField(item.cpu_model),
+      cpu_logical_count: cpuCount,
+      os_name: stringField(item.os_name),
+      os_version: stringField(item.os_version),
+      architecture: stringField(item.architecture),
+      upgrade_detected: booleanField(item.upgrade_detected),
+      capability_cache_invalidated: booleanField(item.capability_cache_invalidated),
+      restart_required: booleanField(item.restart_required),
+      runtime_validated: booleanField(item.runtime_validated),
+    };
+  } else if (snapshot.hardware === null) {
+    hardware = null;
+  }
+  const rawModels = snapshot.models === undefined ? [] : snapshot.models;
+  const rawRoutes = snapshot.routes === undefined ? [] : snapshot.routes;
+  if (!Array.isArray(rawModels) || rawModels.length > 256 || !Array.isArray(rawRoutes) || rawRoutes.length > 20) {
+    return invalidResponse();
+  }
+  const models = rawModels.map((rawModel) => {
+    const item = record(rawModel);
+    if (!Array.isArray(item.reasons) || item.reasons.length < 1 || item.reasons.length > 4) return invalidResponse();
+    return {
+      model_id: stringField(item.model_id),
+      display_name: stringField(item.display_name),
+      runtime_id: stringField(item.runtime_id),
+      status: enumField(item.status, modelEligibilityStatuses),
+      reasons: item.reasons.map((reason) => enumField(reason, modelAdmissionReasons)),
+      performance: enumField(item.performance, performanceClasses),
+      verified: booleanField(item.verified),
+      fallback_model_id: nullableString(item.fallback_model_id),
+    };
+  });
+  const routes = rawRoutes.map((rawRoute) => {
+    const item = record(rawRoute);
+    if (!Array.isArray(item.fallback_model_ids) || item.fallback_model_ids.length > 32) return invalidResponse();
+    return {
+      task: enumField(item.task, modelTasks),
+      model_id: stringField(item.model_id),
+      fallback_model_ids: item.fallback_model_ids.map(stringField),
+      inference_mode: enumField(item.inference_mode, ["auto", "thinking_disabled"] as const),
     };
   });
   return {
     mode: enumField(snapshot.mode, ["local", "remote"] as const),
     services,
     gpus,
+    ...(hardware === undefined ? {} : { hardware }),
+    ...(snapshot.models === undefined ? {} : { models }),
+    ...(snapshot.routes === undefined ? {} : { routes }),
   };
 }
 

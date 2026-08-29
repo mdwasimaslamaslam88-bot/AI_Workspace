@@ -14,12 +14,14 @@ from app.ai.catalog import (
 class ModelTask(StrEnum):
     GENERAL_CHAT = "general_chat"
     REASONING = "reasoning"
+    MATHEMATICS = "mathematics"
     CODING = "coding"
     DEBUGGING = "debugging"
     CODE_GENERATION = "code_generation"
     EXPERT_ANALYSIS = "expert_analysis"
     VISION = "vision"
     RAG = "rag"
+    MEMORY = "memory"
     SUMMARIZATION = "summarization"
     TOOL_CALLING = "tool_calling"
     WORKFLOW_PLANNING = "workflow_planning"
@@ -50,6 +52,21 @@ class ModelRoutingDecision:
     required_context_tokens: int
 
 
+@dataclass(frozen=True, slots=True)
+class ModelRoutingEvidence:
+    quality_score: float
+    median_latency_ms: float
+    stability_rate: float
+
+    def __post_init__(self) -> None:
+        if not 0 <= self.quality_score <= 100:
+            raise ValueError("routing quality score must be between 0 and 100")
+        if self.median_latency_ms < 0:
+            raise ValueError("routing latency must be non-negative")
+        if not 0 <= self.stability_rate <= 1:
+            raise ValueError("routing stability must be between 0 and 1")
+
+
 _SCALE_QUALITY_RANK = {
     ModelScaleClass.SEVEN_TO_EIGHT_B: 1,
     ModelScaleClass.FOURTEEN_B: 2,
@@ -67,6 +84,7 @@ _SCALE_QUALITY_RANK = {
 _REQUIRED_CAPABILITIES = {
     ModelTask.GENERAL_CHAT: frozenset({ModelCapability.TEXT_GENERATION}),
     ModelTask.REASONING: frozenset({ModelCapability.TEXT_GENERATION}),
+    ModelTask.MATHEMATICS: frozenset({ModelCapability.TEXT_GENERATION}),
     ModelTask.CODING: frozenset({ModelCapability.TEXT_GENERATION}),
     ModelTask.DEBUGGING: frozenset({ModelCapability.TEXT_GENERATION}),
     ModelTask.CODE_GENERATION: frozenset({ModelCapability.TEXT_GENERATION}),
@@ -75,6 +93,7 @@ _REQUIRED_CAPABILITIES = {
         {ModelCapability.TEXT_GENERATION, ModelCapability.VISION_INPUT}
     ),
     ModelTask.RAG: frozenset({ModelCapability.TEXT_GENERATION}),
+    ModelTask.MEMORY: frozenset({ModelCapability.TEXT_GENERATION}),
     ModelTask.SUMMARIZATION: frozenset({ModelCapability.TEXT_GENERATION}),
     ModelTask.TOOL_CALLING: frozenset(
         {ModelCapability.TEXT_GENERATION, ModelCapability.TOOL_CALLING}
@@ -93,11 +112,13 @@ _REQUIRED_CAPABILITIES = {
 _QUALITY_INTENSIVE_TASKS = frozenset(
     {
         ModelTask.REASONING,
+        ModelTask.MATHEMATICS,
         ModelTask.CODING,
         ModelTask.DEBUGGING,
         ModelTask.CODE_GENERATION,
         ModelTask.EXPERT_ANALYSIS,
         ModelTask.RAG,
+        ModelTask.MEMORY,
         ModelTask.WORKFLOW_PLANNING,
         ModelTask.LONG_CONTEXT,
     }
@@ -115,6 +136,10 @@ class TaskAwareModelRouter:
     def __init__(
         self,
         preferred_model_ids: dict[ModelTask, str] | None = None,
+        *,
+        measured_evidence: dict[
+            tuple[ModelTask, str], ModelRoutingEvidence
+        ] | None = None,
     ) -> None:
         preferences = preferred_model_ids or {}
         if not isinstance(preferences, dict) or any(
@@ -128,6 +153,17 @@ class TaskAwareModelRouter:
             )
         self.preferred_model_ids = dict(preferences)
         self.reserved_model_ids = frozenset(preferences.values())
+        evidence = measured_evidence or {}
+        if not isinstance(evidence, dict) or any(
+            not isinstance(key, tuple)
+            or len(key) != 2
+            or not isinstance(key[0], ModelTask)
+            or not isinstance(key[1], str)
+            or not isinstance(value, ModelRoutingEvidence)
+            for key, value in evidence.items()
+        ):
+            raise TypeError("measured_evidence must map task/model pairs to evidence")
+        self.measured_evidence = dict(evidence)
 
     def select(
         self,
@@ -193,7 +229,10 @@ class TaskAwareModelRouter:
             ranking_pool,
             key=lambda model: (
                 model.model_id != preferred_model_id,
+                -self._evidence_quality(model, task),
+                -self._evidence_stability(model, task),
                 -self._quality_score(model, task),
+                self._evidence_latency(model, task),
                 model.required_vram_bytes is None,
                 model.required_vram_bytes or 0,
                 model.model_id,
@@ -212,6 +251,18 @@ class TaskAwareModelRouter:
             required_context_tokens=required_context_tokens,
         )
 
+    def _evidence_quality(self, model: ModelDescriptor, task: ModelTask) -> float:
+        evidence = self.measured_evidence.get((task, model.model_id))
+        return evidence.quality_score if evidence is not None else -1.0
+
+    def _evidence_stability(self, model: ModelDescriptor, task: ModelTask) -> float:
+        evidence = self.measured_evidence.get((task, model.model_id))
+        return evidence.stability_rate if evidence is not None else -1.0
+
+    def _evidence_latency(self, model: ModelDescriptor, task: ModelTask) -> float:
+        evidence = self.measured_evidence.get((task, model.model_id))
+        return evidence.median_latency_ms if evidence is not None else float("inf")
+
     @staticmethod
     def _quality_score(model: ModelDescriptor, task: ModelTask) -> int:
         family = (model.family or "").casefold()
@@ -225,8 +276,10 @@ class TaskAwareModelRouter:
         if task in {
             ModelTask.GENERAL_CHAT,
             ModelTask.REASONING,
+            ModelTask.MATHEMATICS,
             ModelTask.EXPERT_ANALYSIS,
             ModelTask.RAG,
+            ModelTask.MEMORY,
             ModelTask.WORKFLOW_PLANNING,
             ModelTask.LONG_CONTEXT,
         } and qwen3:

@@ -9,8 +9,20 @@ import math
 import re
 from typing import Protocol, runtime_checkable
 
+from app.ai.admission import (
+    ModelAdmissionEngine,
+    ModelAdmissionReason,
+    ModelAdmissionRequest,
+    ModelEligibilityStatus,
+    PerformanceClass,
+)
 from app.core.config import MAX_MODEL_LIST_DISCOVERY_SECONDS
-from app.hardware.planner import HardwareClass, HardwareInventory, HardwarePlanner
+from app.hardware.planner import (
+    HardwareClass,
+    HardwareInventory,
+    HardwarePlanner,
+    OffloadPolicy,
+)
 
 
 _RUNTIME_ID_PATTERN = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
@@ -112,6 +124,16 @@ class RuntimeModel:
     required_ram_bytes: int | None = None
     installed: bool = True
     supports_multi_gpu: bool = False
+    verified: bool = True
+    enabled: bool = True
+    download_required: bool = False
+    runtime_compatible: bool = True
+    minimum_vram_bytes: int | None = None
+    offload_required_ram_bytes: int | None = None
+    offload_policy: OffloadPolicy = OffloadPolicy.NONE
+    offload_performance: PerformanceClass = PerformanceClass.UNSUPPORTED
+    minimum_gpu_count: int = 1
+    minimum_compute_capability: str | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.reference, str):
@@ -136,6 +158,22 @@ class RuntimeModel:
             raise TypeError("model installed must be a boolean")
         if not isinstance(self.supports_multi_gpu, bool):
             raise TypeError("model supports_multi_gpu must be a boolean")
+        for field_name, value in (
+            ("verified", self.verified),
+            ("enabled", self.enabled),
+            ("download_required", self.download_required),
+            ("runtime_compatible", self.runtime_compatible),
+        ):
+            if not isinstance(value, bool):
+                raise TypeError(f"model {field_name} must be a boolean")
+        if not isinstance(self.offload_policy, OffloadPolicy):
+            raise TypeError("model offload_policy must be an OffloadPolicy")
+        if not isinstance(self.offload_performance, PerformanceClass):
+            raise TypeError("model offload_performance must be a PerformanceClass")
+        if isinstance(self.minimum_gpu_count, bool) or not isinstance(
+            self.minimum_gpu_count, int
+        ) or self.minimum_gpu_count < 1:
+            raise ValueError("model minimum_gpu_count must be positive")
         _optional_text(self.family, "model family")
         _optional_text(self.parameter_class, "model parameter_class")
         _optional_text(self.quantization, "model quantization")
@@ -156,6 +194,8 @@ class RuntimeModel:
         for field_name, value in (
             ("required_vram_bytes", self.required_vram_bytes),
             ("required_ram_bytes", self.required_ram_bytes),
+            ("minimum_vram_bytes", self.minimum_vram_bytes),
+            ("offload_required_ram_bytes", self.offload_required_ram_bytes),
         ):
             if value is not None and (
                 isinstance(value, bool)
@@ -165,6 +205,14 @@ class RuntimeModel:
                 raise ValueError(
                     f"model {field_name} must be a non-negative integer"
                 )
+        if self.minimum_compute_capability is not None and (
+            not isinstance(self.minimum_compute_capability, str)
+            or not re.fullmatch(
+                r"[0-9]{1,2}(?:\.[0-9]{1,2})?",
+                self.minimum_compute_capability,
+            )
+        ):
+            raise ValueError("model minimum_compute_capability must be numeric")
         object.__setattr__(
             self,
             "capabilities",
@@ -194,6 +242,12 @@ class ModelDescriptor:
     hardware_class: HardwareClass | None = None
     fallback_model_id: str | None = None
     supports_multi_gpu: bool = False
+    eligibility_status: ModelEligibilityStatus = ModelEligibilityStatus.RUNNABLE_NOW
+    eligibility_reasons: tuple[ModelAdmissionReason, ...] = (
+        ModelAdmissionReason.ELIGIBLE,
+    )
+    performance_class: PerformanceClass = PerformanceClass.INTERACTIVE
+    verified: bool = True
 
     def __post_init__(self) -> None:
         if not isinstance(self.model_id, str) or not _PUBLIC_MODEL_ID_PATTERN.fullmatch(
@@ -222,6 +276,7 @@ class ModelDescriptor:
             required_ram_bytes=self.required_ram_bytes,
             installed=self.installed,
             supports_multi_gpu=self.supports_multi_gpu,
+            verified=self.verified,
         )
         if not isinstance(self.runnable_now, bool):
             raise TypeError("model runnable_now must be a boolean")
@@ -235,6 +290,15 @@ class ModelDescriptor:
             self.fallback_model_id
         ):
             raise ValueError("model fallback_model_id must be a public model ID or None")
+        if not isinstance(self.eligibility_status, ModelEligibilityStatus):
+            raise TypeError("model eligibility_status is invalid")
+        if not self.eligibility_reasons or any(
+            not isinstance(reason, ModelAdmissionReason)
+            for reason in self.eligibility_reasons
+        ):
+            raise TypeError("model eligibility_reasons are invalid")
+        if not isinstance(self.performance_class, PerformanceClass):
+            raise TypeError("model performance_class is invalid")
         object.__setattr__(self, "capabilities", validated.capabilities)
 
 
@@ -311,6 +375,11 @@ class ModelCatalog:
         self.runtimes = runtimes
         self.hardware_planner = (
             HardwarePlanner(hardware_inventory)
+            if hardware_inventory is not None
+            else None
+        )
+        self.admission_engine = (
+            ModelAdmissionEngine(hardware_inventory)
             if hardware_inventory is not None
             else None
         )
@@ -530,26 +599,44 @@ class ModelCatalog:
             if model_id in public_ids:
                 raise ValueError(f"duplicate public model_id: {model_id}")
             public_ids.add(model_id)
-            runnable_now = (
-                model.availability is ModelAvailability.AVAILABLE
-                and self.hardware_planner.runnable_now(
-                    installed=model.installed,
-                    required_vram_bytes=model.required_vram_bytes,
-                    required_ram_bytes=model.required_ram_bytes,
-                    supports_multi_gpu=model.supports_multi_gpu,
+            admission = (
+                self.admission_engine.evaluate(
+                    ModelAdmissionRequest(
+                        installed=model.installed,
+                        available=model.availability is ModelAvailability.AVAILABLE,
+                        enabled=model.enabled,
+                        verified=model.verified,
+                        download_required=model.download_required,
+                        runtime_supported=model.runtime_compatible,
+                        required_vram_bytes=model.required_vram_bytes,
+                        minimum_vram_bytes=model.minimum_vram_bytes,
+                        required_ram_bytes=model.required_ram_bytes,
+                        offload_required_ram_bytes=model.offload_required_ram_bytes,
+                        offload_policy=model.offload_policy,
+                        offload_performance=model.offload_performance,
+                        supports_multi_gpu=model.supports_multi_gpu,
+                        minimum_gpu_count=model.minimum_gpu_count,
+                        minimum_compute_capability=model.minimum_compute_capability,
+                    )
                 )
-                if self.hardware_planner is not None
+                if self.admission_engine is not None
+                else None
+            )
+            runnable_now = (
+                admission.eligible
+                if admission is not None
                 else (
                     model.installed
+                    and model.verified
+                    and model.enabled
+                    and model.runtime_compatible
                     and model.availability is ModelAvailability.AVAILABLE
                 )
             )
-            future_capable = (
-                not runnable_now
-                and model.availability is ModelAvailability.AVAILABLE
-                and model.required_vram_bytes is not None
-                and model.required_ram_bytes is not None
-            )
+            future_capable = admission is not None and admission.status in {
+                ModelEligibilityStatus.FUTURE_CAPABLE,
+                ModelEligibilityStatus.HARDWARE_INSUFFICIENT,
+            }
             resolved.append(
                 ResolvedModel(
                     descriptor=ModelDescriptor(
@@ -571,6 +658,36 @@ class ModelCatalog:
                         runnable_now=runnable_now,
                         future_capable=future_capable,
                         supports_multi_gpu=model.supports_multi_gpu,
+                        verified=model.verified,
+                        eligibility_status=(
+                            admission.status
+                            if admission is not None
+                            else (
+                                ModelEligibilityStatus.RUNNABLE_NOW
+                                if runnable_now
+                                else ModelEligibilityStatus.RUNTIME_INCOMPATIBLE
+                            )
+                        ),
+                        eligibility_reasons=(
+                            admission.reasons
+                            if admission is not None
+                            else (
+                                (
+                                    ModelAdmissionReason.ELIGIBLE
+                                    if runnable_now
+                                    else ModelAdmissionReason.MODEL_UNAVAILABLE
+                                ),
+                            )
+                        ),
+                        performance_class=(
+                            admission.performance
+                            if admission is not None
+                            else (
+                                PerformanceClass.INTERACTIVE
+                                if runnable_now
+                                else PerformanceClass.UNSUPPORTED
+                            )
+                        ),
                         hardware_class=(
                             self.hardware_planner.required_hardware_class(
                                 model.required_vram_bytes,

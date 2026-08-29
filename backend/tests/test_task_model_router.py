@@ -10,6 +10,7 @@ from app.ai.catalog import (
 from app.ai.routing import (
     InferenceMode,
     ModelRoutingUnavailableError,
+    ModelRoutingEvidence,
     ModelTask,
     TaskAwareModelRouter,
     task_system_instruction,
@@ -187,6 +188,33 @@ def test_router_admits_a_larger_future_model_without_hardware_name_checks():
     )
 
     assert decision.model_id == future_installed.model_id
+
+
+def test_router_uses_complete_category_evidence_before_generic_scale_rank():
+    smaller = _model(1, "Measured stable model")
+    larger = _model(
+        2,
+        "Unproven larger model",
+        scale=ModelScaleClass.FOURTEEN_B,
+    )
+    router = TaskAwareModelRouter(
+        measured_evidence={
+            (ModelTask.REASONING, smaller.model_id): ModelRoutingEvidence(
+                quality_score=96.0,
+                median_latency_ms=500,
+                stability_rate=1.0,
+            ),
+            (ModelTask.REASONING, larger.model_id): ModelRoutingEvidence(
+                quality_score=90.0,
+                median_latency_ms=900,
+                stability_rate=0.98,
+            ),
+        }
+    )
+
+    assert router.select((smaller, larger), ModelTask.REASONING).model_id == (
+        smaller.model_id
+    )
 
 
 def test_router_fails_closed_when_no_model_satisfies_task():

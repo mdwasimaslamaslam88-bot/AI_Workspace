@@ -1,0 +1,104 @@
+{
+  "schema_version": 1,
+  "generated_for": "WORK STATION hardware-agnostic architecture audit",
+  "hardware_independent": [
+    {
+      "path": "backend/app/api/v1/ai.py",
+      "role": "public model and generation APIs consume opaque model IDs and capabilities"
+    },
+    {
+      "path": "backend/app/ai/generation.py",
+      "role": "runtime-neutral text generation dispatch"
+    },
+    {
+      "path": "backend/app/ai/routing.py",
+      "role": "task routing consumes admitted descriptors, measured evidence, context and fallback metadata"
+    },
+    {
+      "path": "backend/app/ai/catalog.py",
+      "role": "canonical live model registry normalizes every runtime adapter into RuntimeModel and ModelDescriptor"
+    },
+    {
+      "path": "backend/app/services",
+      "role": "conversation, RAG, memory, tools, workflows, image and voice services use capability interfaces"
+    },
+    {
+      "path": "shared/src/contracts.ts",
+      "role": "clients consume stable API contracts, not GPU/runtime implementation details"
+    }
+  ],
+  "hardware_dependent_abstractions": [
+    {
+      "path": "backend/app/hardware/planner.py",
+      "dependency": "OS memory/CPU/storage and NVIDIA discovery",
+      "boundary": "the only production module that invokes nvidia-smi",
+      "action": "normalizes vendor output into HardwareInventory and HardwareProfile"
+    },
+    {
+      "path": "backend/app/hardware/capabilities.py",
+      "dependency": "startup hardware fingerprint",
+      "boundary": "owns detection, persistence, refresh and restart-required state"
+    },
+    {
+      "path": "backend/app/ai/admission.py",
+      "dependency": "normalized capacity and runtime/model requirements",
+      "boundary": "authoritative eligibility and blocker calculation"
+    },
+    {
+      "path": "backend/app/runtimes/ollama.py",
+      "dependency": "Ollama-specific model metadata and inference options",
+      "boundary": "runtime adapter; no API or business-logic dependency"
+    },
+    {
+      "path": "backend/app/runtimes/comfyui.py",
+      "dependency": "ComfyUI graph and installed checkpoint",
+      "boundary": "runtime adapter selected from a capability-based image model profile"
+    },
+    {
+      "path": "backend/app/runtimes/faster_whisper.py",
+      "dependency": "configured CUDA or CPU speech device",
+      "boundary": "speech runtime adapter"
+    }
+  ],
+  "structured_configuration": [
+    "HARDWARE_STATE_PATH",
+    "OLLAMA_LOCAL_MODEL_ALLOWLIST",
+    "OLLAMA_TASK_MODEL_PREFERENCES",
+    "OLLAMA_EMBEDDING_MODEL",
+    "COMFYUI_MODEL_PROFILE",
+    "COMFYUI_CHECKPOINT",
+    "STT_DEVICE",
+    "STT_COMPUTE_TYPE"
+  ],
+  "simulation_and_test_only_direct_telemetry": [
+    {
+      "paths": [
+        "backend/scripts/ai_quality_benchmark.py",
+        "backend/scripts/massive_ai_benchmark.py",
+        "backend/scripts/model_candidate_benchmark.py",
+        "backend/scripts/real_image_smoke.py",
+        "backend/scripts/real_vision_smoke.py",
+        "backend/scripts/real_voice_smoke.py"
+      ],
+      "reason": "benchmark telemetry only; never participates in production admission or routing"
+    }
+  ],
+  "current_fixed_values_that_are_policy_not_architecture": [
+    {
+      "location": "backend/.env",
+      "values": "current allowlist, evidence-backed task preferences, embedding model and SDXL fallback",
+      "behavior": "replaceable structured configuration; ignored by source control"
+    },
+    {
+      "location": "backend/app/ai/future_models.py",
+      "values": "simulation-only capacity estimates",
+      "behavior": "never claims installation or execution and must be updated from verified vendor/runtime metadata"
+    }
+  ],
+  "known_compatibility_patches": [
+    "A non-NVIDIA accelerator needs a detector adapter that emits HardwareInventory; application APIs do not change.",
+    "A future inference server needs a discovery/generation adapter that emits RuntimeModel; application APIs do not change.",
+    "A future image family needs a verified ImageModelContract plus workflow adapter; image APIs and storage do not change.",
+    "Runtime-specific tensor or pipeline parallel flags must be validated before activation; metadata alone never enables them."
+  ]
+}

@@ -641,6 +641,18 @@ export function SettingsPanel({
                 {gpu.model} · {Math.round(gpu.vram_bytes / 1024 ** 3)} GiB · {gpu.status}
               </p>
             ))}
+            {diagnostics.hardware !== undefined && diagnostics.hardware !== null && (
+              <p className="field-help">
+                Hardware profile: {diagnostics.hardware.profile_gib} GiB · {diagnostics.hardware.gpu_count} GPU
+                {diagnostics.hardware.restart_required ? " · restart required" : " · active"}
+                {diagnostics.hardware.runtime_validated ? " · runtime validated" : " · runtime validation pending"}
+              </p>
+            )}
+            {(diagnostics.routes ?? []).map((route) => (
+              <p className="field-help" key={route.task}>
+                {route.task}: {route.model_id} · {route.inference_mode}
+              </p>
+            ))}
           </>
         )}
       </section>

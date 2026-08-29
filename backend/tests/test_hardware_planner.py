@@ -92,28 +92,40 @@ def test_hardware_planner_admits_cpu_compatible_model_without_gpu_vram():
 
 
 def test_detect_hardware_uses_bounded_model_capacity_and_compute(monkeypatch):
-    completed = Mock(
-        stdout="NVIDIA GeForce RTX 3060, 12288, 8.6\n",
-        returncode=0,
+    query = Mock(
+        stdout="NVIDIA GeForce RTX 3060, 12288, 11264, 8.6, 580.1\n",
     )
-    run = Mock(return_value=completed)
+    summary = Mock(stdout="| CUDA Version: 13.0 |\n")
+    run = Mock(side_effect=(query, summary))
     monkeypatch.setattr("app.hardware.planner.subprocess.run", run)
-    monkeypatch.setattr("app.hardware.planner._total_ram_bytes", lambda: 80 * GIBIBYTE)
+    monkeypatch.setattr(
+        "app.hardware.planner._memory_details",
+        lambda: (80 * GIBIBYTE, 70 * GIBIBYTE, 4 * GIBIBYTE, 3 * GIBIBYTE),
+    )
+    monkeypatch.setattr("app.hardware.planner._cpu_model", lambda: "Test CPU")
+    monkeypatch.setattr("app.hardware.planner.os.cpu_count", lambda: 16)
+    monkeypatch.setattr("app.hardware.planner.platform.system", lambda: "Linux")
+    monkeypatch.setattr("app.hardware.planner.platform.release", lambda: "test")
+    monkeypatch.setattr("app.hardware.planner.platform.machine", lambda: "x86_64")
+    monkeypatch.setattr(
+        "app.hardware.planner.shutil.disk_usage",
+        lambda _path: Mock(total=100 * GIBIBYTE, free=50 * GIBIBYTE),
+    )
 
     inventory = detect_hardware()
 
-    assert inventory == HardwareInventory(
-        80 * GIBIBYTE,
-        (12 * GIBIBYTE,),
-        ("NVIDIA GeForce RTX 3060",),
-        ("8.6",),
-    )
+    assert inventory.gpu_vram_bytes == (12 * GIBIBYTE,)
+    assert inventory.gpu_free_vram_bytes == (11 * GIBIBYTE,)
+    assert inventory.gpu_vendors == ("NVIDIA",)
+    assert inventory.gpu_driver_versions == ("580.1",)
+    assert inventory.accelerator_runtime_versions == ("13.0",)
+    assert inventory.total_ram_bytes == 80 * GIBIBYTE
+    assert inventory.cpu_model == "Test CPU"
     command = run.call_args.args[0]
-    assert command == [
-        "nvidia-smi",
-        "--query-gpu=name,memory.total,compute_cap",
-        "--format=csv,noheader,nounits",
-    ]
+    assert command == ["nvidia-smi"]
+    assert run.call_args_list[0].args[0][1] == (
+        "--query-gpu=name,memory.total,memory.free,compute_cap,driver_version"
+    )
 
 
 def test_hardware_planner_reports_offload_and_insufficient_capacity():

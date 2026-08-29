@@ -3,11 +3,21 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 
-from app.ai.catalog import ModelCapability, ModelModality, ModelScaleClass
+from app.ai.admission import (
+    ModelAdmissionEngine,
+    ModelAdmissionRequest,
+    PerformanceClass,
+)
+from app.ai.catalog import (
+    ModelAvailability,
+    ModelCapability,
+    ModelModality,
+    ModelScaleClass,
+    RuntimeModel,
+)
 from app.hardware.planner import (
     GIBIBYTE,
     HardwareInventory,
-    HardwarePlanner,
     OffloadPolicy,
 )
 
@@ -37,6 +47,11 @@ class FutureModelContract:
     capabilities: tuple[ModelCapability, ...]
     fallback_role: str
     offload_required_ram_bytes: int | None = None
+    minimum_compute_capability: str | None = None
+    offload_performance: PerformanceClass = PerformanceClass.SLOW
+    pipeline_parallel: bool = False
+    sharding: bool = False
+    device_placement: str = "runtime_managed"
 
     def __post_init__(self) -> None:
         if not self.profile_id or self.profile_id != self.profile_id.strip():
@@ -49,6 +64,8 @@ class FutureModelContract:
             raise TypeError("future model scale class is invalid")
         if not isinstance(self.offload_policy, OffloadPolicy):
             raise TypeError("future model offload policy is invalid")
+        if not isinstance(self.offload_performance, PerformanceClass):
+            raise TypeError("future model offload performance is invalid")
         for field_name, value in (
             ("required_vram_bytes", self.required_vram_bytes),
             ("minimum_vram_bytes", self.minimum_vram_bytes),
@@ -74,6 +91,32 @@ class FutureModelContract:
             self.capabilities
         ):
             raise ValueError("future model capabilities must be nonempty and unique")
+
+    def as_registry_model(self) -> RuntimeModel:
+        """Project planning metadata through the canonical runtime model schema."""
+
+        return RuntimeModel(
+            reference=self.profile_id,
+            display_name=f"{self.model_family} {self.parameter_class}",
+            modality=self.modalities[0],
+            family=self.model_family,
+            parameter_class=self.parameter_class,
+            capabilities=self.capabilities,
+            context_window=self.context_window,
+            quantization=self.quantization,
+            availability=ModelAvailability.UNKNOWN,
+            scale_class=self.scale_class,
+            required_vram_bytes=self.required_vram_bytes,
+            minimum_vram_bytes=self.minimum_vram_bytes,
+            required_ram_bytes=self.required_ram_bytes,
+            offload_required_ram_bytes=self.offload_required_ram_bytes,
+            offload_policy=self.offload_policy,
+            offload_performance=self.offload_performance,
+            installed=False,
+            verified=False,
+            runtime_compatible=False,
+            supports_multi_gpu=self.tensor_parallel_gpu_count > 1,
+        )
 
 
 TEXT_CAPABILITIES = (
@@ -203,6 +246,8 @@ FUTURE_MODEL_CONTRACTS = (
         TEXT_CAPABILITIES,
         "reasoning",
         offload_required_ram_bytes=250 * GIBIBYTE,
+        pipeline_parallel=True,
+        sharding=True,
     ),
     FutureModelContract(
         "dense-500b-q4",
@@ -223,6 +268,8 @@ FUTURE_MODEL_CONTRACTS = (
         TEXT_CAPABILITIES,
         "reasoning",
         offload_required_ram_bytes=625 * GIBIBYTE,
+        pipeline_parallel=True,
+        sharding=True,
     ),
     FutureModelContract(
         "dense-1000b-q4",
@@ -243,6 +290,8 @@ FUTURE_MODEL_CONTRACTS = (
         TEXT_CAPABILITIES,
         "reasoning",
         offload_required_ram_bytes=1_250 * GIBIBYTE,
+        pipeline_parallel=True,
+        sharding=True,
     ),
     FutureModelContract(
         "dense-2000b-q4",
@@ -263,6 +312,8 @@ FUTURE_MODEL_CONTRACTS = (
         TEXT_CAPABILITIES,
         "reasoning",
         offload_required_ram_bytes=2_500 * GIBIBYTE,
+        pipeline_parallel=True,
+        sharding=True,
     ),
     FutureModelContract(
         "moe-frontier-q4",
@@ -283,16 +334,33 @@ FUTURE_MODEL_CONTRACTS = (
         TEXT_CAPABILITIES + (ModelCapability.VISION_INPUT,),
         "reasoning",
         offload_required_ram_bytes=750 * GIBIBYTE,
+        pipeline_parallel=True,
+        sharding=True,
     ),
 )
 
 
-HARDWARE_SIMULATION_TIERS_GIB = (12, 16, 24, 48, 80, 96, 128, 256, 512, 1_024)
+HARDWARE_SIMULATION_TIERS_GIB = (
+    12,
+    16,
+    24,
+    32,
+    48,
+    64,
+    80,
+    96,
+    128,
+    256,
+    512,
+    1_024,
+)
 HARDWARE_SIMULATION_RAM_GIB = {
     12: 80,
     16: 96,
     24: 128,
+    32: 192,
     48: 256,
+    64: 384,
     80: 512,
     96: 512,
     128: 768,
@@ -302,47 +370,91 @@ HARDWARE_SIMULATION_RAM_GIB = {
 }
 
 
-def hardware_admission_matrix() -> dict[str, object]:
-    tiers: list[dict[str, object]] = []
-    for vram_gib in HARDWARE_SIMULATION_TIERS_GIB:
-        ram_gib = HARDWARE_SIMULATION_RAM_GIB[vram_gib]
-        planner = HardwarePlanner(
-            HardwareInventory(
-                total_ram_bytes=ram_gib * GIBIBYTE,
-                gpu_vram_bytes=(vram_gib * GIBIBYTE,),
-                gpu_names=(f"Hypothetical {vram_gib} GiB accelerator",),
-            )
-        )
-        admissions = []
-        for profile in FUTURE_MODEL_CONTRACTS:
-            admission = planner.admit(
+def _simulated_inventory(
+    vram_gib: int,
+    gpu_count: int,
+    ram_gib: int,
+) -> HardwareInventory:
+    per_gpu = vram_gib * GIBIBYTE
+    return HardwareInventory(
+        total_ram_bytes=ram_gib * GIBIBYTE,
+        gpu_vram_bytes=(per_gpu,) * gpu_count,
+        gpu_names=tuple(
+            f"Hypothetical {vram_gib} GiB accelerator {index + 1}"
+            for index in range(gpu_count)
+        ),
+        gpu_compute_capabilities=("9.0",) * gpu_count,
+        gpu_vendors=("simulation",) * gpu_count,
+        cpu_model="Simulated CPU",
+        cpu_logical_count=64,
+        os_name="simulation",
+        os_version="1",
+        architecture="x86_64",
+    )
+
+
+def _admissions(inventory: HardwareInventory) -> list[dict[str, object]]:
+    engine = ModelAdmissionEngine(inventory)
+    admissions: list[dict[str, object]] = []
+    for profile in FUTURE_MODEL_CONTRACTS:
+        admission = engine.evaluate(
+            ModelAdmissionRequest(
                 installed=True,
                 available=True,
                 required_vram_bytes=profile.required_vram_bytes,
                 minimum_vram_bytes=profile.minimum_vram_bytes,
                 required_ram_bytes=profile.required_ram_bytes,
-                offload_required_ram_bytes=(
-                    profile.offload_required_ram_bytes
-                ),
+                offload_required_ram_bytes=profile.offload_required_ram_bytes,
                 offload_policy=profile.offload_policy,
+                offload_performance=profile.offload_performance,
                 supports_multi_gpu=(profile.tensor_parallel_gpu_count > 1),
+                minimum_compute_capability=profile.minimum_compute_capability,
             )
-            admissions.append(
-                {
-                    "profile_id": profile.profile_id,
-                    "scale_class": profile.scale_class.value,
-                    "status": admission.status.value,
-                    "offload_policy": profile.offload_policy.value,
-                    "tensor_parallel_gpu_count": (
-                        profile.tensor_parallel_gpu_count
-                    ),
-                }
-            )
+        )
+        admissions.append(
+            {
+                "profile_id": profile.profile_id,
+                "scale_class": profile.scale_class.value,
+                "status": admission.status.value,
+                "reasons": [reason.value for reason in admission.reasons],
+                "performance": admission.performance.value,
+                "offload_policy": profile.offload_policy.value,
+                "tensor_parallel_gpu_count": profile.tensor_parallel_gpu_count,
+                "pipeline_parallel": profile.pipeline_parallel,
+                "sharding": profile.sharding,
+            }
+        )
+    return admissions
+
+
+def hardware_admission_matrix() -> dict[str, object]:
+    tiers: list[dict[str, object]] = []
+    for vram_gib in HARDWARE_SIMULATION_TIERS_GIB:
+        ram_gib = HARDWARE_SIMULATION_RAM_GIB[vram_gib]
+        inventory = _simulated_inventory(vram_gib, 1, ram_gib)
         tiers.append(
             {
                 "gpu_vram_gib": vram_gib,
                 "system_ram_gib": ram_gib,
-                "admissions": admissions,
+                "gpu_count": 1,
+                "admissions": _admissions(inventory),
+            }
+        )
+    multi_gpu_layouts = []
+    for gpu_count, per_gpu_gib, ram_gib in (
+        (2, 24, 256),
+        (2, 48, 512),
+        (4, 80, 1_024),
+        (8, 80, 2_048),
+    ):
+        multi_gpu_layouts.append(
+            {
+                "gpu_count": gpu_count,
+                "per_gpu_vram_gib": per_gpu_gib,
+                "system_ram_gib": ram_gib,
+                "admissions": _admissions(
+                    _simulated_inventory(per_gpu_gib, gpu_count, ram_gib)
+                ),
             }
         )
     return {
@@ -352,4 +464,5 @@ def hardware_admission_matrix() -> dict[str, object]:
         "ram_reserve_gib": 8,
         "ram_assumptions_gib": HARDWARE_SIMULATION_RAM_GIB,
         "tiers": tiers,
+        "multi_gpu_layouts": multi_gpu_layouts,
     }

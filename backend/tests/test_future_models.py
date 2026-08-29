@@ -38,6 +38,10 @@ def test_future_contract_covers_every_required_scale_without_execution_claims():
         "moe_very_large",
     } <= scale_classes
     assert all(profile.required_vram_bytes > 0 for profile in FUTURE_MODEL_CONTRACTS)
+    assert all(
+        profile.as_registry_model().reference == profile.profile_id
+        for profile in FUTURE_MODEL_CONTRACTS
+    )
 
 
 def test_hardware_admission_matrix_is_hardware_driven_and_fail_closed():
@@ -48,9 +52,14 @@ def test_hardware_admission_matrix_is_hardware_driven_and_fail_closed():
     assert tuple(item["gpu_vram_gib"] for item in matrix["tiers"]) == (
         HARDWARE_SIMULATION_TIERS_GIB
     )
-    assert _status(matrix, 12, "dense-200b-q4") == "insufficient_hardware"
-    assert _status(matrix, 256, "dense-200b-q4") == "runnable"
-    assert _status(matrix, 1_024, "dense-2000b-q4") == "offload_required"
+    assert _status(matrix, 12, "dense-200b-q4") == "hardware_insufficient"
+    assert _status(matrix, 256, "dense-200b-q4") == "runnable_now"
+    assert _status(matrix, 1_024, "dense-2000b-q4") == "future_capable"
+    assert {item["gpu_count"] for item in matrix["multi_gpu_layouts"]} == {
+        2,
+        4,
+        8,
+    }
 
 
 def test_full_gpu_200b_profile_needs_no_system_ram_redesign():

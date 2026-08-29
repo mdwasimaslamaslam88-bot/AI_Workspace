@@ -25,6 +25,7 @@ from app.images import (
     GeneratedImage,
     ImageRuntimeInputError,
     ImageRuntimeUnavailableError,
+    image_model_contract,
     image_dimensions,
     sanitize_generated_png,
 )
@@ -113,10 +114,11 @@ class ComfyUIImageRuntime:
         temp_root: Path,
         *,
         model_reference: str,
+        model_profile: str = "sdxl-base-1.0",
         timeout_seconds: float = 300.0,
         max_active: int = 1,
-        required_vram_bytes: int = 9 * 1024**3,
-        required_ram_bytes: int = 16 * 1024**3,
+        required_vram_bytes: int | None = None,
+        required_ram_bytes: int | None = None,
     ) -> None:
         if not isinstance(client, httpx.AsyncClient):
             raise TypeError("ComfyUI client must be an httpx AsyncClient")
@@ -135,6 +137,19 @@ class ComfyUIImageRuntime:
             raise TypeError("ComfyUI concurrency must be an integer")
         if max_active != 1:
             raise ValueError("ComfyUI concurrency must remain one per process")
+        contract = image_model_contract(model_profile)
+        if contract.runtime != self.runtime_id or not contract.adapter_supported:
+            raise ValueError("image model profile has no compatible runtime adapter")
+        required_vram_bytes = (
+            contract.required_vram_bytes
+            if required_vram_bytes is None
+            else required_vram_bytes
+        )
+        required_ram_bytes = (
+            contract.required_ram_bytes
+            if required_ram_bytes is None
+            else required_ram_bytes
+        )
         for name, value in (
             ("required VRAM", required_vram_bytes),
             ("required RAM", required_ram_bytes),
@@ -149,6 +164,7 @@ class ComfyUIImageRuntime:
         self.input_root = _require_directory(input_root, "ComfyUI input root")
         self.temp_root = _require_directory(temp_root, "ComfyUI temp root")
         self.model_reference = model_reference
+        self.model_contract = contract
         self.timeout_seconds = float(timeout_seconds)
         self.required_vram_bytes = required_vram_bytes
         self.required_ram_bytes = required_ram_bytes
@@ -182,15 +198,25 @@ class ComfyUIImageRuntime:
         return (
             RuntimeModel(
                 reference=self.model_reference,
-                display_name="Stable Diffusion XL Base 1.0",
+                display_name=self.model_contract.display_name,
                 modality=ModelModality.IMAGE,
-                family="Stable Diffusion XL",
-                parameter_class="3.5B",
-                capabilities=(
-                    ModelCapability.IMAGE_GENERATION,
-                    ModelCapability.IMAGE_EDITING,
+                family=self.model_contract.family,
+                parameter_class=self.model_contract.parameter_class,
+                capabilities=tuple(
+                    capability
+                    for capability, supported in (
+                        (
+                            ModelCapability.IMAGE_GENERATION,
+                            self.model_contract.generation,
+                        ),
+                        (
+                            ModelCapability.IMAGE_EDITING,
+                            self.model_contract.editing,
+                        ),
+                    )
+                    if supported
                 ),
-                quantization="FP16",
+                quantization=self.model_contract.precision,
                 estimated_vram_bytes=self.required_vram_bytes,
                 availability=(
                     ModelAvailability.AVAILABLE

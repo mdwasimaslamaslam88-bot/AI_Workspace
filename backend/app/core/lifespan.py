@@ -19,7 +19,7 @@ from app.clients.postgres import create_postgres_engine, dispose_postgres
 from app.clients.redis import close_redis, create_redis_client
 from app.core.config import Settings, settings
 from app.db.session import create_session_factory
-from app.hardware import detect_hardware
+from app.hardware import HardwareCapabilityService, detect_hardware
 from app.hardware.planner import GIBIBYTE
 from app.runtimes.configured_media import (
     ConfiguredMediaModel,
@@ -154,7 +154,16 @@ def _require_user_provisioning_database(configured: Settings) -> None:
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     _require_user_provisioning_database(settings)
     async with AsyncExitStack() as resource_stack:
-        hardware_inventory = await asyncio.to_thread(detect_hardware)
+        hardware_capability_service = HardwareCapabilityService(
+            settings.HARDWARE_STATE_PATH,
+            detector=detect_hardware,
+        )
+        hardware_capability_state = await asyncio.to_thread(
+            hardware_capability_service.startup
+        )
+        hardware_inventory = hardware_capability_state.inventory
+        app.state.hardware_capability_service = hardware_capability_service
+        app.state.hardware_capability_state = hardware_capability_state
         app.state.hardware_inventory = hardware_inventory
         postgres_engine = create_postgres_engine(settings)
         resource_stack.push_async_callback(
@@ -230,6 +239,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                     settings.COMFYUI_INPUT_ROOT,
                     settings.COMFYUI_TEMP_ROOT,
                     model_reference=settings.COMFYUI_MODEL_REFERENCE,
+                    model_profile=settings.COMFYUI_MODEL_PROFILE,
                     timeout_seconds=settings.COMFYUI_TIMEOUT_SECONDS,
                     max_active=settings.COMFYUI_MAX_ACTIVE_PER_PROCESS,
                 )
@@ -281,6 +291,28 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             ),
             hardware_inventory=hardware_inventory,
         )
+        hardware_runtime_validated = True
+        if (
+            hardware_capability_state.upgrade_detected
+            and app.state.model_catalog.runtimes
+        ):
+            try:
+                async with asyncio.timeout(5.0):
+                    startup_models = await app.state.model_catalog.list_models()
+                hardware_runtime_validated = any(
+                    model.installed and model.verified and model.runnable_now
+                    for model in startup_models
+                )
+            except Exception:
+                hardware_runtime_validated = False
+        if hardware_runtime_validated:
+            await asyncio.to_thread(hardware_capability_service.confirm_active)
+        else:
+            hardware_capability_state = (
+                hardware_capability_service.mark_validation_failed()
+            )
+        app.state.hardware_capability_state = hardware_capability_state
+        app.state.hardware_runtime_validated = hardware_runtime_validated
         app.state.task_model_router = TaskAwareModelRouter(
             {
                 ModelTask(task): public_model_id("ollama-local", reference)
