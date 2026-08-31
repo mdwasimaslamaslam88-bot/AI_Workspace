@@ -114,7 +114,7 @@ if [[ ! -x "${appimage_plugin}" ]]; then
 fi
 
 install -d -m 0755 "${appdir}/usr/share/metainfo"
-appstreamcli validate \
+appstreamcli validate --no-net \
   "${repository_root}/apps/desktop/src-tauri/linux/com.workstation.personalai.metainfo.xml" \
   >/dev/null
 install -m 0644 \

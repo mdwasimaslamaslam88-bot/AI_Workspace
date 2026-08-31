@@ -15,6 +15,7 @@ import urllib.request
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPOSITORY_ROOT / "backend"))
 _NODE_VERSION = re.compile(r"v([0-9]+)\.([0-9]+)\.([0-9]+)\Z")
+_RUST_HOST = re.compile(r"host: ([A-Za-z0-9_-]{3,80})$")
 _NODE_GATES = frozenset(
     {"backend", "web", "mobile", "desktop", "browser_e2e", "security", "release"}
 )
@@ -78,6 +79,39 @@ def _trusted_node_runtime() -> Path:
     return max(admitted)[1]
 
 
+def _trusted_system_build_tool(name: str) -> Path:
+    selected = shutil.which(name)
+    if selected is None:
+        raise ValueError(f"the required system build tool is unavailable: {name}")
+    resolved = Path(selected).resolve(strict=True)
+    if resolved.parent != Path("/usr/bin") or not resolved.is_file():
+        raise ValueError(f"the system build tool is outside the trusted root: {name}")
+    return resolved
+
+
+def _trusted_rust_host() -> str:
+    rustc = Path.home() / ".cargo/bin/rustc"
+    if not rustc.exists():
+        raise ValueError("the trusted Rust compiler is unavailable")
+    completed = subprocess.run(
+        (str(rustc), "--version", "--verbose"),
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        text=True,
+        timeout=10,
+        check=False,
+    )
+    matches = tuple(
+        match.group(1)
+        for line in completed.stdout.splitlines()
+        if (match := _RUST_HOST.fullmatch(line)) is not None
+    )
+    if completed.returncode != 0 or len(matches) != 1:
+        raise ValueError("the trusted Rust host target is unavailable")
+    return matches[0]
+
+
 def _runtime_paths(gate_name: str) -> tuple[Path, ...]:
     runtime_root = Path.home() / "AI_Workspace_Runtimes"
     paths: tuple[Path, ...] = (
@@ -101,6 +135,8 @@ def _runtime_paths(gate_name: str) -> tuple[Path, ...]:
             Path.home() / ".cache/tauri",
             runtime_root / "tauri-sysroot",
         )
+    if gate_name == "release":
+        paths += _safe_existing_paths(runtime_root / "tailscale")
     return paths
 
 
@@ -117,6 +153,22 @@ def _gate_command(gate_name: str, gate_script: Path) -> tuple[str, ...]:
         ("/usr/local/bin", "/usr/local/sbin", "/usr/bin", "/usr/sbin", "/bin", "/sbin")
     )
     environment = (f"PATH={':'.join(path_parts)}",)
+    if gate_name in {"desktop", "release"}:
+        # Debian's cc/c++ names commonly traverse /etc/alternatives, which is
+        # intentionally absent from the update container. Resolve the trusted
+        # host compiler targets before entering the sandbox.
+        compiler = _trusted_system_build_tool("cc")
+        rust_linker_variable = (
+            "CARGO_TARGET_"
+            f"{_trusted_rust_host().upper().replace('-', '_')}"
+            "_LINKER"
+        )
+        environment += (
+            f"CC={compiler}",
+            f"CXX={_trusted_system_build_tool('c++')}",
+            f"{rust_linker_variable}={compiler}",
+            f"XDG_CACHE_HOME={Path.home() / '.cache'}",
+        )
     if gate_name == "browser_e2e":
         playwright = Path.home() / "AI_Workspace_Runtimes/playwright"
         if not playwright.is_dir() or playwright.is_symlink():
@@ -135,7 +187,10 @@ def _gate_command(gate_name: str, gate_script: Path) -> tuple[str, ...]:
 def _mandatory_gates() -> tuple[ValidationGate, ...]:
     gate_script = (REPOSITORY_ROOT / "scripts/self_update_gate.sh").resolve(strict=True)
     long_running = {"database", "desktop", "browser_e2e", "release"}
-    networked = {"security", "release"}
+    # Expo Doctor validates the mobile manifest and dependency metadata against
+    # Expo's API.  Keep network access limited to this platform gate plus the
+    # security and combined release gates that already require remote metadata.
+    networked = {"mobile", "security", "release"}
     return tuple(
         ValidationGate(
             name=name,

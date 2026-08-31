@@ -7,6 +7,13 @@ mobile_root="${repository_root}/apps/mobile"
 native_mode="if-available"
 output_apk=""
 
+if [[ "${WORK_STATION_ISOLATED_UPDATE_VALIDATION:-}" == "1" ]]; then
+  isolated_mobile_home="$(mktemp -d /tmp/work-station-mobile-home.XXXXXX)"
+  export CI=1
+  export EXPO_NO_TELEMETRY=1
+  export HOME="${isolated_mobile_home}"
+fi
+
 usage() {
   cat <<'EOF'
 Usage: ./scripts/mobile_check.sh [--require-native-android|--skip-native-android]

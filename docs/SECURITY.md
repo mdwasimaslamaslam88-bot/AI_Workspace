@@ -147,6 +147,15 @@ resource URLs; it also inspects Cache Storage to prove no `/api/` response was
 persisted. Logout revokes the temporary device session before the browser and
 database are removed.
 
+Inside the networkless update container, browser chat uses a bounded
+Ollama-compatible loopback fixture and a simulated hardware profile so the real
+catalog, fail-closed admission, routing and generation API can be exercised
+without mounting the host GPU or production model service. The fixture binds
+only `127.0.0.1`, accepts three fixed protocol paths, has a 1 MiB request cap,
+logs no prompts, and is explicitly excluded from benchmark and hardware-run
+claims. Disposable hardware, external-provider and update state paths prevent
+the gate from reading or mutating production state.
+
 ## Residual external risks
 
 Owner devices and the Tailscale account must use strong OS authentication and

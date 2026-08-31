@@ -64,8 +64,8 @@ prompts and responses, and never accepted through a custom provider URL.
 The final local release matrix passed with the production runtime enabled and
 with native Android and desktop-launch gates required. Measured results were:
 
-- backend: 2,834 passed, 36 skipped
-- web: 153 tests passed; mobile: 52 tests passed
+- backend: 2,839 passed, 36 skipped
+- web: 154 tests passed; mobile: 52 tests passed
 - Android: Expo Doctor 21/21 and 338 Gradle tasks; signed/aligned APK contract
 - PostgreSQL integration: 36 tests passed
 - browser/PWA install, authenticated chat, cache isolation and logout: passed

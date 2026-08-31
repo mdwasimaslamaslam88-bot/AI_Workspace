@@ -37,12 +37,26 @@ with reflink-on-write when supported, never hard-linked. Every gate runs through
 a pinned Docker image with no capabilities, a read-only container root,
 bounded tasks/memory/CPU/time and temporary storage, no Docker socket, and only
 the candidate writable. The owner home is absent except for exact gate-specific
-read-only mounts. Network is disabled except for the fixed security and
-combined release gates that require dependency advisory access. Read-only
+read-only mounts. Network is disabled except for the mobile gate's Expo API
+metadata checks and the fixed security and combined release gates that require
+dependency advisory access. The mobile gate uses a private temporary home and
+disables Expo telemetry. Read-only
 runtime mounts are gate-specific: Playwright for the browser gate, and the Rust
 registry/toolchain plus pinned Tauri cache/sysroot for desktop/release;
-unrelated runtime and Cargo state is not exposed. If the pinned image or Docker
+the release gate additionally receives the installed Tailscale runtime needed
+to verify the exact service `ExecStart`. Unrelated runtime and Cargo state is
+not exposed. If the pinned image or Docker
 boundary is unavailable, the candidate gate fails closed.
+
+The no-network browser gate starts a deterministic Ollama-compatible server on
+a random loopback port and places a clearly named simulated GPU detector ahead
+of the system detector only for that disposable backend. The real catalog,
+hardware admission, task routing, conversation API and compiled PWA still run;
+only model inference and physical GPU access are fixtures. This proves the
+isolated browser contract without reaching production Ollama and is never used
+as model-quality, benchmark or real-hardware evidence. Its database, hardware,
+external-provider and self-update state roots all live under the disposable
+gate directory.
 
 Legacy generated-code checks that normally create a nested user-systemd
 sandbox detect this verified outer update container and execute there under

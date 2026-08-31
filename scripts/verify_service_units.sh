@@ -30,7 +30,9 @@ cp "${repository_root}/deploy/systemd/work-station-health.service" \
   "${repository_root}/deploy/systemd/work-station-remote-health.timer" \
   "${repository_root}/deploy/systemd/work-station.target" \
   "${temporary_units}/"
-systemd-analyze --user verify "${temporary_units}"/*
+mkdir -m 700 "${temporary_units}/.runtime"
+XDG_RUNTIME_DIR="${temporary_units}/.runtime" \
+  systemd-analyze --user verify "${temporary_units}"/*
 if rg -q 'work-station-(backup|technology-watch)' \
   "${temporary_units}/work-station.target"; then
   echo "Opt-in backup and technology timers must not be part of work-station.target." >&2

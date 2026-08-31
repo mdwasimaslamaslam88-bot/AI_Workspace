@@ -256,6 +256,19 @@ describe("App integration", () => {
     expect(screen.getByRole("heading", { name: /Connect to your Personal AI/ })).toBeVisible();
   });
 
+  it("reports the authenticated private backend as connected without internet", async () => {
+    writeSessionToken(token);
+    installWorkspaceFetch();
+    render(<App />);
+    await screen.findByText(user.id);
+
+    act(() => window.dispatchEvent(new Event("offline")));
+
+    expect(screen.getByLabelText("Connection status")).toHaveTextContent(
+      "Connected",
+    );
+  });
+
   it("debounces all-history search and keeps the private term out of the URL", async () => {
     writeSessionToken(token);
     const workspace = installWorkspaceFetch();

@@ -1481,12 +1481,12 @@ export function App() {
       <section className="workspace-main">
         <header className="workspace-toolbar">
           <span
-            className={`connection-status ${online ? "connection-online" : "connection-offline"}`}
+            className="connection-status connection-online"
             aria-label="Connection status"
             aria-live="polite"
           >
             <span aria-hidden="true" />
-            {online ? "Connected" : "Offline"}
+            Connected
           </span>
           <button
             type="button"

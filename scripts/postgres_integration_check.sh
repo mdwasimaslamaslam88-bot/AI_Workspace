@@ -11,6 +11,7 @@ run_benchmark=false
 run_massive_benchmark=false
 run_model_candidate_benchmark=false
 e2e_backend_pid=""
+isolated_ollama_pid=""
 
 usage() {
   cat <<'EOF'
@@ -73,6 +74,43 @@ stop_e2e_backend() {
     wait "${e2e_backend_pid}" 2>/dev/null || true
   fi
   e2e_backend_pid=""
+  if [[ -n "${isolated_ollama_pid}" ]] && kill -0 "${isolated_ollama_pid}" 2>/dev/null; then
+    kill -TERM "${isolated_ollama_pid}" 2>/dev/null || true
+    wait "${isolated_ollama_pid}" 2>/dev/null || true
+  fi
+  isolated_ollama_pid=""
+}
+
+print_sanitized_backend_failure() {
+  WORK_STATION_FAILURE_LOG="${backend_log}" \
+  WORK_STATION_FAILURE_DATABASE_URL="${ephemeral_url}" \
+  WORK_STATION_FAILURE_DATABASE_PASSWORD="${cluster_password}" \
+  WORK_STATION_FAILURE_PROVISIONING_TOKEN="${e2e_provisioning_token}" \
+  WORK_STATION_FAILURE_PROVISIONING_DIGEST="${e2e_provisioning_digest}" \
+  WORK_STATION_FAILURE_REPOSITORY_ROOT="${repository_root}" \
+  WORK_STATION_FAILURE_TEMPORARY_ROOT="${cluster_root}" \
+    "${backend_python}" - <<'PY'
+import os
+from pathlib import Path
+
+path = Path(os.environ["WORK_STATION_FAILURE_LOG"])
+try:
+    content = path.read_text(encoding="utf-8", errors="replace")
+except OSError:
+    raise SystemExit(0)
+for key, replacement in (
+    ("WORK_STATION_FAILURE_DATABASE_URL", "[disposable-database-url]"),
+    ("WORK_STATION_FAILURE_DATABASE_PASSWORD", "[disposable-database-password]"),
+    ("WORK_STATION_FAILURE_PROVISIONING_TOKEN", "[disposable-provisioning-token]"),
+    ("WORK_STATION_FAILURE_PROVISIONING_DIGEST", "[disposable-provisioning-digest]"),
+    ("WORK_STATION_FAILURE_REPOSITORY_ROOT", "[workspace]"),
+    ("WORK_STATION_FAILURE_TEMPORARY_ROOT", "[temporary-root]"),
+):
+    sensitive = os.environ.get(key, "")
+    if sensitive:
+        content = content.replace(sensitive, replacement)
+print(content[-4000:], end="")
+PY
 }
 
 cleanup_cluster() {
@@ -157,8 +195,8 @@ if [[ "${run_integration}" == true ]]; then
     export RUN_DATABASE_INTEGRATION_TESTS=true
     export TEST_DATABASE_URL="${ephemeral_url}"
     cd backend
-    .venv/bin/alembic upgrade head
-    .venv/bin/alembic check
+    .venv/bin/python -m alembic upgrade head
+    .venv/bin/python -m alembic check
   )
 fi
 
@@ -169,7 +207,7 @@ if [[ "${run_runtime}" == true || "${run_browser}" == true ||
     export RUN_DATABASE_INTEGRATION_TESTS=true
     export TEST_DATABASE_URL="${ephemeral_url}"
     cd backend
-    .venv/bin/alembic upgrade head
+    .venv/bin/python -m alembic upgrade head
   )
 fi
 
@@ -204,6 +242,41 @@ JS
   asset_root="${cluster_root}/assets"
   backend_log="${cluster_root}/backend.log"
   mkdir -m 700 "${web_root}" "${asset_root}"
+
+  isolated_fixture_bin=""
+  isolated_ollama_origin=""
+  isolated_ollama_reference="work-station-update-smoke:latest"
+  if [[ "${run_browser}" == true && "${WORK_STATION_ISOLATED_UPDATE_VALIDATION:-}" == "1" ]]; then
+    isolated_fixture_bin="${cluster_root}/isolated-fixture-bin"
+    mkdir -m 700 "${isolated_fixture_bin}"
+    ln --symbolic \
+      "${repository_root}/backend/scripts/isolated_update_nvidia_smi.py" \
+      "${isolated_fixture_bin}/nvidia-smi"
+    isolated_ollama_port="$(choose_loopback_port)"
+    [[ "${isolated_ollama_port}" =~ ^[0-9]+$ ]]
+    isolated_ollama_origin="http://127.0.0.1:${isolated_ollama_port}"
+    "${backend_python}" \
+      "${repository_root}/backend/scripts/isolated_update_ollama.py" \
+      --port "${isolated_ollama_port}" \
+      >"${cluster_root}/isolated-ollama.log" 2>&1 &
+    isolated_ollama_pid=$!
+    isolated_ollama_ready=false
+    for _attempt in $(seq 1 40); do
+      if ! kill -0 "${isolated_ollama_pid}" 2>/dev/null; then
+        break
+      fi
+      if curl --fail --silent --show-error \
+        "${isolated_ollama_origin}/api/tags" >/dev/null 2>&1; then
+        isolated_ollama_ready=true
+        break
+      fi
+      sleep 0.1
+    done
+    if [[ "${isolated_ollama_ready}" != true ]]; then
+      echo "The loopback-only isolated model fixture did not become ready." >&2
+      exit 1
+    fi
+  fi
 
   if [[ "${run_browser}" == true || "${run_benchmark}" == true ]]; then
     if ! (
@@ -241,9 +314,45 @@ PY
     export BACKEND_CORS_ORIGINS="[\"${api_origin}\"]"
     export DATABASE_SSL_MODE=disable
     export DATABASE_URL="${ephemeral_url}"
+    export EXTERNAL_AI_STATE_ROOT="${cluster_root}/external-ai"
+    export HARDWARE_STATE_PATH="${cluster_root}/hardware-capability.json"
     export REMOTE_GATEWAY_MODE=local
+    export SELF_UPDATE_STATE_ROOT="${cluster_root}/self-update"
     export USER_PROVISIONING_TOKEN_DIGEST="${e2e_provisioning_digest}"
     export WORK_STATION_WEB_ROOT="${web_root}"
+    if [[ -n "${isolated_ollama_origin}" ]]; then
+      export PATH="${isolated_fixture_bin}:${PATH}"
+      export OLLAMA_BASE_URL="${isolated_ollama_origin}"
+      export OLLAMA_EMBEDDING_MODEL="${isolated_ollama_reference}"
+      export OLLAMA_LOCAL_MODEL_ALLOWLIST="[\"${isolated_ollama_reference}\"]"
+      export OLLAMA_TASK_MODEL_PREFERENCES="$(
+        ISOLATED_OLLAMA_REFERENCE="${isolated_ollama_reference}" \
+          "${backend_python}" - <<'PY'
+import json
+import os
+
+reference = os.environ["ISOLATED_OLLAMA_REFERENCE"]
+tasks = (
+    "general_chat",
+    "reasoning",
+    "mathematics",
+    "coding",
+    "debugging",
+    "code_generation",
+    "expert_analysis",
+    "vision",
+    "rag",
+    "memory",
+    "summarization",
+    "tool_calling",
+    "workflow_planning",
+    "long_context",
+    "exact_output",
+)
+print(json.dumps({task: reference for task in tasks}, separators=(",", ":")))
+PY
+      )"
+    fi
     cd backend
     uvicorn_arguments=(
       app.main:app
@@ -277,6 +386,7 @@ PY
     sleep 0.25
   done
   if [[ "${backend_ready}" != true ]]; then
+    print_sanitized_backend_failure >&2
     echo "The isolated browser backend did not become ready." >&2
     exit 1
   fi
