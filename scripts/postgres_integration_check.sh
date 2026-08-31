@@ -186,6 +186,7 @@ fi
 
 if [[ "${run_integration}" == true ]]; then
   (
+    export DATABASE_SSL_MODE=disable
     export RUN_DATABASE_INTEGRATION_TESTS=true
     export WORK_STATION_EPHEMERAL_TEST_DATABASE_URL="${ephemeral_url}"
     cd backend
