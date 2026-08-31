@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import os
 import re
 import shutil
 import subprocess
@@ -686,6 +687,32 @@ def _run_sandboxed(
     *,
     input_text: str | None = None,
 ) -> subprocess.CompletedProcess[str]:
+    if os.environ.get("WORK_STATION_ISOLATED_UPDATE_VALIDATION") == "1":
+        if not Path("/.dockerenv").is_file():
+            return subprocess.CompletedProcess(
+                command,
+                125,
+                "",
+                "verified outer update sandbox is unavailable",
+            )
+        return subprocess.run(
+            (
+                "/usr/bin/prlimit",
+                "--as=536870912",
+                "--nproc=64",
+                "--fsize=134217728",
+                f"--cpu={SANDBOX_TIMEOUT_SECONDS}",
+                "--",
+                *command,
+            ),
+            cwd=root,
+            env={"HOME": "/tmp", "PATH": "/usr/bin:/bin"},
+            input=input_text,
+            capture_output=True,
+            text=True,
+            timeout=SANDBOX_TIMEOUT_SECONDS + 5,
+            check=False,
+        )
     sandbox = (
         "/usr/bin/systemd-run",
         "--user",

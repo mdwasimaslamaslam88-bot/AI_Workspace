@@ -16,8 +16,9 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPOSITORY_ROOT / "backend"))
 _NODE_VERSION = re.compile(r"v([0-9]+)\.([0-9]+)\.([0-9]+)\Z")
 _NODE_GATES = frozenset(
-    {"web", "mobile", "desktop", "browser_e2e", "security", "release"}
+    {"backend", "web", "mobile", "desktop", "browser_e2e", "security", "release"}
 )
+_RUST_GATES = frozenset({"backend", "desktop", "release"})
 _RG_GATES = frozenset(
     {"mobile", "desktop", "browser_e2e", "security", "release"}
 )
@@ -89,11 +90,14 @@ def _runtime_paths(gate_name: str) -> tuple[Path, ...]:
         paths += _safe_existing_paths(Path(rg_binary).resolve().parent)
     if gate_name == "browser_e2e":
         paths += _safe_existing_paths(runtime_root / "playwright")
-    if gate_name in {"desktop", "release"}:
+    if gate_name in _RUST_GATES:
         paths += _safe_existing_paths(
             Path.home() / ".cargo/bin",
-            Path.home() / ".cargo/registry",
             Path.home() / ".rustup",
+        )
+    if gate_name in {"desktop", "release"}:
+        paths += _safe_existing_paths(
+            Path.home() / ".cargo/registry",
             Path.home() / ".cache/tauri",
             runtime_root / "tauri-sysroot",
         )
@@ -104,6 +108,8 @@ def _gate_command(gate_name: str, gate_script: Path) -> tuple[str, ...]:
     path_parts = []
     if gate_name in _NODE_GATES:
         path_parts.append(str(_trusted_node_runtime() / "bin"))
+    if gate_name in _RUST_GATES:
+        path_parts.append(str(Path.home() / ".cargo/bin"))
     rg_binary = shutil.which("rg")
     if gate_name in _RG_GATES and rg_binary is not None:
         path_parts.append(str(Path(rg_binary).resolve().parent))

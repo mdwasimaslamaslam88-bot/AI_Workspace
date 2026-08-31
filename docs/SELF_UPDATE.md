@@ -44,6 +44,12 @@ registry/toolchain plus pinned Tauri cache/sysroot for desktop/release;
 unrelated runtime and Cargo state is not exposed. If the pinned image or Docker
 boundary is unavailable, the candidate gate fails closed.
 
+Legacy generated-code checks that normally create a nested user-systemd
+sandbox detect this verified outer update container and execute there under
+additional `prlimit` memory, process, file-size and CPU bounds. The fallback is
+accepted only when both the fixed update marker and Docker containment are
+present; otherwise it fails closed or retains the normal systemd boundary.
+
 READY requires all named gates: source, backend, database, web, mobile, desktop,
 browser E2E, RAG/memory, vision/image/voice, tools/workflows/agents,
 routing/admission/hardware, API fallback, self-update, security, performance,

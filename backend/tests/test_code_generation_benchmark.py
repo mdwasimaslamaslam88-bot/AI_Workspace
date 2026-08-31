@@ -1,4 +1,7 @@
 from pathlib import Path
+import subprocess
+
+from scripts import code_generation_benchmark
 
 from scripts.code_generation_benchmark import (
     build_code_generation_cases,
@@ -113,3 +116,24 @@ def test_verifier_evidence_redacts_disposable_filesystem_paths():
     serialized = str(result["evidence"])
     assert result["passed"] is False
     assert "/tmp/" not in serialized
+
+
+def test_verified_outer_update_sandbox_uses_bounded_direct_execution(
+    monkeypatch,
+    tmp_path,
+):
+    monkeypatch.setenv("WORK_STATION_ISOLATED_UPDATE_VALIDATION", "1")
+    original_is_file = Path.is_file
+
+    def is_file(path):
+        return True if str(path) == "/.dockerenv" else original_is_file(path)
+
+    monkeypatch.setattr(Path, "is_file", is_file)
+    completed = code_generation_benchmark._run_sandboxed(
+        ("/usr/bin/printf", "PASS"),
+        tmp_path,
+    )
+
+    assert isinstance(completed, subprocess.CompletedProcess)
+    assert completed.returncode == 0
+    assert completed.stdout == "PASS"
