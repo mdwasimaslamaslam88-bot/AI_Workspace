@@ -192,6 +192,7 @@ if [[ "${run_integration}" == true ]]; then
     exec .venv/bin/python tests/db/run_postgres_integration.py
   )
   (
+    export DATABASE_SSL_MODE=disable
     export RUN_DATABASE_INTEGRATION_TESTS=true
     export TEST_DATABASE_URL="${ephemeral_url}"
     cd backend
@@ -204,6 +205,7 @@ if [[ "${run_runtime}" == true || "${run_browser}" == true ||
   "${run_benchmark}" == true || "${run_massive_benchmark}" == true ||
   "${run_model_candidate_benchmark}" == true ]]; then
   (
+    export DATABASE_SSL_MODE=disable
     export RUN_DATABASE_INTEGRATION_TESTS=true
     export TEST_DATABASE_URL="${ephemeral_url}"
     cd backend
