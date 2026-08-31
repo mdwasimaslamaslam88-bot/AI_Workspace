@@ -29,6 +29,11 @@ never a command argument or report. The output contains:
 - `manifest.json`: format, timestamp, commit, and component names only
 - `SHA256SUMS`: integrity checks
 
+The published backup directory is mode `0700` and every contained dump,
+archive, manifest and checksum file is mode `0600`. Independent verification
+rejects permissive files, links and non-regular entries as well as content
+integrity failures.
+
 Every creation verifies all hashes, rejects extra/unsafe archive members, and
 asks `pg_restore` to parse the dump before publishing the timestamped backup
 directory. `verify_backup.sh` provides the same independent validation later.

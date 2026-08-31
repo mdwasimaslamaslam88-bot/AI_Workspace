@@ -114,6 +114,14 @@ def _write_checksums(directory: Path, names: list[str]) -> None:
     (directory / "SHA256SUMS").write_text(content, encoding="ascii")
 
 
+def _make_backup_tree_owner_only(directory: Path) -> None:
+    directory.chmod(0o700)
+    for item in directory.iterdir():
+        if item.is_symlink() or not item.is_file():
+            raise BackupError("The backup contains an unsafe filesystem entry.")
+        item.chmod(0o600)
+
+
 def _validate_backup_destination(destination: Path, configured: Settings) -> Path:
     expanded_destination = destination.expanduser()
     if expanded_destination.is_symlink():
@@ -193,6 +201,7 @@ def create_backup(destination: Path) -> Path:
         )
         checksummed_names.append("manifest.json")
         _write_checksums(temporary_directory, checksummed_names)
+        _make_backup_tree_owner_only(temporary_directory)
         verify_backup(temporary_directory)
         temporary_directory.rename(final_directory)
         return final_directory
@@ -223,8 +232,15 @@ def _safe_archive_members(archive: tarfile.TarFile) -> list[tarfile.TarInfo]:
 
 
 def verify_backup(backup_directory: Path) -> dict[str, object]:
-    backup_directory = backup_directory.expanduser().resolve()
-    if backup_directory.is_symlink() or not backup_directory.is_dir():
+    expanded_directory = backup_directory.expanduser()
+    if expanded_directory.is_symlink():
+        raise BackupError("The backup path must be a regular directory.")
+    backup_directory = expanded_directory.resolve()
+    if (
+        backup_directory.is_symlink()
+        or not backup_directory.is_dir()
+        or stat.S_IMODE(backup_directory.stat().st_mode) & 0o077
+    ):
         raise BackupError("The backup path must be a regular directory.")
     required = {"database.dump", "manifest.json", "SHA256SUMS"}
     existing = {item.name for item in backup_directory.iterdir()}
@@ -232,6 +248,14 @@ def verify_backup(backup_directory: Path) -> dict[str, object]:
         raise BackupError("The backup is missing required files.")
     if existing - (required | {"assets.tar.gz"}):
         raise BackupError("The backup contains unexpected files.")
+    for item in backup_directory.iterdir():
+        metadata = item.lstat()
+        if (
+            stat.S_ISLNK(metadata.st_mode)
+            or not stat.S_ISREG(metadata.st_mode)
+            or stat.S_IMODE(metadata.st_mode) & 0o077
+        ):
+            raise BackupError("Backup files must be regular and owner-only.")
 
     try:
         manifest = json.loads(

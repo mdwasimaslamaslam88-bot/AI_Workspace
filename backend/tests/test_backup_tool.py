@@ -19,7 +19,7 @@ _SPEC.loader.exec_module(backup_tool)
 
 def _write_verified_fixture(root: Path, *, unsafe_member: str | None = None) -> Path:
     backup = root / "work-station-test"
-    backup.mkdir()
+    backup.mkdir(mode=0o700)
     (backup / "database.dump").write_bytes(b"bounded postgres archive")
     with tarfile.open(backup / "assets.tar.gz", "w:gz") as archive:
         data = b"private owner asset"
@@ -39,6 +39,7 @@ def _write_verified_fixture(root: Path, *, unsafe_member: str | None = None) -> 
         backup,
         ["database.dump", "assets.tar.gz", "manifest.json"],
     )
+    backup_tool._make_backup_tree_owner_only(backup)
     return backup
 
 
@@ -119,8 +120,29 @@ def test_created_backup_is_verified_before_it_is_published(monkeypatch, tmp_path
 
     assert created.parent == destination
     assert created.is_dir()
+    assert created.stat().st_mode & 0o777 == 0o700
+    assert all(item.stat().st_mode & 0o777 == 0o600 for item in created.iterdir())
     assert commands == ["pg_dump", "pg_restore"]
     assert not list(destination.glob(".work-station-backup-*"))
+
+
+def test_backup_verification_rejects_permissive_files(tmp_path, monkeypatch):
+    backup = _write_verified_fixture(tmp_path)
+    monkeypatch.setattr(backup_tool, "_run_private", lambda *_args: None)
+    (backup / "database.dump").chmod(0o640)
+
+    with pytest.raises(backup_tool.BackupError, match="owner-only"):
+        backup_tool.verify_backup(backup)
+
+
+def test_backup_verification_rejects_directory_symlink(tmp_path, monkeypatch):
+    backup = _write_verified_fixture(tmp_path)
+    monkeypatch.setattr(backup_tool, "_run_private", lambda *_args: None)
+    linked = tmp_path / "linked-backup"
+    linked.symlink_to(backup, target_is_directory=True)
+
+    with pytest.raises(backup_tool.BackupError, match="regular directory"):
+        backup_tool.verify_backup(linked)
 
 
 def test_backup_destination_must_be_private_and_outside_assets(monkeypatch, tmp_path):
