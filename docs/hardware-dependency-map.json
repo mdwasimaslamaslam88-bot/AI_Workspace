@@ -86,7 +86,7 @@
   "current_fixed_values_that_are_policy_not_architecture": [
     {
       "location": "backend/.env",
-      "values": "current allowlist, evidence-backed task preferences, embedding model and SDXL fallback",
+      "values": "current allowlist, evidence-backed task preferences, embedding model, FLUX.2 route and SDXL fallback",
       "behavior": "replaceable structured configuration; ignored by source control"
     },
     {

@@ -59,7 +59,7 @@ complete-category benchmark record exactly matches the model policy. Provider
 keys are XChaCha20-Poly1305 encrypted, write-only through clients, excluded from
 prompts and responses, and never accepted through a custom provider URL.
 
-## Verified production evidence (2026-08-31)
+## Verified production evidence (2026-09-01)
 
 The final local release matrix passed with the production runtime enabled and
 with native Android and desktop-launch gates required. Measured results were:
@@ -69,17 +69,19 @@ with native Android and desktop-launch gates required. Measured results were:
 - Android: Expo Doctor 21/21 and 338 Gradle tasks; signed/aligned APK contract
 - PostgreSQL integration: 36 tests passed
 - browser/PWA install, authenticated chat, cache isolation and logout: passed
-- real vision, RAG, memory, image generation/editing/inpainting, voice,
+- real vision, RAG, memory, FLUX.2 image generation/editing/inpainting, voice,
   tools and workflows: passed
-- canonical quality benchmark: 459 tests, 97.74/100, 455 PASS, 3 PARTIAL,
+- canonical quality benchmark: 459 tests, 97.88/100, 457 PASS, 1 PARTIAL,
   1 FAIL, safety 100%, hallucination 0%, executable code 24/24
 - massive stability run: 10,000/10,000 passed
 
-The previously recorded quality score was 97.76. The authoritative final run
-was 97.74 with the same PASS/PARTIAL/FAIL counts; no expected answer, scoring
-rule, generated artifact or production output was altered to conceal that
-measured variance. The four remaining non-passes are retained in the external
-benchmark failure inventory.
+The Phase 1 baseline was 97.74 with 455 PASS, 3 PARTIAL, and 1 FAIL. The
+content-addressed FLUX.2 Klein Base 4B FP8 route fixed both image non-passes;
+the complete image category rose from 93.88 to 99.42 with all 13 image cases
+passing. Text routing remained unchanged because no tested profile/model fixed
+the two remaining exact-form cases without violating the complete-category
+admission rules. No expected answer, scoring rule, generated artifact, or
+production output was altered. See `AI_QUALITY_PHASE1.md` for exact evidence.
 
 ## Persistence and boundaries
 

@@ -18,10 +18,12 @@ Installing a larger model does not automatically displace a proven smaller model
 The candidate must be verified, admitted, benchmarked on the complete relevant
 category, stable, and then selected by policy.
 
-Image selection is capability-based through `ImageModelContract`. SDXL Base 1.0
-remains the current verified fallback; Lightning, FLUX-family, and future models
-require their own verified workflow adapter and admission metadata. Vision input
-and image generation/editing remain separate capabilities.
+Image selection is capability-based through `ImageModelContract`. The current
+route is FLUX.2 Klein Base 4B FP8 through its fixed, integrity-checked ComfyUI
+generation/reference-edit/inpainting adapter. SDXL Base 1.0 remains the verified
+fallback. Lightning and future image families require their own verified
+workflow adapter, artifact manifest, complete-category evidence, and admission
+metadata. Vision input and image generation/editing remain separate capabilities.
 
 Ollama, ComfyUI, speech runtimes, and future inference servers are adapters below
 the catalog. Frontend, API, database, RAG, memory, conversation, tool, and workflow
@@ -51,3 +53,18 @@ matrix fingerprint from the production baselines and was conservatively
 excluded rather than compared across incompatible matrices. These exclusions
 are preserved in `current-hardware-model-discovery.json`; the resulting routing
 recommendation contains no changes.
+
+## Phase 1 image admission evidence (2026-09-01)
+
+The unchanged 459-case benchmark admitted FLUX.2 Klein Base 4B FP8 after all 13
+image cases passed and the image score rose from 93.88 to 99.42. The previously
+partial single-object and masked-inpainting cases became PASS. The production
+runtime smoke also passed generation, img2img, inpainting, owner isolation,
+provenance, cleanup, and clean shutdown with 10,940 MiB peak process GPU memory.
+The model is admitted as `runnable_with_offload`, with one-operation concurrency,
+the unchanged 1.5 GiB ComfyUI reserve, and measured `acceptable` performance.
+
+Text candidates did not qualify. Qwen 2.5 Coder 7B remains the coding route;
+Qwen 3 8B remains the reasoning, mathematics, debugging, expert-analysis, and
+exact-output route; Gemma 4 12B remains the executable-code route. The exact
+candidate matrix and remaining limitations are in `AI_QUALITY_PHASE1.md`.

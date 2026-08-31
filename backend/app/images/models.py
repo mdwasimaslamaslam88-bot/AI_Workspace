@@ -3,7 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import StrEnum
 
-from app.hardware.planner import GIBIBYTE
+from app.ai.admission import PerformanceClass
+from app.hardware.planner import GIBIBYTE, OffloadPolicy
 
 
 class ImageModelStatus(StrEnum):
@@ -11,6 +12,14 @@ class ImageModelStatus(StrEnum):
     VERIFICATION_REQUIRED = "verification_required"
     NOT_INSTALLED = "not_installed"
     FUTURE_CAPABLE = "future_capable"
+
+
+@dataclass(frozen=True, slots=True)
+class ImageModelArtifact:
+    role: str
+    filename: str
+    size_bytes: int
+    sha256: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -30,6 +39,11 @@ class ImageModelContract:
     installed: bool
     verified: bool
     adapter_supported: bool
+    minimum_vram_bytes: int | None = None
+    offload_required_ram_bytes: int | None = None
+    offload_policy: OffloadPolicy = OffloadPolicy.NONE
+    offload_performance: PerformanceClass = PerformanceClass.UNSUPPORTED
+    artifacts: tuple[ImageModelArtifact, ...] = ()
 
     @property
     def status(self) -> ImageModelStatus:
@@ -59,6 +73,56 @@ IMAGE_MODEL_CONTRACTS = (
         installed=True,
         verified=True,
         adapter_supported=True,
+    ),
+    ImageModelContract(
+        profile_id="flux2-klein-base-4b-fp8",
+        display_name="FLUX.2 Klein Base 4B FP8",
+        family="FLUX.2 Klein",
+        parameter_class="4B",
+        runtime="comfyui",
+        workflow_adapter="comfyui-flux2-klein-base",
+        precision="FP8",
+        maximum_resolution=1_024,
+        required_vram_bytes=23 * GIBIBYTE // 2,
+        required_ram_bytes=32 * GIBIBYTE,
+        generation=True,
+        editing=True,
+        installed=True,
+        verified=True,
+        adapter_supported=True,
+        minimum_vram_bytes=21 * GIBIBYTE // 2,
+        offload_required_ram_bytes=32 * GIBIBYTE,
+        offload_policy=OffloadPolicy.CPU,
+        offload_performance=PerformanceClass.ACCEPTABLE,
+        artifacts=(
+            ImageModelArtifact(
+                role="diffusion_model",
+                filename="flux-2-klein-base-4b-fp8.safetensors",
+                size_bytes=4_089_498_488,
+                sha256=(
+                    "44bab3a86fe98b85d21dd2a4729ebdc3"
+                    "ae51fb8a39f76e457e18c724219e6840"
+                ),
+            ),
+            ImageModelArtifact(
+                role="text_encoder",
+                filename="qwen_3_4b.safetensors",
+                size_bytes=8_044_982_048,
+                sha256=(
+                    "6c671498573ac2f7a5501502ccce8d2b"
+                    "08ea6ca2f661c458e708f36b36edfc5a"
+                ),
+            ),
+            ImageModelArtifact(
+                role="vae",
+                filename="flux2-vae.safetensors",
+                size_bytes=336_213_556,
+                sha256=(
+                    "d64f3a68e1cc4f9f4e29b6e0da38a02"
+                    "04fe9a49f2d4053f0ec1fa1ca02f9c4b5"
+                ),
+            ),
+        ),
     ),
     ImageModelContract(
         profile_id="sdxl-lightning-lora",

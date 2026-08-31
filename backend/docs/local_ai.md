@@ -476,8 +476,9 @@ ComfyUI editing, and CUDA speech recognition. Those paths finish owner/model
 and bounded-input validation, end database reads, and then acquire the shared
 permit immediately around GPU execution. A busy gate returns a fixed HTTP 429
 without invoking the runtime or persisting generated output. With the default
-capacity of one, Ollama, SDXL, and faster-whisper therefore cannot be loaded by
-overlapping application requests. Piper synthesis is CPU-only and retains its
+capacity of one, Ollama, ComfyUI image inference, and faster-whisper therefore
+cannot be loaded by overlapping application requests. Piper synthesis is
+CPU-only and retains its
 own bounded process concurrency. A future larger or multi-GPU workstation can
 raise the existing capacity setting after inventory re-detection without an
 API, schema, or frontend change.
@@ -661,11 +662,14 @@ the fixed img2img or inpainting graph. Callers cannot submit nodes, workflows,
 paths, filenames, output locations, custom code, or arbitrary ComfyUI options.
 The adapter permits one operation per process, bounds every transport response,
 sets a total deadline, targets cancellation by an application-generated UUID,
-sanitizes PNG metadata, deletes runtime input/output/history, and requests model unload
-and GPU-memory release after every terminal path. The pinned ComfyUI v0.33.1,
-PyTorch 2.11.0+cu130, and SDXL Base 1.0 runtime passed real generation, img2img,
-and masked-inpainting validation on the RTX 3060 with 8,392 MiB peak process
-memory and 100 percent GPU utilization. It also shares the fail-fast
+sanitizes PNG metadata, deletes runtime input/output/history, and requests model
+unload and GPU-memory release after every terminal path. SDXL uses its fixed
+checkpoint graph. FLUX.2 Klein Base 4B FP8 uses exact integrity manifests for
+the diffusion model, text encoder, and VAE plus fixed generation,
+reference-edit, and mask-enforced inpainting graphs. The pinned ComfyUI v0.33.1,
+PyTorch 2.11.0+cu130, and FLUX.2 runtime passed real generation, img2img, and
+masked-inpainting validation on the RTX 3060 with 10,940 MiB peak process memory
+and 100 percent GPU utilization. It also shares the fail-fast
 process-wide GPU admission controller with Ollama and CUDA speech recognition,
 so the current single-GPU configuration cannot overlap their large allocations.
 

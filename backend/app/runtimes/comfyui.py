@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable, Mapping
+import hashlib
 import json
 import math
 import os
@@ -38,6 +39,12 @@ MAX_NEGATIVE_PROMPT_CHARACTERS = 1_000
 MAX_IMAGE_RUNTIME_SECONDS = 600.0
 _CHECKPOINT_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ -]{0,199}\.safetensors$")
 _COMFY_FILENAME_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._ -]{0,239}$")
+_FLUX2_ADAPTER = "comfyui-flux2-klein-base"
+_ARTIFACT_DIRECTORIES = {
+    "diffusion_model": "diffusion_models",
+    "text_encoder": "text_encoders",
+    "vae": "vae",
+}
 
 
 def _require_directory(path: Path, name: str) -> Path:
@@ -60,6 +67,14 @@ def _require_file(path: Path, name: str) -> Path:
     if not resolved.is_file():
         raise ValueError(f"{name} must be a regular file")
     return resolved
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        while chunk := stream.read(8 * 1024 * 1024):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def _validate_prompt(value: str, *, maximum: int, name: str) -> str:
@@ -158,17 +173,45 @@ class ComfyUIImageRuntime:
                 raise ValueError(f"ComfyUI {name} must be positive")
 
         self.client = client
+        self.model_contract = contract
         self.checkpoint = _require_file(checkpoint, "ComfyUI checkpoint")
         if _CHECKPOINT_PATTERN.fullmatch(self.checkpoint.name) is None:
             raise ValueError("ComfyUI checkpoint name is unsafe")
+        self.model_files = self._verified_model_files()
         self.input_root = _require_directory(input_root, "ComfyUI input root")
         self.temp_root = _require_directory(temp_root, "ComfyUI temp root")
         self.model_reference = model_reference
-        self.model_contract = contract
         self.timeout_seconds = float(timeout_seconds)
         self.required_vram_bytes = required_vram_bytes
         self.required_ram_bytes = required_ram_bytes
         self._admission = asyncio.Semaphore(max_active)
+
+    def _verified_model_files(self) -> dict[str, Path]:
+        artifacts = self.model_contract.artifacts
+        if not artifacts:
+            return {"checkpoint": self.checkpoint}
+        if {artifact.role for artifact in artifacts} != set(_ARTIFACT_DIRECTORIES):
+            raise ValueError("image model artifact manifest is incomplete")
+        model_root = self.checkpoint.parent.parent
+        verified: dict[str, Path] = {}
+        for artifact in artifacts:
+            directory = _ARTIFACT_DIRECTORIES[artifact.role]
+            path = _require_file(
+                model_root / directory / artifact.filename,
+                f"ComfyUI {artifact.role}",
+            )
+            if (
+                _CHECKPOINT_PATTERN.fullmatch(path.name) is None
+                or path.stat().st_size != artifact.size_bytes
+                or _sha256_file(path) != artifact.sha256
+            ):
+                raise ValueError(
+                    f"ComfyUI {artifact.role} failed integrity verification"
+                )
+            verified[artifact.role] = path
+        if verified["diffusion_model"] != self.checkpoint:
+            raise ValueError("ComfyUI primary model does not match its manifest")
+        return verified
 
     async def discover_models(
         self,
@@ -179,20 +222,50 @@ class ComfyUIImageRuntime:
             self.model_reference
         ):
             return ()
-        installed = self.checkpoint.is_file()
+        installed = all(path.is_file() for path in self.model_files.values())
         available = False
         try:
-            stats, loader = await asyncio.gather(
-                self._json_request("GET", "/system_stats"),
-                self._json_request(
-                    "GET", "/object_info/CheckpointLoaderSimple"
-                ),
-            )
-            available = (
-                installed
-                and self._has_cuda_device(stats)
-                and self._has_checkpoint(loader)
-            )
+            if self.model_contract.workflow_adapter == _FLUX2_ADAPTER:
+                stats, unet, clip, vae = await asyncio.gather(
+                    self._json_request("GET", "/system_stats"),
+                    self._json_request("GET", "/object_info/UNETLoader"),
+                    self._json_request("GET", "/object_info/CLIPLoader"),
+                    self._json_request("GET", "/object_info/VAELoader"),
+                )
+                available = (
+                    installed
+                    and self._has_cuda_device(stats)
+                    and self._has_loader_file(
+                        unet,
+                        node="UNETLoader",
+                        input_name="unet_name",
+                        filename=self.model_files["diffusion_model"].name,
+                    )
+                    and self._has_loader_file(
+                        clip,
+                        node="CLIPLoader",
+                        input_name="clip_name",
+                        filename=self.model_files["text_encoder"].name,
+                    )
+                    and self._has_loader_file(
+                        vae,
+                        node="VAELoader",
+                        input_name="vae_name",
+                        filename=self.model_files["vae"].name,
+                    )
+                )
+            else:
+                stats, loader = await asyncio.gather(
+                    self._json_request("GET", "/system_stats"),
+                    self._json_request(
+                        "GET", "/object_info/CheckpointLoaderSimple"
+                    ),
+                )
+                available = (
+                    installed
+                    and self._has_cuda_device(stats)
+                    and self._has_checkpoint(loader)
+                )
         except ImageRuntimeUnavailableError:
             available = False
         return (
@@ -225,6 +298,12 @@ class ComfyUIImageRuntime:
                 ),
                 required_vram_bytes=self.required_vram_bytes,
                 required_ram_bytes=self.required_ram_bytes,
+                minimum_vram_bytes=self.model_contract.minimum_vram_bytes,
+                offload_required_ram_bytes=(
+                    self.model_contract.offload_required_ram_bytes
+                ),
+                offload_policy=self.model_contract.offload_policy,
+                offload_performance=self.model_contract.offload_performance,
                 installed=installed,
             ),
         )
@@ -251,16 +330,29 @@ class ComfyUIImageRuntime:
             guidance=guidance,
             seed=seed,
         )
-        graph = self._generation_graph(
-            prompt,
-            negative_prompt,
-            width=width,
-            height=height,
-            steps=steps,
-            guidance=float(guidance),
-            seed=seed,
-        )
-        content = await self._execute_graph(graph, output_node="7")
+        if self.model_contract.workflow_adapter == _FLUX2_ADAPTER:
+            graph = self._flux2_generation_graph(
+                prompt,
+                negative_prompt,
+                width=width,
+                height=height,
+                steps=steps,
+                guidance=float(guidance),
+                seed=seed,
+            )
+            output_node = "13"
+        else:
+            graph = self._generation_graph(
+                prompt,
+                negative_prompt,
+                width=width,
+                height=height,
+                steps=steps,
+                guidance=float(guidance),
+                seed=seed,
+            )
+            output_node = "7"
+        content = await self._execute_graph(graph, output_node=output_node)
         return GeneratedImage(content, width, height)
 
     async def edit(
@@ -328,16 +420,29 @@ class ComfyUIImageRuntime:
                     mask, mask_media_type
                 )
                 uploaded.append((mask_path, mask_name))
-            graph, output_node = self._edit_graph(
-                source_name,
-                mask_name,
-                instruction,
-                negative_prompt,
-                steps=steps,
-                guidance=float(guidance),
-                denoise=float(denoise),
-                seed=seed,
-            )
+            if self.model_contract.workflow_adapter == _FLUX2_ADAPTER:
+                graph, output_node = self._flux2_edit_graph(
+                    source_name,
+                    mask_name,
+                    instruction,
+                    negative_prompt,
+                    width=source_dimensions.width,
+                    height=source_dimensions.height,
+                    steps=steps,
+                    guidance=float(guidance),
+                    seed=seed,
+                )
+            else:
+                graph, output_node = self._edit_graph(
+                    source_name,
+                    mask_name,
+                    instruction,
+                    negative_prompt,
+                    steps=steps,
+                    guidance=float(guidance),
+                    denoise=float(denoise),
+                    seed=seed,
+                )
             content = await self._execute_graph(graph, output_node=output_node)
             return GeneratedImage(
                 content, source_dimensions.width, source_dimensions.height
@@ -403,6 +508,156 @@ class ComfyUIImageRuntime:
             },
             "7": {"class_type": "PreviewImage", "inputs": {"images": ["6", 0]}},
         }
+
+    def _flux2_generation_graph(
+        self,
+        prompt: str,
+        negative_prompt: str,
+        *,
+        width: int,
+        height: int,
+        steps: int,
+        guidance: float,
+        seed: int,
+    ) -> dict[str, Any]:
+        return {
+            "1": {
+                "class_type": "UNETLoader",
+                "inputs": {
+                    "unet_name": self.model_files["diffusion_model"].name,
+                    "weight_dtype": "default",
+                },
+            },
+            "2": {
+                "class_type": "CLIPLoader",
+                "inputs": {
+                    "clip_name": self.model_files["text_encoder"].name,
+                    "type": "flux2",
+                    "device": "default",
+                },
+            },
+            "3": {
+                "class_type": "VAELoader",
+                "inputs": {"vae_name": self.model_files["vae"].name},
+            },
+            "4": {
+                "class_type": "CLIPTextEncode",
+                "inputs": {"text": prompt, "clip": ["2", 0]},
+            },
+            "5": {
+                "class_type": "CLIPTextEncode",
+                "inputs": {"text": negative_prompt, "clip": ["2", 0]},
+            },
+            "6": {
+                "class_type": "EmptyFlux2LatentImage",
+                "inputs": {
+                    "width": width,
+                    "height": height,
+                    "batch_size": 1,
+                },
+            },
+            "7": {"class_type": "RandomNoise", "inputs": {"noise_seed": seed}},
+            "8": {
+                "class_type": "KSamplerSelect",
+                "inputs": {"sampler_name": "euler"},
+            },
+            "9": {
+                "class_type": "Flux2Scheduler",
+                "inputs": {"steps": steps, "width": width, "height": height},
+            },
+            "10": {
+                "class_type": "CFGGuider",
+                "inputs": {
+                    "model": ["1", 0],
+                    "positive": ["4", 0],
+                    "negative": ["5", 0],
+                    "cfg": guidance,
+                },
+            },
+            "11": {
+                "class_type": "SamplerCustomAdvanced",
+                "inputs": {
+                    "noise": ["7", 0],
+                    "guider": ["10", 0],
+                    "sampler": ["8", 0],
+                    "sigmas": ["9", 0],
+                    "latent_image": ["6", 0],
+                },
+            },
+            "12": {
+                "class_type": "VAEDecode",
+                "inputs": {"samples": ["11", 0], "vae": ["3", 0]},
+            },
+            "13": {
+                "class_type": "PreviewImage",
+                "inputs": {"images": ["12", 0]},
+            },
+        }
+
+    def _flux2_edit_graph(
+        self,
+        source_name: str,
+        mask_name: str | None,
+        instruction: str,
+        negative_prompt: str,
+        *,
+        width: int,
+        height: int,
+        steps: int,
+        guidance: float,
+        seed: int,
+    ) -> tuple[dict[str, Any], str]:
+        graph = self._flux2_generation_graph(
+            instruction,
+            negative_prompt,
+            width=width,
+            height=height,
+            steps=steps,
+            guidance=guidance,
+            seed=seed,
+        )
+        graph.update(
+            {
+                "14": {
+                    "class_type": "LoadImage",
+                    "inputs": {"image": source_name},
+                },
+                "15": {
+                    "class_type": "VAEEncode",
+                    "inputs": {"pixels": ["14", 0], "vae": ["3", 0]},
+                },
+                "16": {
+                    "class_type": "ReferenceLatent",
+                    "inputs": {"conditioning": ["4", 0], "latent": ["15", 0]},
+                },
+                "17": {
+                    "class_type": "ReferenceLatent",
+                    "inputs": {"conditioning": ["5", 0], "latent": ["15", 0]},
+                },
+            }
+        )
+        graph["10"]["inputs"]["positive"] = ["16", 0]
+        graph["10"]["inputs"]["negative"] = ["17", 0]
+        if mask_name is not None:
+            graph.update(
+                {
+                    "18": {
+                        "class_type": "LoadImageMask",
+                        "inputs": {"image": mask_name, "channel": "red"},
+                    },
+                    "19": {
+                        "class_type": "VAEEncodeForInpaint",
+                        "inputs": {
+                            "pixels": ["14", 0],
+                            "vae": ["3", 0],
+                            "mask": ["18", 0],
+                            "grow_mask_by": 0,
+                        },
+                    },
+                }
+            )
+            graph["11"]["inputs"]["latent_image"] = ["19", 0]
+        return graph, "13"
 
     def _edit_graph(
         self,
@@ -750,6 +1005,21 @@ class ComfyUIImageRuntime:
         ckpt = required.get("ckpt_name") if isinstance(required, dict) else None
         names = ckpt[0] if isinstance(ckpt, list) and ckpt else None
         return isinstance(names, list) and self.checkpoint.name in names
+
+    @staticmethod
+    def _has_loader_file(
+        payload: Mapping[str, Any],
+        *,
+        node: str,
+        input_name: str,
+        filename: str,
+    ) -> bool:
+        definition = payload.get(node)
+        inputs = definition.get("input") if isinstance(definition, dict) else None
+        required = inputs.get("required") if isinstance(inputs, dict) else None
+        field = required.get(input_name) if isinstance(required, dict) else None
+        names = field[0] if isinstance(field, list) and field else None
+        return isinstance(names, list) and filename in names
 
     @staticmethod
     def _has_cuda_device(payload: Mapping[str, Any]) -> bool:
