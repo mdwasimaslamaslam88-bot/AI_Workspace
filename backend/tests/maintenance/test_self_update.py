@@ -37,7 +37,10 @@ def _repository(tmp_path: Path) -> Path:
     (root / ".gitignore").write_text(".env\n", encoding="utf-8")
     (root / "application.txt").write_text("version one\n", encoding="utf-8")
     (root / ".env").write_text("DATABASE_URL=private-value\n", encoding="utf-8")
-    _git(root, "add", ".gitignore", "application.txt")
+    (root / "backend/app/ai").mkdir(parents=True)
+    (root / "backend/requirements.txt").write_text("httpx==1\n", encoding="utf-8")
+    (root / "backend/app/ai/routing.py").write_text("ROUTE = 'local'\n", encoding="utf-8")
+    _git(root, "add", ".gitignore", "application.txt", "backend")
     _git(root, "commit", "-m", "version one")
     return root
 
@@ -73,6 +76,10 @@ def test_checkpoint_is_complete_integrity_checked_and_encrypts_private_config(tm
     assert b"private-value" not in (checkpoint / "private-config.enc").read_bytes()
     assert stat.S_IMODE((manager.state_root / "checkpoint.key").stat().st_mode) == 0o600
     assert stat.S_IMODE((checkpoint / "source.bundle").stat().st_mode) == 0o600
+    assert all(
+        stat.S_IMODE(entry.stat().st_mode) == (0o700 if entry.is_dir() else 0o600)
+        for entry in checkpoint.rglob("*")
+    )
 
     bundle = checkpoint / "source.bundle"
     bundle.write_bytes(bundle.read_bytes() + b"tamper")
@@ -94,6 +101,17 @@ def test_checkpoint_checksum_index_is_authenticated(tmp_path: Path):
         manager.verify_checkpoint(checkpoint_id)
 
 
+def test_checkpoint_verification_rejects_directory_symlink(tmp_path: Path):
+    repository = _repository(tmp_path)
+    manager = SelfUpdateManager(repository, _state_root(tmp_path))
+    checkpoint_id = manager.create_checkpoint()
+    linked = manager.checkpoint_root / "linked-checkpoint"
+    linked.symlink_to(manager.checkpoint_root / checkpoint_id, target_is_directory=True)
+
+    with pytest.raises(SelfUpdateError, match="path is unsafe"):
+        manager.verify_checkpoint(linked)
+
+
 def test_prepare_fails_closed_and_never_marks_a_failed_candidate_ready(tmp_path: Path):
     repository = _repository(tmp_path)
 
@@ -113,6 +131,19 @@ def test_prepare_fails_closed_and_never_marks_a_failed_candidate_ready(tmp_path:
     assert not manager.current_link.exists()
     serialized = manager.state_path.read_text(encoding="utf-8")
     assert "private failure detail" not in serialized
+
+    retry_manager = SelfUpdateManager(
+        repository,
+        manager.state_root,
+        gate_runner=_passing_runner,
+    )
+    retried = retry_manager.prepare(
+        candidate_ref="HEAD",
+        version="1.1.0",
+        gates=_gates(),
+    )
+    assert retried.status is UpdateStatus.READY
+    assert retried.candidate_directory != state.candidate_directory
 
 
 def test_ready_activation_requires_owner_and_failed_health_rolls_back(tmp_path: Path):

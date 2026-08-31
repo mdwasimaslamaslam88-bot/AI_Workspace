@@ -29,7 +29,9 @@ candidate only after checkpoint verification and final activation.
 
 ## Candidate isolation and gates
 
-The candidate is cloned without hard links into the private update root.
+Every validation attempt receives a fresh uniquely named candidate cloned
+without hard links into the private update root; an interrupted or failed
+candidate is never reused by a later attempt.
 Currently verified `node_modules` and Python virtual environment are copied
 with reflink-on-write when supported, never hard-linked. Every gate runs through
 a pinned Docker image with no capabilities, a read-only container root,

@@ -201,11 +201,9 @@ class SelfUpdateManager:
 
     def stage_candidate(self, candidate_ref: str) -> tuple[Path, str]:
         candidate_commit = self._resolve_commit(candidate_ref)
-        destination = self.candidate_root / candidate_commit
-        if destination.exists():
-            if self._git(destination, "rev-parse", "HEAD") != candidate_commit:
-                raise SelfUpdateError("existing candidate directory is inconsistent")
-            return destination, candidate_commit
+        destination = self.candidate_root / (
+            f"{candidate_commit}-{uuid.uuid4().hex[:8]}"
+        )
         temporary = Path(tempfile.mkdtemp(prefix=".candidate-", dir=self.candidate_root))
         try:
             self._run_checked(
@@ -369,6 +367,7 @@ class SelfUpdateManager:
                 temporary / _CHECKPOINT_AUTHENTICATION_FILE,
                 authentication,
             )
+            _make_checkpoint_tree_owner_only(temporary)
             self.verify_checkpoint(temporary)
             temporary.rename(final)
             return checkpoint_id
@@ -636,11 +635,10 @@ class SelfUpdateManager:
 
     def _resolve_checkpoint(self, checkpoint: Path | str) -> Path:
         candidate = Path(checkpoint)
-        root = (
-            candidate.resolve(strict=True)
-            if candidate.is_absolute()
-            else (self.checkpoint_root / candidate).resolve(strict=True)
-        )
+        requested = candidate if candidate.is_absolute() else self.checkpoint_root / candidate
+        if requested.is_symlink():
+            raise SelfUpdateError("checkpoint path is unsafe")
+        root = requested.resolve(strict=True)
         if root.parent != self.checkpoint_root or root.is_symlink() or not root.is_dir():
             raise SelfUpdateError("checkpoint path is unsafe")
         return root
@@ -837,6 +835,18 @@ def _exclusive_write(path: Path, content: bytes) -> None:
         target.write(content)
         target.flush()
         os.fsync(target.fileno())
+
+
+def _make_checkpoint_tree_owner_only(root: Path) -> None:
+    root.chmod(0o700)
+    for entry in root.rglob("*"):
+        metadata = entry.lstat()
+        if stat.S_ISDIR(metadata.st_mode):
+            entry.chmod(0o700)
+        elif stat.S_ISREG(metadata.st_mode):
+            entry.chmod(0o600)
+        else:
+            raise SelfUpdateError("checkpoint contains an unsafe entry")
 
 
 def _atomic_write(path: Path, content: bytes, mode: int) -> None:
