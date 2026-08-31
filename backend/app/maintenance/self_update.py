@@ -777,6 +777,7 @@ def _run_gate_sandboxed(gate: ValidationGate, candidate: Path) -> subprocess.Com
         "--env=LD_LIBRARY_PATH=/lib/x86_64-linux-gnu:/usr/lib/x86_64-linux-gnu",
         "--env=NPM_CONFIG_CACHE=/tmp/npm-cache",
         "--env=XDG_CACHE_HOME=/tmp/cache",
+        "--env=WORK_STATION_ISOLATED_UPDATE_VALIDATION=1",
         *mount_arguments,
         f"--tmpfs=/tmp:rw,exec,nosuid,nodev,size=4g,mode=700,uid={os.getuid()},gid={os.getgid()}",
         f"--workdir={candidate}",

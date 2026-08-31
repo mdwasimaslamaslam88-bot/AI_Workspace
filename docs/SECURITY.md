@@ -130,6 +130,11 @@ root after shutdown.
 The protected application environment is loaded before the child test URL is
 substituted. The approved `127.0.0.1/ai_workspace_test` target and distinct
 application/test identity checks remain enforced inside the Python harness.
+An isolated self-update candidate intentionally has no private application
+environment; its fixed container contract supplies a non-routable loopback
+identity sentinel solely for that distinctness check. Alembic upgrade and
+schema-drift checks still execute against the random disposable database, and
+the sentinel endpoint is never contacted.
 
 The real-browser gate uses an independent random provisioning credential whose
 SHA-256 digest is supplied only to its disposable backend. The plaintext value

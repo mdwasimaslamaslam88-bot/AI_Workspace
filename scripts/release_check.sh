@@ -46,7 +46,7 @@ done
 (
   cd backend
   "${backend_python}" -m pytest -q
-  "${backend_python}" -m alembic check
+  "${backend_python}" -m alembic heads
   "${backend_python}" -m compileall -q app scripts tests
 )
 

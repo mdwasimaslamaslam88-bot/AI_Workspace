@@ -208,6 +208,7 @@ def test_default_gate_runner_uses_scoped_container_mounts(tmp_path: Path):
     assert "--network=none" in command
     assert "--read-only" in command
     assert "--cap-drop=ALL" in command
+    assert "--env=WORK_STATION_ISOLATED_UPDATE_VALIDATION=1" in command
     assert (
         f"--mount=type=bind,src={candidate},dst={candidate}"
         in command

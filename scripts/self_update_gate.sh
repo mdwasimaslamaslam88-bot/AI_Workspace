@@ -16,7 +16,7 @@ case "${gate}" in
     (
       cd backend
       .venv/bin/python -m pytest -q
-      .venv/bin/python -m alembic check
+      .venv/bin/python -m alembic heads
       .venv/bin/python -m compileall -q app scripts tests
     )
     ;;

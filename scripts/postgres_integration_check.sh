@@ -142,12 +142,23 @@ PGPASSWORD="${cluster_password}" "${postgres_bindir}/createdb" \
 
 ephemeral_url="postgresql+asyncpg://work_station_test_admin:${cluster_password}@127.0.0.1:${cluster_port}/ai_workspace_test"
 
+if [[ "${WORK_STATION_ISOLATED_UPDATE_VALIDATION:-}" == "1" ]]; then
+  export DATABASE_URL="postgresql+asyncpg://update_boundary@127.0.0.1:1/work_station_production_boundary"
+fi
+
 if [[ "${run_integration}" == true ]]; then
   (
     export RUN_DATABASE_INTEGRATION_TESTS=true
     export WORK_STATION_EPHEMERAL_TEST_DATABASE_URL="${ephemeral_url}"
     cd backend
     exec .venv/bin/python tests/db/run_postgres_integration.py
+  )
+  (
+    export RUN_DATABASE_INTEGRATION_TESTS=true
+    export TEST_DATABASE_URL="${ephemeral_url}"
+    cd backend
+    .venv/bin/alembic upgrade head
+    .venv/bin/alembic check
   )
 fi
 
