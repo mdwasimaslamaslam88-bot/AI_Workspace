@@ -1,6 +1,9 @@
 import type {
+  ExternalAISettings,
+  ExternalProviderKind,
   LocalModel,
   ProductCapability,
+  SelfUpdateStatus,
   SystemDiagnostics,
   UserSession,
   UserSessionProvision,
@@ -37,6 +40,7 @@ const SECTIONS = [
   "Sessions",
   "Appearance",
   "Model",
+  "API providers",
   "AI capabilities",
   "Memory",
   "Voice",
@@ -55,6 +59,11 @@ export default function SettingsScreen() {
   const [capabilities, setCapabilities] = useState<ProductCapability[]>([]);
   const [models, setModels] = useState<LocalModel[]>([]);
   const [diagnostics, setDiagnostics] = useState<SystemDiagnostics | null>(null);
+  const [externalAI, setExternalAI] = useState<ExternalAISettings | null>(null);
+  const [selfUpdate, setSelfUpdate] = useState<SelfUpdateStatus | null>(null);
+  const [providerId, setProviderId] = useState("");
+  const [providerKind, setProviderKind] = useState<ExternalProviderKind>("openai");
+  const [providerKey, setProviderKey] = useState("");
   const [sessions, setSessions] = useState<UserSession[]>([]);
   const [currentSessionLabel, setCurrentSessionLabel] = useState("");
   const [newSessionLabel, setNewSessionLabel] = useState("");
@@ -65,15 +74,19 @@ export default function SettingsScreen() {
   const load = useCallback(async () => {
     if (client === null || state !== "connected") return;
     try {
-      const [capabilityPage, modelPage, snapshot, sessionPage] = await Promise.all([
+      const [capabilityPage, modelPage, snapshot, externalSnapshot, updateSnapshot, sessionPage] = await Promise.all([
         client.getCapabilities(),
         client.listModels(),
         client.getSystemDiagnostics(),
+        client.getExternalAISettings(),
+        client.getSelfUpdateStatus(),
         client.listUserSessions(),
       ]);
       setCapabilities(capabilityPage.items);
       setModels(modelPage.items);
       setDiagnostics(snapshot);
+      setExternalAI(externalSnapshot);
+      setSelfUpdate(updateSnapshot);
       setSessions(sessionPage.items);
       setCurrentSessionLabel(
         sessionPage.items.find((item) => item.is_current)?.label ?? "",
@@ -91,7 +104,10 @@ export default function SettingsScreen() {
 
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (visibility) => {
-      if (shouldClearTransientSession(visibility)) setIssuedSession(null);
+      if (shouldClearTransientSession(visibility)) {
+        setIssuedSession(null);
+        setProviderKey("");
+      }
     });
     if (Platform.OS === "ios") {
       void ScreenCapture.enableAppSwitcherProtectionAsync(1).catch(() => undefined);
@@ -175,6 +191,225 @@ export default function SettingsScreen() {
               </View>
             );
           })}
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.eyebrow}>API / EXTERNAL AI</Text>
+          <Text style={styles.heading}>Local-first fallback</Text>
+          <Text style={styles.muted}>
+            Local models run first. Provider keys are write-only and encrypted on the workstation.
+          </Text>
+          {externalAI?.configured !== true ? (
+            <Text style={styles.muted}>Configure the External AI state root on the backend first.</Text>
+          ) : (
+            <>
+              <Pressable
+                accessibilityRole="button"
+                disabled={sessionBusy}
+                style={styles.secondaryButton}
+                onPress={() => {
+                  if (client === null) return;
+                  setSessionBusy(true);
+                  void client.updateExternalAIEnabled(!externalAI.global_enabled)
+                    .then(setExternalAI)
+                    .catch(() => setNotice("External fallback could not be updated."))
+                    .finally(() => setSessionBusy(false));
+                }}
+              >
+                <Text style={styles.buttonText}>
+                  API fallback: {externalAI.global_enabled ? "ON" : "OFF"}
+                </Text>
+              </Pressable>
+              {externalAI.providers.map((provider) => (
+                <View key={provider.provider_id} style={styles.modelCard}>
+                  <Text style={styles.capabilityName}>{provider.provider_id}</Text>
+                  <Text style={styles.muted}>{provider.kind} · {provider.status} · key stored</Text>
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={sessionBusy}
+                    style={styles.secondaryButton}
+                    onPress={() => {
+                      if (client === null) return;
+                      setSessionBusy(true);
+                      void client.upsertExternalAIProvider(provider.provider_id, {
+                        kind: provider.kind,
+                        enabled: !provider.enabled,
+                        free_tier: provider.free_tier,
+                        priority: provider.priority,
+                        timeout_seconds: provider.timeout_seconds,
+                        rate_limit_requests_per_minute: provider.rate_limit_requests_per_minute,
+                        spending_limit_micros: provider.spending_limit_micros,
+                        quota_remaining_tokens: provider.quota_remaining_tokens,
+                        models: provider.models.map((model) => ({
+                          ...model,
+                          verification_evidence_sha256:
+                            model.verification_evidence_sha256 ?? undefined,
+                        })),
+                      })
+                        .then(setExternalAI)
+                        .catch(() => setNotice("Provider state could not be updated."))
+                        .finally(() => setSessionBusy(false));
+                    }}
+                  >
+                    <Text style={styles.buttonText}>
+                      {provider.enabled ? "Disable provider" : "Enable provider"}
+                    </Text>
+                  </Pressable>
+                </View>
+              ))}
+              <TextInput
+                accessibilityLabel="External provider ID"
+                autoCapitalize="none"
+                autoCorrect={false}
+                maxLength={64}
+                placeholder="openai-primary"
+                style={styles.input}
+                value={providerId}
+                onChangeText={setProviderId}
+              />
+              <Pressable
+                accessibilityRole="button"
+                style={styles.secondaryButton}
+                onPress={() => setProviderKind(
+                  providerKind === "openai"
+                    ? "anthropic"
+                    : providerKind === "anthropic" ? "google" : "openai",
+                )}
+              >
+                <Text style={styles.buttonText}>Provider type: {providerKind}</Text>
+              </Pressable>
+              <TextInput
+                accessibilityLabel="External provider API key"
+                autoCapitalize="none"
+                autoCorrect={false}
+                secureTextEntry
+                maxLength={512}
+                placeholder="Write-only API key"
+                style={styles.input}
+                value={providerKey}
+                onChangeText={setProviderKey}
+              />
+              <Pressable
+                accessibilityRole="button"
+                disabled={sessionBusy}
+                style={styles.secondaryButton}
+                onPress={() => {
+                  if (
+                    client === null ||
+                    !/^[a-z][a-z0-9_-]{0,63}$/.test(providerId) ||
+                    providerKey.length < 16
+                  ) {
+                    setNotice("Provider ID or key is invalid.");
+                    return;
+                  }
+                  setSessionBusy(true);
+                  void client.upsertExternalAIProvider(providerId, {
+                    kind: providerKind,
+                    api_key: providerKey,
+                    enabled: false,
+                    models: [],
+                  })
+                    .then((settings) => {
+                      setExternalAI(settings);
+                      setProviderKey("");
+                      setNotice("Provider saved with fallback disabled.");
+                    })
+                    .catch(() => setNotice("Provider could not be saved."))
+                    .finally(() => setSessionBusy(false));
+                }}
+              >
+                <Text style={styles.buttonText}>Save provider disabled</Text>
+              </Pressable>
+            </>
+          )}
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.eyebrow}>SECURE SELF-UPDATE</Text>
+          <Text style={styles.heading}>Validated releases</Text>
+          <Text style={styles.muted}>
+            Candidates stay isolated until every mandatory gate and the rollback checkpoint pass.
+          </Text>
+          {selfUpdate?.configured !== true && (
+            <Text style={styles.muted}>Self-update is not configured on the workstation.</Text>
+          )}
+          {selfUpdate?.configured === true && selfUpdate.status !== "ready" && (
+            <Text style={styles.muted}>No fully validated update is awaiting activation.</Text>
+          )}
+          {selfUpdate?.configured === true && selfUpdate.status === "ready" && (
+            <View style={styles.issuedSession}>
+              <Text style={styles.capabilityName}>WORK STATION UPDATE READY</Text>
+              <Text style={styles.muted}>Version: {selfUpdate.version}</Text>
+              <Text style={styles.muted}>
+                What changed: candidate {selfUpdate.candidate_commit?.slice(0, 12)} passed the
+                complete isolated release matrix.
+              </Text>
+              <Text style={styles.muted}>
+                Benefits: validated release changes are ready without modifying production.
+              </Text>
+              <Text style={styles.muted}>
+                Performance: {selfUpdate.gates.some(
+                  (gate) => gate.name === "performance" && gate.passed,
+                ) ? "PASS" : "NOT REPORTED"}
+              </Text>
+              <Text style={styles.muted}>
+                Quality: {selfUpdate.gates.some(
+                  (gate) => gate.name === "release" && gate.passed,
+                ) ? "PASS" : "NOT REPORTED"}
+              </Text>
+              <Text style={styles.muted}>
+                Security: {selfUpdate.gates.some(
+                  (gate) => gate.name === "security" && gate.passed,
+                ) ? "PASS" : "NOT REPORTED"}
+              </Text>
+              <Text style={styles.muted}>
+                Compatibility: {selfUpdate.gates.some(
+                  (gate) => gate.name === "routing_admission_hardware" && gate.passed,
+                ) ? "PASS" : "NOT REPORTED"}
+              </Text>
+              <Text style={styles.muted}>
+                Rollback checkpoint: {selfUpdate.rollback_ready ? "READY" : "NOT READY"}
+              </Text>
+              <View style={styles.capabilityTags}>
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={sessionBusy || !selfUpdate.checkpoint_ready || !selfUpdate.rollback_ready}
+                  style={styles.secondaryButton}
+                  onPress={() => {
+                    if (client === null) return;
+                    setSessionBusy(true);
+                    void client.decideSelfUpdate("update")
+                      .then((updated) => {
+                        setSelfUpdate(updated);
+                        setNotice("Validated release activated; rollback monitoring remains armed.");
+                      })
+                      .catch(() => setNotice("The update could not be activated safely."))
+                      .finally(() => setSessionBusy(false));
+                  }}
+                >
+                  <Text style={styles.buttonText}>UPDATE</Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={sessionBusy}
+                  style={styles.secondaryButton}
+                  onPress={() => {
+                    if (client === null) return;
+                    setSessionBusy(true);
+                    void client.decideSelfUpdate("cancel")
+                      .then((updated) => {
+                        setSelfUpdate(updated);
+                        setNotice("Validated update cancelled; production was unchanged.");
+                      })
+                      .catch(() => setNotice("The update decision could not be applied safely."))
+                      .finally(() => setSessionBusy(false));
+                  }}
+                >
+                  <Text style={styles.buttonText}>CANCEL</Text>
+                </Pressable>
+              </View>
+            </View>
+          )}
         </View>
 
         <View style={styles.card}>
@@ -326,6 +561,22 @@ export default function SettingsScreen() {
                   {gpu.model} · {Math.round(gpu.vram_bytes / 1024 ** 3)} GiB
                 </Text>
               ))}
+              {diagnostics.agents !== undefined && diagnostics.agents !== null && (
+                <Text style={styles.muted}>
+                  Agents · {diagnostics.agents.active_count} active · {diagnostics.agents.retained_count} retained
+                </Text>
+              )}
+              {diagnostics.self_update !== undefined && (
+                <Text style={styles.muted}>
+                  Update engine · {diagnostics.self_update.configured ? diagnostics.self_update.status : "unconfigured"}
+                  {diagnostics.self_update.rollback_ready ? " · rollback ready" : ""}
+                </Text>
+              )}
+              {(diagnostics.security_events ?? []).length > 0 && (
+                <Text style={styles.muted}>
+                  Security containment events · {diagnostics.security_events?.length}
+                </Text>
+              )}
             </>
           )}
           {notice !== null && <Text accessibilityRole="alert" style={styles.error}>{notice}</Text>}

@@ -37,9 +37,20 @@ def aggregate_vision_reports(report_root: Path, inputs: list[Path]) -> dict[str,
         CURRENT_HARDWARE_VISION_REFERENCES
     ):
         raise RuntimeError("vision discovery requires every approved vision model once")
-    if len({_fingerprint(report) for report in reports}) != 1:
+    failed_reports = [
+        report for report in reports if report.get("run_status", "complete") == "failed"
+    ]
+    for report in failed_reports:
+        if (
+            report.get("model_reference") == CURRENT_VISION_REFERENCE
+            or report.get("failure", {}).get("code")
+            not in {"gpu_thermal_guard", "gpu_vram_guard", "ram_guard"}
+        ):
+            raise RuntimeError("vision discovery rejected an invalid failed report")
+    complete_reports = [report for report in reports if report not in failed_reports]
+    if len({_fingerprint(report) for report in complete_reports}) != 1:
         raise RuntimeError("vision discovery reports do not use an identical matrix")
-    for report in reports:
+    for report in complete_reports:
         if report.get("profile", {}).get("id") != VISION_PROFILE:
             raise RuntimeError("vision discovery report has the wrong profile")
         summary = report.get("summary", {})
@@ -53,7 +64,7 @@ def aggregate_vision_reports(report_root: Path, inputs: list[Path]) -> dict[str,
                 "model_reference": report["model_reference"],
                 **report["summary"]["categories"]["vision"],
             }
-            for report in reports
+            for report in complete_reports
         ),
         key=lambda item: (
             -item["score"],
@@ -76,7 +87,15 @@ def aggregate_vision_reports(report_root: Path, inputs: list[Path]) -> dict[str,
         "schema_version": 1,
         "production_changed_during_isolated_benchmark": False,
         "synthetic_non_sensitive_assets_only": True,
-        "models": reports,
+        "models": complete_reports,
+        "hardware_safety_rejections": [
+            {
+                "model_reference": report["model_reference"],
+                "failure": report["failure"],
+                "last_resource_sample": report.get("last_resource_sample"),
+            }
+            for report in failed_reports
+        ],
         "ranking": ranking,
         "best_measured_model": winner["model_reference"],
         "current_production_model": CURRENT_VISION_REFERENCE,

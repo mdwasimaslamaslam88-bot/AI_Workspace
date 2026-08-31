@@ -8,6 +8,8 @@ from time import monotonic
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from app.security_events import SecurityEventKind, SecurityEventRecorder
+
 
 class EdgeRateLimitMiddleware:
     """Bound provisioning attempts and repeated API authentication failures.
@@ -67,6 +69,7 @@ class EdgeRateLimitMiddleware:
             return False
 
     async def _send_limited(self, scope: Scope, receive: Receive, send: Send) -> None:
+        _record_security_event(scope, SecurityEventKind.RATE_LIMIT_CONTAINMENT)
         response = JSONResponse(
             status_code=429,
             headers={
@@ -138,9 +141,17 @@ class EdgeRateLimitMiddleware:
 
         await self.app(scope, receive, capture_status)
         if protected_api and response_status in {401, 403}:
+            _record_security_event(scope, SecurityEventKind.AUTHENTICATION_FAILURE)
             self._is_limited(
                 self._auth_failures,
                 peer,
                 self.auth_failure_limit,
                 record=True,
             )
+
+
+def _record_security_event(scope: Scope, kind: SecurityEventKind) -> None:
+    application = scope.get("app")
+    recorder = getattr(getattr(application, "state", None), "security_event_recorder", None)
+    if isinstance(recorder, SecurityEventRecorder):
+        recorder.record(kind)

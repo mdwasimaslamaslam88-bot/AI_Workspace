@@ -8,10 +8,12 @@ import {
 import {
   conversation,
   errorEnvelope,
+  externalAISettings,
   jsonResponse,
   message,
   model,
   rawSecret,
+  selfUpdateStatus,
   token,
   user,
 } from "./fixtures";
@@ -55,6 +57,85 @@ class FakeXmlHttpRequest {
 }
 
 describe("ApiClient", () => {
+  it("uses the authenticated final-decision contract for validated updates", async () => {
+    const calls: Array<{ url: string; method: string; body: unknown }> = [];
+    const client = new ApiClient(token, {
+      fetchImplementation: vi.fn(async (input: URL | RequestInfo, init?: RequestInit) => {
+        calls.push({
+          url: input.toString(),
+          method: init?.method ?? "GET",
+          body: init?.body === undefined ? undefined : JSON.parse(String(init.body)),
+        });
+        return jsonResponse(selfUpdateStatus);
+      }),
+    });
+
+    await client.getSelfUpdateStatus();
+    await client.decideSelfUpdate("update");
+
+    expect(calls).toEqual([
+      {
+        url: "http://127.0.0.1:8000/api/v1/updates/status",
+        method: "GET",
+        body: undefined,
+      },
+      {
+        url: "http://127.0.0.1:8000/api/v1/updates/decision",
+        method: "POST",
+        body: { decision: "update" },
+      },
+    ]);
+  });
+
+  it("uses write-only External AI settings contracts without placing keys in URLs", async () => {
+    const providerKey = "private-provider-key-value";
+    const calls: Array<{ url: string; method: string; body: unknown }> = [];
+    const fetchImplementation = vi.fn(async (input: URL | RequestInfo, init?: RequestInit) => {
+      calls.push({
+        url: input.toString(),
+        method: init?.method ?? "GET",
+        body: init?.body === undefined ? undefined : JSON.parse(String(init.body)),
+      });
+      return jsonResponse(externalAISettings);
+    });
+    const client = new ApiClient(token, {
+      fetchImplementation: fetchImplementation as typeof fetch,
+    });
+
+    await client.getExternalAISettings();
+    await client.updateExternalAIEnabled(true);
+    await client.upsertExternalAIProvider("openai-primary", {
+      kind: "openai",
+      api_key: providerKey,
+      enabled: false,
+    });
+    await client.deleteExternalAIProvider("openai-primary");
+
+    expect(calls).toEqual([
+      {
+        url: "http://127.0.0.1:8000/api/v1/external-ai/settings",
+        method: "GET",
+        body: undefined,
+      },
+      {
+        url: "http://127.0.0.1:8000/api/v1/external-ai/settings",
+        method: "PUT",
+        body: { enabled: true },
+      },
+      {
+        url: "http://127.0.0.1:8000/api/v1/external-ai/providers/openai-primary",
+        method: "PUT",
+        body: { kind: "openai", api_key: providerKey, enabled: false },
+      },
+      {
+        url: "http://127.0.0.1:8000/api/v1/external-ai/providers/openai-primary",
+        method: "DELETE",
+        body: undefined,
+      },
+    ]);
+    expect(calls.every((call) => !call.url.includes(providerKey))).toBe(true);
+  });
+
   it("invokes fetch with the browser global receiver", async () => {
     const receiverSensitiveFetch = function (this: unknown): Promise<Response> {
       if (this !== globalThis) {

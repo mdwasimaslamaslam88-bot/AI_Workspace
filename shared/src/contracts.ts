@@ -465,6 +465,228 @@ export interface SystemDiagnostics {
   hardware?: HardwareDiagnostic | null;
   models?: ModelEligibilityDiagnostic[];
   routes?: ModelRouteDiagnostic[];
+  external_providers?: ExternalProviderDiagnostic[];
+  agents?: AgentRuntimeDiagnostic | null;
+  self_update?: {
+    configured: boolean;
+    status: SelfUpdateState;
+    checkpoint_ready: boolean;
+    rollback_ready: boolean;
+  };
+  security_events?: SecurityEventDiagnostic[];
+}
+
+export interface ExternalProviderDiagnostic {
+  provider_id: string;
+  status: ExternalProviderStatus;
+  spent_micros: number;
+  spending_limit_micros: number;
+  quota_remaining_tokens: number | null;
+  verified_model_count: number;
+}
+
+export type AgentRuntimeStatus =
+  | "queued"
+  | "planning"
+  | "running"
+  | "verifying"
+  | "retrying"
+  | "completed"
+  | "failed"
+  | "cancelled"
+  | "timed_out";
+
+export interface AgentRuntimeDiagnostic {
+  active_count: number;
+  retained_count: number;
+  statuses: Partial<Record<AgentRuntimeStatus, number>>;
+}
+
+export interface SecurityEventDiagnostic {
+  kind:
+    | "authentication_failure"
+    | "rate_limit_containment"
+    | "oversized_request_containment"
+    | "application_error_containment";
+  occurred_at: string;
+}
+
+export type ExternalProviderKind = "openai" | "anthropic" | "google";
+export type ExternalProviderStatus =
+  | "disabled"
+  | "unconfigured"
+  | "ready"
+  | "rate_limited"
+  | "quota_exhausted"
+  | "spending_limit_reached"
+  | "unavailable";
+
+export interface ExternalModelPolicy {
+  model_id: string;
+  tasks: ModelTask[];
+  verified: boolean;
+  verification_evidence_sha256: string | null;
+  measured_quality: number;
+  measured_latency_ms: number;
+  stability_rate: number;
+  context_window: number;
+  input_cost_micros_per_million_tokens: number;
+  output_cost_micros_per_million_tokens: number;
+}
+
+export interface ExternalProvider {
+  provider_id: string;
+  kind: ExternalProviderKind;
+  enabled: boolean;
+  key_configured: boolean;
+  free_tier: boolean;
+  priority: number;
+  timeout_seconds: number;
+  rate_limit_requests_per_minute: number;
+  spending_limit_micros: number;
+  spent_micros: number;
+  quota_remaining_tokens: number | null;
+  status: ExternalProviderStatus;
+  models: ExternalModelPolicy[];
+}
+
+export interface ExternalAISettings {
+  configured: boolean;
+  global_enabled: boolean;
+  providers: ExternalProvider[];
+  supported_provider_kinds: ExternalProviderKind[];
+}
+
+export interface ExternalModelPolicyRequest {
+  model_id: string;
+  tasks: ModelTask[];
+  verified?: boolean;
+  verification_evidence_sha256?: string;
+  measured_quality?: number;
+  measured_latency_ms?: number;
+  stability_rate?: number;
+  context_window?: number;
+  input_cost_micros_per_million_tokens?: number;
+  output_cost_micros_per_million_tokens?: number;
+}
+
+export interface ExternalProviderUpsertRequest {
+  kind: ExternalProviderKind;
+  api_key?: string;
+  enabled?: boolean;
+  free_tier?: boolean;
+  priority?: number;
+  timeout_seconds?: number;
+  rate_limit_requests_per_minute?: number;
+  spending_limit_micros?: number;
+  quota_remaining_tokens?: number | null;
+  models?: ExternalModelPolicyRequest[];
+}
+
+export type SelfUpdateState =
+  | "idle"
+  | "validating"
+  | "ready"
+  | "failed"
+  | "activated"
+  | "rolled_back"
+  | "cancelled";
+
+export interface SelfUpdateStatus {
+  configured: boolean;
+  status: SelfUpdateState;
+  version: string | null;
+  candidate_commit: string | null;
+  checkpoint_ready: boolean;
+  rollback_ready: boolean;
+  activation_requires_owner: boolean;
+  gates: Array<{ name: string; passed: boolean }>;
+  failure_code: string | null;
+}
+
+export type AgentKind =
+  | "planner"
+  | "coding"
+  | "debugging"
+  | "research"
+  | "browser"
+  | "data"
+  | "vision"
+  | "image"
+  | "voice"
+  | "rag"
+  | "automation"
+  | "verifier";
+
+export type AgentPermission =
+  | "model_inference"
+  | "workspace_read"
+  | "workspace_write"
+  | "build_execution"
+  | "test_execution"
+  | "network_research"
+  | "browser_control"
+  | "data_analysis"
+  | "rag_read"
+  | "memory_read"
+  | "image_generation"
+  | "image_editing"
+  | "voice_input"
+  | "voice_output"
+  | "bounded_tool_execution";
+
+export interface AgentOSCapabilities {
+  profiles: Array<{
+    kind: AgentKind;
+    permissions: AgentPermission[];
+    registered: boolean;
+  }>;
+  max_retries: number;
+  max_deadline_seconds: number;
+  active_runs: number;
+  max_concurrency: number;
+  persistence: string;
+}
+
+export interface AgentVerificationCheck {
+  check_id: string;
+  passed: boolean;
+  failure: string;
+  evidence_sha256: string | null;
+}
+
+export interface AgentAttempt {
+  step_id: string;
+  attempt: number;
+  agent: AgentKind;
+  model_id: string | null;
+  verified: boolean;
+  output_sha256: string;
+  checks: AgentVerificationCheck[];
+}
+
+export interface AgentRun {
+  id: string;
+  task: ModelTask;
+  specialist: AgentKind | null;
+  status: AgentRuntimeStatus;
+  created_at: string;
+  updated_at: string;
+  output: string | null;
+  failure_code: string | null;
+  attempts: AgentAttempt[];
+}
+
+export interface AgentRunPage { items: AgentRun[]; }
+
+export interface AgentRunCreateRequest {
+  goal: string;
+  task: ModelTask;
+  specialist?: AgentKind;
+  max_retries?: number;
+  deadline_seconds?: number;
+  required_context_tokens?: number;
+  require_objective_evidence?: boolean;
 }
 
 export interface ConversationSummary {
@@ -727,6 +949,73 @@ const modelTasks = [
   "image_editing",
   "voice_input",
   "voice_output",
+] as const;
+const externalProviderKinds = ["openai", "anthropic", "google"] as const;
+const externalProviderStatuses = [
+  "disabled",
+  "unconfigured",
+  "ready",
+  "rate_limited",
+  "quota_exhausted",
+  "spending_limit_reached",
+  "unavailable",
+] as const;
+const selfUpdateStates = [
+  "idle",
+  "validating",
+  "ready",
+  "failed",
+  "activated",
+  "rolled_back",
+  "cancelled",
+] as const;
+const agentRuntimeStatuses = [
+  "queued",
+  "planning",
+  "running",
+  "verifying",
+  "retrying",
+  "completed",
+  "failed",
+  "cancelled",
+  "timed_out",
+] as const;
+const securityEventKinds = [
+  "authentication_failure",
+  "rate_limit_containment",
+  "oversized_request_containment",
+  "application_error_containment",
+] as const;
+const agentKinds = [
+  "planner",
+  "coding",
+  "debugging",
+  "research",
+  "browser",
+  "data",
+  "vision",
+  "image",
+  "voice",
+  "rag",
+  "automation",
+  "verifier",
+] as const;
+const agentPermissions = [
+  "model_inference",
+  "workspace_read",
+  "workspace_write",
+  "build_execution",
+  "test_execution",
+  "network_research",
+  "browser_control",
+  "data_analysis",
+  "rag_read",
+  "memory_read",
+  "image_generation",
+  "image_editing",
+  "voice_input",
+  "voice_output",
+  "bounded_tool_execution",
 ] as const;
 const modelEligibilityStatuses = [
   "runnable_now",
@@ -1009,6 +1298,66 @@ export function parseSystemDiagnostics(value: unknown): SystemDiagnostics {
       inference_mode: enumField(item.inference_mode, ["auto", "thinking_disabled"] as const),
     };
   });
+  const rawProviders = snapshot.external_providers === undefined ? [] : snapshot.external_providers;
+  const rawSecurityEvents = snapshot.security_events === undefined ? [] : snapshot.security_events;
+  if (
+    !Array.isArray(rawProviders) || rawProviders.length > 16 ||
+    !Array.isArray(rawSecurityEvents) || rawSecurityEvents.length > 100
+  ) return invalidResponse();
+  const externalProviders = rawProviders.map((rawProvider) => {
+    const provider = record(rawProvider);
+    const spent = integerOrNull(provider.spent_micros);
+    const limit = integerOrNull(provider.spending_limit_micros);
+    const quota = integerOrNull(provider.quota_remaining_tokens);
+    const verified = integerOrNull(provider.verified_model_count);
+    if (
+      spent === null || spent < 0 || limit === null || limit < 0 ||
+      (quota !== null && quota < 0) || verified === null || verified < 0 || verified > 64
+    ) return invalidResponse();
+    return {
+      provider_id: stringField(provider.provider_id),
+      status: enumField(provider.status, externalProviderStatuses),
+      spent_micros: spent,
+      spending_limit_micros: limit,
+      quota_remaining_tokens: quota,
+      verified_model_count: verified,
+    };
+  });
+  let agents: AgentRuntimeDiagnostic | null | undefined;
+  if (snapshot.agents === null) {
+    agents = null;
+  } else if (snapshot.agents !== undefined) {
+    const item = record(snapshot.agents);
+    const active = integerOrNull(item.active_count);
+    const retained = integerOrNull(item.retained_count);
+    const rawStatuses = record(item.statuses);
+    const statuses: Partial<Record<AgentRuntimeStatus, number>> = {};
+    for (const [rawStatus, rawCount] of Object.entries(rawStatuses)) {
+      const status = enumField(rawStatus, agentRuntimeStatuses);
+      const count = integerOrNull(rawCount);
+      if (count === null || count < 0 || count > 100) return invalidResponse();
+      statuses[status] = count;
+    }
+    if (active === null || active < 0 || active > 8 || retained === null || retained < 0 || retained > 100) return invalidResponse();
+    agents = { active_count: active, retained_count: retained, statuses };
+  }
+  let selfUpdate: SystemDiagnostics["self_update"];
+  if (snapshot.self_update !== undefined) {
+    const item = record(snapshot.self_update);
+    selfUpdate = {
+      configured: booleanField(item.configured),
+      status: enumField(item.status, selfUpdateStates),
+      checkpoint_ready: booleanField(item.checkpoint_ready),
+      rollback_ready: booleanField(item.rollback_ready),
+    };
+  }
+  const securityEvents = rawSecurityEvents.map((rawEvent) => {
+    const item = record(rawEvent);
+    return {
+      kind: enumField(item.kind, securityEventKinds),
+      occurred_at: stringField(item.occurred_at),
+    };
+  });
   return {
     mode: enumField(snapshot.mode, ["local", "remote"] as const),
     services,
@@ -1016,7 +1365,214 @@ export function parseSystemDiagnostics(value: unknown): SystemDiagnostics {
     ...(hardware === undefined ? {} : { hardware }),
     ...(snapshot.models === undefined ? {} : { models }),
     ...(snapshot.routes === undefined ? {} : { routes }),
+    ...(snapshot.external_providers === undefined ? {} : { external_providers: externalProviders }),
+    ...(snapshot.agents === undefined ? {} : { agents }),
+    ...(snapshot.self_update === undefined ? {} : { self_update: selfUpdate }),
+    ...(snapshot.security_events === undefined ? {} : { security_events: securityEvents }),
   };
+}
+
+function boundedNumber(value: unknown, minimum: number, maximum: number): number {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < minimum || value > maximum) {
+    return invalidResponse();
+  }
+  return value;
+}
+
+export function parseExternalAISettings(value: unknown): ExternalAISettings {
+  const settings = record(value);
+  if (
+    !Array.isArray(settings.providers) || settings.providers.length > 16 ||
+    !Array.isArray(settings.supported_provider_kinds) ||
+    settings.supported_provider_kinds.length !== externalProviderKinds.length
+  ) return invalidResponse();
+  const supportedKinds = settings.supported_provider_kinds.map((kind) =>
+    enumField(kind, externalProviderKinds));
+  if (new Set(supportedKinds).size !== externalProviderKinds.length) return invalidResponse();
+  const providers = settings.providers.map((rawProvider) => {
+    const provider = record(rawProvider);
+    if (!Array.isArray(provider.models) || provider.models.length > 64) return invalidResponse();
+    const models = provider.models.map((rawModel) => {
+      const model = record(rawModel);
+      if (!Array.isArray(model.tasks) || model.tasks.length < 1 || model.tasks.length > 16) return invalidResponse();
+      const tasks = model.tasks.map((task) => enumField(task, modelTasks));
+      if (new Set(tasks).size !== tasks.length) return invalidResponse();
+      const contextWindow = integerOrNull(model.context_window);
+      const inputCost = integerOrNull(model.input_cost_micros_per_million_tokens);
+      const outputCost = integerOrNull(model.output_cost_micros_per_million_tokens);
+      if (
+        contextWindow === null || contextWindow < 0 || contextWindow > 10_000_000 ||
+        inputCost === null || inputCost < 0 ||
+        outputCost === null || outputCost < 0
+      ) return invalidResponse();
+      return {
+        model_id: stringField(model.model_id),
+        tasks,
+        verified: booleanField(model.verified),
+        verification_evidence_sha256: nullableString(model.verification_evidence_sha256),
+        measured_quality: boundedNumber(model.measured_quality, 0, 100),
+        measured_latency_ms: boundedNumber(model.measured_latency_ms, 0, 3_600_000),
+        stability_rate: boundedNumber(model.stability_rate, 0, 1),
+        context_window: contextWindow,
+        input_cost_micros_per_million_tokens: inputCost,
+        output_cost_micros_per_million_tokens: outputCost,
+      };
+    });
+    const priority = integerOrNull(provider.priority);
+    const rateLimit = integerOrNull(provider.rate_limit_requests_per_minute);
+    const spendingLimit = integerOrNull(provider.spending_limit_micros);
+    const spent = integerOrNull(provider.spent_micros);
+    const quota = integerOrNull(provider.quota_remaining_tokens);
+    if (
+      priority === null || priority < 0 || priority > 1_000 ||
+      rateLimit === null || rateLimit < 1 || rateLimit > 1_000 ||
+      spendingLimit === null || spendingLimit < 0 ||
+      spent === null || spent < 0 ||
+      (quota !== null && quota < 0)
+    ) return invalidResponse();
+    return {
+      provider_id: stringField(provider.provider_id),
+      kind: enumField(provider.kind, externalProviderKinds),
+      enabled: booleanField(provider.enabled),
+      key_configured: booleanField(provider.key_configured),
+      free_tier: booleanField(provider.free_tier),
+      priority,
+      timeout_seconds: boundedNumber(provider.timeout_seconds, 1, 60),
+      rate_limit_requests_per_minute: rateLimit,
+      spending_limit_micros: spendingLimit,
+      spent_micros: spent,
+      quota_remaining_tokens: quota,
+      status: enumField(provider.status, externalProviderStatuses),
+      models,
+    };
+  });
+  if (new Set(providers.map((provider) => provider.provider_id)).size !== providers.length) return invalidResponse();
+  return {
+    configured: booleanField(settings.configured),
+    global_enabled: booleanField(settings.global_enabled),
+    providers,
+    supported_provider_kinds: supportedKinds,
+  };
+}
+
+export function parseSelfUpdateStatus(value: unknown): SelfUpdateStatus {
+  const item = record(value);
+  if (!Array.isArray(item.gates) || item.gates.length > 32) return invalidResponse();
+  const gates = item.gates.map((rawGate) => {
+    const gate = record(rawGate);
+    const name = stringField(gate.name);
+    if (!/^[a-z][a-z0-9_-]{0,63}$/.test(name)) return invalidResponse();
+    return { name, passed: booleanField(gate.passed) };
+  });
+  if (new Set(gates.map((gate) => gate.name)).size !== gates.length) return invalidResponse();
+  const version = nullableString(item.version);
+  const candidateCommit = nullableString(item.candidate_commit);
+  const failureCode = nullableString(item.failure_code);
+  if (
+    (version !== null && (version.length < 1 || version.length > 64)) ||
+    (candidateCommit !== null && !/^[a-f0-9]{40}$/.test(candidateCommit)) ||
+    (failureCode !== null && failureCode.length > 96)
+  ) return invalidResponse();
+  return {
+    configured: booleanField(item.configured),
+    status: enumField(item.status, selfUpdateStates),
+    version,
+    candidate_commit: candidateCommit,
+    checkpoint_ready: booleanField(item.checkpoint_ready),
+    rollback_ready: booleanField(item.rollback_ready),
+    activation_requires_owner: booleanField(item.activation_requires_owner),
+    gates,
+    failure_code: failureCode,
+  };
+}
+
+export function parseAgentOSCapabilities(value: unknown): AgentOSCapabilities {
+  const item = record(value);
+  if (!Array.isArray(item.profiles) || item.profiles.length !== agentKinds.length) return invalidResponse();
+  const profiles = item.profiles.map((rawProfile) => {
+    const profile = record(rawProfile);
+    if (!Array.isArray(profile.permissions) || profile.permissions.length > agentPermissions.length) return invalidResponse();
+    const permissions = profile.permissions.map((permission) => enumField(permission, agentPermissions));
+    if (new Set(permissions).size !== permissions.length) return invalidResponse();
+    return {
+      kind: enumField(profile.kind, agentKinds),
+      permissions,
+      registered: booleanField(profile.registered),
+    };
+  });
+  if (new Set(profiles.map((profile) => profile.kind)).size !== agentKinds.length) return invalidResponse();
+  const maxRetries = integerOrNull(item.max_retries);
+  const maxDeadline = integerOrNull(item.max_deadline_seconds);
+  const activeRuns = integerOrNull(item.active_runs);
+  const maxConcurrency = integerOrNull(item.max_concurrency);
+  if (
+    maxRetries === null || maxRetries < 0 || maxRetries > 2 ||
+    maxDeadline === null || maxDeadline < 1 || maxDeadline > 600 ||
+    activeRuns === null || activeRuns < 0 || activeRuns > 8 ||
+    maxConcurrency === null || maxConcurrency < 1 || maxConcurrency > 8
+  ) return invalidResponse();
+  return {
+    profiles,
+    max_retries: maxRetries,
+    max_deadline_seconds: maxDeadline,
+    active_runs: activeRuns,
+    max_concurrency: maxConcurrency,
+    persistence: stringField(item.persistence),
+  };
+}
+
+export function parseAgentRun(value: unknown): AgentRun {
+  const item = record(value);
+  if (!Array.isArray(item.attempts) || item.attempts.length > 48) return invalidResponse();
+  const attempts = item.attempts.map((rawAttempt) => {
+    const attempt = record(rawAttempt);
+    if (!Array.isArray(attempt.checks) || attempt.checks.length < 1 || attempt.checks.length > 128) return invalidResponse();
+    const checks = attempt.checks.map((rawCheck) => {
+      const check = record(rawCheck);
+      const evidence = nullableString(check.evidence_sha256);
+      if (evidence !== null && !/^[a-f0-9]{64}$/.test(evidence)) return invalidResponse();
+      return {
+        check_id: stringField(check.check_id),
+        passed: booleanField(check.passed),
+        failure: stringField(check.failure),
+        evidence_sha256: evidence,
+      };
+    });
+    const attemptNumber = integerOrNull(attempt.attempt);
+    const modelId = nullableString(attempt.model_id);
+    const outputDigest = stringField(attempt.output_sha256);
+    if (
+      attemptNumber === null || attemptNumber < 1 || attemptNumber > 3 ||
+      (modelId !== null && !/^[a-z0-9][a-z0-9_-]{0,63}:[a-f0-9]{24}$/.test(modelId)) ||
+      !/^[a-f0-9]{64}$/.test(outputDigest)
+    ) return invalidResponse();
+    return {
+      step_id: stringField(attempt.step_id),
+      attempt: attemptNumber,
+      agent: enumField(attempt.agent, agentKinds),
+      model_id: modelId,
+      verified: booleanField(attempt.verified),
+      output_sha256: outputDigest,
+      checks,
+    };
+  });
+  return {
+    id: stringField(item.id),
+    task: enumField(item.task, modelTasks),
+    specialist: item.specialist === null ? null : enumField(item.specialist, agentKinds),
+    status: enumField(item.status, agentRuntimeStatuses),
+    created_at: stringField(item.created_at),
+    updated_at: stringField(item.updated_at),
+    output: nullableString(item.output),
+    failure_code: nullableString(item.failure_code),
+    attempts,
+  };
+}
+
+export function parseAgentRunPage(value: unknown): AgentRunPage {
+  const item = record(value);
+  if (!Array.isArray(item.items) || item.items.length > 100) return invalidResponse();
+  return { items: item.items.map(parseAgentRun) };
 }
 
 export function parseConversation(value: unknown): ConversationSummary {

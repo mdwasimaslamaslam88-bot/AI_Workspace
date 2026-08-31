@@ -1,0 +1,162 @@
+from __future__ import annotations
+
+from typing import Annotated
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+
+from app.agent_os.contracts import AgentPermission, AgentRunRequest
+from app.agent_os.runtime import (
+    AgentRunManager,
+    AgentRunNotFoundError,
+    AgentRunRecord,
+)
+from app.api.dependencies import get_current_user
+from app.models.user import User
+from app.schemas.agent_os import (
+    AgentAttemptResponse,
+    AgentOSCapabilitiesResponse,
+    AgentProfileResponse,
+    AgentRunCreateRequest,
+    AgentRunPageResponse,
+    AgentRunResponse,
+    AgentVerificationCheckResponse,
+)
+
+
+router = APIRouter(prefix="/agent-os", tags=["Agent OS"])
+
+
+def _manager(request: Request) -> AgentRunManager:
+    manager = getattr(request.app.state, "agent_run_manager", None)
+    if not isinstance(manager, AgentRunManager):
+        raise RuntimeError("Agent OS is not configured")
+    return manager
+
+
+def _response(record: AgentRunRecord) -> AgentRunResponse:
+    result = record.result
+    return AgentRunResponse(
+        id=record.id,
+        task=record.task,
+        specialist=record.specialist,
+        status=record.status,
+        created_at=record.created_at,
+        updated_at=record.updated_at,
+        output=result.output if result is not None else None,
+        failure_code=result.failure_code if result is not None else None,
+        attempts=[
+            AgentAttemptResponse(
+                step_id=attempt.step_id,
+                attempt=attempt.attempt,
+                agent=attempt.agent,
+                model_id=attempt.model_id,
+                verified=attempt.verification.passed,
+                output_sha256=attempt.verification.output_sha256,
+                checks=[
+                    AgentVerificationCheckResponse(
+                        check_id=check.check_id,
+                        passed=check.passed,
+                        failure=check.failure,
+                        evidence_sha256=check.evidence_sha256,
+                    )
+                    for check in attempt.verification.checks
+                ],
+            )
+            for attempt in (result.attempts if result is not None else ())
+        ],
+    )
+
+
+@router.get("/capabilities", response_model=AgentOSCapabilitiesResponse)
+async def read_agent_os_capabilities(
+    request: Request,
+    _current_user: Annotated[User, Depends(get_current_user)],
+) -> AgentOSCapabilitiesResponse:
+    manager = _manager(request)
+    policy = manager.orchestrator.policy
+    registered = set(manager.orchestrator.registered_specialists)
+    return AgentOSCapabilitiesResponse(
+        profiles=[
+            AgentProfileResponse(
+                kind=profile.kind,
+                permissions=sorted(profile.permissions, key=lambda item: item.value),
+                registered=profile.kind in registered,
+            )
+            for profile in policy.profiles
+        ],
+        active_runs=manager.active_count,
+    )
+
+
+@router.post(
+    "/runs",
+    response_model=AgentRunResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+async def create_agent_run(
+    payload: AgentRunCreateRequest,
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> AgentRunResponse:
+    try:
+        run_request = AgentRunRequest(
+            goal=payload.goal,
+            task=payload.task,
+            specialist=payload.specialist,
+            permissions=frozenset({AgentPermission.MODEL_INFERENCE}),
+            max_retries=payload.max_retries,
+            deadline_seconds=payload.deadline_seconds,
+            required_context_tokens=payload.required_context_tokens,
+            require_objective_evidence=payload.require_objective_evidence,
+        )
+        record = await _manager(request).submit(current_user.id, run_request)
+    except RuntimeError as exc:
+        if str(exc) != "agent run retention is full":
+            raise
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Agent run retention is full",
+        ) from None
+    return _response(record)
+
+
+@router.get("/runs", response_model=AgentRunPageResponse)
+async def list_agent_runs(
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_user)],
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+) -> AgentRunPageResponse:
+    records = await _manager(request).list_for_owner(current_user.id, limit=limit)
+    return AgentRunPageResponse(items=[_response(record) for record in records])
+
+
+@router.get("/runs/{run_id}", response_model=AgentRunResponse)
+async def get_agent_run(
+    run_id: UUID,
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> AgentRunResponse:
+    record = await _manager(request).get_for_owner(current_user.id, run_id)
+    if record is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Agent run not found",
+        )
+    return _response(record)
+
+
+@router.post("/runs/{run_id}/cancel", response_model=AgentRunResponse)
+async def cancel_agent_run(
+    run_id: UUID,
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> AgentRunResponse:
+    try:
+        record = await _manager(request).cancel_for_owner(current_user.id, run_id)
+    except AgentRunNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Agent run not found",
+        ) from None
+    return _response(record)

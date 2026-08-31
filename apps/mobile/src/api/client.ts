@@ -1,6 +1,10 @@
 import {
   type Asset,
   type AccessTokenRotation,
+  type AgentOSCapabilities,
+  type AgentRun,
+  type AgentRunCreateRequest,
+  type AgentRunPage,
   type ConversationCreateRequest,
   type ConversationCreateResponse,
   type ConversationCursor,
@@ -13,6 +17,8 @@ import {
   type ConversationTextGenerationRequest,
   type ConversationTextGenerationResponse,
   type CurrentUser,
+  type ExternalAISettings,
+  type ExternalProviderUpsertRequest,
   type ImageEditingRequest,
   type ImageGenerationRequest,
   type ImageOperation,
@@ -23,6 +29,7 @@ import {
   type MessagePage,
   type PersonalMemory,
   type ProductCapabilityPage,
+  type SelfUpdateStatus,
   type SystemDiagnostics,
   type ToolDescriptorPage,
   type ToolExecution,
@@ -41,10 +48,14 @@ import {
   type WorkflowPage,
   parseAsset,
   parseAccessTokenRotation,
+  parseAgentOSCapabilities,
+  parseAgentRun,
+  parseAgentRunPage,
   parseConversation,
   parseConversationCreateResponse,
   parseConversationPage,
   parseCurrentUser,
+  parseExternalAISettings,
   parseGenerationResponse,
   parseImageOperation,
   parseMemoryPage,
@@ -53,6 +64,7 @@ import {
   parseModelPage,
   parsePersonalMemory,
   parseProductCapabilityPage,
+  parseSelfUpdateStatus,
   parseSystemDiagnostics,
   parseToolDescriptorPage,
   parseToolExecution,
@@ -225,6 +237,30 @@ export class MobileApiClient {
     return this.#request("api/v1/users/me", parseCurrentUser, { signal });
   }
 
+  getAgentOSCapabilities(signal?: AbortSignal): Promise<AgentOSCapabilities> {
+    return this.#request("api/v1/agent-os/capabilities", parseAgentOSCapabilities, { signal });
+  }
+
+  listAgentRuns(signal?: AbortSignal): Promise<AgentRunPage> {
+    return this.#request("api/v1/agent-os/runs?limit=20", parseAgentRunPage, { signal });
+  }
+
+  createAgentRun(request: AgentRunCreateRequest, signal?: AbortSignal): Promise<AgentRun> {
+    return this.#request("api/v1/agent-os/runs", parseAgentRun, {
+      method: "POST",
+      body: request,
+      signal,
+    });
+  }
+
+  cancelAgentRun(runId: string, signal?: AbortSignal): Promise<AgentRun> {
+    return this.#request(
+      `api/v1/agent-os/runs/${encodeURIComponent(runId)}/cancel`,
+      parseAgentRun,
+      { method: "POST", signal },
+    );
+  }
+
   listModels(signal?: AbortSignal): Promise<LocalModelPage> {
     return this.#request("api/v1/ai/models", parseModelPage, { signal });
   }
@@ -235,6 +271,45 @@ export class MobileApiClient {
 
   getSystemDiagnostics(signal?: AbortSignal): Promise<SystemDiagnostics> {
     return this.#request("api/v1/diagnostics", parseSystemDiagnostics, { signal });
+  }
+
+  getExternalAISettings(signal?: AbortSignal): Promise<ExternalAISettings> {
+    return this.#request("api/v1/external-ai/settings", parseExternalAISettings, { signal });
+  }
+
+  updateExternalAIEnabled(enabled: boolean, signal?: AbortSignal): Promise<ExternalAISettings> {
+    return this.#request("api/v1/external-ai/settings", parseExternalAISettings, {
+      method: "PUT",
+      body: { enabled },
+      signal,
+    });
+  }
+
+  upsertExternalAIProvider(
+    providerId: string,
+    request: ExternalProviderUpsertRequest,
+    signal?: AbortSignal,
+  ): Promise<ExternalAISettings> {
+    return this.#request(
+      `api/v1/external-ai/providers/${encodeURIComponent(providerId)}`,
+      parseExternalAISettings,
+      { method: "PUT", body: request, signal },
+    );
+  }
+
+  getSelfUpdateStatus(signal?: AbortSignal): Promise<SelfUpdateStatus> {
+    return this.#request("api/v1/updates/status", parseSelfUpdateStatus, { signal });
+  }
+
+  decideSelfUpdate(
+    decision: "update" | "cancel",
+    signal?: AbortSignal,
+  ): Promise<SelfUpdateStatus> {
+    return this.#request("api/v1/updates/decision", parseSelfUpdateStatus, {
+      method: "POST",
+      body: { decision },
+      signal,
+    });
   }
 
   listMemories(

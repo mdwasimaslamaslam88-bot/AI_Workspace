@@ -4,6 +4,7 @@ from starlette.requests import Request
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from app.exceptions.handlers import unhandled_exception_handler
+from app.security_events import SecurityEventKind, SecurityEventRecorder
 
 
 class ApplicationErrorBoundaryMiddleware:
@@ -25,5 +26,9 @@ class ApplicationErrorBoundaryMiddleware:
         try:
             await self.app(scope, receive, send)
         except Exception as exc:
+            application = scope.get("app")
+            recorder = getattr(getattr(application, "state", None), "security_event_recorder", None)
+            if isinstance(recorder, SecurityEventRecorder):
+                recorder.record(SecurityEventKind.APPLICATION_ERROR_CONTAINMENT)
             response = await unhandled_exception_handler(Request(scope), exc)
             await response(scope, receive, send)

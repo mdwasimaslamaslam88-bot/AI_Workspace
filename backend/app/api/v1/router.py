@@ -2,10 +2,13 @@
 
 from fastapi import APIRouter
 
+from app.api.v1.agent_os import router as agent_os_router
 from app.api.v1.ai import router as ai_router
 from app.api.v1.assets import router as assets_router
 from app.api.v1.conversations import router as conversations_router
 from app.api.v1.documents import router as documents_router
+from app.api.v1.external_ai import router as external_ai_router
+from app.api.v1.self_update import router as self_update_router
 from app.api.v1.diagnostics import router as diagnostics_router
 from app.api.v1.health import router as health_router
 from app.api.v1.images import router as images_router
@@ -18,6 +21,9 @@ from app.api.v1.workflows import router as workflows_router
 router = APIRouter()
 
 router.include_router(health_router)
+router.include_router(agent_os_router)
+router.include_router(external_ai_router)
+router.include_router(self_update_router)
 router.include_router(users_router)
 router.include_router(voice_router)
 router.include_router(images_router)

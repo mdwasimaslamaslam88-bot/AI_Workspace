@@ -511,6 +511,35 @@ class CandidateBenchmarkRunner:
         self.model_metadata: dict[str, Any] = {}
         self.started_at = time.time()
 
+    def _write_output(self, report: dict[str, Any]) -> None:
+        serialized = json.dumps(report, ensure_ascii=False, indent=2) + "\n"
+        if any(
+            token and token in serialized
+            for token in (self.owner_token, self.provisioning_token)
+        ):
+            raise RuntimeError("candidate benchmark report credential scan failed")
+        temporary = self.output_path.with_name(f".{self.output_path.name}.tmp")
+        temporary.write_text(serialized, encoding="utf-8")
+        temporary.chmod(0o600)
+        temporary.replace(self.output_path)
+        self.output_path.chmod(0o600)
+
+    def mark_started(self) -> None:
+        previous = self.output_path.with_name(f"{self.output_path.name}.previous")
+        if self.output_path.exists():
+            self.output_path.replace(previous)
+            previous.chmod(0o600)
+        self._write_output(
+            {
+                "schema_version": 2,
+                "run_status": "in_progress",
+                "created_at_unix": round(self.started_at, 3),
+                "model_reference": self.model_reference,
+                "model_id": self.model_id,
+                "profile": {"id": self.profile},
+            }
+        )
+
     @property
     def owner_headers(self) -> dict[str, str]:
         return {"Authorization": f"Bearer {self.owner_token}"}
@@ -585,6 +614,7 @@ class CandidateBenchmarkRunner:
                 else None
             ),
         }
+        self.resource_samples.append(sample)
         if gpu["temperature_c"] >= MAX_GPU_TEMPERATURE_C:
             raise BenchmarkResourceGuardError("GPU thermal safety guard triggered")
         if memory["available_bytes"] < MIN_AVAILABLE_RAM_BYTES:
@@ -594,7 +624,6 @@ class CandidateBenchmarkRunner:
             and (model_process.get("size_vram") or 0) > MAX_MODEL_VRAM_BYTES
         ):
             raise BenchmarkResourceGuardError("model VRAM safety guard triggered")
-        self.resource_samples.append(sample)
 
     def _generate(
         self,
@@ -1100,7 +1129,9 @@ class CandidateBenchmarkRunner:
 
     def write_report(self) -> dict[str, Any]:
         report = {
-            "schema_version": 1,
+            "schema_version": 2,
+            "run_status": "complete",
+            "failure": None,
             "created_at_unix": round(time.time(), 3),
             "model_reference": self.model_reference,
             "model_id": self.model_id,
@@ -1141,17 +1172,39 @@ class CandidateBenchmarkRunner:
             "results": self.results,
             "duration_seconds": round(time.time() - self.started_at, 3),
         }
-        serialized = json.dumps(report, ensure_ascii=False, indent=2) + "\n"
-        if any(
-            token and token in serialized
-            for token in (self.owner_token, self.provisioning_token)
-        ):
-            raise RuntimeError("candidate benchmark report credential scan failed")
-        temporary = self.output_path.with_name(f".{self.output_path.name}.tmp")
-        temporary.write_text(serialized, encoding="utf-8")
-        temporary.chmod(0o600)
-        temporary.replace(self.output_path)
-        self.output_path.chmod(0o600)
+        self._write_output(report)
+        return report
+
+    def write_resource_guard_failure(
+        self, error: BenchmarkResourceGuardError
+    ) -> dict[str, Any]:
+        message = str(error)
+        code = (
+            "gpu_thermal_guard"
+            if "thermal" in message.lower()
+            else "gpu_vram_guard"
+            if "vram" in message.lower()
+            else "ram_guard"
+        )
+        report = {
+            "schema_version": 2,
+            "run_status": "failed",
+            "created_at_unix": round(time.time(), 3),
+            "model_reference": self.model_reference,
+            "model_id": self.model_id,
+            "model_metadata": self.model_metadata,
+            "profile": {"id": self.profile},
+            "failure": {
+                "code": code,
+                "message": message,
+                "completed_tests": len(self.results),
+            },
+            "last_resource_sample": (
+                self.resource_samples[-1] if self.resource_samples else None
+            ),
+            "duration_seconds": round(time.time() - self.started_at, 3),
+        }
+        self._write_output(report)
         return report
 
     def close(self) -> None:
@@ -1173,6 +1226,8 @@ def _verify_output_path(value: str) -> Path:
 def aggregate_reports(report_root: Path, inputs: list[Path]) -> dict[str, Any]:
     reports = [json.loads(path.read_text(encoding="utf-8")) for path in inputs]
     for report in reports:
+        if report.get("run_status", "complete") != "complete":
+            raise RuntimeError("candidate benchmark aggregation requires complete reports")
         profile = report.setdefault("profile", {})
         profile.setdefault("id", BASELINE_PROFILE)
         resources = report.get("summary", {}).get("resources", {})
@@ -1311,6 +1366,7 @@ def main() -> None:
         profile,
     )
     try:
+        runner.mark_started()
         runner.initialize()
         if profile == VISION_PROFILE:
             runner.run_vision_cases()
@@ -1329,6 +1385,12 @@ def main() -> None:
             runner.run_text_cases()
             runner.run_code_cases()
         report = runner.write_report()
+    except BenchmarkResourceGuardError as error:
+        runner.write_resource_guard_failure(error)
+        print("MODEL_CANDIDATE_RESOURCE_GUARD_TRIGGERED", file=sys.stderr)
+        print(f"MODEL_REFERENCE={model_reference}", file=sys.stderr)
+        print(f"MODEL_OUTPUT={output_path}", file=sys.stderr)
+        raise SystemExit(86) from None
     finally:
         runner.close()
     print("MODEL_CANDIDATE_BENCHMARK_COMPLETE")

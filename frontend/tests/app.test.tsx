@@ -36,6 +36,8 @@ import {
   message,
   model,
   productCapabilities,
+  externalAISettings,
+  selfUpdateStatus,
   rawSecret,
   systemDiagnostics,
   token,
@@ -147,6 +149,12 @@ function installWorkspaceFetch(options: {
     }
     if (url.pathname === "/api/v1/diagnostics") {
       return jsonResponse(systemDiagnostics);
+    }
+    if (url.pathname === "/api/v1/external-ai/settings") {
+      return jsonResponse(externalAISettings);
+    }
+    if (url.pathname === "/api/v1/updates/status") {
+      return jsonResponse(selfUpdateStatus);
     }
     if (
       url.pathname === "/api/v1/workflows" &&

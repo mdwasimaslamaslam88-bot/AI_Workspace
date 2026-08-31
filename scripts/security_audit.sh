@@ -33,6 +33,14 @@ if rg --pcre2 -n 'connect-src[^\"]* https:(?:[ ;])' \
   exit 1
 fi
 
+if ! ldconfig -p 2>/dev/null | rg -q 'libsodium\.so'; then
+  echo "The authenticated provider/update vault requires libsodium." >&2
+  exit 1
+fi
+backend/.venv/bin/python scripts/external_model_evidence.py --help >/dev/null
+backend/.venv/bin/python scripts/self_update_tool.py --help >/dev/null
+backend/.venv/bin/python scripts/technology_watcher.py --help >/dev/null
+
 backend/.venv/bin/python -m pip check
 npm audit --audit-level=high
 echo "security audit: tracked secrets, client artifacts, CSP, and dependency gates passed"

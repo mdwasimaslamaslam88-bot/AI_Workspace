@@ -219,6 +219,141 @@ describe("mobile API client", () => {
     });
   });
 
+  it("keeps External AI keys write-only and disabled on first mobile setup", async () => {
+    const providerKey = "private-mobile-provider-key";
+    const settings = {
+      configured: true,
+      global_enabled: false,
+      supported_provider_kinds: ["openai", "anthropic", "google"],
+      providers: [],
+    };
+    const calls: Array<{ path: string; method: string; body: unknown }> = [];
+    const fetchMock = vi.fn(async (input: URL | RequestInfo, init?: RequestInit) => {
+      const url = new URL(input.toString());
+      calls.push({
+        path: url.pathname,
+        method: init?.method ?? "GET",
+        body: init?.body === undefined ? undefined : JSON.parse(String(init.body)),
+      });
+      expect(url.toString()).not.toContain(providerKey);
+      expect(new Headers(init?.headers).get("Authorization")).toBe("Bearer mobile-session");
+      return new Response(JSON.stringify(settings), { status: 200 });
+    });
+    const client = new MobileApiClient("mobile-session", {
+      baseUrl: "https://work-station.example.ts.net",
+      fetchImplementation: fetchMock,
+    });
+
+    await expect(client.getExternalAISettings()).resolves.toEqual(settings);
+    await expect(client.updateExternalAIEnabled(true)).resolves.toEqual(settings);
+    await expect(client.upsertExternalAIProvider("openai-primary", {
+      kind: "openai",
+      api_key: providerKey,
+      enabled: false,
+    })).resolves.toEqual(settings);
+
+    expect(calls).toEqual([
+      { path: "/api/v1/external-ai/settings", method: "GET", body: undefined },
+      { path: "/api/v1/external-ai/settings", method: "PUT", body: { enabled: true } },
+      {
+        path: "/api/v1/external-ai/providers/openai-primary",
+        method: "PUT",
+        body: { kind: "openai", api_key: providerKey, enabled: false },
+      },
+    ]);
+  });
+
+  it("submits only the final self-update activation decision from mobile", async () => {
+    const update = {
+      configured: true,
+      status: "ready",
+      version: "2.0.0",
+      candidate_commit: "a".repeat(40),
+      checkpoint_ready: true,
+      rollback_ready: true,
+      activation_requires_owner: true,
+      gates: [{ name: "release", passed: true }],
+      failure_code: null,
+    };
+    const calls: Array<{ path: string; method: string; body: unknown }> = [];
+    const fetchMock = vi.fn(async (input: URL | RequestInfo, init?: RequestInit) => {
+      const url = new URL(input.toString());
+      calls.push({
+        path: url.pathname,
+        method: init?.method ?? "GET",
+        body: init?.body === undefined ? undefined : JSON.parse(String(init.body)),
+      });
+      return new Response(JSON.stringify(update), { status: 200 });
+    });
+    const client = new MobileApiClient("mobile-session", {
+      baseUrl: "https://work-station.example.ts.net",
+      fetchImplementation: fetchMock,
+    });
+
+    await expect(client.getSelfUpdateStatus()).resolves.toEqual(update);
+    await expect(client.decideSelfUpdate("update")).resolves.toEqual(update);
+    expect(calls).toEqual([
+      { path: "/api/v1/updates/status", method: "GET", body: undefined },
+      { path: "/api/v1/updates/decision", method: "POST", body: { decision: "update" } },
+    ]);
+  });
+
+  it("uses typed owner-scoped Agent OS endpoints", async () => {
+    const kinds = [
+      "planner", "coding", "debugging", "research", "browser", "data",
+      "vision", "image", "voice", "rag", "automation", "verifier",
+    ];
+    const capabilities = {
+      profiles: kinds.map((kind) => ({ kind, permissions: ["model_inference"], registered: true })),
+      max_retries: 2,
+      max_deadline_seconds: 600,
+      active_runs: 0,
+      max_concurrency: 2,
+      persistence: "bounded_process_memory",
+    };
+    const run = {
+      id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      task: "debugging",
+      specialist: "debugging",
+      status: "queued",
+      created_at: timestamp,
+      updated_at: timestamp,
+      output: null,
+      failure_code: null,
+      attempts: [],
+    };
+    const calls: Array<{ path: string; method: string; body: unknown }> = [];
+    const fetchMock = vi.fn(async (input: URL | RequestInfo, init?: RequestInit) => {
+      const url = new URL(input.toString());
+      calls.push({
+        path: `${url.pathname}${url.search}`,
+        method: init?.method ?? "GET",
+        body: init?.body === undefined ? undefined : JSON.parse(String(init.body)),
+      });
+      if (url.pathname.endsWith("/capabilities")) return new Response(JSON.stringify(capabilities));
+      if (url.pathname.endsWith("/runs") && (init?.method ?? "GET") === "GET") {
+        return new Response(JSON.stringify({ items: [run] }));
+      }
+      return new Response(JSON.stringify(run));
+    });
+    const client = new MobileApiClient("mobile-session", {
+      baseUrl: "https://work-station.example.ts.net",
+      fetchImplementation: fetchMock,
+    });
+
+    await client.getAgentOSCapabilities();
+    await client.listAgentRuns();
+    await client.createAgentRun({ goal: "Diagnose it.", task: "debugging" });
+    await client.cancelAgentRun(run.id);
+
+    expect(calls).toEqual([
+      { path: "/api/v1/agent-os/capabilities", method: "GET", body: undefined },
+      { path: "/api/v1/agent-os/runs?limit=20", method: "GET", body: undefined },
+      { path: "/api/v1/agent-os/runs", method: "POST", body: { goal: "Diagnose it.", task: "debugging" } },
+      { path: `/api/v1/agent-os/runs/${run.id}/cancel`, method: "POST", body: undefined },
+    ]);
+  });
+
   it("manages owner device sessions through shared contracts", async () => {
     const issuedToken = "q".repeat(43);
     const accessSession = {

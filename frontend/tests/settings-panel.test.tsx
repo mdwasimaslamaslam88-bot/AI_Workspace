@@ -22,7 +22,9 @@ import {
 } from "../src/platform/desktop";
 import {
   productCapabilities,
+  externalAISettings,
   rawSecret,
+  selfUpdateStatus,
   systemDiagnostics,
 } from "./fixtures";
 
@@ -37,6 +39,22 @@ function props() {
       void signal;
       return systemDiagnostics;
     }),
+    onLoadExternalAI: vi.fn(async (signal?: AbortSignal) => {
+      void signal;
+      return externalAISettings;
+    }),
+    onSetExternalAIEnabled: vi.fn(async (enabled: boolean) => ({
+      ...externalAISettings,
+      global_enabled: enabled,
+    })),
+    onUpsertExternalAIProvider: vi.fn(async () => externalAISettings),
+    onSetExternalAIProviderEnabled: vi.fn(async () => externalAISettings),
+    onDeleteExternalAIProvider: vi.fn(async () => externalAISettings),
+    onLoadSelfUpdate: vi.fn(async (signal?: AbortSignal) => {
+      void signal;
+      return selfUpdateStatus;
+    }),
+    onDecideSelfUpdate: vi.fn(async () => selfUpdateStatus),
     onLoadSessions: vi.fn(async (signal?: AbortSignal) => {
       void signal;
       return [
@@ -108,6 +126,8 @@ describe("SettingsPanel", () => {
     expect(screen.getByText(/Test GPU · 12 GiB · ready/)).toBeVisible();
     expect(actions.onLoad.mock.calls[0]?.[0]).toBeInstanceOf(AbortSignal);
     expect(actions.onLoadDiagnostics.mock.calls[0]?.[0]).toBeInstanceOf(AbortSignal);
+    expect(actions.onLoadExternalAI.mock.calls[0]?.[0]).toBeInstanceOf(AbortSignal);
+    expect(actions.onLoadSelfUpdate.mock.calls[0]?.[0]).toBeInstanceOf(AbortSignal);
     expect(actions.onLoadSessions.mock.calls[0]?.[0]).toBeInstanceOf(AbortSignal);
     expect(document.body.textContent).not.toContain("127.0.0.1");
 
@@ -122,6 +142,73 @@ describe("SettingsPanel", () => {
       await screen.findByText("Owner access token rotated and saved on this device."),
     ).toBeVisible();
     expect(actions.onRotateSession).toHaveBeenCalledOnce();
+  });
+
+  it("manages write-only External AI keys with fallback disabled by default", async () => {
+    const actions = props();
+    render(<SettingsPanel {...actions} />);
+    await screen.findByRole("heading", { name: "API / External AI" });
+
+    const globalToggle = screen.getByRole("checkbox", { name: "API fallback" });
+    expect(globalToggle).not.toBeChecked();
+    await userEvent.click(globalToggle);
+    expect(actions.onSetExternalAIEnabled).toHaveBeenCalledWith(true);
+
+    await userEvent.type(screen.getByLabelText("Provider ID"), "openai-primary");
+    await userEvent.type(
+      screen.getByLabelText("API key (write-only)"),
+      "private-provider-key-value",
+    );
+    await userEvent.type(screen.getByLabelText("Model ID (optional)"), "candidate-model");
+    await userEvent.selectOptions(screen.getByLabelText("Model task"), "reasoning");
+    await userEvent.click(screen.getByRole("button", { name: "Save provider disabled" }));
+
+    expect(actions.onUpsertExternalAIProvider).toHaveBeenCalledWith(
+      "openai-primary",
+      expect.objectContaining({
+        kind: "openai",
+        api_key: "private-provider-key-value",
+        enabled: false,
+        models: [expect.objectContaining({
+          model_id: "candidate-model",
+          tasks: ["reasoning"],
+          verified: false,
+        })],
+      }),
+    );
+    expect(screen.getByLabelText("API key (write-only)")).toHaveValue("");
+    expect(document.body.textContent).not.toContain("private-provider-key-value");
+    expect(await screen.findByText("Provider saved with fallback disabled.")).toBeVisible();
+  });
+
+  it("shows activation controls only after the complete update gate is ready", async () => {
+    const ready = {
+      ...selfUpdateStatus,
+      status: "ready" as const,
+      version: "2.0.0",
+      candidate_commit: "a".repeat(40),
+      checkpoint_ready: true,
+      rollback_ready: true,
+      activation_requires_owner: true,
+      gates: [
+        { name: "performance", passed: true },
+        { name: "release", passed: true },
+        { name: "security", passed: true },
+        { name: "routing_admission_hardware", passed: true },
+      ],
+    };
+    const actions = {
+      ...props(),
+      onLoadSelfUpdate: vi.fn(async () => ready),
+      onDecideSelfUpdate: vi.fn(async () => ({ ...ready, status: "activated" as const })),
+    };
+    render(<SettingsPanel {...actions} />);
+
+    expect(await screen.findByText("WORK STATION UPDATE READY")).toBeVisible();
+    expect(screen.getByText("Rollback checkpoint: READY")).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: "UPDATE" }));
+    expect(actions.onDecideSelfUpdate).toHaveBeenCalledWith("update");
+    expect(await screen.findByText(/Health monitoring and automatic rollback/)).toBeVisible();
   });
 
   it("manages separately revocable owner device sessions without listing tokens", async () => {

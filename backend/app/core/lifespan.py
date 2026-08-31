@@ -5,6 +5,16 @@ from pathlib import Path
 
 from fastapi import FastAPI
 
+from app.agent_os import (
+    AgentKind,
+    AgentOrchestrator,
+    AgentRunManager,
+    IndependentVerificationEngine,
+    LocalFirstModelSelector,
+    LocalModelSelector,
+    ModelBackedSpecialist,
+    RuleBasedAgentPlanner,
+)
 from app.ai.catalog import (
     ModelCapability,
     ModelCatalog,
@@ -21,6 +31,8 @@ from app.core.config import Settings, settings
 from app.db.session import create_session_factory
 from app.hardware import HardwareCapabilityService, detect_hardware
 from app.hardware.planner import GIBIBYTE
+from app.external_ai import EncryptedProviderVault, ExternalAIService
+from app.maintenance import SelfUpdateManager
 from app.runtimes.configured_media import (
     ConfiguredMediaModel,
     ConfiguredMediaModelDiscoveryRuntime,
@@ -37,6 +49,7 @@ from app.services.asset import reconcile_asset_storage
 from app.services.generation_admission import GenerationAdmissionController
 from app.services.tool import reconcile_tool_executions
 from app.services.workflow import WorkflowRunner, reconcile_workflows
+from app.security_events import SecurityEventRecorder
 from app.storage.local import LocalAssetStorage
 
 
@@ -165,6 +178,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         app.state.hardware_capability_service = hardware_capability_service
         app.state.hardware_capability_state = hardware_capability_state
         app.state.hardware_inventory = hardware_inventory
+        app.state.security_event_recorder = SecurityEventRecorder()
         postgres_engine = create_postgres_engine(settings)
         resource_stack.push_async_callback(
             dispose_postgres,
@@ -337,4 +351,56 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             if ollama_client is not None
             else ()
         )
+        app.state.external_ai_service = None
+        if settings.EXTERNAL_AI_STATE_ROOT is not None:
+            external_ai_service = ExternalAIService(
+                EncryptedProviderVault(settings.EXTERNAL_AI_STATE_ROOT),
+                ExternalAIService.create_client(),
+            )
+            app.state.external_ai_service = external_ai_service
+            resource_stack.push_async_callback(external_ai_service.close)
+        app.state.self_update_manager = (
+            SelfUpdateManager(
+                Path(__file__).resolve().parents[3],
+                settings.SELF_UPDATE_STATE_ROOT,
+            )
+            if settings.SELF_UPDATE_STATE_ROOT is not None
+            else None
+        )
+        agent_specialist_kinds = (
+            AgentKind.PLANNER,
+            AgentKind.CODING,
+            AgentKind.DEBUGGING,
+            AgentKind.RESEARCH,
+            AgentKind.BROWSER,
+            AgentKind.DATA,
+            AgentKind.VISION,
+            AgentKind.RAG,
+            AgentKind.AUTOMATION,
+        )
+        app.state.agent_orchestrator = AgentOrchestrator(
+            RuleBasedAgentPlanner(),
+            LocalFirstModelSelector(
+                LocalModelSelector(
+                    app.state.model_catalog,
+                    app.state.task_model_router,
+                ),
+                app.state.external_ai_service,
+            ),
+            tuple(
+                ModelBackedSpecialist(
+                    kind,
+                    app.state.model_catalog,
+                    app.state.text_generation_router,
+                    external_ai=app.state.external_ai_service,
+                )
+                for kind in agent_specialist_kinds
+            ),
+            IndependentVerificationEngine(),
+            max_active=2,
+        )
+        app.state.agent_run_manager = AgentRunManager(
+            app.state.agent_orchestrator
+        )
+        resource_stack.push_async_callback(app.state.agent_run_manager.shutdown)
         yield

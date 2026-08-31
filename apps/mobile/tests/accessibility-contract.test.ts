@@ -47,4 +47,26 @@ describe("mobile accessibility contract", () => {
     }
     expect(missing).toEqual([]);
   });
+
+  it("shows every required validated-update decision field", () => {
+    const settings = fs.readFileSync(
+      path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../src/app/settings.tsx"),
+      "utf8",
+    );
+    for (const label of [
+      "WORK STATION UPDATE READY",
+      "Version:",
+      "What changed:",
+      "Benefits:",
+      "Performance:",
+      "Quality:",
+      "Security:",
+      "Compatibility:",
+      "Rollback checkpoint:",
+      ">UPDATE<",
+      ">CANCEL<",
+    ]) {
+      expect(settings).toContain(label);
+    }
+  });
 });

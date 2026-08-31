@@ -2,6 +2,8 @@ import hashlib
 import json
 import subprocess
 
+import pytest
+
 import scripts.model_candidate_benchmark as candidate_benchmark
 from scripts.model_candidate_benchmark import (
     BASELINE_PROFILE,
@@ -145,6 +147,63 @@ def test_zero_keep_alive_resource_summary_does_not_report_zero_model_vram():
     assert resources["peak_model_vram_bytes"] is None
     assert resources["ollama_process_visible_samples"] == 0
     assert "zero-second keep-alive" in resources["ollama_process_telemetry_note"]
+
+
+def test_candidate_report_lifecycle_archives_stale_output_and_records_guard(
+    tmp_path, monkeypatch
+):
+    output = tmp_path / "candidate.json"
+    output.write_text('{"run_status":"complete","old":true}\n', encoding="utf-8")
+    runner = CandidateBenchmarkRunner(
+        "http://127.0.0.1:1",
+        "provisioning-secret",
+        "qwen3:8b",
+        output,
+    )
+    monkeypatch.setattr(candidate_benchmark.time, "time", lambda: 1_788_140_000.0)
+    try:
+        runner.mark_started()
+        started = json.loads(output.read_text(encoding="utf-8"))
+        previous = json.loads(
+            output.with_name("candidate.json.previous").read_text(encoding="utf-8")
+        )
+        runner.resource_samples = [
+            {
+                "captured_at_unix": 1_788_140_001.0,
+                "gpu": {"temperature_c": 85},
+                "ram": {"available_bytes": 70 * 1024**3},
+                "ollama_model": None,
+            }
+        ]
+        report = runner.write_resource_guard_failure(
+            candidate_benchmark.BenchmarkResourceGuardError(
+                "GPU thermal safety guard triggered"
+            )
+        )
+    finally:
+        runner.close()
+
+    assert started["run_status"] == "in_progress"
+    assert previous["old"] is True
+    assert report["run_status"] == "failed"
+    assert report["failure"] == {
+        "code": "gpu_thermal_guard",
+        "message": "GPU thermal safety guard triggered",
+        "completed_tests": 0,
+    }
+    assert report["last_resource_sample"]["gpu"]["temperature_c"] == 85
+    assert "provisioning-secret" not in output.read_text(encoding="utf-8")
+
+
+def test_candidate_aggregation_rejects_failed_report(tmp_path):
+    report = tmp_path / "failed.json"
+    report.write_text(
+        json.dumps({"run_status": "failed", "profile": {"id": "baseline"}}),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(RuntimeError, match="requires complete reports"):
+        candidate_benchmark.aggregate_reports(tmp_path, [report])
 
 
 def test_installed_model_verification_hashes_every_manifest_layer(

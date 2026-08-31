@@ -9,6 +9,10 @@ from app.ai.admission import (
 )
 from app.ai.routing import InferenceMode, ModelTask
 from app.hardware import HardwareClass
+from app.agent_os.contracts import AgentRunStatus
+from app.external_ai.contracts import ExternalProviderStatus
+from app.maintenance import UpdateStatus
+from app.security_events import SecurityEventKind
 
 
 DiagnosticStatus = Literal["ready", "unavailable", "unconfigured"]
@@ -112,6 +116,41 @@ class ModelRouteDiagnosticResponse(BaseModel):
     inference_mode: InferenceMode
 
 
+class ExternalProviderDiagnosticResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    provider_id: str = Field(pattern=r"^[a-z][a-z0-9_-]{0,63}$")
+    status: ExternalProviderStatus
+    spent_micros: int = Field(strict=True, ge=0)
+    spending_limit_micros: int = Field(strict=True, ge=0)
+    quota_remaining_tokens: int | None = Field(default=None, strict=True, ge=0)
+    verified_model_count: int = Field(strict=True, ge=0, le=64)
+
+
+class AgentRuntimeDiagnosticResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    active_count: int = Field(strict=True, ge=0, le=100)
+    retained_count: int = Field(strict=True, ge=0, le=100)
+    statuses: dict[AgentRunStatus, int] = Field(default_factory=dict)
+
+
+class SelfUpdateDiagnosticResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    configured: bool
+    status: UpdateStatus
+    checkpoint_ready: bool
+    rollback_ready: bool
+
+
+class SecurityEventDiagnosticResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    kind: SecurityEventKind
+    occurred_at: str = Field(min_length=20, max_length=40)
+
+
 class SystemDiagnosticsResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -126,6 +165,16 @@ class SystemDiagnosticsResponse(BaseModel):
     routes: list[ModelRouteDiagnosticResponse] = Field(
         default_factory=list,
         max_length=20,
+    )
+    external_providers: list[ExternalProviderDiagnosticResponse] = Field(
+        default_factory=list,
+        max_length=16,
+    )
+    agents: AgentRuntimeDiagnosticResponse | None = None
+    self_update: SelfUpdateDiagnosticResponse
+    security_events: list[SecurityEventDiagnosticResponse] = Field(
+        default_factory=list,
+        max_length=100,
     )
 
     @model_validator(mode="after")

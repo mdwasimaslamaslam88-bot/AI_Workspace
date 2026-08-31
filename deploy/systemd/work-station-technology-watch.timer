@@ -1,0 +1,12 @@
+[Unit]
+Description=Check for a WORK STATION candidate after production remains stable
+
+[Timer]
+OnBootSec=30min
+OnUnitActiveSec=24h
+RandomizedDelaySec=30min
+Persistent=true
+Unit=work-station-technology-watch.service
+
+[Install]
+WantedBy=timers.target

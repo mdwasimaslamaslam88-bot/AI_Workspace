@@ -1,0 +1,84 @@
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { describe, expect, it, vi } from "vitest";
+
+import type { AgentOSCapabilities, AgentRun } from "../src/api/contracts";
+import { AgentPanel } from "../src/features/agents/AgentPanel";
+
+
+const kinds = [
+  "planner", "coding", "debugging", "research", "browser", "data",
+  "vision", "image", "voice", "rag", "automation", "verifier",
+] as const;
+
+const capabilities: AgentOSCapabilities = {
+  profiles: kinds.map((kind) => ({
+    kind,
+    permissions: ["model_inference"],
+    registered: !["image", "voice", "verifier"].includes(kind),
+  })),
+  max_retries: 2,
+  max_deadline_seconds: 600,
+  active_runs: 0,
+  max_concurrency: 2,
+  persistence: "bounded_process_memory",
+};
+
+const queued: AgentRun = {
+  id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+  task: "debugging",
+  specialist: "debugging",
+  status: "queued",
+  created_at: "2026-08-31T00:00:00Z",
+  updated_at: "2026-08-31T00:00:00Z",
+  output: null,
+  failure_code: null,
+  attempts: [],
+};
+
+describe("AgentPanel", () => {
+  it("submits only the typed goal/task/specialist contract", async () => {
+    const onCreate = vi.fn(async () => queued);
+    render(
+      <AgentPanel
+        onClose={vi.fn()}
+        onLoadCapabilities={vi.fn(async () => capabilities)}
+        onLoadRuns={vi.fn(async () => [])}
+        onCreate={onCreate}
+        onCancel={vi.fn(async () => queued)}
+      />,
+    );
+
+    expect(await screen.findByText(/0 active · 2 maximum concurrent/)).toBeVisible();
+    await userEvent.type(screen.getByLabelText("Agent goal"), "Diagnose the failing integration test.");
+    await userEvent.selectOptions(screen.getByLabelText("Task"), "debugging");
+    await userEvent.selectOptions(screen.getByLabelText("Specialist"), "debugging");
+    await userEvent.click(screen.getByRole("button", { name: "Run agent" }));
+
+    expect(onCreate).toHaveBeenCalledWith({
+      goal: "Diagnose the failing integration test.",
+      task: "debugging",
+      specialist: "debugging",
+      max_retries: 1,
+      deadline_seconds: 180,
+    });
+    expect(await screen.findByText(/model-inference permission only/)).toBeVisible();
+    expect(screen.getByText("queued")).toBeVisible();
+  });
+
+  it("does not expose unregistered specialists", async () => {
+    render(
+      <AgentPanel
+        onClose={vi.fn()}
+        onLoadCapabilities={vi.fn(async () => capabilities)}
+        onLoadRuns={vi.fn(async () => [])}
+        onCreate={vi.fn(async () => queued)}
+        onCancel={vi.fn(async () => queued)}
+      />,
+    );
+
+    const specialist = await screen.findByLabelText("Specialist");
+    expect(specialist).not.toHaveTextContent("verifier");
+    expect(specialist).toHaveTextContent("coding");
+  });
+});

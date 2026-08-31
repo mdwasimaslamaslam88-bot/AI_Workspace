@@ -46,6 +46,23 @@ vision_outputs=(
   "${report_root}/.model-vision-ministral3-14b.json"
 )
 loaded_reference=""
+task_preference_keys=(
+  general_chat reasoning mathematics coding debugging code_generation
+  expert_analysis vision rag memory summarization tool_calling
+  workflow_planning long_context exact_output
+)
+
+isolated_task_preferences() {
+  local reference="$1"
+  local separator=""
+  local payload="{"
+  local task
+  for task in "${task_preference_keys[@]}"; do
+    payload+="${separator}\"${task}\":\"${reference}\""
+    separator=,
+  done
+  printf '%s}' "${payload}"
+}
 
 unload_model() {
   if [[ -n "${loaded_reference}" ]]; then
@@ -66,28 +83,42 @@ for index in "${!vision_references[@]}"; do
   reference="${vision_references[${index}]}"
   output="${vision_outputs[${index}]}"
   loaded_reference="${reference}"
+  task_preferences="$(isolated_task_preferences "${reference}")"
   OLLAMA_LOCAL_MODEL_ALLOWLIST="[\"${reference}\",\"nomic-embed-text:latest\"]" \
+  OLLAMA_TASK_MODEL_PREFERENCES="${task_preferences}" \
   WORK_STATION_MODEL_EXPERIMENT_REFERENCE="${reference}" \
   WORK_STATION_MODEL_EXPERIMENT_OUTPUT="${output}" \
   WORK_STATION_MODEL_EXPERIMENT_PROFILE=vision \
   WORK_STATION_BENCHMARK_REPORT_ROOT="${report_root}" \
     "${script_directory}/postgres_integration_check.sh" \
-      --model-candidate-benchmark
+      --model-candidate-benchmark || candidate_status=$?
+  candidate_status="${candidate_status:-0}"
   unload_model
+  if [[ "${candidate_status}" -ne 0 && "${candidate_status}" -ne 86 ]]; then
+    exit "${candidate_status}"
+  fi
+  unset candidate_status
 done
 
 for index in "${!references[@]}"; do
   reference="${references[${index}]}"
   output="${outputs[${index}]}"
   loaded_reference="${reference}"
+  task_preferences="$(isolated_task_preferences "${reference}")"
   OLLAMA_LOCAL_MODEL_ALLOWLIST="[\"${reference}\",\"nomic-embed-text:latest\"]" \
+  OLLAMA_TASK_MODEL_PREFERENCES="${task_preferences}" \
   WORK_STATION_MODEL_EXPERIMENT_REFERENCE="${reference}" \
   WORK_STATION_MODEL_EXPERIMENT_OUTPUT="${output}" \
   WORK_STATION_MODEL_EXPERIMENT_PROFILE=baseline \
   WORK_STATION_BENCHMARK_REPORT_ROOT="${report_root}" \
     "${script_directory}/postgres_integration_check.sh" \
-      --model-candidate-benchmark
+      --model-candidate-benchmark || candidate_status=$?
+  candidate_status="${candidate_status:-0}"
   unload_model
+  if [[ "${candidate_status}" -ne 0 && "${candidate_status}" -ne 86 ]]; then
+    exit "${candidate_status}"
+  fi
+  unset candidate_status
 done
 
 (

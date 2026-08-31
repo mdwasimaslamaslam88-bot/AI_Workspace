@@ -18,13 +18,22 @@ from app.core.config import settings
 from app.core.logging import get_logger
 from app.hardware import HardwareInventory, hardware_class_for_vram, hardware_profile
 from app.models.user import User
+from app.agent_os.contracts import AgentRunStatus
+from app.agent_os.runtime import AgentRunManager
+from app.external_ai.service import ExternalAIService
+from app.maintenance import SelfUpdateError, SelfUpdateManager, UpdateState, UpdateStatus
+from app.security_events import SecurityEventRecorder
 from app.schemas.diagnostics import (
+    AgentRuntimeDiagnosticResponse,
     DiagnosticStatus,
     GpuDiagnosticResponse,
     HardwareDiagnosticResponse,
+    ExternalProviderDiagnosticResponse,
     ModelEligibilityDiagnosticResponse,
     ModelRouteDiagnosticResponse,
     ServiceDiagnosticResponse,
+    SecurityEventDiagnosticResponse,
+    SelfUpdateDiagnosticResponse,
     SystemDiagnosticsResponse,
 )
 
@@ -111,7 +120,7 @@ def _hardware_diagnostic(request: Request) -> HardwareDiagnosticResponse | None:
 @router.get("", response_model=SystemDiagnosticsResponse)
 async def read_private_diagnostics(
     request: Request,
-    _current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> SystemDiagnosticsResponse:
     postgres_status = await _probe(
         getattr(request.app.state, "postgres_engine", None),
@@ -264,6 +273,84 @@ async def read_private_diagnostics(
                 )
             )
 
+    external_service = getattr(request.app.state, "external_ai_service", None)
+    external_providers = []
+    if isinstance(external_service, ExternalAIService):
+        external_providers = [
+            ExternalProviderDiagnosticResponse(
+                provider_id=provider.provider_id,
+                status=provider.status,
+                spent_micros=provider.spent_micros,
+                spending_limit_micros=provider.spending_limit_micros,
+                quota_remaining_tokens=provider.quota_remaining_tokens,
+                verified_model_count=sum(model.verified for model in provider.models),
+            )
+            for provider in external_service.provider_views()
+        ]
+
+    agent_manager = getattr(request.app.state, "agent_run_manager", None)
+    agent_diagnostic = None
+    if isinstance(agent_manager, AgentRunManager):
+        retained = await agent_manager.list_for_owner(current_user.id, limit=100)
+        agent_diagnostic = AgentRuntimeDiagnosticResponse(
+            active_count=sum(
+                record.status
+                in {
+                    AgentRunStatus.QUEUED,
+                    AgentRunStatus.PLANNING,
+                    AgentRunStatus.RUNNING,
+                    AgentRunStatus.VERIFYING,
+                    AgentRunStatus.RETRYING,
+                }
+                for record in retained
+            ),
+            retained_count=len(retained),
+            statuses={
+                status: sum(record.status is status for record in retained)
+                for status in AgentRunStatus
+                if any(record.status is status for record in retained)
+            },
+        )
+
+    update_manager = getattr(request.app.state, "self_update_manager", None)
+    update_state = UpdateState()
+    if isinstance(update_manager, SelfUpdateManager):
+        try:
+            update_state = update_manager.state()
+        except SelfUpdateError:
+            update_state = UpdateState(
+                status=UpdateStatus.FAILED,
+                failure_code="update_state_unavailable",
+            )
+    checkpoint_ready = bool(
+        update_state.checkpoint_id is not None
+        and update_state.status
+        in {
+            UpdateStatus.READY,
+            UpdateStatus.ACTIVATED,
+            UpdateStatus.ROLLED_BACK,
+            UpdateStatus.CANCELLED,
+        }
+    )
+    update_diagnostic = SelfUpdateDiagnosticResponse(
+        configured=isinstance(update_manager, SelfUpdateManager),
+        status=update_state.status,
+        checkpoint_ready=checkpoint_ready,
+        rollback_ready=checkpoint_ready,
+    )
+    recorder = getattr(request.app.state, "security_event_recorder", None)
+    security_events = (
+        [
+            SecurityEventDiagnosticResponse(
+                kind=event.kind,
+                occurred_at=event.occurred_at.isoformat(),
+            )
+            for event in recorder.snapshot(limit=100)
+        ]
+        if isinstance(recorder, SecurityEventRecorder)
+        else []
+    )
+
     return SystemDiagnosticsResponse(
         mode="remote" if remote_requested else "local",
         services=[
@@ -294,6 +381,10 @@ async def read_private_diagnostics(
         hardware=_hardware_diagnostic(request),
         models=model_diagnostics,
         routes=route_diagnostics,
+        external_providers=external_providers,
+        agents=agent_diagnostic,
+        self_update=update_diagnostic,
+        security_events=security_events,
     )
 
 

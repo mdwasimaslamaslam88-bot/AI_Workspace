@@ -14,6 +14,8 @@ import {
   model,
   productCapabilities,
   systemDiagnostics,
+  externalAISettings,
+  selfUpdateStatus,
 } from "./fixtures";
 
 async function expectNoStructuralViolations(container: HTMLElement): Promise<void> {
@@ -128,6 +130,13 @@ describe("critical surface accessibility", () => {
           onClose={vi.fn()}
           onLoad={vi.fn(async () => productCapabilities)}
           onLoadDiagnostics={vi.fn(async () => systemDiagnostics)}
+          onLoadExternalAI={vi.fn(async () => externalAISettings)}
+          onSetExternalAIEnabled={vi.fn(async () => externalAISettings)}
+          onUpsertExternalAIProvider={vi.fn(async () => externalAISettings)}
+          onSetExternalAIProviderEnabled={vi.fn(async () => externalAISettings)}
+          onDeleteExternalAIProvider={vi.fn(async () => externalAISettings)}
+          onLoadSelfUpdate={vi.fn(async () => selfUpdateStatus)}
+          onDecideSelfUpdate={vi.fn(async () => selfUpdateStatus)}
           onLoadSessions={vi.fn(async () => [{
             id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
             label: "This browser",

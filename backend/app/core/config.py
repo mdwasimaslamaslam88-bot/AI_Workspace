@@ -147,6 +147,8 @@ class Settings(BaseSettings):
     OLLAMA_BASE_URL: AnyHttpUrl | None = None
     ASSET_STORAGE_ROOT: Path | None = None
     HARDWARE_STATE_PATH: Path | None = None
+    EXTERNAL_AI_STATE_ROOT: Path | None = None
+    SELF_UPDATE_STATE_ROOT: Path | None = None
     WORK_STATION_WEB_ROOT: Path | None = None
     REMOTE_GATEWAY_MODE: Literal["local", "tailscale"] = "local"
     COMFYUI_BASE_URL: AnyHttpUrl | None = None
@@ -403,6 +405,8 @@ class Settings(BaseSettings):
         "OLLAMA_EMBEDDING_MODEL",
         "ASSET_STORAGE_ROOT",
         "HARDWARE_STATE_PATH",
+        "EXTERNAL_AI_STATE_ROOT",
+        "SELF_UPDATE_STATE_ROOT",
         "WORK_STATION_WEB_ROOT",
         "COMFYUI_BASE_URL",
         "COMFYUI_CHECKPOINT",
@@ -473,7 +477,12 @@ class Settings(BaseSettings):
             normalized.append(exact_origin)
         return normalized
 
-    @field_validator("ASSET_STORAGE_ROOT", "HARDWARE_STATE_PATH")
+    @field_validator(
+        "ASSET_STORAGE_ROOT",
+        "HARDWARE_STATE_PATH",
+        "EXTERNAL_AI_STATE_ROOT",
+        "SELF_UPDATE_STATE_ROOT",
+    )
     @classmethod
     def require_private_absolute_asset_storage_root(cls, value):
         if value is None:

@@ -1,6 +1,10 @@
 import {
   type BackendErrorEnvelope,
   type AccessTokenRotation,
+  type AgentOSCapabilities,
+  type AgentRun,
+  type AgentRunCreateRequest,
+  type AgentRunPage,
   type Asset,
   type ConversationCreateRequest,
   type ConversationCreateResponse,
@@ -14,6 +18,8 @@ import {
   type ConversationTextGenerationRequest,
   type ConversationTextGenerationResponse,
   type CurrentUser,
+  type ExternalAISettings,
+  type ExternalProviderUpsertRequest,
   type IndexedDocument,
   type ImageEditingRequest,
   type ImageGenerationRequest,
@@ -25,6 +31,7 @@ import {
   type MessagePage,
   type PersonalMemory,
   type ProductCapabilityPage,
+  type SelfUpdateStatus,
   type SystemDiagnostics,
   type UserSession,
   type UserSessionCreateRequest,
@@ -44,12 +51,16 @@ import {
   type VoiceTranscriptionRequest,
   parseIndexedDocument,
   parseAccessTokenRotation,
+  parseAgentOSCapabilities,
+  parseAgentRun,
+  parseAgentRunPage,
   parseImageOperation,
   parseAsset,
   parseConversation,
   parseConversationCreateResponse,
   parseConversationPage,
   parseCurrentUser,
+  parseExternalAISettings,
   parseGenerationResponse,
   parseMemoryPage,
   parseMemorySetting,
@@ -57,6 +68,7 @@ import {
   parseModelPage,
   parsePersonalMemory,
   parseProductCapabilityPage,
+  parseSelfUpdateStatus,
   parseSystemDiagnostics,
   parseUserSession,
   parseUserSessionPage,
@@ -285,10 +297,112 @@ export class ApiClient {
     });
   }
 
+  getAgentOSCapabilities(signal?: AbortSignal): Promise<AgentOSCapabilities> {
+    return this.#request("api/v1/agent-os/capabilities", {
+      signal,
+      decode: parseAgentOSCapabilities,
+    });
+  }
+
+  listAgentRuns(signal?: AbortSignal): Promise<AgentRunPage> {
+    return this.#request("api/v1/agent-os/runs?limit=20", {
+      signal,
+      decode: parseAgentRunPage,
+    });
+  }
+
+  createAgentRun(
+    request: AgentRunCreateRequest,
+    signal?: AbortSignal,
+  ): Promise<AgentRun> {
+    return this.#request("api/v1/agent-os/runs", {
+      method: "POST",
+      body: request,
+      signal,
+      decode: parseAgentRun,
+    });
+  }
+
+  cancelAgentRun(runId: string, signal?: AbortSignal): Promise<AgentRun> {
+    return this.#request(`api/v1/agent-os/runs/${encodeURIComponent(runId)}/cancel`, {
+      method: "POST",
+      signal,
+      decode: parseAgentRun,
+    });
+  }
+
   getSystemDiagnostics(signal?: AbortSignal): Promise<SystemDiagnostics> {
     return this.#request("api/v1/diagnostics", {
       signal,
       decode: parseSystemDiagnostics,
+    });
+  }
+
+  getExternalAISettings(signal?: AbortSignal): Promise<ExternalAISettings> {
+    return this.#request("api/v1/external-ai/settings", {
+      signal,
+      decode: parseExternalAISettings,
+    });
+  }
+
+  updateExternalAIEnabled(
+    enabled: boolean,
+    signal?: AbortSignal,
+  ): Promise<ExternalAISettings> {
+    return this.#request("api/v1/external-ai/settings", {
+      method: "PUT",
+      body: { enabled },
+      signal,
+      decode: parseExternalAISettings,
+    });
+  }
+
+  upsertExternalAIProvider(
+    providerId: string,
+    request: ExternalProviderUpsertRequest,
+    signal?: AbortSignal,
+  ): Promise<ExternalAISettings> {
+    return this.#request(
+      `api/v1/external-ai/providers/${encodeURIComponent(providerId)}`,
+      {
+        method: "PUT",
+        body: request,
+        signal,
+        decode: parseExternalAISettings,
+      },
+    );
+  }
+
+  deleteExternalAIProvider(
+    providerId: string,
+    signal?: AbortSignal,
+  ): Promise<ExternalAISettings> {
+    return this.#request(
+      `api/v1/external-ai/providers/${encodeURIComponent(providerId)}`,
+      {
+        method: "DELETE",
+        signal,
+        decode: parseExternalAISettings,
+      },
+    );
+  }
+
+  getSelfUpdateStatus(signal?: AbortSignal): Promise<SelfUpdateStatus> {
+    return this.#request("api/v1/updates/status", {
+      signal,
+      decode: parseSelfUpdateStatus,
+    });
+  }
+
+  decideSelfUpdate(
+    decision: "update" | "cancel",
+    signal?: AbortSignal,
+  ): Promise<SelfUpdateStatus> {
+    return this.#request("api/v1/updates/decision", {
+      method: "POST",
+      body: { decision },
+      signal,
+      decode: parseSelfUpdateStatus,
     });
   }
 

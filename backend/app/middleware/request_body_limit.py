@@ -6,6 +6,7 @@ from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app.core.config import MAX_REQUEST_BODY_BYTES
+from app.security_events import SecurityEventKind, SecurityEventRecorder
 
 
 class _RequestBodyTooLarge(BaseException):
@@ -120,6 +121,11 @@ async def _send_http_error(
     status_code: int,
     message: str,
 ) -> None:
+    if status_code == 413:
+        application = scope.get("app")
+        recorder = getattr(getattr(application, "state", None), "security_event_recorder", None)
+        if isinstance(recorder, SecurityEventRecorder):
+            recorder.record(SecurityEventKind.OVERSIZED_REQUEST_CONTAINMENT)
     response = JSONResponse(
         status_code=status_code,
         content={

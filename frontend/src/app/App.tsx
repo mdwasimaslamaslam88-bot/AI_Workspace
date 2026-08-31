@@ -3,11 +3,17 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiClient, ApiError, type UploadProgress } from "../api/client";
 import type {
   Asset,
+  AgentOSCapabilities,
+  AgentRun,
+  AgentRunCreateRequest,
   ConversationCreateRequest,
   ConversationCursor,
   ConversationSummary,
   ConversationStateUpdateRequest,
   CurrentUser,
+  ExternalAISettings,
+  ExternalProvider,
+  ExternalProviderUpsertRequest,
   IndexedDocument,
   LocalModel,
   MemoryCreateRequest,
@@ -15,6 +21,7 @@ import type {
   Message,
   PersonalMemory,
   ProductCapability,
+  SelfUpdateStatus,
   SystemDiagnostics,
   ToolDescriptor,
   ToolExecution,
@@ -42,6 +49,7 @@ import {
 } from "../auth/persistence";
 import { ConnectView, ReconnectView } from "../features/auth/ConnectView";
 import { ChatView, type SafeNotice } from "../features/chat/ChatView";
+import { AgentPanel } from "../features/agents/AgentPanel";
 import { ConversationList } from "../features/conversations/ConversationList";
 import { MemoryPanel } from "../features/memory/MemoryPanel";
 import { ModelSelector } from "../features/models/ModelSelector";
@@ -161,6 +169,7 @@ export function App() {
   const [toolsOpen, setToolsOpen] = useState(false);
   const [workflowsOpen, setWorkflowsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [agentsOpen, setAgentsOpen] = useState(false);
 
   const authAbort = useRef<AbortController | null>(null);
   const modelsAbort = useRef<AbortController | null>(null);
@@ -197,6 +206,7 @@ export function App() {
     setToolsOpen(false);
     setWorkflowsOpen(false);
     setSettingsOpen(false);
+    setAgentsOpen(false);
     setAuthenticationStatus("anonymous");
   }, []);
 
@@ -813,6 +823,140 @@ export function App() {
     [client],
   );
 
+  const loadExternalAISettings = useCallback(
+    async (signal?: AbortSignal): Promise<ExternalAISettings> => {
+      if (client === null) {
+        throw new ApiError("authentication", "Authentication failed.");
+      }
+      return client.getExternalAISettings(signal);
+    },
+    [client],
+  );
+
+  const setExternalAIEnabled = useCallback(
+    (enabled: boolean): Promise<ExternalAISettings> => {
+      if (client === null) {
+        return Promise.reject(new ApiError("authentication", "Authentication failed."));
+      }
+      return client.updateExternalAIEnabled(enabled);
+    },
+    [client],
+  );
+
+  const upsertExternalAIProvider = useCallback(
+    (
+      providerId: string,
+      provider: ExternalProviderUpsertRequest,
+    ): Promise<ExternalAISettings> => {
+      if (client === null) {
+        return Promise.reject(new ApiError("authentication", "Authentication failed."));
+      }
+      return client.upsertExternalAIProvider(providerId, provider);
+    },
+    [client],
+  );
+
+  const setExternalAIProviderEnabled = useCallback(
+    (provider: ExternalProvider, enabled: boolean): Promise<ExternalAISettings> => {
+      const models = provider.models.map((model) => ({
+        model_id: model.model_id,
+        tasks: model.tasks,
+        verified: model.verified,
+        ...(model.verification_evidence_sha256 === null
+          ? {}
+          : { verification_evidence_sha256: model.verification_evidence_sha256 }),
+        measured_quality: model.measured_quality,
+        measured_latency_ms: model.measured_latency_ms,
+        stability_rate: model.stability_rate,
+        context_window: model.context_window,
+        input_cost_micros_per_million_tokens: model.input_cost_micros_per_million_tokens,
+        output_cost_micros_per_million_tokens: model.output_cost_micros_per_million_tokens,
+      }));
+      return upsertExternalAIProvider(provider.provider_id, {
+        kind: provider.kind,
+        enabled,
+        free_tier: provider.free_tier,
+        priority: provider.priority,
+        timeout_seconds: provider.timeout_seconds,
+        rate_limit_requests_per_minute: provider.rate_limit_requests_per_minute,
+        spending_limit_micros: provider.spending_limit_micros,
+        quota_remaining_tokens: provider.quota_remaining_tokens,
+        models,
+      });
+    },
+    [upsertExternalAIProvider],
+  );
+
+  const deleteExternalAIProvider = useCallback(
+    (providerId: string): Promise<ExternalAISettings> => {
+      if (client === null) {
+        return Promise.reject(new ApiError("authentication", "Authentication failed."));
+      }
+      return client.deleteExternalAIProvider(providerId);
+    },
+    [client],
+  );
+
+  const loadSelfUpdateStatus = useCallback(
+    (signal?: AbortSignal): Promise<SelfUpdateStatus> => {
+      if (client === null) {
+        return Promise.reject(new ApiError("authentication", "Authentication failed."));
+      }
+      return client.getSelfUpdateStatus(signal);
+    },
+    [client],
+  );
+
+  const loadAgentCapabilities = useCallback(
+    (signal?: AbortSignal): Promise<AgentOSCapabilities> => {
+      if (client === null) {
+        return Promise.reject(new ApiError("authentication", "Authentication failed."));
+      }
+      return client.getAgentOSCapabilities(signal);
+    },
+    [client],
+  );
+
+  const loadAgentRuns = useCallback(
+    async (signal?: AbortSignal): Promise<AgentRun[]> => {
+      if (client === null) {
+        throw new ApiError("authentication", "Authentication failed.");
+      }
+      return (await client.listAgentRuns(signal)).items;
+    },
+    [client],
+  );
+
+  const createAgentRun = useCallback(
+    (request: AgentRunCreateRequest): Promise<AgentRun> => {
+      if (client === null) {
+        return Promise.reject(new ApiError("authentication", "Authentication failed."));
+      }
+      return client.createAgentRun(request);
+    },
+    [client],
+  );
+
+  const cancelAgentRun = useCallback(
+    (runId: string): Promise<AgentRun> => {
+      if (client === null) {
+        return Promise.reject(new ApiError("authentication", "Authentication failed."));
+      }
+      return client.cancelAgentRun(runId);
+    },
+    [client],
+  );
+
+  const decideSelfUpdate = useCallback(
+    (decision: "update" | "cancel"): Promise<SelfUpdateStatus> => {
+      if (client === null) {
+        return Promise.reject(new ApiError("authentication", "Authentication failed."));
+      }
+      return client.decideSelfUpdate(decision);
+    },
+    [client],
+  );
+
   const rotateSession = useCallback(
     async (signal?: AbortSignal): Promise<void> => {
       if (client === null) {
@@ -1262,6 +1406,7 @@ export function App() {
       setMemoryOpen(target === "memory");
       setToolsOpen(target === "tools" || target === "studio");
       setWorkflowsOpen(target === "workflows");
+      setAgentsOpen(false);
     })
       .then((dispose) => {
         if (active) unlisten = dispose;
@@ -1353,6 +1498,7 @@ export function App() {
               setWorkflowsOpen(false);
               setToolsOpen(false);
               setMemoryOpen(false);
+              setAgentsOpen(false);
             }}
           >
             Settings
@@ -1367,6 +1513,7 @@ export function App() {
               setToolsOpen(false);
               setMemoryOpen(false);
               setSettingsOpen(false);
+              setAgentsOpen(false);
             }}
           >
             Workflows
@@ -1381,6 +1528,7 @@ export function App() {
               setMemoryOpen(false);
               setWorkflowsOpen(false);
               setSettingsOpen(false);
+              setAgentsOpen(false);
             }}
           >
             Tools
@@ -1395,9 +1543,25 @@ export function App() {
               setToolsOpen(false);
               setWorkflowsOpen(false);
               setSettingsOpen(false);
+              setAgentsOpen(false);
             }}
           >
             Memory
+          </button>
+          <button
+            type="button"
+            className="button button-secondary"
+            aria-expanded={agentsOpen}
+            aria-controls="personal-agents-panel"
+            onClick={() => {
+              setAgentsOpen((current) => !current);
+              setMemoryOpen(false);
+              setToolsOpen(false);
+              setWorkflowsOpen(false);
+              setSettingsOpen(false);
+            }}
+          >
+            Agents
           </button>
           <ModelSelector
             models={models}
@@ -1415,6 +1579,13 @@ export function App() {
               onClose={() => setSettingsOpen(false)}
               onLoad={loadProductCapabilities}
               onLoadDiagnostics={loadSystemDiagnostics}
+              onLoadExternalAI={loadExternalAISettings}
+              onSetExternalAIEnabled={setExternalAIEnabled}
+              onUpsertExternalAIProvider={upsertExternalAIProvider}
+              onSetExternalAIProviderEnabled={setExternalAIProviderEnabled}
+              onDeleteExternalAIProvider={deleteExternalAIProvider}
+              onLoadSelfUpdate={loadSelfUpdateStatus}
+              onDecideSelfUpdate={decideSelfUpdate}
               onLoadSessions={loadUserSessions}
               appearance={appearance}
               onAppearanceChange={setAppearance}
@@ -1427,6 +1598,17 @@ export function App() {
                 setSettingsOpen(false);
                 setMemoryOpen(true);
               }}
+            />
+          </div>
+        )}
+        {agentsOpen && (
+          <div id="personal-agents-panel">
+            <AgentPanel
+              onClose={() => setAgentsOpen(false)}
+              onLoadCapabilities={loadAgentCapabilities}
+              onLoadRuns={loadAgentRuns}
+              onCreate={createAgentRun}
+              onCancel={cancelAgentRun}
             />
           </div>
         )}

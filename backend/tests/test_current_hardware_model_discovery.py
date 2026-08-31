@@ -1,3 +1,5 @@
+import pytest
+
 from app.ai.catalog import public_model_id
 from scripts.current_hardware_model_discovery import (
     CURRENT_CATEGORY_BASELINES,
@@ -11,6 +13,7 @@ from scripts.current_hardware_model_discovery import (
     _apply_task_preferences_to_routes,
     _upgrade_experiment_document,
     _validate_quality_push_v2_reports,
+    _validate_reports,
 )
 
 
@@ -84,6 +87,108 @@ def test_matrix_fingerprint_does_not_depend_on_model_answer():
     }
 
     assert _matrix_fingerprint(first) == _matrix_fingerprint(second)
+
+
+def test_discovery_accepts_guarded_candidate_but_requires_exact_model_ids():
+    reports = []
+    references = (
+        "qwen3:8b",
+        "qwen2.5-coder:7b",
+        "qwen2.5-coder:14b-instruct-q3_K_L",
+        "qwen3:14b-q4_K_M",
+        "deepcoder:14b-preview-q4_K_M",
+        "gemma4:12b-it-q4_K_M",
+        "qwen3.5:9b-q4_K_M",
+        "ministral-3:14b-instruct-2512-q4_K_M",
+        "phi4:14b-q4_K_M",
+    )
+    for reference in references:
+        if reference.startswith("deepcoder:"):
+            reports.append(
+                {
+                    "run_status": "failed",
+                    "model_reference": reference,
+                    "failure": {"code": "gpu_thermal_guard"},
+                }
+            )
+            continue
+        model_id = public_model_id("ollama-local", reference)
+        reports.append(
+            {
+                "run_status": "complete",
+                "model_reference": reference,
+                "model_id": model_id,
+                "profile": {
+                    "id": "baseline",
+                    "production_routing_changed": False,
+                },
+                "summary": {
+                    "tests": 221,
+                    "categories": {
+                        category: {} for category in EXPECTED_CATEGORIES
+                    },
+                },
+                "results": [
+                    {
+                        "test_id": "same",
+                        "comparison_category": "reasoning",
+                        "prompt": "same",
+                        "expected_behavior": "same",
+                        "model_id": model_id,
+                    }
+                ],
+            }
+        )
+
+    assert len(_validate_reports(reports)) == 64
+    reports[0]["results"][0]["model_id"] = "ollama-local:wrong"
+    with pytest.raises(RuntimeError, match="used a different model"):
+        _validate_reports(reports)
+
+
+def test_discovery_allows_candidate_matrix_mismatch_without_promoting_it():
+    reports = []
+    references = (
+        "qwen3:8b",
+        "qwen2.5-coder:7b",
+        "qwen2.5-coder:14b-instruct-q3_K_L",
+        "qwen3:14b-q4_K_M",
+        "deepcoder:14b-preview-q4_K_M",
+        "gemma4:12b-it-q4_K_M",
+        "qwen3.5:9b-q4_K_M",
+        "ministral-3:14b-instruct-2512-q4_K_M",
+        "phi4:14b-q4_K_M",
+    )
+    for reference in references:
+        model_id = public_model_id("ollama-local", reference)
+        prompt = "new matrix" if reference == "phi4:14b-q4_K_M" else "baseline matrix"
+        reports.append(
+            {
+                "model_reference": reference,
+                "model_id": model_id,
+                "profile": {
+                    "id": "baseline",
+                    "production_routing_changed": False,
+                },
+                "summary": {
+                    "tests": 221,
+                    "categories": {
+                        category: {} for category in EXPECTED_CATEGORIES
+                    },
+                },
+                "results": [
+                    {
+                        "test_id": "same",
+                        "comparison_category": "reasoning",
+                        "prompt": prompt,
+                        "expected_behavior": "same",
+                        "model_id": model_id,
+                    }
+                ],
+            }
+        )
+
+    assert len(_validate_reports(reports)) == 64
 
 
 def test_complete_category_route_requires_material_nonregressing_candidate():

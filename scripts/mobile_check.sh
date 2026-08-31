@@ -73,10 +73,24 @@ npm run test --workspace @work-station/mobile
 npm run typecheck --workspace @work-station/mobile
 npm run lint --workspace @work-station/mobile
 npm run build:static --workspace @work-station/mobile
-(
-  cd "${mobile_root}"
-  "${repository_root}/node_modules/.bin/expo-doctor"
-)
+expo_doctor_passed=false
+for expo_doctor_attempt in 1 2 3; do
+  if (
+    cd "${mobile_root}"
+    "${repository_root}/node_modules/.bin/expo-doctor"
+  ); then
+    expo_doctor_passed=true
+    break
+  fi
+  if [[ "${expo_doctor_attempt}" -lt 3 ]]; then
+    echo "Expo Doctor transient failure; retrying (${expo_doctor_attempt}/3)." >&2
+    sleep 2
+  fi
+done
+if [[ "${expo_doctor_passed}" != true ]]; then
+  echo "Expo Doctor failed after three bounded attempts." >&2
+  exit 1
+fi
 
 if [[ "${native_mode}" == "skip" ]]; then
   assert_repository_unchanged

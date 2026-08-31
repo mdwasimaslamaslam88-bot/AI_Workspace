@@ -24,6 +24,7 @@ export default function RootLayout() {
       >
         <Tabs.Screen name="index" options={{ title: "Chats", headerTitle: "WORK STATION" }} />
         <Tabs.Screen name="studio" options={{ title: "Studio", headerTitle: "Private AI studio" }} />
+        <Tabs.Screen name="agents" options={{ title: "Agents", headerTitle: "Agent OS" }} />
         <Tabs.Screen name="settings" options={{ title: "Settings", headerTitle: "Settings & diagnostics" }} />
       </Tabs>
     </WorkStationProvider>

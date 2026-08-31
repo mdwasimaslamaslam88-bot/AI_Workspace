@@ -106,10 +106,32 @@ def _validate_reports(reports: list[dict[str, Any]]) -> str:
     references = [report.get("model_reference") for report in reports]
     if len(references) != len(set(references)) or set(references) != expected_references:
         raise RuntimeError("hardware discovery aggregation requires every approved model exactly once")
-    fingerprints = {_matrix_fingerprint(report) for report in reports}
-    if len(fingerprints) != 1:
-        raise RuntimeError("hardware discovery reports do not use an identical test matrix")
-    for report in reports:
+    statuses = {report.get("run_status", "complete") for report in reports}
+    if not statuses <= {"complete", "failed"}:
+        raise RuntimeError("hardware discovery report has an invalid run status")
+    failed_reports = [
+        report for report in reports if report.get("run_status", "complete") == "failed"
+    ]
+    for report in failed_reports:
+        if (
+            report.get("model_reference") not in CURRENT_HARDWARE_DISCOVERY_REFERENCES
+            or report.get("failure", {}).get("code")
+            not in {"gpu_thermal_guard", "gpu_vram_guard", "ram_guard"}
+        ):
+            raise RuntimeError("hardware discovery rejected an invalid failed report")
+    complete_reports = [report for report in reports if report not in failed_reports]
+    if not set(BASELINE_MODEL_REFERENCES) <= {
+        report.get("model_reference") for report in complete_reports
+    }:
+        raise RuntimeError("hardware discovery requires every production baseline")
+    baseline_fingerprints = {
+        _matrix_fingerprint(report)
+        for report in complete_reports
+        if report.get("model_reference") in BASELINE_MODEL_REFERENCES
+    }
+    if len(baseline_fingerprints) != 1:
+        raise RuntimeError("hardware discovery baselines do not use an identical test matrix")
+    for report in complete_reports:
         if report.get("profile", {}).get("id", BASELINE_PROFILE) != BASELINE_PROFILE:
             raise RuntimeError("hardware discovery requires the deterministic baseline profile")
         summary = report.get("summary", {})
@@ -119,7 +141,28 @@ def _validate_reports(reports: list[dict[str, Any]]) -> str:
             raise RuntimeError("hardware discovery report has incomplete categories")
         if report.get("profile", {}).get("production_routing_changed") is not False:
             raise RuntimeError("hardware discovery was not production-isolated")
-    return next(iter(fingerprints))
+        expected_model_id = public_model_id(
+            "ollama-local", report["model_reference"]
+        )
+        if report.get("model_id") != expected_model_id or any(
+            result.get("model_id") != expected_model_id
+            for result in report.get("results", [])
+        ):
+            raise RuntimeError("hardware discovery report used a different model")
+    baseline_fingerprint = next(iter(baseline_fingerprints))
+    aligned_references = {
+        report["model_reference"]
+        for report in complete_reports
+        if _matrix_fingerprint(report) == baseline_fingerprint
+    }
+    required_route_baselines = {
+        reference
+        for reference in CURRENT_CATEGORY_BASELINES.values()
+        if reference is not None
+    }
+    if not required_route_baselines <= aligned_references:
+        raise RuntimeError("hardware discovery current route baseline matrix is incomplete")
+    return baseline_fingerprint
 
 
 def _validate_quality_push_v2_reports(
@@ -453,10 +496,24 @@ def _synchronize_existing_reports(
 def aggregate_discovery_reports(report_root: Path, inputs: list[Path]) -> dict[str, Any]:
     reports = [json.loads(path.read_text(encoding="utf-8")) for path in inputs]
     matrix_fingerprint = _validate_reports(reports)
+    complete_reports = [
+        report
+        for report in reports
+        if report.get("run_status", "complete") == "complete"
+    ]
+    failed_reports = [report for report in reports if report not in complete_reports]
+    aligned_reports = [
+        report
+        for report in complete_reports
+        if _matrix_fingerprint(report) == matrix_fingerprint
+    ]
+    mismatched_reports = [
+        report for report in complete_reports if report not in aligned_reports
+    ]
     admission = hardware_admission()
     if admission["phi4-reasoning:14b-q4_K_M"]["decision"] != "rejected_before_download":
         raise RuntimeError("Phi-4 admission expectation no longer matches detected hardware")
-    ranked_categories = _rank_categories(reports)
+    ranked_categories = _rank_categories(aligned_reports)
     installations = {
         reference: _installed_model_blob_verification(reference)
         for reference in sorted(
@@ -493,7 +550,27 @@ def aggregate_discovery_reports(report_root: Path, inputs: list[Path]) -> dict[s
         "material_score_delta": MATERIAL_SCORE_DELTA,
         "hardware_admission": admission,
         "installation_verification": installations,
-        "models": reports,
+        "models": aligned_reports,
+        "hardware_safety_rejections": [
+            {
+                "model_reference": report["model_reference"],
+                "model_id": report.get("model_id"),
+                "failure": report["failure"],
+                "last_resource_sample": report.get("last_resource_sample"),
+                "duration_seconds": report.get("duration_seconds"),
+            }
+            for report in failed_reports
+        ],
+        "incompatible_evidence_rejections": [
+            {
+                "model_reference": report["model_reference"],
+                "model_id": report.get("model_id"),
+                "reason": "matrix_mismatch",
+                "expected_matrix_sha256": matrix_fingerprint,
+                "actual_matrix_sha256": _matrix_fingerprint(report),
+            }
+            for report in mismatched_reports
+        ],
         "category_results": ranked_categories,
         "routing_recommendation": {
             "changes": route_changes,

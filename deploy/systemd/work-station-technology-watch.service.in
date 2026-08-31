@@ -1,0 +1,24 @@
+[Unit]
+Description=Validate a fast-forward WORK STATION update candidate in isolation
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=@REPOSITORY_ROOT@
+ExecStart=@REPOSITORY_ROOT@/backend/.venv/bin/python @REPOSITORY_ROOT@/scripts/technology_watcher.py --state-root %h/AI_Workspace_Data/self-update
+TimeoutStartSec=24h
+NoNewPrivileges=yes
+DevicePolicy=closed
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=@REPOSITORY_ROOT@/.git %h/AI_Workspace_Data/self-update
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+RestrictRealtime=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+UMask=0077

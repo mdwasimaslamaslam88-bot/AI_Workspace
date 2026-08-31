@@ -1,9 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import type {
+  ExternalAISettings,
+  ExternalProvider,
+  ExternalProviderKind,
+  ExternalProviderUpsertRequest,
+  ModelTask,
   ProductCapability,
   ProductCapabilityId,
   ProductCapabilityReason,
+  SelfUpdateStatus,
   SystemDiagnostics,
   UserSession,
   UserSessionProvision,
@@ -22,6 +28,19 @@ interface SettingsPanelProps {
   onClose: () => void;
   onLoad: (signal?: AbortSignal) => Promise<ProductCapability[]>;
   onLoadDiagnostics: (signal?: AbortSignal) => Promise<SystemDiagnostics>;
+  onLoadExternalAI: (signal?: AbortSignal) => Promise<ExternalAISettings>;
+  onSetExternalAIEnabled: (enabled: boolean) => Promise<ExternalAISettings>;
+  onUpsertExternalAIProvider: (
+    providerId: string,
+    provider: ExternalProviderUpsertRequest,
+  ) => Promise<ExternalAISettings>;
+  onSetExternalAIProviderEnabled: (
+    provider: ExternalProvider,
+    enabled: boolean,
+  ) => Promise<ExternalAISettings>;
+  onDeleteExternalAIProvider: (providerId: string) => Promise<ExternalAISettings>;
+  onLoadSelfUpdate: (signal?: AbortSignal) => Promise<SelfUpdateStatus>;
+  onDecideSelfUpdate: (decision: "update" | "cancel") => Promise<SelfUpdateStatus>;
   onLoadSessions: (signal?: AbortSignal) => Promise<UserSession[]>;
   appearance: AppearancePreference;
   onAppearanceChange: (value: AppearancePreference) => void;
@@ -82,6 +101,13 @@ export function SettingsPanel({
   onClose,
   onLoad,
   onLoadDiagnostics,
+  onLoadExternalAI,
+  onSetExternalAIEnabled,
+  onUpsertExternalAIProvider,
+  onSetExternalAIProviderEnabled,
+  onDeleteExternalAIProvider,
+  onLoadSelfUpdate,
+  onDecideSelfUpdate,
   onLoadSessions,
   appearance,
   onAppearanceChange,
@@ -94,6 +120,8 @@ export function SettingsPanel({
 }: SettingsPanelProps) {
   const [capabilities, setCapabilities] = useState<ProductCapability[]>([]);
   const [diagnostics, setDiagnostics] = useState<SystemDiagnostics | null>(null);
+  const [externalAI, setExternalAI] = useState<ExternalAISettings | null>(null);
+  const [selfUpdate, setSelfUpdate] = useState<SelfUpdateStatus | null>(null);
   const [sessions, setSessions] = useState<UserSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -102,6 +130,16 @@ export function SettingsPanel({
     kind: "success" | "error";
     message: string;
   } | null>(null);
+  const [externalBusy, setExternalBusy] = useState(false);
+  const [externalNotice, setExternalNotice] = useState<string | null>(null);
+  const [updateBusy, setUpdateBusy] = useState(false);
+  const [updateNotice, setUpdateNotice] = useState<string | null>(null);
+  const [providerId, setProviderId] = useState("");
+  const [providerKind, setProviderKind] = useState<ExternalProviderKind>("openai");
+  const [providerKey, setProviderKey] = useState("");
+  const [providerModel, setProviderModel] = useState("");
+  const [providerTask, setProviderTask] = useState<ModelTask>("general_chat");
+  const [providerEvidence, setProviderEvidence] = useState("");
   const [currentSessionLabel, setCurrentSessionLabel] = useState("");
   const [newSessionLabel, setNewSessionLabel] = useState("");
   const [issuedSession, setIssuedSession] =
@@ -120,14 +158,18 @@ export function SettingsPanel({
     setLoading(true);
     setError(null);
     try {
-      const [items, diagnosticSnapshot, accessSessions] = await Promise.all([
+      const [items, diagnosticSnapshot, externalSnapshot, updateSnapshot, accessSessions] = await Promise.all([
         onLoad(current.signal),
         onLoadDiagnostics(current.signal),
+        onLoadExternalAI(current.signal),
+        onLoadSelfUpdate(current.signal),
         onLoadSessions(current.signal),
       ]);
       if (!current.signal.aborted) {
         setCapabilities(items);
         setDiagnostics(diagnosticSnapshot);
+        setExternalAI(externalSnapshot);
+        setSelfUpdate(updateSnapshot);
         setSessions(accessSessions);
         setCurrentSessionLabel(
           accessSessions.find((item) => item.is_current)?.label ?? "",
@@ -140,7 +182,7 @@ export function SettingsPanel({
     } finally {
       if (!current.signal.aborted) setLoading(false);
     }
-  }, [onLoad, onLoadDiagnostics, onLoadSessions]);
+  }, [onLoad, onLoadDiagnostics, onLoadExternalAI, onLoadSelfUpdate, onLoadSessions]);
 
   useEffect(() => {
     void load();
@@ -169,7 +211,10 @@ export function SettingsPanel({
 
   useEffect(() => {
     const clearTransientCredential = () => {
-      if (document.visibilityState !== "visible") setIssuedSession(null);
+      if (document.visibilityState !== "visible") {
+        setIssuedSession(null);
+        setProviderKey("");
+      }
     };
     document.addEventListener("visibilitychange", clearTransientCredential);
     window.addEventListener("pagehide", clearTransientCredential);
@@ -203,6 +248,110 @@ export function SettingsPanel({
   const available = capabilities.filter(
     (capability) => capability.status === "available",
   ).length;
+
+  const setExternalEnabled = useCallback(async (enabled: boolean) => {
+    setExternalBusy(true);
+    setExternalNotice(null);
+    try {
+      setExternalAI(await onSetExternalAIEnabled(enabled));
+      setExternalNotice(enabled ? "External fallback enabled." : "External fallback disabled.");
+    } catch {
+      setExternalNotice("External fallback could not be updated.");
+    } finally {
+      setExternalBusy(false);
+    }
+  }, [onSetExternalAIEnabled]);
+
+  const addExternalProvider = useCallback(async () => {
+    const normalizedId = providerId.trim();
+    const normalizedModel = providerModel.trim();
+    const normalizedEvidence = providerEvidence.trim();
+    if (!/^[a-z][a-z0-9_-]{0,63}$/.test(normalizedId) || providerKey.length < 16) {
+      setExternalNotice("Provider ID or key is invalid.");
+      return;
+    }
+    if (normalizedEvidence !== "" && !/^[a-f0-9]{64}$/.test(normalizedEvidence)) {
+      setExternalNotice("Verification evidence must be a lowercase SHA-256 digest.");
+      return;
+    }
+    setExternalBusy(true);
+    setExternalNotice(null);
+    try {
+      const models = normalizedModel === "" ? [] : [{
+        model_id: normalizedModel,
+        tasks: [providerTask],
+        verified: normalizedEvidence !== "",
+        ...(normalizedEvidence === "" ? {} : { verification_evidence_sha256: normalizedEvidence }),
+        measured_quality: 0,
+        measured_latency_ms: 0,
+        stability_rate: 0,
+        context_window: 0,
+        input_cost_micros_per_million_tokens: 0,
+        output_cost_micros_per_million_tokens: 0,
+      }];
+      setExternalAI(await onUpsertExternalAIProvider(normalizedId, {
+        kind: providerKind,
+        api_key: providerKey,
+        enabled: false,
+        models,
+      }));
+      setProviderKey("");
+      setProviderModel("");
+      setProviderEvidence("");
+      setExternalNotice("Provider saved with fallback disabled.");
+    } catch {
+      setExternalNotice("Provider could not be saved.");
+    } finally {
+      setExternalBusy(false);
+    }
+  }, [onUpsertExternalAIProvider, providerEvidence, providerId, providerKey, providerKind, providerModel, providerTask]);
+
+  const setProviderEnabled = useCallback(async (
+    provider: ExternalProvider,
+    enabled: boolean,
+  ) => {
+    setExternalBusy(true);
+    setExternalNotice(null);
+    try {
+      setExternalAI(await onSetExternalAIProviderEnabled(provider, enabled));
+      setExternalNotice(`${provider.provider_id} ${enabled ? "enabled" : "disabled"}.`);
+    } catch {
+      setExternalNotice("Provider state could not be updated.");
+    } finally {
+      setExternalBusy(false);
+    }
+  }, [onSetExternalAIProviderEnabled]);
+
+  const deleteProvider = useCallback(async (id: string) => {
+    setExternalBusy(true);
+    setExternalNotice(null);
+    try {
+      setExternalAI(await onDeleteExternalAIProvider(id));
+      setExternalNotice("Provider and encrypted key deleted.");
+    } catch {
+      setExternalNotice("Provider could not be deleted.");
+    } finally {
+      setExternalBusy(false);
+    }
+  }, [onDeleteExternalAIProvider]);
+
+  const decideUpdate = useCallback(async (decision: "update" | "cancel") => {
+    setUpdateBusy(true);
+    setUpdateNotice(null);
+    try {
+      const state = await onDecideSelfUpdate(decision);
+      setSelfUpdate(state);
+      setUpdateNotice(
+        decision === "update"
+          ? "Validated release activated. Health monitoring and automatic rollback remain armed."
+          : "Validated update cancelled; production was unchanged.",
+      );
+    } catch {
+      setUpdateNotice("The update decision could not be applied safely.");
+    } finally {
+      setUpdateBusy(false);
+    }
+  }, [onDecideSelfUpdate]);
 
   const rotateSession = useCallback(async () => {
     setSessionBusy(true);
@@ -521,6 +670,225 @@ export function SettingsPanel({
         </div>
       </section>
 
+      <section aria-labelledby="external-ai-title" className="settings-section">
+        <div className="settings-section-heading">
+          <div>
+            <h3 id="external-ai-title">API / External AI</h3>
+            <p className="field-help">
+              Local models are always tried first. Only verified provider models
+              can enter fallback routing; keys are write-only and encrypted by
+              the workstation backend.
+            </p>
+          </div>
+          <label className="desktop-preference-toggle">
+            <input
+              type="checkbox"
+              checked={externalAI?.global_enabled ?? false}
+              disabled={externalBusy || externalAI?.configured !== true}
+              onChange={(event) => void setExternalEnabled(event.target.checked)}
+            />
+            <span>API fallback</span>
+          </label>
+        </div>
+        {externalAI?.configured === false && (
+          <p className="notice" role="status">
+            Configure the owner-only External AI state root on the backend to
+            enable provider management.
+          </p>
+        )}
+        {externalAI?.configured === true && (
+          <>
+            <ul className="capability-list" aria-label="External AI providers">
+              {externalAI.providers.map((provider) => (
+                <li key={provider.provider_id}>
+                  <div className="capability-heading">
+                    <div>
+                      <strong>{provider.provider_id}</strong>
+                      <span className="field-help">
+                        {provider.kind} · {provider.status} · key stored
+                      </span>
+                    </div>
+                    <label className="desktop-preference-toggle">
+                      <input
+                        type="checkbox"
+                        aria-label={`Enable ${provider.provider_id}`}
+                        checked={provider.enabled}
+                        disabled={externalBusy}
+                        onChange={(event) => void setProviderEnabled(provider, event.target.checked)}
+                      />
+                      <span>Enabled</span>
+                    </label>
+                  </div>
+                  <p className="field-help">
+                    Spend: ${(provider.spent_micros / 1_000_000).toFixed(2)}
+                    {provider.spending_limit_micros > 0
+                      ? ` / $${(provider.spending_limit_micros / 1_000_000).toFixed(2)}`
+                      : " · no configured spend ceiling"}
+                    {provider.quota_remaining_tokens === null
+                      ? ""
+                      : ` · ${provider.quota_remaining_tokens} quota tokens left`}
+                  </p>
+                  {provider.models.map((model) => (
+                    <p className="field-help" key={model.model_id}>
+                      {model.model_id} · {model.verified ? "verified" : "verification required"}
+                    </p>
+                  ))}
+                  <button
+                    type="button"
+                    className="button button-quiet"
+                    disabled={externalBusy}
+                    onClick={() => void deleteProvider(provider.provider_id)}
+                  >
+                    Delete provider
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <div className="session-controls">
+              <label>
+                <span>Provider ID</span>
+                <input
+                  value={providerId}
+                  maxLength={64}
+                  placeholder="openai-primary"
+                  autoComplete="off"
+                  onChange={(event) => setProviderId(event.target.value)}
+                />
+              </label>
+              <label>
+                <span>Provider</span>
+                <select
+                  value={providerKind}
+                  onChange={(event) => setProviderKind(event.target.value as ExternalProviderKind)}
+                >
+                  {externalAI.supported_provider_kinds.map((kind) => (
+                    <option value={kind} key={kind}>{kind}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <div className="session-controls">
+              <label>
+                <span>API key (write-only)</span>
+                <input
+                  type="password"
+                  value={providerKey}
+                  minLength={16}
+                  maxLength={512}
+                  autoComplete="new-password"
+                  spellCheck={false}
+                  onChange={(event) => setProviderKey(event.target.value)}
+                />
+              </label>
+              <label>
+                <span>Model ID (optional)</span>
+                <input
+                  value={providerModel}
+                  maxLength={128}
+                  autoComplete="off"
+                  onChange={(event) => setProviderModel(event.target.value)}
+                />
+              </label>
+            </div>
+            <div className="session-controls">
+              <label>
+                <span>Model task</span>
+                <select
+                  value={providerTask}
+                  onChange={(event) => setProviderTask(event.target.value as ModelTask)}
+                >
+                  <option value="general_chat">General</option>
+                  <option value="reasoning">Reasoning</option>
+                  <option value="mathematics">Mathematics</option>
+                  <option value="coding">Coding</option>
+                  <option value="code_generation">Code generation</option>
+                  <option value="debugging">Debugging</option>
+                  <option value="expert_analysis">Expert analysis</option>
+                  <option value="long_context">Long context</option>
+                  <option value="exact_output">Exact output</option>
+                </select>
+              </label>
+              <label>
+                <span>Benchmark evidence SHA-256 (optional)</span>
+                <input
+                  value={providerEvidence}
+                  maxLength={64}
+                  autoComplete="off"
+                  spellCheck={false}
+                  onChange={(event) => setProviderEvidence(event.target.value)}
+                />
+              </label>
+            </div>
+            <button
+              type="button"
+              className="button button-secondary"
+              disabled={externalBusy}
+              onClick={() => void addExternalProvider()}
+            >
+              Save provider disabled
+            </button>
+          </>
+        )}
+        {externalNotice !== null && <p role="status">{externalNotice}</p>}
+      </section>
+
+      <section aria-labelledby="self-update-title" className="settings-section">
+        <div className="settings-section-heading">
+          <div>
+            <h3 id="self-update-title">Secure self-update</h3>
+            <p className="field-help">
+              Candidate releases stay isolated from production until every
+              mandatory gate passes and a last-known-good checkpoint verifies.
+            </p>
+          </div>
+        </div>
+        {selfUpdate?.configured !== true && (
+          <p className="notice" role="status">
+            Configure the owner-only self-update state root to enable staged releases.
+          </p>
+        )}
+        {selfUpdate?.configured === true && selfUpdate.status !== "ready" && (
+          <p className="field-help" role="status">
+            No fully validated update is awaiting activation. Production remains unchanged.
+          </p>
+        )}
+        {selfUpdate?.configured === true && selfUpdate.status === "ready" && (
+          <div className="issued-session" role="status" aria-live="polite">
+            <strong>WORK STATION UPDATE READY</strong>
+            <span>Version: {selfUpdate.version}</span>
+            <span>
+              What changed: candidate {selfUpdate.candidate_commit?.slice(0, 12)} passed
+              the complete isolated release matrix.
+            </span>
+            <span>Benefits: validated release changes are ready without modifying production.</span>
+            <span>Performance: {selfUpdate.gates.some((gate) => gate.name === "performance" && gate.passed) ? "PASS" : "NOT REPORTED"}</span>
+            <span>Quality: {selfUpdate.gates.some((gate) => gate.name === "release" && gate.passed) ? "PASS" : "NOT REPORTED"}</span>
+            <span>Security: {selfUpdate.gates.some((gate) => gate.name === "security" && gate.passed) ? "PASS" : "NOT REPORTED"}</span>
+            <span>Compatibility: {selfUpdate.gates.some((gate) => gate.name === "routing_admission_hardware" && gate.passed) ? "PASS" : "NOT REPORTED"}</span>
+            <span>Rollback checkpoint: {selfUpdate.rollback_ready ? "READY" : "NOT READY"}</span>
+            <div className="settings-actions">
+              <button
+                type="button"
+                className="button button-primary"
+                disabled={updateBusy || !selfUpdate.checkpoint_ready || !selfUpdate.rollback_ready}
+                onClick={() => void decideUpdate("update")}
+              >
+                UPDATE
+              </button>
+              <button
+                type="button"
+                className="button button-secondary"
+                disabled={updateBusy}
+                onClick={() => void decideUpdate("cancel")}
+              >
+                CANCEL
+              </button>
+            </div>
+          </div>
+        )}
+        {updateNotice !== null && <p role="status">{updateNotice}</p>}
+      </section>
+
       <section aria-labelledby="capabilities-title" className="settings-section">
         <div className="settings-section-heading">
           <div>
@@ -653,6 +1021,29 @@ export function SettingsPanel({
                 {route.task}: {route.model_id} · {route.inference_mode}
               </p>
             ))}
+            {(diagnostics.external_providers ?? []).map((provider) => (
+              <p className="field-help" key={provider.provider_id}>
+                External {provider.provider_id}: {provider.status} · {provider.verified_model_count} verified model
+                {provider.verified_model_count === 1 ? "" : "s"} · ${(provider.spent_micros / 1_000_000).toFixed(2)} spent
+              </p>
+            ))}
+            {diagnostics.agents !== undefined && diagnostics.agents !== null && (
+              <p className="field-help">
+                Agents: {diagnostics.agents.active_count} active · {diagnostics.agents.retained_count} retained owner run
+                {diagnostics.agents.retained_count === 1 ? "" : "s"}
+              </p>
+            )}
+            {diagnostics.self_update !== undefined && (
+              <p className="field-help">
+                Update engine: {diagnostics.self_update.configured ? diagnostics.self_update.status : "unconfigured"}
+                {diagnostics.self_update.rollback_ready ? " · rollback ready" : ""}
+              </p>
+            )}
+            {(diagnostics.security_events ?? []).length > 0 && (
+              <p className="field-help">
+                Security containment events retained: {diagnostics.security_events?.length}
+              </p>
+            )}
           </>
         )}
       </section>

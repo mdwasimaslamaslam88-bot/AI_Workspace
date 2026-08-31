@@ -26,3 +26,28 @@ and image generation/editing remain separate capabilities.
 Ollama, ComfyUI, speech runtimes, and future inference servers are adapters below
 the catalog. Frontend, API, database, RAG, memory, conversation, tool, and workflow
 code does not branch on runtime or hardware.
+
+Agent OS uses `LocalFirstModelSelector`: it exhausts admitted local choices and
+only then consults enabled External AI records. External models must match a
+registered content-addressed complete-category evidence record; a discovered
+name or user-supplied `verified` boolean is insufficient. Free-tier choices sort
+before paid choices, then combined token cost, measured quality, stability,
+latency, provider priority and deterministic identity. Spend, quota, context and
+rate limits can remove a route at call time.
+
+## Current hardware discovery evidence (2026-08-31)
+
+Complete-category comparisons on the RTX 3060 produced no justified production
+route change. The existing winners remain Qwen 2.5 Coder 7B for coding, Qwen 3
+8B for debugging/reasoning/mathematics/exact output, and Gemma 4 12B for the
+executable-code category. Qwen 2.5 VL 7B remains the vision route at 99.5; Gemma
+4 12B tied its score but was slower, so the tie did not displace the fallback.
+
+DeepCoder 14B was stopped after 209 of 221 cases by the GPU thermal safety guard
+and has no admission score. Its earlier complete report was archived and the
+current report is an explicit failed-run record, preventing stale success from
+being aggregated. Qwen 3 14B and Phi-4 14B evidence used a different capability
+matrix fingerprint from the production baselines and was conservatively
+excluded rather than compared across incompatible matrices. These exclusions
+are preserved in `current-hardware-model-discovery.json`; the resulting routing
+recommendation contains no changes.

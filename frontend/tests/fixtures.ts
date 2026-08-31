@@ -1,9 +1,11 @@
 import type {
   ConversationSummary,
   CurrentUser,
+  ExternalAISettings,
   LocalModel,
   Message,
   ProductCapability,
+  SelfUpdateStatus,
   SystemDiagnostics,
 } from "../src/api/contracts";
 
@@ -107,6 +109,25 @@ export const systemDiagnostics: SystemDiagnostics = {
       status: "ready",
     },
   ],
+};
+
+export const externalAISettings: ExternalAISettings = {
+  configured: true,
+  global_enabled: false,
+  supported_provider_kinds: ["openai", "anthropic", "google"],
+  providers: [],
+};
+
+export const selfUpdateStatus: SelfUpdateStatus = {
+  configured: true,
+  status: "idle",
+  version: null,
+  candidate_commit: null,
+  checkpoint_ready: false,
+  rollback_ready: false,
+  activation_requires_owner: false,
+  gates: [],
+  failure_code: null,
 };
 
 export const conversation: ConversationSummary = {
