@@ -190,6 +190,33 @@ try {
     "A bearer credential escaped its session boundary.",
   );
 
+  const featureRegistryResponse = page.waitForResponse((response) => {
+    const responseUrl = new URL(response.url());
+    return (
+      response.request().method() === "GET" &&
+      responseUrl.origin === apiOrigin &&
+      responseUrl.pathname === "/api/v1/features"
+    );
+  });
+  await page.getByRole("button", { name: /Universal Workspace/ }).click();
+  assert.equal(
+    (await featureRegistryResponse).status(),
+    200,
+    "Authenticated feature registry loading failed.",
+  );
+  await page.getByRole("heading", { name: "Universal Workspace" }).waitFor();
+  assert.match(
+    await page.getByText(/registered product capabilities/).innerText(),
+    /245 registered product capabilities/,
+    "The complete feature registry was not exposed through the workspace catalog.",
+  );
+  assert.equal(
+    await page.getByRole("button", { name: "Documented boundary" }).first().isDisabled(),
+    true,
+    "A planned capability was presented as executable.",
+  );
+  await page.getByRole("button", { name: "Close", exact: true }).click();
+
   await page.getByRole("button", { name: "New conversation" }).click();
   await page.getByRole("heading", { name: "Start with a prompt" }).waitFor();
   await page.getByLabel("Title (optional)").fill("Browser release smoke");
@@ -295,7 +322,7 @@ try {
   );
   await context.close();
   console.log(
-    "browser/PWA E2E: install, connect, current user, conversation, chat, cache isolation, and logout passed",
+    "browser/PWA E2E: install, connect, feature registry, current user, conversation, chat, cache isolation, and logout passed",
   );
 } finally {
   accessToken = "";

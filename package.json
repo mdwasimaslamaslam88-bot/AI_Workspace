@@ -20,6 +20,7 @@
     "check:mobile:native": "./scripts/mobile_check.sh --require-native-android",
     "check:desktop": "./scripts/desktop_check.sh",
     "check:desktop:launch": "./scripts/desktop_check.sh --require-launch",
+    "report:features": "backend/.venv/bin/python scripts/generate_feature_report.py",
     "check:postgres": "./scripts/postgres_integration_check.sh",
     "check:browser": "./scripts/postgres_integration_check.sh --browser-only",
     "security-audit": "./scripts/security_audit.sh",

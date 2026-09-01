@@ -21,7 +21,6 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  useColorScheme,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -31,7 +30,8 @@ import { citationLocation, citationSourceLabel } from "@/chat/citations";
 import { MobileMessageAttachment } from "@/chat/message-attachment";
 import { MobileMessageContent } from "@/chat/message-content";
 import { useWorkStation } from "@/context/work-station";
-import { workStationColors, type WorkStationColors } from "@/theme/colors";
+import type { WorkStationColors } from "@/theme/colors";
+import { useWorkStationAppearance } from "@/theme/appearance";
 
 function safeError(cause: unknown): string {
   return cause instanceof MobileApiError
@@ -61,11 +61,10 @@ function mergeMessages(current: Message[], incoming: Message[]): Message[] {
 }
 
 function useThemedStyles() {
-  const scheme = useColorScheme();
+  const { colors } = useWorkStationAppearance();
   return useMemo(() => {
-    const colors = workStationColors(scheme);
     return { colors, styles: createStyles(colors) };
-  }, [scheme]);
+  }, [colors]);
 }
 
 function ConnectScreen() {
@@ -652,6 +651,26 @@ export default function ChatScreen() {
           <Text style={styles.link}>Refresh</Text>
         </Pressable>
       </View>
+      <View style={styles.presenceCard}>
+        <Image
+          accessibilityLabel="AI companion"
+          source={require("../../assets/work-station/ai-companion-avatar-v1.png")}
+          style={styles.companionAvatar}
+        />
+        <View style={styles.presenceCopy}>
+          <Text style={styles.eyebrow}>ASK AI ANYTHING</Text>
+          <Text style={styles.presenceTitle}>What shall we accomplish?</Text>
+          <Text accessibilityLiveRegion="polite" style={styles.presenceState}>
+            {recorderState.isRecording
+              ? "LISTENING"
+              : generating
+                ? "WORKING"
+                : notice !== null
+                  ? "NEEDS INPUT"
+                  : "WAITING"}
+          </Text>
+        </View>
+      </View>
       <TextInput
         accessibilityLabel="Search all chats"
         value={conversationQuery}
@@ -922,11 +941,11 @@ export default function ChatScreen() {
         </View>
         <View style={styles.composer}>
           <TextInput
-            accessibilityLabel="Message"
+            accessibilityLabel="Ask AI Anything"
             multiline
             value={prompt}
             onChangeText={setPrompt}
-            placeholder="Message your Personal AI"
+            placeholder="Ask AI Anything"
             placeholderTextColor={colors.subtle}
             style={styles.composerInput}
           />
@@ -975,6 +994,11 @@ function createStyles(colors: WorkStationColors) {
   connectionRow: { minHeight: 42, flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 14, borderBottomColor: colors.line, borderBottomWidth: 1 },
   connectedDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.accent },
   connectionText: { flex: 1, color: colors.accent, fontSize: 12, fontWeight: "800" },
+  presenceCard: { flexDirection: "row", alignItems: "center", gap: 12, marginHorizontal: 12, marginTop: 10, borderColor: colors.line, borderWidth: 1, borderRadius: 16, backgroundColor: colors.raised, padding: 10 },
+  companionAvatar: { width: 58, height: 58, borderRadius: 29, borderColor: colors.accentBorder, borderWidth: 1 },
+  presenceCopy: { flex: 1, gap: 2 },
+  presenceTitle: { color: colors.text, fontSize: 16, fontWeight: "900" },
+  presenceState: { color: colors.accent, fontSize: 10, fontWeight: "900", letterSpacing: 1.2 },
   searchInput: { minHeight: 44, marginHorizontal: 12, marginTop: 8, color: colors.text, backgroundColor: colors.raised, borderColor: colors.line, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12 },
   archiveToggle: { minHeight: 44, alignSelf: "flex-start", justifyContent: "center", marginLeft: 12 },
   link: { color: colors.accent, fontWeight: "800", paddingVertical: 8, paddingHorizontal: 4 },

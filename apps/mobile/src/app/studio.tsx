@@ -1,4 +1,5 @@
 import type {
+  FeatureRegistry,
   LocalModel,
   MemoryCategory,
   PersonalMemory,
@@ -18,7 +19,6 @@ import {
   Switch,
   Text,
   TextInput,
-  useColorScheme,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -28,7 +28,8 @@ import { useWorkStation } from "@/context/work-station";
 import { cachePrivateMedia, type CachedPrivateMedia } from "@/media/private-cache";
 import { notifyTaskFinished } from "@/notifications/private-notifications";
 import { parseBoundedJsonObject } from "@/studio/input";
-import { workStationColors, type WorkStationColors } from "@/theme/colors";
+import type { WorkStationColors } from "@/theme/colors";
+import { useWorkStationAppearance } from "@/theme/appearance";
 import {
   isWorkflowTerminal,
   pollWorkflowUntilTerminal,
@@ -64,8 +65,7 @@ function replaceCache(
 }
 
 export default function StudioScreen() {
-  const scheme = useColorScheme();
-  const colors = workStationColors(scheme);
+  const { colors } = useWorkStationAppearance();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { state, client } = useWorkStation();
   const [models, setModels] = useState<LocalModel[]>([]);
@@ -89,6 +89,8 @@ export default function StudioScreen() {
   const [audioReady, setAudioReady] = useState(false);
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [featureRegistry, setFeatureRegistry] = useState<FeatureRegistry | null>(null);
+  const [selectedFeatureCategory, setSelectedFeatureCategory] = useState<string | null>(null);
   const activeRequest = useRef<AbortController | null>(null);
   const workflowMonitors = useRef(new Map<string, AbortController>());
   const imageCache = useRef<CachedPrivateMedia | null>(null);
@@ -139,7 +141,7 @@ export default function StudioScreen() {
     setBusyAction("Refreshing private studio");
     setNotice(null);
     try {
-      const [modelPage, conversationPage, memoryPage, setting, toolPage, executionPage, workflowPage] =
+      const [modelPage, conversationPage, memoryPage, setting, toolPage, executionPage, workflowPage, registry] =
         await Promise.all([
           client.listModels(),
           client.listConversations(),
@@ -148,6 +150,7 @@ export default function StudioScreen() {
           client.listTools(),
           client.listToolExecutions({ limit: 10 }),
           client.listWorkflows({ limit: 20 }),
+          client.getFeatureRegistry().catch(() => null),
         ]);
       setModels(modelPage.items);
       setConversationId((current) =>
@@ -165,6 +168,7 @@ export default function StudioScreen() {
       );
       setLastExecution(executionPage.items[0] ?? null);
       setWorkflows(workflowPage.items);
+      if (registry !== null) setFeatureRegistry(registry);
       for (const workflow of workflowPage.items) {
         if (workflow.status === "running") monitorWorkflow(workflow.id);
       }
@@ -235,6 +239,13 @@ export default function StudioScreen() {
     );
   }
   const connectedClient = client;
+  const workspaceFeatures = featureRegistry?.items.filter((feature) =>
+    feature.layer === "universal_workspace" || feature.layer === "apps_hub",
+  ) ?? [];
+  const featureCategories = [...new Set(workspaceFeatures.map((feature) => feature.category))];
+  const visibleFeatures = selectedFeatureCategory === null
+    ? []
+    : workspaceFeatures.filter((feature) => feature.category === selectedFeatureCategory);
 
   async function addMemory() {
     const content = memoryDraft.trim();
@@ -422,6 +433,39 @@ export default function StudioScreen() {
   return (
     <SafeAreaView edges={["left", "right"]} style={styles.safe}>
       <ScrollView contentContainerStyle={styles.content}>
+        <View style={styles.card}>
+          <Text style={styles.eyebrow}>UNIVERSAL WORKSPACE</Text>
+          <Text accessibilityRole="header" style={styles.heading}>Dynamic module catalog</Text>
+          <Text style={styles.muted}>
+            {featureRegistry === null
+              ? "The authenticated registry is unavailable; real studio controls remain below."
+              : `${workspaceFeatures.length} workspace and app capabilities · ${featureRegistry.count} registered overall`}
+          </Text>
+          <ScrollView horizontal contentContainerStyle={styles.chipRow}>
+            {featureCategories.map((category) => (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ selected: selectedFeatureCategory === category }}
+                key={category}
+                style={[styles.chip, selectedFeatureCategory === category && styles.selectedChip]}
+                onPress={() => setSelectedFeatureCategory((current) => current === category ? null : category)}
+              >
+                <Text style={styles.chipText}>{category}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+          {visibleFeatures.map((feature) => (
+            <View key={feature.id} style={styles.featureRow}>
+              <View style={styles.titleGrow}>
+                <Text style={styles.itemText}>{feature.title}</Text>
+                <Text style={styles.detail}>{feature.description}</Text>
+              </View>
+              <Text style={feature.status === "planned" ? styles.warning : styles.availability}>
+                {feature.status.replaceAll("_", " ")}
+              </Text>
+            </View>
+          ))}
+        </View>
         <View style={styles.statusRow} accessibilityLiveRegion="polite">
           <View style={styles.connectedDot} />
           <Text style={styles.statusText}>Owner session · private APIs only</Text>
@@ -747,6 +791,8 @@ function createStyles(colors: WorkStationColors) {
     buttonRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
     touchAction: { minHeight: 44, justifyContent: "center" },
     listItem: { flexDirection: "row", alignItems: "center", gap: 10, borderTopColor: colors.line, borderTopWidth: 1, paddingTop: 10 },
+    featureRow: { flexDirection: "row", alignItems: "flex-start", gap: 10, borderTopColor: colors.line, borderTopWidth: 1, paddingTop: 10 },
+    availability: { color: colors.accent, fontSize: 10, fontWeight: "900", textTransform: "uppercase" },
     itemLabel: { color: colors.accent, fontSize: 11, fontWeight: "900", textTransform: "uppercase" },
     itemText: { color: colors.text, lineHeight: 20 },
     result: { borderColor: colors.line, borderWidth: 1, borderRadius: 10, backgroundColor: colors.background, padding: 10, gap: 6 },

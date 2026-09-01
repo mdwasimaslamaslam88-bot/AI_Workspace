@@ -387,6 +387,40 @@ export interface ProductCapabilityPage {
   items: ProductCapability[];
 }
 
+export type FeatureLayer =
+  | "ai_presence"
+  | "mission_control"
+  | "universal_workspace"
+  | "ai_command_center"
+  | "apps_hub";
+
+export type FeatureStatus =
+  | "implemented"
+  | "runtime_dependent"
+  | "external_dependency"
+  | "planned";
+
+export interface ProductFeature {
+  id: string;
+  layer: FeatureLayer;
+  category: string;
+  title: string;
+  description: string;
+  ui_entry_point: string;
+  backend_capability: string;
+  required_permissions: string[];
+  dependencies: string[];
+  status: FeatureStatus;
+  test_coverage: string[];
+}
+
+export interface FeatureRegistry {
+  schema_version: 1;
+  product: "AI OS";
+  count: number;
+  items: ProductFeature[];
+}
+
 export type DiagnosticStatus = "ready" | "unavailable" | "unconfigured";
 export type DiagnosticServiceId =
   | "backend"
@@ -914,6 +948,19 @@ const productCapabilityReasons = [
   "local_image_edit_runtime_and_model_required",
   "local_voice_runtime_and_models_required",
 ] as const;
+const featureLayers = [
+  "ai_presence",
+  "mission_control",
+  "universal_workspace",
+  "ai_command_center",
+  "apps_hub",
+] as const;
+const featureStatuses = [
+  "implemented",
+  "runtime_dependent",
+  "external_dependency",
+  "planned",
+] as const;
 const diagnosticStatuses = ["ready", "unavailable", "unconfigured"] as const;
 const diagnosticServiceIds = [
   "backend",
@@ -1173,6 +1220,65 @@ export function parseProductCapabilityPage(
     return invalidResponse();
   }
   return { items };
+}
+
+function boundedStringArray(value: unknown, maximum: number): string[] {
+  if (!Array.isArray(value) || value.length > maximum) return invalidResponse();
+  return value.map((item) => stringField(item));
+}
+
+export function parseProductFeature(value: unknown): ProductFeature {
+  const item = record(value);
+  const id = stringField(item.id);
+  const uiEntryPoint = stringField(item.ui_entry_point);
+  const backendCapability = stringField(item.backend_capability);
+  const testCoverage = boundedStringArray(item.test_coverage, 8);
+  if (
+    !/^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$/.test(id) ||
+    !/^\/[a-z0-9_/#-]+$/.test(uiEntryPoint) ||
+    !/^[a-z][a-z0-9_]*$/.test(backendCapability) ||
+    testCoverage.length === 0
+  ) {
+    return invalidResponse();
+  }
+  return {
+    id,
+    layer: enumField(item.layer, featureLayers),
+    category: stringField(item.category),
+    title: stringField(item.title),
+    description: stringField(item.description),
+    ui_entry_point: uiEntryPoint,
+    backend_capability: backendCapability,
+    required_permissions: boundedStringArray(item.required_permissions, 8),
+    dependencies: boundedStringArray(item.dependencies, 8),
+    status: enumField(item.status, featureStatuses),
+    test_coverage: testCoverage,
+  };
+}
+
+export function parseFeatureRegistry(value: unknown): FeatureRegistry {
+  const registry = record(value);
+  if (
+    registry.schema_version !== 1 ||
+    registry.product !== "AI OS" ||
+    !Number.isSafeInteger(registry.count) ||
+    !Array.isArray(registry.items) ||
+    registry.items.length < 140 ||
+    registry.items.length > 500 ||
+    registry.count !== registry.items.length
+  ) {
+    return invalidResponse();
+  }
+  const items = registry.items.map(parseProductFeature);
+  if (new Set(items.map((item) => item.id)).size !== items.length) {
+    return invalidResponse();
+  }
+  return {
+    schema_version: 1,
+    product: "AI OS",
+    count: registry.count as number,
+    items,
+  };
 }
 
 export function parseSystemDiagnostics(value: unknown): SystemDiagnostics {

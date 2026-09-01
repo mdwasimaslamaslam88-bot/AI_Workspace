@@ -2,12 +2,13 @@ import axe from "axe-core";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import type { IndexedDocument } from "../src/api/contracts";
+import type { FeatureRegistry, IndexedDocument, ProductFeature } from "../src/api/contracts";
 import { ConnectView } from "../src/features/auth/ConnectView";
 import { ChatView } from "../src/features/chat/ChatView";
 import { ConversationList } from "../src/features/conversations/ConversationList";
 import { ModelSelector } from "../src/features/models/ModelSelector";
 import { SettingsPanel } from "../src/features/settings/SettingsPanel";
+import { FeatureCatalogPanel } from "../src/features/catalog/FeatureCatalogPanel";
 import {
   conversation,
   message,
@@ -156,6 +157,49 @@ describe("critical surface accessibility", () => {
       </main>,
     );
     await screen.findByText("7 of 11 capabilities available now.");
+    await expectNoStructuralViolations(container);
+  });
+
+  it("keeps the dynamic workspace catalog structurally accessible", async () => {
+    const base = Array.from({ length: 140 }, (_, index): ProductFeature => ({
+      id: `ai_presence.feature_${index}`,
+      layer: "ai_presence",
+      category: "Conversation",
+      title: `Feature ${index}`,
+      description: "Authenticated feature.",
+      ui_entry_point: `/home#feature-${index}`,
+      backend_capability: "conversations",
+      required_permissions: ["owner_session"],
+      dependencies: [],
+      status: "implemented",
+      test_coverage: ["web:accessibility"],
+    }));
+    const workspaceFeature: ProductFeature = {
+      ...base[0]!,
+      id: "universal_workspace.coding",
+      layer: "universal_workspace",
+      category: "Core workspaces",
+      title: "Coding workspace",
+      ui_entry_point: "/workspaces#coding",
+    };
+    const items = [...base, workspaceFeature];
+    const registry: FeatureRegistry = {
+      schema_version: 1,
+      product: "AI OS",
+      count: items.length,
+      items,
+    };
+    const { container } = render(
+      <main>
+        <FeatureCatalogPanel
+          layer="universal_workspace"
+          onClose={vi.fn()}
+          onLoad={vi.fn(async () => registry)}
+          onOpen={vi.fn()}
+        />
+      </main>,
+    );
+    await screen.findByText("Coding workspace");
     await expectNoStructuralViolations(container);
   });
 });

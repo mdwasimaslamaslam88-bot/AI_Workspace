@@ -25,6 +25,14 @@ clients never infer availability or download models automatically.
 | Mobile | `apps/mobile` (Expo SDK 57) | Keychain/Keystore via SecureStore | Android ARM64 owner-sideload APK; iOS release profile |
 | Shared client | `shared` | none | workspace TypeScript package |
 
+Across those clients, the product is organized as AI Presence/Home, Mission
+Control, Universal Workspace, AI Command Center, and the Apps/Life/Business
+Hub. The authenticated feature registry currently records every exposed or
+explicitly bounded capability with UI path, backend contract, permission,
+dependency, status, and coverage evidence. See
+[feature coverage](docs/FEATURE_COVERAGE.md); regenerate it with
+`npm run report:features`.
+
 The backend and all AI runtimes remain loopback-only. Worldwide access uses one
 private Tailscale Serve HTTPS gateway to the compiled web application and API;
 it does not expose development ports, PostgreSQL, Ollama, ComfyUI, or audio
@@ -59,6 +67,7 @@ provisioning credential.
 ```bash
 npm test
 npm run build
+npm run report:features
 npm run package
 npm run check:mobile
 npm run check:desktop
@@ -116,5 +125,6 @@ WORK_STATION_PLAYWRIGHT_BROWSERS_PATH=~/AI_Workspace_Runtimes/playwright \
 - [Security](docs/SECURITY.md)
 - [Backup](docs/BACKUP.md) and [recovery](docs/RECOVERY.md)
 - [Operations](docs/OPERATIONS.md)
+- [Asset provenance](docs/ASSET_PROVENANCE.md)
 - [Troubleshooting](docs/TROUBLESHOOTING.md)
 - [Backend AI architecture](backend/docs/local_ai.md)

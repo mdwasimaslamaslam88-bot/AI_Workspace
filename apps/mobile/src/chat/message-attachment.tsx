@@ -1,7 +1,7 @@
 import type { MessageAttachment } from "@work-station/shared";
 import { setAudioModeAsync, useAudioPlayer, useAudioPlayerStatus } from "expo-audio";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ActivityIndicator, Image, Pressable, StyleSheet, Text, useColorScheme, View } from "react-native";
+import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { MobileApiError, type MobileApiClient } from "@/api/client";
 import {
@@ -10,7 +10,8 @@ import {
   privateAttachmentLabel,
 } from "@/chat/attachments";
 import { cachePrivateMedia, type CachedPrivateMedia } from "@/media/private-cache";
-import { workStationColors } from "@/theme/colors";
+import { useWorkStationAppearance } from "@/theme/appearance";
+import type { WorkStationColors } from "@/theme/colors";
 
 function attachmentError(cause: unknown): string {
   return cause instanceof MobileApiError
@@ -33,7 +34,7 @@ export function MobileMessageAttachment({
 }
 
 function DeletedAttachment({ attachment }: { attachment: MessageAttachment }) {
-  const colors = workStationColors(useColorScheme());
+  const { colors } = useWorkStationAppearance();
   const styles = useMemo(() => createStyles(colors), [colors]);
   return <Text style={styles.tombstone}>{privateAttachmentLabel(attachment)}</Text>;
 }
@@ -115,7 +116,7 @@ function ImageAttachment({
   attachment: MessageAttachment;
   client: MobileApiClient;
 }) {
-  const colors = workStationColors(useColorScheme());
+  const { colors } = useWorkStationAppearance();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const media = usePrivateMedia(attachment, client);
 
@@ -147,7 +148,7 @@ function AudioAttachment({
   attachment: MessageAttachment;
   client: MobileApiClient;
 }) {
-  const colors = workStationColors(useColorScheme());
+  const { colors } = useWorkStationAppearance();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const player = useAudioPlayer(null);
   const playerStatus = useAudioPlayerStatus(player);
@@ -191,7 +192,7 @@ function LoadPrivateMediaButton({
   loading: boolean;
   onPress: () => Promise<void>;
 }) {
-  const colors = workStationColors(useColorScheme());
+  const { colors } = useWorkStationAppearance();
   const styles = useMemo(() => createStyles(colors), [colors]);
   return (
     <Pressable
@@ -216,7 +217,7 @@ function AttachmentFrame({
   children?: ReactNode;
   error?: string | null;
 }) {
-  const colors = workStationColors(useColorScheme());
+  const { colors } = useWorkStationAppearance();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   return (
@@ -231,7 +232,7 @@ function AttachmentFrame({
   );
 }
 
-function createStyles(colors: ReturnType<typeof workStationColors>) {
+function createStyles(colors: WorkStationColors) {
   return StyleSheet.create({
     card: {
       gap: 6,

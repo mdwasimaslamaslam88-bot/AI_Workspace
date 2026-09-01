@@ -19,6 +19,7 @@ import {
   type CurrentUser,
   type ExternalAISettings,
   type ExternalProviderUpsertRequest,
+  type FeatureRegistry,
   type ImageEditingRequest,
   type ImageGenerationRequest,
   type ImageOperation,
@@ -56,6 +57,7 @@ import {
   parseConversationPage,
   parseCurrentUser,
   parseExternalAISettings,
+  parseFeatureRegistry,
   parseGenerationResponse,
   parseImageOperation,
   parseMemoryPage,
@@ -267,6 +269,10 @@ export class MobileApiClient {
 
   getCapabilities(signal?: AbortSignal): Promise<ProductCapabilityPage> {
     return this.#request("api/v1/ai/capabilities", parseProductCapabilityPage, { signal });
+  }
+
+  getFeatureRegistry(signal?: AbortSignal): Promise<FeatureRegistry> {
+    return this.#request("api/v1/features", parseFeatureRegistry, { signal });
   }
 
   getSystemDiagnostics(signal?: AbortSignal): Promise<SystemDiagnostics> {

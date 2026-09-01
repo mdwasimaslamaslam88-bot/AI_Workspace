@@ -1,0 +1,5136 @@
+{
+  "items": [
+    {
+      "backend_capability": "conversations",
+      "category": "Conversation",
+      "dependencies": [],
+      "description": "Text chat exposed through the existing authenticated conversation capability.",
+      "id": "ai_presence.text_chat",
+      "layer": "ai_presence",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_conversations_api",
+        "web:app",
+        "mobile:chat"
+      ],
+      "title": "Text chat",
+      "ui_entry_point": "/home#text-chat"
+    },
+    {
+      "backend_capability": "conversations",
+      "category": "Conversation",
+      "dependencies": [],
+      "description": "Ask AI Anything exposed through the existing authenticated conversation capability.",
+      "id": "ai_presence.ask_ai_anything",
+      "layer": "ai_presence",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_conversations_api",
+        "web:app",
+        "mobile:chat"
+      ],
+      "title": "Ask AI Anything",
+      "ui_entry_point": "/home#ask-ai-anything"
+    },
+    {
+      "backend_capability": "conversations",
+      "category": "Conversation",
+      "dependencies": [],
+      "description": "Conversation history exposed through the existing authenticated conversation capability.",
+      "id": "ai_presence.conversation_history",
+      "layer": "ai_presence",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_conversations_api",
+        "web:app",
+        "mobile:chat"
+      ],
+      "title": "Conversation history",
+      "ui_entry_point": "/home#conversation-history"
+    },
+    {
+      "backend_capability": "conversations",
+      "category": "Conversation",
+      "dependencies": [],
+      "description": "Conversation search exposed through the existing authenticated conversation capability.",
+      "id": "ai_presence.conversation_search",
+      "layer": "ai_presence",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_conversations_api",
+        "web:app",
+        "mobile:chat"
+      ],
+      "title": "Conversation search",
+      "ui_entry_point": "/home#conversation-search"
+    },
+    {
+      "backend_capability": "conversations",
+      "category": "Conversation",
+      "dependencies": [],
+      "description": "Conversation branching exposed through the existing authenticated conversation capability.",
+      "id": "ai_presence.conversation_branching",
+      "layer": "ai_presence",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_conversations_api",
+        "web:app",
+        "mobile:chat"
+      ],
+      "title": "Conversation branching",
+      "ui_entry_point": "/home#conversation-branching"
+    },
+    {
+      "backend_capability": "conversations",
+      "category": "Conversation",
+      "dependencies": [],
+      "description": "Response regeneration exposed through the existing authenticated conversation capability.",
+      "id": "ai_presence.response_regeneration",
+      "layer": "ai_presence",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_conversations_api",
+        "web:app",
+        "mobile:chat"
+      ],
+      "title": "Response regeneration",
+      "ui_entry_point": "/home#response-regeneration"
+    },
+    {
+      "backend_capability": "conversations",
+      "category": "Conversation",
+      "dependencies": [],
+      "description": "Message edit and resend exposed through the existing authenticated conversation capability.",
+      "id": "ai_presence.message_edit_resend",
+      "layer": "ai_presence",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_conversations_api",
+        "web:app",
+        "mobile:chat"
+      ],
+      "title": "Message edit and resend",
+      "ui_entry_point": "/home#message-edit-resend"
+    },
+    {
+      "backend_capability": "conversations",
+      "category": "Conversation",
+      "dependencies": [],
+      "description": "Conversation rename exposed through the existing authenticated conversation capability.",
+      "id": "ai_presence.conversation_rename",
+      "layer": "ai_presence",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_conversations_api",
+        "web:app",
+        "mobile:chat"
+      ],
+      "title": "Conversation rename",
+      "ui_entry_point": "/home#conversation-rename"
+    },
+    {
+      "backend_capability": "conversations",
+      "category": "Conversation",
+      "dependencies": [],
+      "description": "Conversation pinning exposed through the existing authenticated conversation capability.",
+      "id": "ai_presence.conversation_pin",
+      "layer": "ai_presence",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_conversations_api",
+        "web:app",
+        "mobile:chat"
+      ],
+      "title": "Conversation pinning",
+      "ui_entry_point": "/home#conversation-pin"
+    },
+    {
+      "backend_capability": "conversations",
+      "category": "Conversation",
+      "dependencies": [],
+      "description": "Conversation archiving exposed through the existing authenticated conversation capability.",
+      "id": "ai_presence.conversation_archive",
+      "layer": "ai_presence",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_conversations_api",
+        "web:app",
+        "mobile:chat"
+      ],
+      "title": "Conversation archiving",
+      "ui_entry_point": "/home#conversation-archive"
+    },
+    {
+      "backend_capability": "conversations",
+      "category": "Conversation",
+      "dependencies": [],
+      "description": "Conversation duplication exposed through the existing authenticated conversation capability.",
+      "id": "ai_presence.conversation_duplicate",
+      "layer": "ai_presence",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_conversations_api",
+        "web:app",
+        "mobile:chat"
+      ],
+      "title": "Conversation duplication",
+      "ui_entry_point": "/home#conversation-duplicate"
+    },
+    {
+      "backend_capability": "conversations",
+      "category": "Conversation",
+      "dependencies": [],
+      "description": "Conversation deletion exposed through the existing authenticated conversation capability.",
+      "id": "ai_presence.conversation_delete",
+      "layer": "ai_presence",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_conversations_api",
+        "web:app",
+        "mobile:chat"
+      ],
+      "title": "Conversation deletion",
+      "ui_entry_point": "/home#conversation-delete"
+    },
+    {
+      "backend_capability": "conversations",
+      "category": "Conversation",
+      "dependencies": [],
+      "description": "Response cancellation exposed through the existing authenticated conversation capability.",
+      "id": "ai_presence.response_cancel",
+      "layer": "ai_presence",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_conversations_api",
+        "web:app",
+        "mobile:chat"
+      ],
+      "title": "Response cancellation",
+      "ui_entry_point": "/home#response-cancel"
+    },
+    {
+      "backend_capability": "conversations",
+      "category": "Conversation",
+      "dependencies": [],
+      "description": "Conversation model selection exposed through the existing authenticated conversation capability.",
+      "id": "ai_presence.model_selection",
+      "layer": "ai_presence",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_conversations_api",
+        "web:app",
+        "mobile:chat"
+      ],
+      "title": "Conversation model selection",
+      "ui_entry_point": "/home#model-selection"
+    },
+    {
+      "backend_capability": "multimodal_runtime",
+      "category": "Multimodal presence",
+      "dependencies": [
+        "verified_local_model",
+        "asset_storage"
+      ],
+      "description": "Microphone input using the existing local capability layer; availability follows authenticated runtime and model diagnostics.",
+      "id": "ai_presence.microphone_input",
+      "layer": "ai_presence",
+      "required_permissions": [
+        "owner_session",
+        "media_capture"
+      ],
+      "status": "runtime_dependent",
+      "test_coverage": [
+        "backend:test_voice_api",
+        "backend:test_image_api",
+        "web:app",
+        "mobile:chat"
+      ],
+      "title": "Microphone input",
+      "ui_entry_point": "/home#microphone-input"
+    },
+    {
+      "backend_capability": "multimodal_runtime",
+      "category": "Multimodal presence",
+      "dependencies": [
+        "verified_local_model",
+        "asset_storage"
+      ],
+      "description": "Speech recognition using the existing local capability layer; availability follows authenticated runtime and model diagnostics.",
+      "id": "ai_presence.speech_recognition",
+      "layer": "ai_presence",
+      "required_permissions": [
+        "owner_session",
+        "media_capture"
+      ],
+      "status": "runtime_dependent",
+      "test_coverage": [
+        "backend:test_voice_api",
+        "backend:test_image_api",
+        "web:app",
+        "mobile:chat"
+      ],
+      "title": "Speech recognition",
+      "ui_entry_point": "/home#speech-recognition"
+    },
+    {
+      "backend_capability": "multimodal_runtime",
+      "category": "Multimodal presence",
+      "dependencies": [
+        "verified_local_model",
+        "asset_storage"
+      ],
+      "description": "Speech synthesis using the existing local capability layer; availability follows authenticated runtime and model diagnostics.",
+      "id": "ai_presence.speech_synthesis",
+      "layer": "ai_presence",
+      "required_permissions": [
+        "owner_session",
+        "media_capture"
+      ],
+      "status": "runtime_dependent",
+      "test_coverage": [
+        "backend:test_voice_api",
+        "backend:test_image_api",
+        "web:app",
+        "mobile:chat"
+      ],
+      "title": "Speech synthesis",
+      "ui_entry_point": "/home#speech-synthesis"
+    },
+    {
+      "backend_capability": "multimodal_runtime",
+      "category": "Multimodal presence",
+      "dependencies": [
+        "verified_local_model",
+        "asset_storage"
+      ],
+      "description": "Female voice profile using the existing local capability layer; availability follows authenticated runtime and model diagnostics.",
+      "id": "ai_presence.female_voice_profile",
+      "layer": "ai_presence",
+      "required_permissions": [
+        "owner_session",
+        "media_capture"
+      ],
+      "status": "runtime_dependent",
+      "test_coverage": [
+        "backend:test_voice_api",
+        "backend:test_image_api",
+        "web:app",
+        "mobile:chat"
+      ],
+      "title": "Female voice profile",
+      "ui_entry_point": "/home#female-voice-profile"
+    },
+    {
+      "backend_capability": "multimodal_runtime",
+      "category": "Multimodal presence",
+      "dependencies": [
+        "verified_local_model",
+        "asset_storage"
+      ],
+      "description": "Voice playback using the existing local capability layer; availability follows authenticated runtime and model diagnostics.",
+      "id": "ai_presence.voice_playback",
+      "layer": "ai_presence",
+      "required_permissions": [
+        "owner_session",
+        "media_capture"
+      ],
+      "status": "runtime_dependent",
+      "test_coverage": [
+        "backend:test_voice_api",
+        "backend:test_image_api",
+        "web:app",
+        "mobile:chat"
+      ],
+      "title": "Voice playback",
+      "ui_entry_point": "/home#voice-playback"
+    },
+    {
+      "backend_capability": "multimodal_runtime",
+      "category": "Multimodal presence",
+      "dependencies": [
+        "verified_local_model",
+        "asset_storage"
+      ],
+      "description": "Automatic language detection using the existing local capability layer; availability follows authenticated runtime and model diagnostics.",
+      "id": "ai_presence.automatic_language_detection",
+      "layer": "ai_presence",
+      "required_permissions": [
+        "owner_session",
+        "media_capture"
+      ],
+      "status": "runtime_dependent",
+      "test_coverage": [
+        "backend:test_voice_api",
+        "backend:test_image_api",
+        "web:app",
+        "mobile:chat"
+      ],
+      "title": "Automatic language detection",
+      "ui_entry_point": "/home#automatic-language-detection"
+    },
+    {
+      "backend_capability": "multimodal_runtime",
+      "category": "Multimodal presence",
+      "dependencies": [
+        "verified_local_model",
+        "asset_storage"
+      ],
+      "description": "Multilingual conversation using the existing local capability layer; availability follows authenticated runtime and model diagnostics.",
+      "id": "ai_presence.multilingual_conversation",
+      "layer": "ai_presence",
+      "required_permissions": [
+        "owner_session",
+        "media_capture"
+      ],
+      "status": "runtime_dependent",
+      "test_coverage": [
+        "backend:test_voice_api",
+        "backend:test_image_api",
+        "web:app",
+        "mobile:chat"
+      ],
+      "title": "Multilingual conversation",
+      "ui_entry_point": "/home#multilingual-conversation"
+    },
+    {
+      "backend_capability": "multimodal_runtime",
+      "category": "Multimodal presence",
+      "dependencies": [
+        "verified_local_model",
+        "asset_storage"
+      ],
+      "description": "Mixed-language conversation using the existing local capability layer; availability follows authenticated runtime and model diagnostics.",
+      "id": "ai_presence.mixed_language_conversation",
+      "layer": "ai_presence",
+      "required_permissions": [
+        "owner_session",
+        "media_capture"
+      ],
+      "status": "runtime_dependent",
+      "test_coverage": [
+        "backend:test_voice_api",
+        "backend:test_image_api",
+        "web:app",
+        "mobile:chat"
+      ],
+      "title": "Mixed-language conversation",
+      "ui_entry_point": "/home#mixed-language-conversation"
+    },
+    {
+      "backend_capability": "multimodal_runtime",
+      "category": "Multimodal presence",
+      "dependencies": [
+        "verified_local_model",
+        "asset_storage"
+      ],
+      "description": "Camera image input using the existing local capability layer; availability follows authenticated runtime and model diagnostics.",
+      "id": "ai_presence.camera_image_input",
+      "layer": "ai_presence",
+      "required_permissions": [
+        "owner_session",
+        "media_capture"
+      ],
+      "status": "runtime_dependent",
+      "test_coverage": [
+        "backend:test_voice_api",
+        "backend:test_image_api",
+        "web:app",
+        "mobile:chat"
+      ],
+      "title": "Camera image input",
+      "ui_entry_point": "/home#camera-image-input"
+    },
+    {
+      "backend_capability": "multimodal_runtime",
+      "category": "Multimodal presence",
+      "dependencies": [
+        "verified_local_model",
+        "asset_storage"
+      ],
+      "description": "Vision understanding using the existing local capability layer; availability follows authenticated runtime and model diagnostics.",
+      "id": "ai_presence.vision_understanding",
+      "layer": "ai_presence",
+      "required_permissions": [
+        "owner_session",
+        "media_capture"
+      ],
+      "status": "runtime_dependent",
+      "test_coverage": [
+        "backend:test_voice_api",
+        "backend:test_image_api",
+        "web:app",
+        "mobile:chat"
+      ],
+      "title": "Vision understanding",
+      "ui_entry_point": "/home#vision-understanding"
+    },
+    {
+      "backend_capability": "multimodal_runtime",
+      "category": "Multimodal presence",
+      "dependencies": [
+        "verified_local_model",
+        "asset_storage"
+      ],
+      "description": "File input using the existing local capability layer; availability follows authenticated runtime and model diagnostics.",
+      "id": "ai_presence.file_input",
+      "layer": "ai_presence",
+      "required_permissions": [
+        "owner_session",
+        "media_capture"
+      ],
+      "status": "runtime_dependent",
+      "test_coverage": [
+        "backend:test_voice_api",
+        "backend:test_image_api",
+        "web:app",
+        "mobile:chat"
+      ],
+      "title": "File input",
+      "ui_entry_point": "/home#file-input"
+    },
+    {
+      "backend_capability": "multimodal_runtime",
+      "category": "Multimodal presence",
+      "dependencies": [
+        "verified_local_model",
+        "asset_storage"
+      ],
+      "description": "Document-grounded conversation using the existing local capability layer; availability follows authenticated runtime and model diagnostics.",
+      "id": "ai_presence.document_grounding",
+      "layer": "ai_presence",
+      "required_permissions": [
+        "owner_session",
+        "media_capture"
+      ],
+      "status": "runtime_dependent",
+      "test_coverage": [
+        "backend:test_voice_api",
+        "backend:test_image_api",
+        "web:app",
+        "mobile:chat"
+      ],
+      "title": "Document-grounded conversation",
+      "ui_entry_point": "/home#document-grounding"
+    },
+    {
+      "backend_capability": "multimodal_runtime",
+      "category": "Multimodal presence",
+      "dependencies": [
+        "verified_local_model",
+        "asset_storage"
+      ],
+      "description": "Image generation using the existing local capability layer; availability follows authenticated runtime and model diagnostics.",
+      "id": "ai_presence.image_generation",
+      "layer": "ai_presence",
+      "required_permissions": [
+        "owner_session",
+        "media_capture"
+      ],
+      "status": "runtime_dependent",
+      "test_coverage": [
+        "backend:test_voice_api",
+        "backend:test_image_api",
+        "web:app",
+        "mobile:chat"
+      ],
+      "title": "Image generation",
+      "ui_entry_point": "/home#image-generation"
+    },
+    {
+      "backend_capability": "multimodal_runtime",
+      "category": "Multimodal presence",
+      "dependencies": [
+        "verified_local_model",
+        "asset_storage"
+      ],
+      "description": "Image editing using the existing local capability layer; availability follows authenticated runtime and model diagnostics.",
+      "id": "ai_presence.image_editing",
+      "layer": "ai_presence",
+      "required_permissions": [
+        "owner_session",
+        "media_capture"
+      ],
+      "status": "runtime_dependent",
+      "test_coverage": [
+        "backend:test_voice_api",
+        "backend:test_image_api",
+        "web:app",
+        "mobile:chat"
+      ],
+      "title": "Image editing",
+      "ui_entry_point": "/home#image-editing"
+    },
+    {
+      "backend_capability": "external_realtime_connector",
+      "category": "Realtime communications",
+      "dependencies": [
+        "webrtc_or_telephony_provider",
+        "owner_configuration"
+      ],
+      "description": "Governed phone call entry point; execution remains disabled until the listed external dependency and owner permission are configured.",
+      "id": "ai_presence.phone_call",
+      "layer": "ai_presence",
+      "required_permissions": [
+        "owner_session",
+        "microphone",
+        "camera"
+      ],
+      "status": "external_dependency",
+      "test_coverage": [
+        "contract:feature_registry",
+        "manual:external_boundary"
+      ],
+      "title": "Phone call",
+      "ui_entry_point": "/home#phone-call"
+    },
+    {
+      "backend_capability": "external_realtime_connector",
+      "category": "Realtime communications",
+      "dependencies": [
+        "webrtc_or_telephony_provider",
+        "owner_configuration"
+      ],
+      "description": "Governed configured callback entry point; execution remains disabled until the listed external dependency and owner permission are configured.",
+      "id": "ai_presence.configured_callback",
+      "layer": "ai_presence",
+      "required_permissions": [
+        "owner_session",
+        "microphone",
+        "camera"
+      ],
+      "status": "external_dependency",
+      "test_coverage": [
+        "contract:feature_registry",
+        "manual:external_boundary"
+      ],
+      "title": "Configured callback",
+      "ui_entry_point": "/home#configured-callback"
+    },
+    {
+      "backend_capability": "external_realtime_connector",
+      "category": "Realtime communications",
+      "dependencies": [
+        "webrtc_or_telephony_provider",
+        "owner_configuration"
+      ],
+      "description": "Governed video interaction entry point; execution remains disabled until the listed external dependency and owner permission are configured.",
+      "id": "ai_presence.video_interaction",
+      "layer": "ai_presence",
+      "required_permissions": [
+        "owner_session",
+        "microphone",
+        "camera"
+      ],
+      "status": "external_dependency",
+      "test_coverage": [
+        "contract:feature_registry",
+        "manual:external_boundary"
+      ],
+      "title": "Video interaction",
+      "ui_entry_point": "/home#video-interaction"
+    },
+    {
+      "backend_capability": "external_realtime_connector",
+      "category": "Realtime communications",
+      "dependencies": [
+        "webrtc_or_telephony_provider",
+        "owner_configuration"
+      ],
+      "description": "Governed live screen sharing entry point; execution remains disabled until the listed external dependency and owner permission are configured.",
+      "id": "ai_presence.live_screen_sharing",
+      "layer": "ai_presence",
+      "required_permissions": [
+        "owner_session",
+        "microphone",
+        "camera"
+      ],
+      "status": "external_dependency",
+      "test_coverage": [
+        "contract:feature_registry",
+        "manual:external_boundary"
+      ],
+      "title": "Live screen sharing",
+      "ui_entry_point": "/home#live-screen-sharing"
+    },
+    {
+      "backend_capability": "external_realtime_connector",
+      "category": "Realtime communications",
+      "dependencies": [
+        "webrtc_or_telephony_provider",
+        "owner_configuration"
+      ],
+      "description": "Governed voice interruption entry point; execution remains disabled until the listed external dependency and owner permission are configured.",
+      "id": "ai_presence.voice_interruption",
+      "layer": "ai_presence",
+      "required_permissions": [
+        "owner_session",
+        "microphone",
+        "camera"
+      ],
+      "status": "external_dependency",
+      "test_coverage": [
+        "contract:feature_registry",
+        "manual:external_boundary"
+      ],
+      "title": "Voice interruption",
+      "ui_entry_point": "/home#voice-interruption"
+    },
+    {
+      "backend_capability": "external_realtime_connector",
+      "category": "Realtime communications",
+      "dependencies": [
+        "webrtc_or_telephony_provider",
+        "owner_configuration"
+      ],
+      "description": "Governed natural conversational turn-taking entry point; execution remains disabled until the listed external dependency and owner permission are configured.",
+      "id": "ai_presence.natural_turn_taking",
+      "layer": "ai_presence",
+      "required_permissions": [
+        "owner_session",
+        "microphone",
+        "camera"
+      ],
+      "status": "external_dependency",
+      "test_coverage": [
+        "contract:feature_registry",
+        "manual:external_boundary"
+      ],
+      "title": "Natural conversational turn-taking",
+      "ui_entry_point": "/home#natural-turn-taking"
+    },
+    {
+      "backend_capability": "external_realtime_connector",
+      "category": "Realtime communications",
+      "dependencies": [
+        "webrtc_or_telephony_provider",
+        "owner_configuration"
+      ],
+      "description": "Governed realtime camera stream entry point; execution remains disabled until the listed external dependency and owner permission are configured.",
+      "id": "ai_presence.realtime_camera_stream",
+      "layer": "ai_presence",
+      "required_permissions": [
+        "owner_session",
+        "microphone",
+        "camera"
+      ],
+      "status": "external_dependency",
+      "test_coverage": [
+        "contract:feature_registry",
+        "manual:external_boundary"
+      ],
+      "title": "Realtime camera stream",
+      "ui_entry_point": "/home#realtime-camera-stream"
+    },
+    {
+      "backend_capability": "execution_state",
+      "category": "Companion state",
+      "dependencies": [],
+      "description": "AI companion avatar exposed through the existing authenticated companion state capability.",
+      "id": "ai_presence.companion_avatar",
+      "layer": "ai_presence",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "web:product_shell",
+        "mobile:home"
+      ],
+      "title": "AI companion avatar",
+      "ui_entry_point": "/home#companion-avatar"
+    },
+    {
+      "backend_capability": "execution_state",
+      "category": "Companion state",
+      "dependencies": [],
+      "description": "Listening state exposed through the existing authenticated companion state capability.",
+      "id": "ai_presence.listening_state",
+      "layer": "ai_presence",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "web:product_shell",
+        "mobile:home"
+      ],
+      "title": "Listening state",
+      "ui_entry_point": "/home#listening-state"
+    },
+    {
+      "backend_capability": "execution_state",
+      "category": "Companion state",
+      "dependencies": [],
+      "description": "Thinking state exposed through the existing authenticated companion state capability.",
+      "id": "ai_presence.thinking_state",
+      "layer": "ai_presence",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "web:product_shell",
+        "mobile:home"
+      ],
+      "title": "Thinking state",
+      "ui_entry_point": "/home#thinking-state"
+    },
+    {
+      "backend_capability": "execution_state",
+      "category": "Companion state",
+      "dependencies": [],
+      "description": "Working state exposed through the existing authenticated companion state capability.",
+      "id": "ai_presence.working_state",
+      "layer": "ai_presence",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "web:product_shell",
+        "mobile:home"
+      ],
+      "title": "Working state",
+      "ui_entry_point": "/home#working-state"
+    },
+    {
+      "backend_capability": "execution_state",
+      "category": "Companion state",
+      "dependencies": [],
+      "description": "Waiting state exposed through the existing authenticated companion state capability.",
+      "id": "ai_presence.waiting_state",
+      "layer": "ai_presence",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "web:product_shell",
+        "mobile:home"
+      ],
+      "title": "Waiting state",
+      "ui_entry_point": "/home#waiting-state"
+    },
+    {
+      "backend_capability": "execution_state",
+      "category": "Companion state",
+      "dependencies": [],
+      "description": "Verifying state exposed through the existing authenticated companion state capability.",
+      "id": "ai_presence.verifying_state",
+      "layer": "ai_presence",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "web:product_shell",
+        "mobile:home"
+      ],
+      "title": "Verifying state",
+      "ui_entry_point": "/home#verifying-state"
+    },
+    {
+      "backend_capability": "execution_state",
+      "category": "Companion state",
+      "dependencies": [],
+      "description": "Done state exposed through the existing authenticated companion state capability.",
+      "id": "ai_presence.done_state",
+      "layer": "ai_presence",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "web:product_shell",
+        "mobile:home"
+      ],
+      "title": "Done state",
+      "ui_entry_point": "/home#done-state"
+    },
+    {
+      "backend_capability": "execution_state",
+      "category": "Companion state",
+      "dependencies": [],
+      "description": "Needs input state exposed through the existing authenticated companion state capability.",
+      "id": "ai_presence.needs_input_state",
+      "layer": "ai_presence",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "web:product_shell",
+        "mobile:home"
+      ],
+      "title": "Needs input state",
+      "ui_entry_point": "/home#needs-input-state"
+    },
+    {
+      "backend_capability": "execution_state",
+      "category": "Companion state",
+      "dependencies": [],
+      "description": "Contextual responses exposed through the existing authenticated companion state capability.",
+      "id": "ai_presence.contextual_responses",
+      "layer": "ai_presence",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "web:product_shell",
+        "mobile:home"
+      ],
+      "title": "Contextual responses",
+      "ui_entry_point": "/home#contextual-responses"
+    },
+    {
+      "backend_capability": "execution_state",
+      "category": "Companion state",
+      "dependencies": [],
+      "description": "Clarification requests exposed through the existing authenticated companion state capability.",
+      "id": "ai_presence.clarification_requests",
+      "layer": "ai_presence",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "web:product_shell",
+        "mobile:home"
+      ],
+      "title": "Clarification requests",
+      "ui_entry_point": "/home#clarification-requests"
+    },
+    {
+      "backend_capability": "agent_os",
+      "category": "Mission lifecycle",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "Mission creation exposed through the existing authenticated mission lifecycle capability.",
+      "id": "mission_control.mission_create",
+      "layer": "mission_control",
+      "required_permissions": [
+        "owner_session",
+        "model_inference"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_agent_os",
+        "web:agent_panel",
+        "mobile:agents"
+      ],
+      "title": "Mission creation",
+      "ui_entry_point": "/missions#mission-create"
+    },
+    {
+      "backend_capability": "agent_os",
+      "category": "Mission lifecycle",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "Intent capture exposed through the existing authenticated mission lifecycle capability.",
+      "id": "mission_control.intent_capture",
+      "layer": "mission_control",
+      "required_permissions": [
+        "owner_session",
+        "model_inference"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_agent_os",
+        "web:agent_panel",
+        "mobile:agents"
+      ],
+      "title": "Intent capture",
+      "ui_entry_point": "/missions#intent-capture"
+    },
+    {
+      "backend_capability": "agent_os",
+      "category": "Mission lifecycle",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "Mission planning exposed through the existing authenticated mission lifecycle capability.",
+      "id": "mission_control.mission_plan",
+      "layer": "mission_control",
+      "required_permissions": [
+        "owner_session",
+        "model_inference"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_agent_os",
+        "web:agent_panel",
+        "mobile:agents"
+      ],
+      "title": "Mission planning",
+      "ui_entry_point": "/missions#mission-plan"
+    },
+    {
+      "backend_capability": "agent_os",
+      "category": "Mission lifecycle",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "Specialist agent selection exposed through the existing authenticated mission lifecycle capability.",
+      "id": "mission_control.specialist_selection",
+      "layer": "mission_control",
+      "required_permissions": [
+        "owner_session",
+        "model_inference"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_agent_os",
+        "web:agent_panel",
+        "mobile:agents"
+      ],
+      "title": "Specialist agent selection",
+      "ui_entry_point": "/missions#specialist-selection"
+    },
+    {
+      "backend_capability": "agent_os",
+      "category": "Mission lifecycle",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "Mission model routing exposed through the existing authenticated mission lifecycle capability.",
+      "id": "mission_control.model_routing",
+      "layer": "mission_control",
+      "required_permissions": [
+        "owner_session",
+        "model_inference"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_agent_os",
+        "web:agent_panel",
+        "mobile:agents"
+      ],
+      "title": "Mission model routing",
+      "ui_entry_point": "/missions#model-routing"
+    },
+    {
+      "backend_capability": "agent_os",
+      "category": "Mission lifecycle",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "Bounded mission execution exposed through the existing authenticated mission lifecycle capability.",
+      "id": "mission_control.bounded_execution",
+      "layer": "mission_control",
+      "required_permissions": [
+        "owner_session",
+        "model_inference"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_agent_os",
+        "web:agent_panel",
+        "mobile:agents"
+      ],
+      "title": "Bounded mission execution",
+      "ui_entry_point": "/missions#bounded-execution"
+    },
+    {
+      "backend_capability": "agent_os",
+      "category": "Mission lifecycle",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "Queued state exposed through the existing authenticated mission lifecycle capability.",
+      "id": "mission_control.queued_state",
+      "layer": "mission_control",
+      "required_permissions": [
+        "owner_session",
+        "model_inference"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_agent_os",
+        "web:agent_panel",
+        "mobile:agents"
+      ],
+      "title": "Queued state",
+      "ui_entry_point": "/missions#queued-state"
+    },
+    {
+      "backend_capability": "agent_os",
+      "category": "Mission lifecycle",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "Planning state exposed through the existing authenticated mission lifecycle capability.",
+      "id": "mission_control.planning_state",
+      "layer": "mission_control",
+      "required_permissions": [
+        "owner_session",
+        "model_inference"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_agent_os",
+        "web:agent_panel",
+        "mobile:agents"
+      ],
+      "title": "Planning state",
+      "ui_entry_point": "/missions#planning-state"
+    },
+    {
+      "backend_capability": "agent_os",
+      "category": "Mission lifecycle",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "Running state exposed through the existing authenticated mission lifecycle capability.",
+      "id": "mission_control.running_state",
+      "layer": "mission_control",
+      "required_permissions": [
+        "owner_session",
+        "model_inference"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_agent_os",
+        "web:agent_panel",
+        "mobile:agents"
+      ],
+      "title": "Running state",
+      "ui_entry_point": "/missions#running-state"
+    },
+    {
+      "backend_capability": "agent_os",
+      "category": "Mission lifecycle",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "Mission verifying state exposed through the existing authenticated mission lifecycle capability.",
+      "id": "mission_control.verifying_state",
+      "layer": "mission_control",
+      "required_permissions": [
+        "owner_session",
+        "model_inference"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_agent_os",
+        "web:agent_panel",
+        "mobile:agents"
+      ],
+      "title": "Mission verifying state",
+      "ui_entry_point": "/missions#verifying-state"
+    },
+    {
+      "backend_capability": "agent_os",
+      "category": "Mission lifecycle",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "Retrying state exposed through the existing authenticated mission lifecycle capability.",
+      "id": "mission_control.retrying_state",
+      "layer": "mission_control",
+      "required_permissions": [
+        "owner_session",
+        "model_inference"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_agent_os",
+        "web:agent_panel",
+        "mobile:agents"
+      ],
+      "title": "Retrying state",
+      "ui_entry_point": "/missions#retrying-state"
+    },
+    {
+      "backend_capability": "agent_os",
+      "category": "Mission lifecycle",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "Completed state exposed through the existing authenticated mission lifecycle capability.",
+      "id": "mission_control.completed_state",
+      "layer": "mission_control",
+      "required_permissions": [
+        "owner_session",
+        "model_inference"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_agent_os",
+        "web:agent_panel",
+        "mobile:agents"
+      ],
+      "title": "Completed state",
+      "ui_entry_point": "/missions#completed-state"
+    },
+    {
+      "backend_capability": "agent_os",
+      "category": "Mission lifecycle",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "Failed state exposed through the existing authenticated mission lifecycle capability.",
+      "id": "mission_control.failed_state",
+      "layer": "mission_control",
+      "required_permissions": [
+        "owner_session",
+        "model_inference"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_agent_os",
+        "web:agent_panel",
+        "mobile:agents"
+      ],
+      "title": "Failed state",
+      "ui_entry_point": "/missions#failed-state"
+    },
+    {
+      "backend_capability": "agent_os",
+      "category": "Mission lifecycle",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "Timed-out state exposed through the existing authenticated mission lifecycle capability.",
+      "id": "mission_control.timed_out_state",
+      "layer": "mission_control",
+      "required_permissions": [
+        "owner_session",
+        "model_inference"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_agent_os",
+        "web:agent_panel",
+        "mobile:agents"
+      ],
+      "title": "Timed-out state",
+      "ui_entry_point": "/missions#timed-out-state"
+    },
+    {
+      "backend_capability": "agent_os",
+      "category": "Mission lifecycle",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "Mission cancellation exposed through the existing authenticated mission lifecycle capability.",
+      "id": "mission_control.mission_cancel",
+      "layer": "mission_control",
+      "required_permissions": [
+        "owner_session",
+        "model_inference"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_agent_os",
+        "web:agent_panel",
+        "mobile:agents"
+      ],
+      "title": "Mission cancellation",
+      "ui_entry_point": "/missions#mission-cancel"
+    },
+    {
+      "backend_capability": "agent_os",
+      "category": "Mission lifecycle",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "Mission inspection exposed through the existing authenticated mission lifecycle capability.",
+      "id": "mission_control.mission_inspect",
+      "layer": "mission_control",
+      "required_permissions": [
+        "owner_session",
+        "model_inference"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_agent_os",
+        "web:agent_panel",
+        "mobile:agents"
+      ],
+      "title": "Mission inspection",
+      "ui_entry_point": "/missions#mission-inspect"
+    },
+    {
+      "backend_capability": "agent_os",
+      "category": "Mission lifecycle",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "Attempt history exposed through the existing authenticated mission lifecycle capability.",
+      "id": "mission_control.attempt_history",
+      "layer": "mission_control",
+      "required_permissions": [
+        "owner_session",
+        "model_inference"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_agent_os",
+        "web:agent_panel",
+        "mobile:agents"
+      ],
+      "title": "Attempt history",
+      "ui_entry_point": "/missions#attempt-history"
+    },
+    {
+      "backend_capability": "agent_os",
+      "category": "Mission lifecycle",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "Model execution evidence exposed through the existing authenticated mission lifecycle capability.",
+      "id": "mission_control.model_evidence",
+      "layer": "mission_control",
+      "required_permissions": [
+        "owner_session",
+        "model_inference"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_agent_os",
+        "web:agent_panel",
+        "mobile:agents"
+      ],
+      "title": "Model execution evidence",
+      "ui_entry_point": "/missions#model-evidence"
+    },
+    {
+      "backend_capability": "agent_os",
+      "category": "Mission lifecycle",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "Output integrity hashes exposed through the existing authenticated mission lifecycle capability.",
+      "id": "mission_control.output_integrity",
+      "layer": "mission_control",
+      "required_permissions": [
+        "owner_session",
+        "model_inference"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_agent_os",
+        "web:agent_panel",
+        "mobile:agents"
+      ],
+      "title": "Output integrity hashes",
+      "ui_entry_point": "/missions#output-integrity"
+    },
+    {
+      "backend_capability": "agent_os",
+      "category": "Mission lifecycle",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "Independent verification exposed through the existing authenticated mission lifecycle capability.",
+      "id": "mission_control.independent_verification",
+      "layer": "mission_control",
+      "required_permissions": [
+        "owner_session",
+        "model_inference"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_agent_os",
+        "web:agent_panel",
+        "mobile:agents"
+      ],
+      "title": "Independent verification",
+      "ui_entry_point": "/missions#independent-verification"
+    },
+    {
+      "backend_capability": "agent_os",
+      "category": "Mission lifecycle",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "Bounded retry and repair exposed through the existing authenticated mission lifecycle capability.",
+      "id": "mission_control.bounded_retry",
+      "layer": "mission_control",
+      "required_permissions": [
+        "owner_session",
+        "model_inference"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_agent_os",
+        "web:agent_panel",
+        "mobile:agents"
+      ],
+      "title": "Bounded retry and repair",
+      "ui_entry_point": "/missions#bounded-retry"
+    },
+    {
+      "backend_capability": "agent_os",
+      "category": "Mission lifecycle",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "Objective evidence gate exposed through the existing authenticated mission lifecycle capability.",
+      "id": "mission_control.objective_evidence_gate",
+      "layer": "mission_control",
+      "required_permissions": [
+        "owner_session",
+        "model_inference"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_agent_os",
+        "web:agent_panel",
+        "mobile:agents"
+      ],
+      "title": "Objective evidence gate",
+      "ui_entry_point": "/missions#objective-evidence-gate"
+    },
+    {
+      "backend_capability": "agent_os",
+      "category": "Mission lifecycle",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "Mission deadline enforcement exposed through the existing authenticated mission lifecycle capability.",
+      "id": "mission_control.deadline_enforcement",
+      "layer": "mission_control",
+      "required_permissions": [
+        "owner_session",
+        "model_inference"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_agent_os",
+        "web:agent_panel",
+        "mobile:agents"
+      ],
+      "title": "Mission deadline enforcement",
+      "ui_entry_point": "/missions#deadline-enforcement"
+    },
+    {
+      "backend_capability": "agent_os",
+      "category": "Mission lifecycle",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "Typed permission contract exposed through the existing authenticated mission lifecycle capability.",
+      "id": "mission_control.permission_contract",
+      "layer": "mission_control",
+      "required_permissions": [
+        "owner_session",
+        "model_inference"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_agent_os",
+        "web:agent_panel",
+        "mobile:agents"
+      ],
+      "title": "Typed permission contract",
+      "ui_entry_point": "/missions#permission-contract"
+    },
+    {
+      "backend_capability": "agent_os",
+      "category": "Mission lifecycle",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "Verified result delivery exposed through the existing authenticated mission lifecycle capability.",
+      "id": "mission_control.result_delivery",
+      "layer": "mission_control",
+      "required_permissions": [
+        "owner_session",
+        "model_inference"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_agent_os",
+        "web:agent_panel",
+        "mobile:agents"
+      ],
+      "title": "Verified result delivery",
+      "ui_entry_point": "/missions#result-delivery"
+    },
+    {
+      "backend_capability": "bounded_workflows",
+      "category": "Workflow execution",
+      "dependencies": [
+        "workflow_runtime"
+      ],
+      "description": "Workflow creation exposed through the existing authenticated workflow execution capability.",
+      "id": "mission_control.workflow_create",
+      "layer": "mission_control",
+      "required_permissions": [
+        "owner_session",
+        "bounded_tool_execution"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_workflows_api",
+        "web:workflow_panel",
+        "mobile:studio"
+      ],
+      "title": "Workflow creation",
+      "ui_entry_point": "/missions#workflow-create"
+    },
+    {
+      "backend_capability": "bounded_workflows",
+      "category": "Workflow execution",
+      "dependencies": [
+        "workflow_runtime"
+      ],
+      "description": "Workflow start exposed through the existing authenticated workflow execution capability.",
+      "id": "mission_control.workflow_start",
+      "layer": "mission_control",
+      "required_permissions": [
+        "owner_session",
+        "bounded_tool_execution"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_workflows_api",
+        "web:workflow_panel",
+        "mobile:studio"
+      ],
+      "title": "Workflow start",
+      "ui_entry_point": "/missions#workflow-start"
+    },
+    {
+      "backend_capability": "bounded_workflows",
+      "category": "Workflow execution",
+      "dependencies": [
+        "workflow_runtime"
+      ],
+      "description": "Workflow progress exposed through the existing authenticated workflow execution capability.",
+      "id": "mission_control.workflow_progress",
+      "layer": "mission_control",
+      "required_permissions": [
+        "owner_session",
+        "bounded_tool_execution"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_workflows_api",
+        "web:workflow_panel",
+        "mobile:studio"
+      ],
+      "title": "Workflow progress",
+      "ui_entry_point": "/missions#workflow-progress"
+    },
+    {
+      "backend_capability": "bounded_workflows",
+      "category": "Workflow execution",
+      "dependencies": [
+        "workflow_runtime"
+      ],
+      "description": "Workflow step history exposed through the existing authenticated workflow execution capability.",
+      "id": "mission_control.workflow_step_history",
+      "layer": "mission_control",
+      "required_permissions": [
+        "owner_session",
+        "bounded_tool_execution"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_workflows_api",
+        "web:workflow_panel",
+        "mobile:studio"
+      ],
+      "title": "Workflow step history",
+      "ui_entry_point": "/missions#workflow-step-history"
+    },
+    {
+      "backend_capability": "bounded_workflows",
+      "category": "Workflow execution",
+      "dependencies": [
+        "workflow_runtime"
+      ],
+      "description": "Workflow cancellation exposed through the existing authenticated workflow execution capability.",
+      "id": "mission_control.workflow_cancel",
+      "layer": "mission_control",
+      "required_permissions": [
+        "owner_session",
+        "bounded_tool_execution"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_workflows_api",
+        "web:workflow_panel",
+        "mobile:studio"
+      ],
+      "title": "Workflow cancellation",
+      "ui_entry_point": "/missions#workflow-cancel"
+    },
+    {
+      "backend_capability": "bounded_workflows",
+      "category": "Workflow execution",
+      "dependencies": [
+        "workflow_runtime"
+      ],
+      "description": "Workflow timeout exposed through the existing authenticated workflow execution capability.",
+      "id": "mission_control.workflow_timeout",
+      "layer": "mission_control",
+      "required_permissions": [
+        "owner_session",
+        "bounded_tool_execution"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_workflows_api",
+        "web:workflow_panel",
+        "mobile:studio"
+      ],
+      "title": "Workflow timeout",
+      "ui_entry_point": "/missions#workflow-timeout"
+    },
+    {
+      "backend_capability": "bounded_workflows",
+      "category": "Workflow execution",
+      "dependencies": [
+        "workflow_runtime"
+      ],
+      "description": "Tool result capture exposed through the existing authenticated workflow execution capability.",
+      "id": "mission_control.tool_result_capture",
+      "layer": "mission_control",
+      "required_permissions": [
+        "owner_session",
+        "bounded_tool_execution"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_workflows_api",
+        "web:workflow_panel",
+        "mobile:studio"
+      ],
+      "title": "Tool result capture",
+      "ui_entry_point": "/missions#tool-result-capture"
+    },
+    {
+      "backend_capability": "bounded_workflows",
+      "category": "Workflow execution",
+      "dependencies": [
+        "workflow_runtime"
+      ],
+      "description": "Failure classification exposed through the existing authenticated workflow execution capability.",
+      "id": "mission_control.failure_classification",
+      "layer": "mission_control",
+      "required_permissions": [
+        "owner_session",
+        "bounded_tool_execution"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_workflows_api",
+        "web:workflow_panel",
+        "mobile:studio"
+      ],
+      "title": "Failure classification",
+      "ui_entry_point": "/missions#failure-classification"
+    },
+    {
+      "backend_capability": "bounded_workflows",
+      "category": "Workflow execution",
+      "dependencies": [
+        "workflow_runtime"
+      ],
+      "description": "Live activity refresh exposed through the existing authenticated workflow execution capability.",
+      "id": "mission_control.live_activity_refresh",
+      "layer": "mission_control",
+      "required_permissions": [
+        "owner_session",
+        "bounded_tool_execution"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_workflows_api",
+        "web:workflow_panel",
+        "mobile:studio"
+      ],
+      "title": "Live activity refresh",
+      "ui_entry_point": "/missions#live-activity-refresh"
+    },
+    {
+      "backend_capability": "mission_checkpoint_roadmap",
+      "category": "Owner checkpoints",
+      "dependencies": [
+        "persistent_mission_scheduler"
+      ],
+      "description": "Visible mission pause contract with an explicit implementation boundary; the UI must not present it as executable.",
+      "id": "mission_control.mission_pause",
+      "layer": "mission_control",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "planned",
+      "test_coverage": [
+        "contract:feature_registry",
+        "manual:documented_gap"
+      ],
+      "title": "Mission pause",
+      "ui_entry_point": "/missions#mission-pause"
+    },
+    {
+      "backend_capability": "mission_checkpoint_roadmap",
+      "category": "Owner checkpoints",
+      "dependencies": [
+        "persistent_mission_scheduler"
+      ],
+      "description": "Visible mission resume contract with an explicit implementation boundary; the UI must not present it as executable.",
+      "id": "mission_control.mission_resume",
+      "layer": "mission_control",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "planned",
+      "test_coverage": [
+        "contract:feature_registry",
+        "manual:documented_gap"
+      ],
+      "title": "Mission resume",
+      "ui_entry_point": "/missions#mission-resume"
+    },
+    {
+      "backend_capability": "mission_checkpoint_roadmap",
+      "category": "Owner checkpoints",
+      "dependencies": [
+        "persistent_mission_scheduler"
+      ],
+      "description": "Visible mission approval checkpoint contract with an explicit implementation boundary; the UI must not present it as executable.",
+      "id": "mission_control.mission_approve",
+      "layer": "mission_control",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "planned",
+      "test_coverage": [
+        "contract:feature_registry",
+        "manual:documented_gap"
+      ],
+      "title": "Mission approval checkpoint",
+      "ui_entry_point": "/missions#mission-approve"
+    },
+    {
+      "backend_capability": "mission_checkpoint_roadmap",
+      "category": "Owner checkpoints",
+      "dependencies": [
+        "persistent_mission_scheduler"
+      ],
+      "description": "Visible in-flight mission modification contract with an explicit implementation boundary; the UI must not present it as executable.",
+      "id": "mission_control.mission_modify",
+      "layer": "mission_control",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "planned",
+      "test_coverage": [
+        "contract:feature_registry",
+        "manual:documented_gap"
+      ],
+      "title": "In-flight mission modification",
+      "ui_entry_point": "/missions#mission-modify"
+    },
+    {
+      "backend_capability": "mission_checkpoint_roadmap",
+      "category": "Owner checkpoints",
+      "dependencies": [
+        "persistent_mission_scheduler"
+      ],
+      "description": "Visible owner-triggered mission retry contract with an explicit implementation boundary; the UI must not present it as executable.",
+      "id": "mission_control.mission_manual_retry",
+      "layer": "mission_control",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "planned",
+      "test_coverage": [
+        "contract:feature_registry",
+        "manual:documented_gap"
+      ],
+      "title": "Owner-triggered mission retry",
+      "ui_entry_point": "/missions#mission-manual-retry"
+    },
+    {
+      "backend_capability": "conversation_and_agent_workspace",
+      "category": "Core workspaces",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "Coding workspace exposed through the existing authenticated core workspaces capability.",
+      "id": "universal_workspace.coding",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "web:feature_catalog",
+        "mobile:studio",
+        "contract:feature_registry"
+      ],
+      "title": "Coding workspace",
+      "ui_entry_point": "/workspaces#coding"
+    },
+    {
+      "backend_capability": "conversation_and_agent_workspace",
+      "category": "Core workspaces",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "Writing workspace exposed through the existing authenticated core workspaces capability.",
+      "id": "universal_workspace.writing",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "web:feature_catalog",
+        "mobile:studio",
+        "contract:feature_registry"
+      ],
+      "title": "Writing workspace",
+      "ui_entry_point": "/workspaces#writing"
+    },
+    {
+      "backend_capability": "conversation_and_agent_workspace",
+      "category": "Core workspaces",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "Documents workspace exposed through the existing authenticated core workspaces capability.",
+      "id": "universal_workspace.documents",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "web:feature_catalog",
+        "mobile:studio",
+        "contract:feature_registry"
+      ],
+      "title": "Documents workspace",
+      "ui_entry_point": "/workspaces#documents"
+    },
+    {
+      "backend_capability": "conversation_and_agent_workspace",
+      "category": "Core workspaces",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "Data workspace exposed through the existing authenticated core workspaces capability.",
+      "id": "universal_workspace.data",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "web:feature_catalog",
+        "mobile:studio",
+        "contract:feature_registry"
+      ],
+      "title": "Data workspace",
+      "ui_entry_point": "/workspaces#data"
+    },
+    {
+      "backend_capability": "conversation_and_agent_workspace",
+      "category": "Core workspaces",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "Research workspace exposed through the existing authenticated core workspaces capability.",
+      "id": "universal_workspace.research",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "web:feature_catalog",
+        "mobile:studio",
+        "contract:feature_registry"
+      ],
+      "title": "Research workspace",
+      "ui_entry_point": "/workspaces#research"
+    },
+    {
+      "backend_capability": "conversation_and_agent_workspace",
+      "category": "Core workspaces",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "Files workspace exposed through the existing authenticated core workspaces capability.",
+      "id": "universal_workspace.files",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "web:feature_catalog",
+        "mobile:studio",
+        "contract:feature_registry"
+      ],
+      "title": "Files workspace",
+      "ui_entry_point": "/workspaces#files"
+    },
+    {
+      "backend_capability": "conversation_and_agent_workspace",
+      "category": "Core workspaces",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "Browser workspace exposed through the existing authenticated core workspaces capability.",
+      "id": "universal_workspace.browser",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "web:feature_catalog",
+        "mobile:studio",
+        "contract:feature_registry"
+      ],
+      "title": "Browser workspace",
+      "ui_entry_point": "/workspaces#browser"
+    },
+    {
+      "backend_capability": "conversation_and_agent_workspace",
+      "category": "Core workspaces",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "Terminal workspace exposed through the existing authenticated core workspaces capability.",
+      "id": "universal_workspace.terminal",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "web:feature_catalog",
+        "mobile:studio",
+        "contract:feature_registry"
+      ],
+      "title": "Terminal workspace",
+      "ui_entry_point": "/workspaces#terminal"
+    },
+    {
+      "backend_capability": "conversation_and_agent_workspace",
+      "category": "Core workspaces",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "Developer tools workspace exposed through the existing authenticated core workspaces capability.",
+      "id": "universal_workspace.developer_tools",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "web:feature_catalog",
+        "mobile:studio",
+        "contract:feature_registry"
+      ],
+      "title": "Developer tools workspace",
+      "ui_entry_point": "/workspaces#developer-tools"
+    },
+    {
+      "backend_capability": "conversation_and_agent_workspace",
+      "category": "Core workspaces",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "Memory workspace exposed through the existing authenticated core workspaces capability.",
+      "id": "universal_workspace.memory",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "web:feature_catalog",
+        "mobile:studio",
+        "contract:feature_registry"
+      ],
+      "title": "Memory workspace",
+      "ui_entry_point": "/workspaces#memory"
+    },
+    {
+      "backend_capability": "conversation_and_agent_workspace",
+      "category": "Core workspaces",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "Knowledge and RAG workspace exposed through the existing authenticated core workspaces capability.",
+      "id": "universal_workspace.knowledge_rag",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "web:feature_catalog",
+        "mobile:studio",
+        "contract:feature_registry"
+      ],
+      "title": "Knowledge and RAG workspace",
+      "ui_entry_point": "/workspaces#knowledge-rag"
+    },
+    {
+      "backend_capability": "conversation_and_agent_workspace",
+      "category": "Core workspaces",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "Automation workspace exposed through the existing authenticated core workspaces capability.",
+      "id": "universal_workspace.automation",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "web:feature_catalog",
+        "mobile:studio",
+        "contract:feature_registry"
+      ],
+      "title": "Automation workspace",
+      "ui_entry_point": "/workspaces#automation"
+    },
+    {
+      "backend_capability": "conversation_and_agent_workspace",
+      "category": "Core workspaces",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "AI companion workspace exposed through the existing authenticated core workspaces capability.",
+      "id": "universal_workspace.ai_companion",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "web:feature_catalog",
+        "mobile:studio",
+        "contract:feature_registry"
+      ],
+      "title": "AI companion workspace",
+      "ui_entry_point": "/workspaces#ai-companion"
+    },
+    {
+      "backend_capability": "conversation_and_agent_workspace",
+      "category": "Core workspaces",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "Learning workspace exposed through the existing authenticated core workspaces capability.",
+      "id": "universal_workspace.learning",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "web:feature_catalog",
+        "mobile:studio",
+        "contract:feature_registry"
+      ],
+      "title": "Learning workspace",
+      "ui_entry_point": "/workspaces#learning"
+    },
+    {
+      "backend_capability": "conversation_and_agent_workspace",
+      "category": "Core workspaces",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "Language tutor workspace exposed through the existing authenticated core workspaces capability.",
+      "id": "universal_workspace.language_tutor",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "web:feature_catalog",
+        "mobile:studio",
+        "contract:feature_registry"
+      ],
+      "title": "Language tutor workspace",
+      "ui_entry_point": "/workspaces#language-tutor"
+    },
+    {
+      "backend_capability": "conversation_and_agent_workspace",
+      "category": "Core workspaces",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "Business workspace exposed through the existing authenticated core workspaces capability.",
+      "id": "universal_workspace.business",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "web:feature_catalog",
+        "mobile:studio",
+        "contract:feature_registry"
+      ],
+      "title": "Business workspace",
+      "ui_entry_point": "/workspaces#business"
+    },
+    {
+      "backend_capability": "conversation_and_agent_workspace",
+      "category": "Core workspaces",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "Marketing workspace exposed through the existing authenticated core workspaces capability.",
+      "id": "universal_workspace.marketing",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "web:feature_catalog",
+        "mobile:studio",
+        "contract:feature_registry"
+      ],
+      "title": "Marketing workspace",
+      "ui_entry_point": "/workspaces#marketing"
+    },
+    {
+      "backend_capability": "conversation_and_agent_workspace",
+      "category": "Core workspaces",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "SEO workspace exposed through the existing authenticated core workspaces capability.",
+      "id": "universal_workspace.seo",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "web:feature_catalog",
+        "mobile:studio",
+        "contract:feature_registry"
+      ],
+      "title": "SEO workspace",
+      "ui_entry_point": "/workspaces#seo"
+    },
+    {
+      "backend_capability": "conversation_and_agent_workspace",
+      "category": "Core workspaces",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "Finance workspace exposed through the existing authenticated core workspaces capability.",
+      "id": "universal_workspace.finance",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "web:feature_catalog",
+        "mobile:studio",
+        "contract:feature_registry"
+      ],
+      "title": "Finance workspace",
+      "ui_entry_point": "/workspaces#finance"
+    },
+    {
+      "backend_capability": "conversation_and_agent_workspace",
+      "category": "Core workspaces",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "Trading workspace exposed through the existing authenticated core workspaces capability.",
+      "id": "universal_workspace.trading",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "web:feature_catalog",
+        "mobile:studio",
+        "contract:feature_registry"
+      ],
+      "title": "Trading workspace",
+      "ui_entry_point": "/workspaces#trading"
+    },
+    {
+      "backend_capability": "conversation_and_agent_workspace",
+      "category": "Core workspaces",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "Crypto workspace exposed through the existing authenticated core workspaces capability.",
+      "id": "universal_workspace.crypto",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "web:feature_catalog",
+        "mobile:studio",
+        "contract:feature_registry"
+      ],
+      "title": "Crypto workspace",
+      "ui_entry_point": "/workspaces#crypto"
+    },
+    {
+      "backend_capability": "conversation_and_agent_workspace",
+      "category": "Core workspaces",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "FX workspace exposed through the existing authenticated core workspaces capability.",
+      "id": "universal_workspace.fx",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "web:feature_catalog",
+        "mobile:studio",
+        "contract:feature_registry"
+      ],
+      "title": "FX workspace",
+      "ui_entry_point": "/workspaces#fx"
+    },
+    {
+      "backend_capability": "multimodal_workspace",
+      "category": "Media workspaces",
+      "dependencies": [
+        "verified_capability_model",
+        "asset_storage"
+      ],
+      "description": "Image workspace using the existing local capability layer; availability follows authenticated runtime and model diagnostics.",
+      "id": "universal_workspace.image",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "asset_access"
+      ],
+      "status": "runtime_dependent",
+      "test_coverage": [
+        "backend:test_image_api",
+        "backend:test_voice_api",
+        "web:feature_catalog"
+      ],
+      "title": "Image workspace",
+      "ui_entry_point": "/workspaces#image"
+    },
+    {
+      "backend_capability": "multimodal_workspace",
+      "category": "Media workspaces",
+      "dependencies": [
+        "verified_capability_model",
+        "asset_storage"
+      ],
+      "description": "Audio workspace using the existing local capability layer; availability follows authenticated runtime and model diagnostics.",
+      "id": "universal_workspace.audio",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "asset_access"
+      ],
+      "status": "runtime_dependent",
+      "test_coverage": [
+        "backend:test_image_api",
+        "backend:test_voice_api",
+        "web:feature_catalog"
+      ],
+      "title": "Audio workspace",
+      "ui_entry_point": "/workspaces#audio"
+    },
+    {
+      "backend_capability": "multimodal_workspace",
+      "category": "Media workspaces",
+      "dependencies": [
+        "verified_capability_model",
+        "asset_storage"
+      ],
+      "description": "Voice workspace using the existing local capability layer; availability follows authenticated runtime and model diagnostics.",
+      "id": "universal_workspace.voice",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "asset_access"
+      ],
+      "status": "runtime_dependent",
+      "test_coverage": [
+        "backend:test_image_api",
+        "backend:test_voice_api",
+        "web:feature_catalog"
+      ],
+      "title": "Voice workspace",
+      "ui_entry_point": "/workspaces#voice"
+    },
+    {
+      "backend_capability": "multimodal_workspace",
+      "category": "Media workspaces",
+      "dependencies": [
+        "verified_capability_model",
+        "asset_storage"
+      ],
+      "description": "Interactive stories using the existing local capability layer; availability follows authenticated runtime and model diagnostics.",
+      "id": "universal_workspace.interactive_stories",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "asset_access"
+      ],
+      "status": "runtime_dependent",
+      "test_coverage": [
+        "backend:test_image_api",
+        "backend:test_voice_api",
+        "web:feature_catalog"
+      ],
+      "title": "Interactive stories",
+      "ui_entry_point": "/workspaces#interactive-stories"
+    },
+    {
+      "backend_capability": "multimodal_workspace",
+      "category": "Media workspaces",
+      "dependencies": [
+        "verified_capability_model",
+        "asset_storage"
+      ],
+      "description": "Games workspace using the existing local capability layer; availability follows authenticated runtime and model diagnostics.",
+      "id": "universal_workspace.games",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "asset_access"
+      ],
+      "status": "runtime_dependent",
+      "test_coverage": [
+        "backend:test_image_api",
+        "backend:test_voice_api",
+        "web:feature_catalog"
+      ],
+      "title": "Games workspace",
+      "ui_entry_point": "/workspaces#games"
+    },
+    {
+      "backend_capability": "multimodal_workspace",
+      "category": "Media workspaces",
+      "dependencies": [
+        "verified_capability_model",
+        "asset_storage"
+      ],
+      "description": "Fictional character experiences using the existing local capability layer; availability follows authenticated runtime and model diagnostics.",
+      "id": "universal_workspace.character_experiences",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "asset_access"
+      ],
+      "status": "runtime_dependent",
+      "test_coverage": [
+        "backend:test_image_api",
+        "backend:test_voice_api",
+        "web:feature_catalog"
+      ],
+      "title": "Fictional character experiences",
+      "ui_entry_point": "/workspaces#character-experiences"
+    },
+    {
+      "backend_capability": "external_video_connector",
+      "category": "Video creation",
+      "dependencies": [
+        "verified_video_runtime_or_provider"
+      ],
+      "description": "Governed video workspace entry point; execution remains disabled until the listed external dependency and owner permission are configured.",
+      "id": "universal_workspace.video",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "asset_access"
+      ],
+      "status": "external_dependency",
+      "test_coverage": [
+        "contract:feature_registry",
+        "manual:external_boundary"
+      ],
+      "title": "Video workspace",
+      "ui_entry_point": "/workspaces/video#video"
+    },
+    {
+      "backend_capability": "external_video_connector",
+      "category": "Video creation",
+      "dependencies": [
+        "verified_video_runtime_or_provider"
+      ],
+      "description": "Governed multimedia creation workspace entry point; execution remains disabled until the listed external dependency and owner permission are configured.",
+      "id": "universal_workspace.multimedia_creation",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "asset_access"
+      ],
+      "status": "external_dependency",
+      "test_coverage": [
+        "contract:feature_registry",
+        "manual:external_boundary"
+      ],
+      "title": "Multimedia creation workspace",
+      "ui_entry_point": "/workspaces/video#multimedia-creation"
+    },
+    {
+      "backend_capability": "learning_agent",
+      "category": "AI Teacher",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "Beginner-to-advanced curriculum exposed through the existing authenticated ai teacher capability.",
+      "id": "universal_workspace.curriculum_beginner_advanced",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "memory_read"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "contract:feature_registry",
+        "agent:planner_verifier"
+      ],
+      "title": "Beginner-to-advanced curriculum",
+      "ui_entry_point": "/workspaces/learning#curriculum-beginner-advanced"
+    },
+    {
+      "backend_capability": "learning_agent",
+      "category": "AI Teacher",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "Personalized lessons exposed through the existing authenticated ai teacher capability.",
+      "id": "universal_workspace.lessons",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "memory_read"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "contract:feature_registry",
+        "agent:planner_verifier"
+      ],
+      "title": "Personalized lessons",
+      "ui_entry_point": "/workspaces/learning#lessons"
+    },
+    {
+      "backend_capability": "learning_agent",
+      "category": "AI Teacher",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "Learning exercises exposed through the existing authenticated ai teacher capability.",
+      "id": "universal_workspace.exercises",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "memory_read"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "contract:feature_registry",
+        "agent:planner_verifier"
+      ],
+      "title": "Learning exercises",
+      "ui_entry_point": "/workspaces/learning#exercises"
+    },
+    {
+      "backend_capability": "learning_agent",
+      "category": "AI Teacher",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "Adaptive quizzes exposed through the existing authenticated ai teacher capability.",
+      "id": "universal_workspace.quizzes",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "memory_read"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "contract:feature_registry",
+        "agent:planner_verifier"
+      ],
+      "title": "Adaptive quizzes",
+      "ui_entry_point": "/workspaces/learning#quizzes"
+    },
+    {
+      "backend_capability": "learning_agent",
+      "category": "AI Teacher",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "Conversation practice exposed through the existing authenticated ai teacher capability.",
+      "id": "universal_workspace.conversation_practice",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "memory_read"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "contract:feature_registry",
+        "agent:planner_verifier"
+      ],
+      "title": "Conversation practice",
+      "ui_entry_point": "/workspaces/learning#conversation-practice"
+    },
+    {
+      "backend_capability": "learning_agent",
+      "category": "AI Teacher",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "Guided revision exposed through the existing authenticated ai teacher capability.",
+      "id": "universal_workspace.revision",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "memory_read"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "contract:feature_registry",
+        "agent:planner_verifier"
+      ],
+      "title": "Guided revision",
+      "ui_entry_point": "/workspaces/learning#revision"
+    },
+    {
+      "backend_capability": "learning_agent",
+      "category": "AI Teacher",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "Learning progress tracking exposed through the existing authenticated ai teacher capability.",
+      "id": "universal_workspace.progress_tracking",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "memory_read"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "contract:feature_registry",
+        "agent:planner_verifier"
+      ],
+      "title": "Learning progress tracking",
+      "ui_entry_point": "/workspaces/learning#progress-tracking"
+    },
+    {
+      "backend_capability": "learning_agent",
+      "category": "AI Teacher",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "Personalized difficulty exposed through the existing authenticated ai teacher capability.",
+      "id": "universal_workspace.personalized_difficulty",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "memory_read"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "contract:feature_registry",
+        "agent:planner_verifier"
+      ],
+      "title": "Personalized difficulty",
+      "ui_entry_point": "/workspaces/learning#personalized-difficulty"
+    },
+    {
+      "backend_capability": "learning_agent",
+      "category": "AI Teacher",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "Multilingual teaching exposed through the existing authenticated ai teacher capability.",
+      "id": "universal_workspace.multilingual_teaching",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "memory_read"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "contract:feature_registry",
+        "agent:planner_verifier"
+      ],
+      "title": "Multilingual teaching",
+      "ui_entry_point": "/workspaces/learning#multilingual-teaching"
+    },
+    {
+      "backend_capability": "external_learning_connector",
+      "category": "Learning services",
+      "dependencies": [
+        "pronunciation_scoring_provider",
+        "spaced_repetition_store"
+      ],
+      "description": "Governed pronunciation scoring entry point; execution remains disabled until the listed external dependency and owner permission are configured.",
+      "id": "universal_workspace.pronunciation_scoring",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "microphone"
+      ],
+      "status": "external_dependency",
+      "test_coverage": [
+        "contract:feature_registry",
+        "manual:external_boundary"
+      ],
+      "title": "Pronunciation scoring",
+      "ui_entry_point": "/workspaces/learning#pronunciation-scoring"
+    },
+    {
+      "backend_capability": "external_learning_connector",
+      "category": "Learning services",
+      "dependencies": [
+        "pronunciation_scoring_provider",
+        "spaced_repetition_store"
+      ],
+      "description": "Governed spaced repetition scheduling entry point; execution remains disabled until the listed external dependency and owner permission are configured.",
+      "id": "universal_workspace.spaced_repetition",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "microphone"
+      ],
+      "status": "external_dependency",
+      "test_coverage": [
+        "contract:feature_registry",
+        "manual:external_boundary"
+      ],
+      "title": "Spaced repetition scheduling",
+      "ui_entry_point": "/workspaces/learning#spaced-repetition"
+    },
+    {
+      "backend_capability": "marketing_agent",
+      "category": "Marketing intelligence",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "Marketing research exposed through the existing authenticated marketing intelligence capability.",
+      "id": "universal_workspace.marketing_research",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "network_research"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "contract:feature_registry",
+        "agent:research_verifier"
+      ],
+      "title": "Marketing research",
+      "ui_entry_point": "/workspaces/marketing#marketing-research"
+    },
+    {
+      "backend_capability": "marketing_agent",
+      "category": "Marketing intelligence",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "Content planning exposed through the existing authenticated marketing intelligence capability.",
+      "id": "universal_workspace.content_planning",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "network_research"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "contract:feature_registry",
+        "agent:research_verifier"
+      ],
+      "title": "Content planning",
+      "ui_entry_point": "/workspaces/marketing#content-planning"
+    },
+    {
+      "backend_capability": "marketing_agent",
+      "category": "Marketing intelligence",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "Copywriting exposed through the existing authenticated marketing intelligence capability.",
+      "id": "universal_workspace.copywriting",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "network_research"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "contract:feature_registry",
+        "agent:research_verifier"
+      ],
+      "title": "Copywriting",
+      "ui_entry_point": "/workspaces/marketing#copywriting"
+    },
+    {
+      "backend_capability": "marketing_agent",
+      "category": "Marketing intelligence",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "Campaign planning exposed through the existing authenticated marketing intelligence capability.",
+      "id": "universal_workspace.campaign_planning",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "network_research"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "contract:feature_registry",
+        "agent:research_verifier"
+      ],
+      "title": "Campaign planning",
+      "ui_entry_point": "/workspaces/marketing#campaign-planning"
+    },
+    {
+      "backend_capability": "marketing_agent",
+      "category": "Marketing intelligence",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "SEO analysis exposed through the existing authenticated marketing intelligence capability.",
+      "id": "universal_workspace.seo_analysis",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "network_research"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "contract:feature_registry",
+        "agent:research_verifier"
+      ],
+      "title": "SEO analysis",
+      "ui_entry_point": "/workspaces/marketing#seo-analysis"
+    },
+    {
+      "backend_capability": "marketing_agent",
+      "category": "Marketing intelligence",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "Marketing reporting exposed through the existing authenticated marketing intelligence capability.",
+      "id": "universal_workspace.reporting",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "network_research"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "contract:feature_registry",
+        "agent:research_verifier"
+      ],
+      "title": "Marketing reporting",
+      "ui_entry_point": "/workspaces/marketing#reporting"
+    },
+    {
+      "backend_capability": "marketing_agent",
+      "category": "Marketing intelligence",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "Optimization suggestions exposed through the existing authenticated marketing intelligence capability.",
+      "id": "universal_workspace.optimization_suggestions",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "network_research"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "contract:feature_registry",
+        "agent:research_verifier"
+      ],
+      "title": "Optimization suggestions",
+      "ui_entry_point": "/workspaces/marketing#optimization-suggestions"
+    },
+    {
+      "backend_capability": "marketing_agent",
+      "category": "Marketing intelligence",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "Lead workflow planning exposed through the existing authenticated marketing intelligence capability.",
+      "id": "universal_workspace.lead_workflow_planning",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "network_research"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "contract:feature_registry",
+        "agent:research_verifier"
+      ],
+      "title": "Lead workflow planning",
+      "ui_entry_point": "/workspaces/marketing#lead-workflow-planning"
+    },
+    {
+      "backend_capability": "marketing_agent",
+      "category": "Marketing intelligence",
+      "dependencies": [
+        "verified_local_model"
+      ],
+      "description": "CRM workflow planning exposed through the existing authenticated marketing intelligence capability.",
+      "id": "universal_workspace.crm_workflow_planning",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "network_research"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "contract:feature_registry",
+        "agent:research_verifier"
+      ],
+      "title": "CRM workflow planning",
+      "ui_entry_point": "/workspaces/marketing#crm-workflow-planning"
+    },
+    {
+      "backend_capability": "research_and_analysis_agent",
+      "category": "Market intelligence",
+      "dependencies": [
+        "verified_local_model",
+        "configured_data_source"
+      ],
+      "description": "Indian stock research exposed through the existing authenticated market intelligence capability.",
+      "id": "universal_workspace.indian_stock_research",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "network_research"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "contract:feature_registry",
+        "agent:data_verifier"
+      ],
+      "title": "Indian stock research",
+      "ui_entry_point": "/workspaces/finance#indian-stock-research"
+    },
+    {
+      "backend_capability": "research_and_analysis_agent",
+      "category": "Market intelligence",
+      "dependencies": [
+        "verified_local_model",
+        "configured_data_source"
+      ],
+      "description": "Global stock research exposed through the existing authenticated market intelligence capability.",
+      "id": "universal_workspace.global_stock_research",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "network_research"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "contract:feature_registry",
+        "agent:data_verifier"
+      ],
+      "title": "Global stock research",
+      "ui_entry_point": "/workspaces/finance#global-stock-research"
+    },
+    {
+      "backend_capability": "research_and_analysis_agent",
+      "category": "Market intelligence",
+      "dependencies": [
+        "verified_local_model",
+        "configured_data_source"
+      ],
+      "description": "Crypto research exposed through the existing authenticated market intelligence capability.",
+      "id": "universal_workspace.crypto_research",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "network_research"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "contract:feature_registry",
+        "agent:data_verifier"
+      ],
+      "title": "Crypto research",
+      "ui_entry_point": "/workspaces/finance#crypto-research"
+    },
+    {
+      "backend_capability": "research_and_analysis_agent",
+      "category": "Market intelligence",
+      "dependencies": [
+        "verified_local_model",
+        "configured_data_source"
+      ],
+      "description": "FX research exposed through the existing authenticated market intelligence capability.",
+      "id": "universal_workspace.fx_research",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "network_research"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "contract:feature_registry",
+        "agent:data_verifier"
+      ],
+      "title": "FX research",
+      "ui_entry_point": "/workspaces/finance#fx-research"
+    },
+    {
+      "backend_capability": "research_and_analysis_agent",
+      "category": "Market intelligence",
+      "dependencies": [
+        "verified_local_model",
+        "configured_data_source"
+      ],
+      "description": "Portfolio analysis exposed through the existing authenticated market intelligence capability.",
+      "id": "universal_workspace.portfolio_analysis",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "network_research"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "contract:feature_registry",
+        "agent:data_verifier"
+      ],
+      "title": "Portfolio analysis",
+      "ui_entry_point": "/workspaces/finance#portfolio-analysis"
+    },
+    {
+      "backend_capability": "research_and_analysis_agent",
+      "category": "Market intelligence",
+      "dependencies": [
+        "verified_local_model",
+        "configured_data_source"
+      ],
+      "description": "Market research exposed through the existing authenticated market intelligence capability.",
+      "id": "universal_workspace.market_research",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "network_research"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "contract:feature_registry",
+        "agent:data_verifier"
+      ],
+      "title": "Market research",
+      "ui_entry_point": "/workspaces/finance#market-research"
+    },
+    {
+      "backend_capability": "research_and_analysis_agent",
+      "category": "Market intelligence",
+      "dependencies": [
+        "verified_local_model",
+        "configured_data_source"
+      ],
+      "description": "Risk analytics exposed through the existing authenticated market intelligence capability.",
+      "id": "universal_workspace.risk_analytics",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "network_research"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "contract:feature_registry",
+        "agent:data_verifier"
+      ],
+      "title": "Risk analytics",
+      "ui_entry_point": "/workspaces/finance#risk-analytics"
+    },
+    {
+      "backend_capability": "market_workspace_roadmap",
+      "category": "Market operations",
+      "dependencies": [
+        "market_workspace_persistence_and_simulation"
+      ],
+      "description": "Visible market watchlists contract with an explicit implementation boundary; the UI must not present it as executable.",
+      "id": "universal_workspace.watchlists",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "planned",
+      "test_coverage": [
+        "contract:feature_registry",
+        "manual:documented_gap"
+      ],
+      "title": "Market watchlists",
+      "ui_entry_point": "/workspaces/finance#watchlists"
+    },
+    {
+      "backend_capability": "market_workspace_roadmap",
+      "category": "Market operations",
+      "dependencies": [
+        "market_workspace_persistence_and_simulation"
+      ],
+      "description": "Visible market alerts contract with an explicit implementation boundary; the UI must not present it as executable.",
+      "id": "universal_workspace.alerts",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "planned",
+      "test_coverage": [
+        "contract:feature_registry",
+        "manual:documented_gap"
+      ],
+      "title": "Market alerts",
+      "ui_entry_point": "/workspaces/finance#alerts"
+    },
+    {
+      "backend_capability": "market_workspace_roadmap",
+      "category": "Market operations",
+      "dependencies": [
+        "market_workspace_persistence_and_simulation"
+      ],
+      "description": "Visible strategy backtesting contract with an explicit implementation boundary; the UI must not present it as executable.",
+      "id": "universal_workspace.strategy_backtesting",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "planned",
+      "test_coverage": [
+        "contract:feature_registry",
+        "manual:documented_gap"
+      ],
+      "title": "Strategy backtesting",
+      "ui_entry_point": "/workspaces/finance#strategy-backtesting"
+    },
+    {
+      "backend_capability": "market_workspace_roadmap",
+      "category": "Market operations",
+      "dependencies": [
+        "market_workspace_persistence_and_simulation"
+      ],
+      "description": "Visible paper trading contract with an explicit implementation boundary; the UI must not present it as executable.",
+      "id": "universal_workspace.paper_trading",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "planned",
+      "test_coverage": [
+        "contract:feature_registry",
+        "manual:documented_gap"
+      ],
+      "title": "Paper trading",
+      "ui_entry_point": "/workspaces/finance#paper-trading"
+    },
+    {
+      "backend_capability": "market_workspace_roadmap",
+      "category": "Market operations",
+      "dependencies": [
+        "market_workspace_persistence_and_simulation"
+      ],
+      "description": "Visible trading journal contract with an explicit implementation boundary; the UI must not present it as executable.",
+      "id": "universal_workspace.trading_journal",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "planned",
+      "test_coverage": [
+        "contract:feature_registry",
+        "manual:documented_gap"
+      ],
+      "title": "Trading journal",
+      "ui_entry_point": "/workspaces/finance#trading-journal"
+    },
+    {
+      "backend_capability": "diagnostics",
+      "category": "Operations",
+      "dependencies": [],
+      "description": "Active agents exposed through the existing authenticated operations capability.",
+      "id": "ai_command_center.active_agents",
+      "layer": "ai_command_center",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_diagnostics_api",
+        "web:settings_panel",
+        "mobile:settings"
+      ],
+      "title": "Active agents",
+      "ui_entry_point": "/command#active-agents"
+    },
+    {
+      "backend_capability": "diagnostics",
+      "category": "Operations",
+      "dependencies": [],
+      "description": "Mission status exposed through the existing authenticated operations capability.",
+      "id": "ai_command_center.mission_status",
+      "layer": "ai_command_center",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_diagnostics_api",
+        "web:settings_panel",
+        "mobile:settings"
+      ],
+      "title": "Mission status",
+      "ui_entry_point": "/command#mission-status"
+    },
+    {
+      "backend_capability": "diagnostics",
+      "category": "Operations",
+      "dependencies": [],
+      "description": "Queued tasks exposed through the existing authenticated operations capability.",
+      "id": "ai_command_center.queued_tasks",
+      "layer": "ai_command_center",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_diagnostics_api",
+        "web:settings_panel",
+        "mobile:settings"
+      ],
+      "title": "Queued tasks",
+      "ui_entry_point": "/command#queued-tasks"
+    },
+    {
+      "backend_capability": "diagnostics",
+      "category": "Operations",
+      "dependencies": [],
+      "description": "Model catalog exposed through the existing authenticated operations capability.",
+      "id": "ai_command_center.model_catalog",
+      "layer": "ai_command_center",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_diagnostics_api",
+        "web:settings_panel",
+        "mobile:settings"
+      ],
+      "title": "Model catalog",
+      "ui_entry_point": "/command#model-catalog"
+    },
+    {
+      "backend_capability": "diagnostics",
+      "category": "Operations",
+      "dependencies": [],
+      "description": "Model routes exposed through the existing authenticated operations capability.",
+      "id": "ai_command_center.model_routes",
+      "layer": "ai_command_center",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_diagnostics_api",
+        "web:settings_panel",
+        "mobile:settings"
+      ],
+      "title": "Model routes",
+      "ui_entry_point": "/command#model-routes"
+    },
+    {
+      "backend_capability": "diagnostics",
+      "category": "Operations",
+      "dependencies": [],
+      "description": "Fallback routes exposed through the existing authenticated operations capability.",
+      "id": "ai_command_center.fallback_routes",
+      "layer": "ai_command_center",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_diagnostics_api",
+        "web:settings_panel",
+        "mobile:settings"
+      ],
+      "title": "Fallback routes",
+      "ui_entry_point": "/command#fallback-routes"
+    },
+    {
+      "backend_capability": "diagnostics",
+      "category": "Operations",
+      "dependencies": [],
+      "description": "Model eligibility exposed through the existing authenticated operations capability.",
+      "id": "ai_command_center.model_eligibility",
+      "layer": "ai_command_center",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_diagnostics_api",
+        "web:settings_panel",
+        "mobile:settings"
+      ],
+      "title": "Model eligibility",
+      "ui_entry_point": "/command#model-eligibility"
+    },
+    {
+      "backend_capability": "diagnostics",
+      "category": "Operations",
+      "dependencies": [],
+      "description": "Model blocked reasons exposed through the existing authenticated operations capability.",
+      "id": "ai_command_center.blocked_reasons",
+      "layer": "ai_command_center",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_diagnostics_api",
+        "web:settings_panel",
+        "mobile:settings"
+      ],
+      "title": "Model blocked reasons",
+      "ui_entry_point": "/command#blocked-reasons"
+    },
+    {
+      "backend_capability": "diagnostics",
+      "category": "Operations",
+      "dependencies": [],
+      "description": "GPU diagnostics exposed through the existing authenticated operations capability.",
+      "id": "ai_command_center.gpu_diagnostics",
+      "layer": "ai_command_center",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_diagnostics_api",
+        "web:settings_panel",
+        "mobile:settings"
+      ],
+      "title": "GPU diagnostics",
+      "ui_entry_point": "/command#gpu-diagnostics"
+    },
+    {
+      "backend_capability": "diagnostics",
+      "category": "Operations",
+      "dependencies": [],
+      "description": "CPU diagnostics exposed through the existing authenticated operations capability.",
+      "id": "ai_command_center.cpu_diagnostics",
+      "layer": "ai_command_center",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_diagnostics_api",
+        "web:settings_panel",
+        "mobile:settings"
+      ],
+      "title": "CPU diagnostics",
+      "ui_entry_point": "/command#cpu-diagnostics"
+    },
+    {
+      "backend_capability": "diagnostics",
+      "category": "Operations",
+      "dependencies": [],
+      "description": "RAM diagnostics exposed through the existing authenticated operations capability.",
+      "id": "ai_command_center.ram_diagnostics",
+      "layer": "ai_command_center",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_diagnostics_api",
+        "web:settings_panel",
+        "mobile:settings"
+      ],
+      "title": "RAM diagnostics",
+      "ui_entry_point": "/command#ram-diagnostics"
+    },
+    {
+      "backend_capability": "diagnostics",
+      "category": "Operations",
+      "dependencies": [],
+      "description": "VRAM diagnostics exposed through the existing authenticated operations capability.",
+      "id": "ai_command_center.vram_diagnostics",
+      "layer": "ai_command_center",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_diagnostics_api",
+        "web:settings_panel",
+        "mobile:settings"
+      ],
+      "title": "VRAM diagnostics",
+      "ui_entry_point": "/command#vram-diagnostics"
+    },
+    {
+      "backend_capability": "diagnostics",
+      "category": "Operations",
+      "dependencies": [],
+      "description": "Storage diagnostics exposed through the existing authenticated operations capability.",
+      "id": "ai_command_center.storage_diagnostics",
+      "layer": "ai_command_center",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_diagnostics_api",
+        "web:settings_panel",
+        "mobile:settings"
+      ],
+      "title": "Storage diagnostics",
+      "ui_entry_point": "/command#storage-diagnostics"
+    },
+    {
+      "backend_capability": "diagnostics",
+      "category": "Operations",
+      "dependencies": [],
+      "description": "Runtime health exposed through the existing authenticated operations capability.",
+      "id": "ai_command_center.runtime_health",
+      "layer": "ai_command_center",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_diagnostics_api",
+        "web:settings_panel",
+        "mobile:settings"
+      ],
+      "title": "Runtime health",
+      "ui_entry_point": "/command#runtime-health"
+    },
+    {
+      "backend_capability": "diagnostics",
+      "category": "Operations",
+      "dependencies": [],
+      "description": "Provider health exposed through the existing authenticated operations capability.",
+      "id": "ai_command_center.provider_health",
+      "layer": "ai_command_center",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_diagnostics_api",
+        "web:settings_panel",
+        "mobile:settings"
+      ],
+      "title": "Provider health",
+      "ui_entry_point": "/command#provider-health"
+    },
+    {
+      "backend_capability": "diagnostics",
+      "category": "Operations",
+      "dependencies": [],
+      "description": "Network mode exposed through the existing authenticated operations capability.",
+      "id": "ai_command_center.network_mode",
+      "layer": "ai_command_center",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_diagnostics_api",
+        "web:settings_panel",
+        "mobile:settings"
+      ],
+      "title": "Network mode",
+      "ui_entry_point": "/command#network-mode"
+    },
+    {
+      "backend_capability": "diagnostics",
+      "category": "Operations",
+      "dependencies": [],
+      "description": "Security events exposed through the existing authenticated operations capability.",
+      "id": "ai_command_center.security_events",
+      "layer": "ai_command_center",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_diagnostics_api",
+        "web:settings_panel",
+        "mobile:settings"
+      ],
+      "title": "Security events",
+      "ui_entry_point": "/command#security-events"
+    },
+    {
+      "backend_capability": "diagnostics",
+      "category": "Operations",
+      "dependencies": [],
+      "description": "Audit visibility exposed through the existing authenticated operations capability.",
+      "id": "ai_command_center.audit_visibility",
+      "layer": "ai_command_center",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_diagnostics_api",
+        "web:settings_panel",
+        "mobile:settings"
+      ],
+      "title": "Audit visibility",
+      "ui_entry_point": "/command#audit-visibility"
+    },
+    {
+      "backend_capability": "diagnostics",
+      "category": "Operations",
+      "dependencies": [],
+      "description": "Update status exposed through the existing authenticated operations capability.",
+      "id": "ai_command_center.update_status",
+      "layer": "ai_command_center",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_diagnostics_api",
+        "web:settings_panel",
+        "mobile:settings"
+      ],
+      "title": "Update status",
+      "ui_entry_point": "/command#update-status"
+    },
+    {
+      "backend_capability": "diagnostics",
+      "category": "Operations",
+      "dependencies": [],
+      "description": "Rollback status exposed through the existing authenticated operations capability.",
+      "id": "ai_command_center.rollback_status",
+      "layer": "ai_command_center",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_diagnostics_api",
+        "web:settings_panel",
+        "mobile:settings"
+      ],
+      "title": "Rollback status",
+      "ui_entry_point": "/command#rollback-status"
+    },
+    {
+      "backend_capability": "diagnostics",
+      "category": "Operations",
+      "dependencies": [],
+      "description": "System health exposed through the existing authenticated operations capability.",
+      "id": "ai_command_center.system_health",
+      "layer": "ai_command_center",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_diagnostics_api",
+        "web:settings_panel",
+        "mobile:settings"
+      ],
+      "title": "System health",
+      "ui_entry_point": "/command#system-health"
+    },
+    {
+      "backend_capability": "diagnostics",
+      "category": "Operations",
+      "dependencies": [],
+      "description": "Hardware refresh state exposed through the existing authenticated operations capability.",
+      "id": "ai_command_center.hardware_refresh",
+      "layer": "ai_command_center",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_diagnostics_api",
+        "web:settings_panel",
+        "mobile:settings"
+      ],
+      "title": "Hardware refresh state",
+      "ui_entry_point": "/command#hardware-refresh"
+    },
+    {
+      "backend_capability": "diagnostics",
+      "category": "Operations",
+      "dependencies": [],
+      "description": "GPU upgrade detection exposed through the existing authenticated operations capability.",
+      "id": "ai_command_center.upgrade_detection",
+      "layer": "ai_command_center",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_diagnostics_api",
+        "web:settings_panel",
+        "mobile:settings"
+      ],
+      "title": "GPU upgrade detection",
+      "ui_entry_point": "/command#upgrade-detection"
+    },
+    {
+      "backend_capability": "diagnostics",
+      "category": "Operations",
+      "dependencies": [],
+      "description": "Capability cache state exposed through the existing authenticated operations capability.",
+      "id": "ai_command_center.capability_cache_state",
+      "layer": "ai_command_center",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_diagnostics_api",
+        "web:settings_panel",
+        "mobile:settings"
+      ],
+      "title": "Capability cache state",
+      "ui_entry_point": "/command#capability-cache-state"
+    },
+    {
+      "backend_capability": "owner_settings",
+      "category": "Owner controls",
+      "dependencies": [],
+      "description": "Light theme exposed through the existing authenticated owner controls capability.",
+      "id": "ai_command_center.light_theme",
+      "layer": "ai_command_center",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "web:settings_panel",
+        "mobile:settings",
+        "backend:test_users_api"
+      ],
+      "title": "Light theme",
+      "ui_entry_point": "/command#light-theme"
+    },
+    {
+      "backend_capability": "owner_settings",
+      "category": "Owner controls",
+      "dependencies": [],
+      "description": "Dark theme exposed through the existing authenticated owner controls capability.",
+      "id": "ai_command_center.dark_theme",
+      "layer": "ai_command_center",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "web:settings_panel",
+        "mobile:settings",
+        "backend:test_users_api"
+      ],
+      "title": "Dark theme",
+      "ui_entry_point": "/command#dark-theme"
+    },
+    {
+      "backend_capability": "owner_settings",
+      "category": "Owner controls",
+      "dependencies": [],
+      "description": "System theme exposed through the existing authenticated owner controls capability.",
+      "id": "ai_command_center.system_theme",
+      "layer": "ai_command_center",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "web:settings_panel",
+        "mobile:settings",
+        "backend:test_users_api"
+      ],
+      "title": "System theme",
+      "ui_entry_point": "/command#system-theme"
+    },
+    {
+      "backend_capability": "owner_settings",
+      "category": "Owner controls",
+      "dependencies": [],
+      "description": "Session management exposed through the existing authenticated owner controls capability.",
+      "id": "ai_command_center.session_management",
+      "layer": "ai_command_center",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "web:settings_panel",
+        "mobile:settings",
+        "backend:test_users_api"
+      ],
+      "title": "Session management",
+      "ui_entry_point": "/command#session-management"
+    },
+    {
+      "backend_capability": "owner_settings",
+      "category": "Owner controls",
+      "dependencies": [],
+      "description": "Session rotation exposed through the existing authenticated owner controls capability.",
+      "id": "ai_command_center.session_rotation",
+      "layer": "ai_command_center",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "web:settings_panel",
+        "mobile:settings",
+        "backend:test_users_api"
+      ],
+      "title": "Session rotation",
+      "ui_entry_point": "/command#session-rotation"
+    },
+    {
+      "backend_capability": "owner_settings",
+      "category": "Owner controls",
+      "dependencies": [],
+      "description": "Session revocation exposed through the existing authenticated owner controls capability.",
+      "id": "ai_command_center.session_revocation",
+      "layer": "ai_command_center",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "web:settings_panel",
+        "mobile:settings",
+        "backend:test_users_api"
+      ],
+      "title": "Session revocation",
+      "ui_entry_point": "/command#session-revocation"
+    },
+    {
+      "backend_capability": "owner_settings",
+      "category": "Owner controls",
+      "dependencies": [],
+      "description": "Memory controls exposed through the existing authenticated owner controls capability.",
+      "id": "ai_command_center.memory_controls",
+      "layer": "ai_command_center",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "web:settings_panel",
+        "mobile:settings",
+        "backend:test_users_api"
+      ],
+      "title": "Memory controls",
+      "ui_entry_point": "/command#memory-controls"
+    },
+    {
+      "backend_capability": "owner_settings",
+      "category": "Owner controls",
+      "dependencies": [],
+      "description": "Controlled forgetting exposed through the existing authenticated owner controls capability.",
+      "id": "ai_command_center.controlled_forgetting",
+      "layer": "ai_command_center",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "web:settings_panel",
+        "mobile:settings",
+        "backend:test_users_api"
+      ],
+      "title": "Controlled forgetting",
+      "ui_entry_point": "/command#controlled-forgetting"
+    },
+    {
+      "backend_capability": "owner_settings",
+      "category": "Owner controls",
+      "dependencies": [],
+      "description": "API fallback global toggle exposed through the existing authenticated owner controls capability.",
+      "id": "ai_command_center.api_fallback_toggle",
+      "layer": "ai_command_center",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "web:settings_panel",
+        "mobile:settings",
+        "backend:test_users_api"
+      ],
+      "title": "API fallback global toggle",
+      "ui_entry_point": "/command#api-fallback-toggle"
+    },
+    {
+      "backend_capability": "owner_settings",
+      "category": "Owner controls",
+      "dependencies": [],
+      "description": "Provider toggle exposed through the existing authenticated owner controls capability.",
+      "id": "ai_command_center.provider_toggle",
+      "layer": "ai_command_center",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "web:settings_panel",
+        "mobile:settings",
+        "backend:test_users_api"
+      ],
+      "title": "Provider toggle",
+      "ui_entry_point": "/command#provider-toggle"
+    },
+    {
+      "backend_capability": "owner_settings",
+      "category": "Owner controls",
+      "dependencies": [],
+      "description": "Provider key isolation exposed through the existing authenticated owner controls capability.",
+      "id": "ai_command_center.provider_key_isolation",
+      "layer": "ai_command_center",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "web:settings_panel",
+        "mobile:settings",
+        "backend:test_users_api"
+      ],
+      "title": "Provider key isolation",
+      "ui_entry_point": "/command#provider-key-isolation"
+    },
+    {
+      "backend_capability": "owner_settings",
+      "category": "Owner controls",
+      "dependencies": [],
+      "description": "Provider cost controls exposed through the existing authenticated owner controls capability.",
+      "id": "ai_command_center.provider_cost_controls",
+      "layer": "ai_command_center",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "web:settings_panel",
+        "mobile:settings",
+        "backend:test_users_api"
+      ],
+      "title": "Provider cost controls",
+      "ui_entry_point": "/command#provider-cost-controls"
+    },
+    {
+      "backend_capability": "owner_settings",
+      "category": "Owner controls",
+      "dependencies": [],
+      "description": "Self-update owner decision exposed through the existing authenticated owner controls capability.",
+      "id": "ai_command_center.self_update_decision",
+      "layer": "ai_command_center",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "web:settings_panel",
+        "mobile:settings",
+        "backend:test_users_api"
+      ],
+      "title": "Self-update owner decision",
+      "ui_entry_point": "/command#self-update-decision"
+    },
+    {
+      "backend_capability": "owner_settings",
+      "category": "Owner controls",
+      "dependencies": [],
+      "description": "Last-known-good checkpoint exposed through the existing authenticated owner controls capability.",
+      "id": "ai_command_center.backup_checkpoint",
+      "layer": "ai_command_center",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "web:settings_panel",
+        "mobile:settings",
+        "backend:test_users_api"
+      ],
+      "title": "Last-known-good checkpoint",
+      "ui_entry_point": "/command#backup-checkpoint"
+    },
+    {
+      "backend_capability": "owner_settings",
+      "category": "Owner controls",
+      "dependencies": [],
+      "description": "Rollback gate exposed through the existing authenticated owner controls capability.",
+      "id": "ai_command_center.rollback_gate",
+      "layer": "ai_command_center",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "web:settings_panel",
+        "mobile:settings",
+        "backend:test_users_api"
+      ],
+      "title": "Rollback gate",
+      "ui_entry_point": "/command#rollback-gate"
+    },
+    {
+      "backend_capability": "owner_settings",
+      "category": "Owner controls",
+      "dependencies": [],
+      "description": "Private notifications exposed through the existing authenticated owner controls capability.",
+      "id": "ai_command_center.notifications",
+      "layer": "ai_command_center",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "web:settings_panel",
+        "mobile:settings",
+        "backend:test_users_api"
+      ],
+      "title": "Private notifications",
+      "ui_entry_point": "/command#notifications"
+    },
+    {
+      "backend_capability": "shared_authenticated_api",
+      "category": "Platform clients",
+      "dependencies": [
+        "platform_runtime"
+      ],
+      "description": "Ubuntu desktop client exposed through the existing authenticated platform clients capability.",
+      "id": "ai_command_center.ubuntu_desktop",
+      "layer": "ai_command_center",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "desktop:config",
+        "mobile:config",
+        "web:pwa"
+      ],
+      "title": "Ubuntu desktop client",
+      "ui_entry_point": "/command/platforms#ubuntu-desktop"
+    },
+    {
+      "backend_capability": "shared_authenticated_api",
+      "category": "Platform clients",
+      "dependencies": [
+        "platform_runtime"
+      ],
+      "description": "Windows desktop client contract exposed through the existing authenticated platform clients capability.",
+      "id": "ai_command_center.windows_desktop",
+      "layer": "ai_command_center",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "desktop:config",
+        "mobile:config",
+        "web:pwa"
+      ],
+      "title": "Windows desktop client contract",
+      "ui_entry_point": "/command/platforms#windows-desktop"
+    },
+    {
+      "backend_capability": "shared_authenticated_api",
+      "category": "Platform clients",
+      "dependencies": [
+        "platform_runtime"
+      ],
+      "description": "macOS desktop client contract exposed through the existing authenticated platform clients capability.",
+      "id": "ai_command_center.macos_desktop",
+      "layer": "ai_command_center",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "desktop:config",
+        "mobile:config",
+        "web:pwa"
+      ],
+      "title": "macOS desktop client contract",
+      "ui_entry_point": "/command/platforms#macos-desktop"
+    },
+    {
+      "backend_capability": "shared_authenticated_api",
+      "category": "Platform clients",
+      "dependencies": [
+        "platform_runtime"
+      ],
+      "description": "Android client exposed through the existing authenticated platform clients capability.",
+      "id": "ai_command_center.android_client",
+      "layer": "ai_command_center",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "desktop:config",
+        "mobile:config",
+        "web:pwa"
+      ],
+      "title": "Android client",
+      "ui_entry_point": "/command/platforms#android-client"
+    },
+    {
+      "backend_capability": "shared_authenticated_api",
+      "category": "Platform clients",
+      "dependencies": [
+        "platform_runtime"
+      ],
+      "description": "Web PWA client exposed through the existing authenticated platform clients capability.",
+      "id": "ai_command_center.web_pwa",
+      "layer": "ai_command_center",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "desktop:config",
+        "mobile:config",
+        "web:pwa"
+      ],
+      "title": "Web PWA client",
+      "ui_entry_point": "/command/platforms#web-pwa"
+    },
+    {
+      "backend_capability": "shared_authenticated_api",
+      "category": "Platform clients",
+      "dependencies": [
+        "platform_runtime"
+      ],
+      "description": "Shared product branding exposed through the existing authenticated platform clients capability.",
+      "id": "ai_command_center.shared_branding",
+      "layer": "ai_command_center",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "desktop:config",
+        "mobile:config",
+        "web:pwa"
+      ],
+      "title": "Shared product branding",
+      "ui_entry_point": "/command/platforms#shared-branding"
+    },
+    {
+      "backend_capability": "shared_authenticated_api",
+      "category": "Platform clients",
+      "dependencies": [
+        "platform_runtime"
+      ],
+      "description": "Shared API contract exposed through the existing authenticated platform clients capability.",
+      "id": "ai_command_center.shared_api_contract",
+      "layer": "ai_command_center",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "desktop:config",
+        "mobile:config",
+        "web:pwa"
+      ],
+      "title": "Shared API contract",
+      "ui_entry_point": "/command/platforms#shared-api-contract"
+    },
+    {
+      "backend_capability": "shared_authenticated_api",
+      "category": "Platform clients",
+      "dependencies": [
+        "platform_runtime"
+      ],
+      "description": "Secure remote client mode exposed through the existing authenticated platform clients capability.",
+      "id": "ai_command_center.secure_remote_client",
+      "layer": "ai_command_center",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "desktop:config",
+        "mobile:config",
+        "web:pwa"
+      ],
+      "title": "Secure remote client mode",
+      "ui_entry_point": "/command/platforms#secure-remote-client"
+    },
+    {
+      "backend_capability": "shared_authenticated_api",
+      "category": "Platform clients",
+      "dependencies": [
+        "platform_runtime"
+      ],
+      "description": "Desktop deep links exposed through the existing authenticated platform clients capability.",
+      "id": "ai_command_center.desktop_deep_links",
+      "layer": "ai_command_center",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "desktop:config",
+        "mobile:config",
+        "web:pwa"
+      ],
+      "title": "Desktop deep links",
+      "ui_entry_point": "/command/platforms#desktop-deep-links"
+    },
+    {
+      "backend_capability": "shared_authenticated_api",
+      "category": "Platform clients",
+      "dependencies": [
+        "platform_runtime"
+      ],
+      "description": "Desktop notifications exposed through the existing authenticated platform clients capability.",
+      "id": "ai_command_center.desktop_notifications",
+      "layer": "ai_command_center",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "desktop:config",
+        "mobile:config",
+        "web:pwa"
+      ],
+      "title": "Desktop notifications",
+      "ui_entry_point": "/command/platforms#desktop-notifications"
+    },
+    {
+      "backend_capability": "shared_authenticated_api",
+      "category": "Platform clients",
+      "dependencies": [
+        "platform_runtime"
+      ],
+      "description": "Desktop window state exposed through the existing authenticated platform clients capability.",
+      "id": "ai_command_center.desktop_window_state",
+      "layer": "ai_command_center",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "desktop:config",
+        "mobile:config",
+        "web:pwa"
+      ],
+      "title": "Desktop window state",
+      "ui_entry_point": "/command/platforms#desktop-window-state"
+    },
+    {
+      "backend_capability": "shared_authenticated_api",
+      "category": "Platform clients",
+      "dependencies": [
+        "platform_runtime"
+      ],
+      "description": "Mobile bottom navigation exposed through the existing authenticated platform clients capability.",
+      "id": "ai_command_center.mobile_bottom_navigation",
+      "layer": "ai_command_center",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "desktop:config",
+        "mobile:config",
+        "web:pwa"
+      ],
+      "title": "Mobile bottom navigation",
+      "ui_entry_point": "/command/platforms#mobile-bottom-navigation"
+    },
+    {
+      "backend_capability": "bounded_tools",
+      "category": "Local tools",
+      "dependencies": [],
+      "description": "Calculator tool exposed through the existing authenticated local tools capability.",
+      "id": "apps_hub.calculator",
+      "layer": "apps_hub",
+      "required_permissions": [
+        "owner_session",
+        "bounded_tool_execution"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_tools_api",
+        "web:tool_panel",
+        "mobile:studio"
+      ],
+      "title": "Calculator tool",
+      "ui_entry_point": "/apps#calculator"
+    },
+    {
+      "backend_capability": "bounded_tools",
+      "category": "Local tools",
+      "dependencies": [],
+      "description": "Document search tool exposed through the existing authenticated local tools capability.",
+      "id": "apps_hub.document_search",
+      "layer": "apps_hub",
+      "required_permissions": [
+        "owner_session",
+        "bounded_tool_execution"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_tools_api",
+        "web:tool_panel",
+        "mobile:studio"
+      ],
+      "title": "Document search tool",
+      "ui_entry_point": "/apps#document-search"
+    },
+    {
+      "backend_capability": "bounded_tools",
+      "category": "Local tools",
+      "dependencies": [],
+      "description": "Memory search tool exposed through the existing authenticated local tools capability.",
+      "id": "apps_hub.memory_search",
+      "layer": "apps_hub",
+      "required_permissions": [
+        "owner_session",
+        "bounded_tool_execution"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_tools_api",
+        "web:tool_panel",
+        "mobile:studio"
+      ],
+      "title": "Memory search tool",
+      "ui_entry_point": "/apps#memory-search"
+    },
+    {
+      "backend_capability": "bounded_tools",
+      "category": "Local tools",
+      "dependencies": [],
+      "description": "Conversation search tool exposed through the existing authenticated local tools capability.",
+      "id": "apps_hub.conversation_search",
+      "layer": "apps_hub",
+      "required_permissions": [
+        "owner_session",
+        "bounded_tool_execution"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_tools_api",
+        "web:tool_panel",
+        "mobile:studio"
+      ],
+      "title": "Conversation search tool",
+      "ui_entry_point": "/apps#conversation-search"
+    },
+    {
+      "backend_capability": "bounded_tools",
+      "category": "Local tools",
+      "dependencies": [],
+      "description": "Filesystem boundary exposed through the existing authenticated local tools capability.",
+      "id": "apps_hub.filesystem_boundary",
+      "layer": "apps_hub",
+      "required_permissions": [
+        "owner_session",
+        "bounded_tool_execution"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_tools_api",
+        "web:tool_panel",
+        "mobile:studio"
+      ],
+      "title": "Filesystem boundary",
+      "ui_entry_point": "/apps#filesystem-boundary"
+    },
+    {
+      "backend_capability": "bounded_tools",
+      "category": "Local tools",
+      "dependencies": [],
+      "description": "Tool audit log exposed through the existing authenticated local tools capability.",
+      "id": "apps_hub.tool_audit_log",
+      "layer": "apps_hub",
+      "required_permissions": [
+        "owner_session",
+        "bounded_tool_execution"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_tools_api",
+        "web:tool_panel",
+        "mobile:studio"
+      ],
+      "title": "Tool audit log",
+      "ui_entry_point": "/apps#tool-audit-log"
+    },
+    {
+      "backend_capability": "bounded_tools",
+      "category": "Local tools",
+      "dependencies": [],
+      "description": "Tool timeout exposed through the existing authenticated local tools capability.",
+      "id": "apps_hub.tool_timeout",
+      "layer": "apps_hub",
+      "required_permissions": [
+        "owner_session",
+        "bounded_tool_execution"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_tools_api",
+        "web:tool_panel",
+        "mobile:studio"
+      ],
+      "title": "Tool timeout",
+      "ui_entry_point": "/apps#tool-timeout"
+    },
+    {
+      "backend_capability": "bounded_tools",
+      "category": "Local tools",
+      "dependencies": [],
+      "description": "Tool output limit exposed through the existing authenticated local tools capability.",
+      "id": "apps_hub.tool_output_limit",
+      "layer": "apps_hub",
+      "required_permissions": [
+        "owner_session",
+        "bounded_tool_execution"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_tools_api",
+        "web:tool_panel",
+        "mobile:studio"
+      ],
+      "title": "Tool output limit",
+      "ui_entry_point": "/apps#tool-output-limit"
+    },
+    {
+      "backend_capability": "bounded_tools",
+      "category": "Local tools",
+      "dependencies": [],
+      "description": "Tool permission allowlist exposed through the existing authenticated local tools capability.",
+      "id": "apps_hub.tool_permission_allowlist",
+      "layer": "apps_hub",
+      "required_permissions": [
+        "owner_session",
+        "bounded_tool_execution"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_tools_api",
+        "web:tool_panel",
+        "mobile:studio"
+      ],
+      "title": "Tool permission allowlist",
+      "ui_entry_point": "/apps#tool-permission-allowlist"
+    },
+    {
+      "backend_capability": "external_connector",
+      "category": "Connected productivity",
+      "dependencies": [
+        "provider_oauth_or_api_key",
+        "owner_consent"
+      ],
+      "description": "Governed email connector entry point; execution remains disabled until the listed external dependency and owner permission are configured.",
+      "id": "apps_hub.email",
+      "layer": "apps_hub",
+      "required_permissions": [
+        "owner_session",
+        "connector_scope"
+      ],
+      "status": "external_dependency",
+      "test_coverage": [
+        "contract:feature_registry",
+        "manual:external_boundary"
+      ],
+      "title": "Email connector",
+      "ui_entry_point": "/apps#email"
+    },
+    {
+      "backend_capability": "external_connector",
+      "category": "Connected productivity",
+      "dependencies": [
+        "provider_oauth_or_api_key",
+        "owner_consent"
+      ],
+      "description": "Governed calendar connector entry point; execution remains disabled until the listed external dependency and owner permission are configured.",
+      "id": "apps_hub.calendar",
+      "layer": "apps_hub",
+      "required_permissions": [
+        "owner_session",
+        "connector_scope"
+      ],
+      "status": "external_dependency",
+      "test_coverage": [
+        "contract:feature_registry",
+        "manual:external_boundary"
+      ],
+      "title": "Calendar connector",
+      "ui_entry_point": "/apps#calendar"
+    },
+    {
+      "backend_capability": "external_connector",
+      "category": "Connected productivity",
+      "dependencies": [
+        "provider_oauth_or_api_key",
+        "owner_consent"
+      ],
+      "description": "Governed meetings connector entry point; execution remains disabled until the listed external dependency and owner permission are configured.",
+      "id": "apps_hub.meetings",
+      "layer": "apps_hub",
+      "required_permissions": [
+        "owner_session",
+        "connector_scope"
+      ],
+      "status": "external_dependency",
+      "test_coverage": [
+        "contract:feature_registry",
+        "manual:external_boundary"
+      ],
+      "title": "Meetings connector",
+      "ui_entry_point": "/apps#meetings"
+    },
+    {
+      "backend_capability": "external_connector",
+      "category": "Connected productivity",
+      "dependencies": [
+        "provider_oauth_or_api_key",
+        "owner_consent"
+      ],
+      "description": "Governed crm connector entry point; execution remains disabled until the listed external dependency and owner permission are configured.",
+      "id": "apps_hub.crm",
+      "layer": "apps_hub",
+      "required_permissions": [
+        "owner_session",
+        "connector_scope"
+      ],
+      "status": "external_dependency",
+      "test_coverage": [
+        "contract:feature_registry",
+        "manual:external_boundary"
+      ],
+      "title": "CRM connector",
+      "ui_entry_point": "/apps#crm"
+    },
+    {
+      "backend_capability": "external_connector",
+      "category": "Connected productivity",
+      "dependencies": [
+        "provider_oauth_or_api_key",
+        "owner_consent"
+      ],
+      "description": "Governed social media connector entry point; execution remains disabled until the listed external dependency and owner permission are configured.",
+      "id": "apps_hub.social_media",
+      "layer": "apps_hub",
+      "required_permissions": [
+        "owner_session",
+        "connector_scope"
+      ],
+      "status": "external_dependency",
+      "test_coverage": [
+        "contract:feature_registry",
+        "manual:external_boundary"
+      ],
+      "title": "Social media connector",
+      "ui_entry_point": "/apps#social-media"
+    },
+    {
+      "backend_capability": "external_connector",
+      "category": "Connected productivity",
+      "dependencies": [
+        "provider_oauth_or_api_key",
+        "owner_consent"
+      ],
+      "description": "Governed social scheduling entry point; execution remains disabled until the listed external dependency and owner permission are configured.",
+      "id": "apps_hub.social_scheduling",
+      "layer": "apps_hub",
+      "required_permissions": [
+        "owner_session",
+        "connector_scope"
+      ],
+      "status": "external_dependency",
+      "test_coverage": [
+        "contract:feature_registry",
+        "manual:external_boundary"
+      ],
+      "title": "Social scheduling",
+      "ui_entry_point": "/apps#social-scheduling"
+    },
+    {
+      "backend_capability": "external_connector",
+      "category": "Connected productivity",
+      "dependencies": [
+        "provider_oauth_or_api_key",
+        "owner_consent"
+      ],
+      "description": "Governed campaign publishing entry point; execution remains disabled until the listed external dependency and owner permission are configured.",
+      "id": "apps_hub.campaign_publishing",
+      "layer": "apps_hub",
+      "required_permissions": [
+        "owner_session",
+        "connector_scope"
+      ],
+      "status": "external_dependency",
+      "test_coverage": [
+        "contract:feature_registry",
+        "manual:external_boundary"
+      ],
+      "title": "Campaign publishing",
+      "ui_entry_point": "/apps#campaign-publishing"
+    },
+    {
+      "backend_capability": "external_connector",
+      "category": "Connected productivity",
+      "dependencies": [
+        "provider_oauth_or_api_key",
+        "owner_consent"
+      ],
+      "description": "Governed marketing analytics connector entry point; execution remains disabled until the listed external dependency and owner permission are configured.",
+      "id": "apps_hub.marketing_analytics",
+      "layer": "apps_hub",
+      "required_permissions": [
+        "owner_session",
+        "connector_scope"
+      ],
+      "status": "external_dependency",
+      "test_coverage": [
+        "contract:feature_registry",
+        "manual:external_boundary"
+      ],
+      "title": "Marketing analytics connector",
+      "ui_entry_point": "/apps#marketing-analytics"
+    },
+    {
+      "backend_capability": "external_connector",
+      "category": "Connected productivity",
+      "dependencies": [
+        "provider_oauth_or_api_key",
+        "owner_consent"
+      ],
+      "description": "Governed lead automation entry point; execution remains disabled until the listed external dependency and owner permission are configured.",
+      "id": "apps_hub.lead_automation",
+      "layer": "apps_hub",
+      "required_permissions": [
+        "owner_session",
+        "connector_scope"
+      ],
+      "status": "external_dependency",
+      "test_coverage": [
+        "contract:feature_registry",
+        "manual:external_boundary"
+      ],
+      "title": "Lead automation",
+      "ui_entry_point": "/apps#lead-automation"
+    },
+    {
+      "backend_capability": "external_connector",
+      "category": "Connected productivity",
+      "dependencies": [
+        "provider_oauth_or_api_key",
+        "owner_consent"
+      ],
+      "description": "Governed webhook integration entry point; execution remains disabled until the listed external dependency and owner permission are configured.",
+      "id": "apps_hub.webhook_integration",
+      "layer": "apps_hub",
+      "required_permissions": [
+        "owner_session",
+        "connector_scope"
+      ],
+      "status": "external_dependency",
+      "test_coverage": [
+        "contract:feature_registry",
+        "manual:external_boundary"
+      ],
+      "title": "Webhook integration",
+      "ui_entry_point": "/apps#webhook-integration"
+    },
+    {
+      "backend_capability": "external_connector",
+      "category": "Connected productivity",
+      "dependencies": [
+        "provider_oauth_or_api_key",
+        "owner_consent"
+      ],
+      "description": "Governed rest integration entry point; execution remains disabled until the listed external dependency and owner permission are configured.",
+      "id": "apps_hub.rest_integration",
+      "layer": "apps_hub",
+      "required_permissions": [
+        "owner_session",
+        "connector_scope"
+      ],
+      "status": "external_dependency",
+      "test_coverage": [
+        "contract:feature_registry",
+        "manual:external_boundary"
+      ],
+      "title": "REST integration",
+      "ui_entry_point": "/apps#rest-integration"
+    },
+    {
+      "backend_capability": "external_connector",
+      "category": "Connected productivity",
+      "dependencies": [
+        "provider_oauth_or_api_key",
+        "owner_consent"
+      ],
+      "description": "Governed graphql integration entry point; execution remains disabled until the listed external dependency and owner permission are configured.",
+      "id": "apps_hub.graphql_integration",
+      "layer": "apps_hub",
+      "required_permissions": [
+        "owner_session",
+        "connector_scope"
+      ],
+      "status": "external_dependency",
+      "test_coverage": [
+        "contract:feature_registry",
+        "manual:external_boundary"
+      ],
+      "title": "GraphQL integration",
+      "ui_entry_point": "/apps#graphql-integration"
+    },
+    {
+      "backend_capability": "external_connector",
+      "category": "Connected productivity",
+      "dependencies": [
+        "provider_oauth_or_api_key",
+        "owner_consent"
+      ],
+      "description": "Governed oauth integration entry point; execution remains disabled until the listed external dependency and owner permission are configured.",
+      "id": "apps_hub.oauth_integration",
+      "layer": "apps_hub",
+      "required_permissions": [
+        "owner_session",
+        "connector_scope"
+      ],
+      "status": "external_dependency",
+      "test_coverage": [
+        "contract:feature_registry",
+        "manual:external_boundary"
+      ],
+      "title": "OAuth integration",
+      "ui_entry_point": "/apps#oauth-integration"
+    },
+    {
+      "backend_capability": "external_connector",
+      "category": "Connected productivity",
+      "dependencies": [
+        "provider_oauth_or_api_key",
+        "owner_consent"
+      ],
+      "description": "Governed sdk integration entry point; execution remains disabled until the listed external dependency and owner permission are configured.",
+      "id": "apps_hub.sdk_integration",
+      "layer": "apps_hub",
+      "required_permissions": [
+        "owner_session",
+        "connector_scope"
+      ],
+      "status": "external_dependency",
+      "test_coverage": [
+        "contract:feature_registry",
+        "manual:external_boundary"
+      ],
+      "title": "SDK integration",
+      "ui_entry_point": "/apps#sdk-integration"
+    },
+    {
+      "backend_capability": "external_connector",
+      "category": "Connected productivity",
+      "dependencies": [
+        "provider_oauth_or_api_key",
+        "owner_consent"
+      ],
+      "description": "Governed database integration entry point; execution remains disabled until the listed external dependency and owner permission are configured.",
+      "id": "apps_hub.database_integration",
+      "layer": "apps_hub",
+      "required_permissions": [
+        "owner_session",
+        "connector_scope"
+      ],
+      "status": "external_dependency",
+      "test_coverage": [
+        "contract:feature_registry",
+        "manual:external_boundary"
+      ],
+      "title": "Database integration",
+      "ui_entry_point": "/apps#database-integration"
+    },
+    {
+      "backend_capability": "external_connector",
+      "category": "Connected productivity",
+      "dependencies": [
+        "provider_oauth_or_api_key",
+        "owner_consent"
+      ],
+      "description": "Governed local api integration entry point; execution remains disabled until the listed external dependency and owner permission are configured.",
+      "id": "apps_hub.local_api_integration",
+      "layer": "apps_hub",
+      "required_permissions": [
+        "owner_session",
+        "connector_scope"
+      ],
+      "status": "external_dependency",
+      "test_coverage": [
+        "contract:feature_registry",
+        "manual:external_boundary"
+      ],
+      "title": "Local API integration",
+      "ui_entry_point": "/apps#local-api-integration"
+    },
+    {
+      "backend_capability": "external_connector",
+      "category": "Connected productivity",
+      "dependencies": [
+        "provider_oauth_or_api_key",
+        "owner_consent"
+      ],
+      "description": "Governed browser automation connector entry point; execution remains disabled until the listed external dependency and owner permission are configured.",
+      "id": "apps_hub.browser_automation",
+      "layer": "apps_hub",
+      "required_permissions": [
+        "owner_session",
+        "connector_scope"
+      ],
+      "status": "external_dependency",
+      "test_coverage": [
+        "contract:feature_registry",
+        "manual:external_boundary"
+      ],
+      "title": "Browser automation connector",
+      "ui_entry_point": "/apps#browser-automation"
+    },
+    {
+      "backend_capability": "external_connector",
+      "category": "Connected productivity",
+      "dependencies": [
+        "provider_oauth_or_api_key",
+        "owner_consent"
+      ],
+      "description": "Governed desktop automation connector entry point; execution remains disabled until the listed external dependency and owner permission are configured.",
+      "id": "apps_hub.desktop_automation",
+      "layer": "apps_hub",
+      "required_permissions": [
+        "owner_session",
+        "connector_scope"
+      ],
+      "status": "external_dependency",
+      "test_coverage": [
+        "contract:feature_registry",
+        "manual:external_boundary"
+      ],
+      "title": "Desktop automation connector",
+      "ui_entry_point": "/apps#desktop-automation"
+    },
+    {
+      "backend_capability": "external_ai_provider_service",
+      "category": "Connector governance",
+      "dependencies": [],
+      "description": "Connector management exposed through the existing authenticated connector governance capability.",
+      "id": "apps_hub.connector_management",
+      "layer": "apps_hub",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_external_ai_api",
+        "web:settings_panel",
+        "mobile:settings"
+      ],
+      "title": "Connector management",
+      "ui_entry_point": "/apps#connector-management"
+    },
+    {
+      "backend_capability": "external_ai_provider_service",
+      "category": "Connector governance",
+      "dependencies": [],
+      "description": "Connector permissions exposed through the existing authenticated connector governance capability.",
+      "id": "apps_hub.connector_permissions",
+      "layer": "apps_hub",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_external_ai_api",
+        "web:settings_panel",
+        "mobile:settings"
+      ],
+      "title": "Connector permissions",
+      "ui_entry_point": "/apps#connector-permissions"
+    },
+    {
+      "backend_capability": "external_ai_provider_service",
+      "category": "Connector governance",
+      "dependencies": [],
+      "description": "Credential isolation exposed through the existing authenticated connector governance capability.",
+      "id": "apps_hub.credential_isolation",
+      "layer": "apps_hub",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_external_ai_api",
+        "web:settings_panel",
+        "mobile:settings"
+      ],
+      "title": "Credential isolation",
+      "ui_entry_point": "/apps#credential-isolation"
+    },
+    {
+      "backend_capability": "external_ai_provider_service",
+      "category": "Connector governance",
+      "dependencies": [],
+      "description": "Connector audit logging exposed through the existing authenticated connector governance capability.",
+      "id": "apps_hub.connector_audit",
+      "layer": "apps_hub",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_external_ai_api",
+        "web:settings_panel",
+        "mobile:settings"
+      ],
+      "title": "Connector audit logging",
+      "ui_entry_point": "/apps#connector-audit"
+    },
+    {
+      "backend_capability": "external_ai_provider_service",
+      "category": "Connector governance",
+      "dependencies": [],
+      "description": "Connector retry policy exposed through the existing authenticated connector governance capability.",
+      "id": "apps_hub.connector_retry",
+      "layer": "apps_hub",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_external_ai_api",
+        "web:settings_panel",
+        "mobile:settings"
+      ],
+      "title": "Connector retry policy",
+      "ui_entry_point": "/apps#connector-retry"
+    },
+    {
+      "backend_capability": "external_ai_provider_service",
+      "category": "Connector governance",
+      "dependencies": [],
+      "description": "Connector health checks exposed through the existing authenticated connector governance capability.",
+      "id": "apps_hub.connector_health",
+      "layer": "apps_hub",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_external_ai_api",
+        "web:settings_panel",
+        "mobile:settings"
+      ],
+      "title": "Connector health checks",
+      "ui_entry_point": "/apps#connector-health"
+    },
+    {
+      "backend_capability": "external_ai_provider_service",
+      "category": "Connector governance",
+      "dependencies": [],
+      "description": "Rate-limit handling exposed through the existing authenticated connector governance capability.",
+      "id": "apps_hub.rate_limit_handling",
+      "layer": "apps_hub",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_external_ai_api",
+        "web:settings_panel",
+        "mobile:settings"
+      ],
+      "title": "Rate-limit handling",
+      "ui_entry_point": "/apps#rate-limit-handling"
+    },
+    {
+      "backend_capability": "external_ai_provider_service",
+      "category": "Connector governance",
+      "dependencies": [],
+      "description": "Connector failure states exposed through the existing authenticated connector governance capability.",
+      "id": "apps_hub.connector_failure_state",
+      "layer": "apps_hub",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_external_ai_api",
+        "web:settings_panel",
+        "mobile:settings"
+      ],
+      "title": "Connector failure states",
+      "ui_entry_point": "/apps#connector-failure-state"
+    },
+    {
+      "backend_capability": "external_ai_provider_service",
+      "category": "Connector governance",
+      "dependencies": [],
+      "description": "Connector revocation exposed through the existing authenticated connector governance capability.",
+      "id": "apps_hub.connector_revocation",
+      "layer": "apps_hub",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_external_ai_api",
+        "web:settings_panel",
+        "mobile:settings"
+      ],
+      "title": "Connector revocation",
+      "ui_entry_point": "/apps#connector-revocation"
+    },
+    {
+      "backend_capability": "external_ai_provider_service",
+      "category": "Connector governance",
+      "dependencies": [],
+      "description": "Provider quota awareness exposed through the existing authenticated connector governance capability.",
+      "id": "apps_hub.quota_awareness",
+      "layer": "apps_hub",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_external_ai_api",
+        "web:settings_panel",
+        "mobile:settings"
+      ],
+      "title": "Provider quota awareness",
+      "ui_entry_point": "/apps#quota-awareness"
+    },
+    {
+      "backend_capability": "external_ai_provider_service",
+      "category": "Connector governance",
+      "dependencies": [],
+      "description": "Provider cost tracking exposed through the existing authenticated connector governance capability.",
+      "id": "apps_hub.cost_tracking",
+      "layer": "apps_hub",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_external_ai_api",
+        "web:settings_panel",
+        "mobile:settings"
+      ],
+      "title": "Provider cost tracking",
+      "ui_entry_point": "/apps#cost-tracking"
+    },
+    {
+      "backend_capability": "external_ai_provider_service",
+      "category": "Connector governance",
+      "dependencies": [],
+      "description": "Provider spending limits exposed through the existing authenticated connector governance capability.",
+      "id": "apps_hub.spending_limits",
+      "layer": "apps_hub",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_external_ai_api",
+        "web:settings_panel",
+        "mobile:settings"
+      ],
+      "title": "Provider spending limits",
+      "ui_entry_point": "/apps#spending-limits"
+    },
+    {
+      "backend_capability": "external_broker_connector",
+      "category": "Broker execution",
+      "dependencies": [
+        "broker_account",
+        "broker_api",
+        "owner_risk_confirmation"
+      ],
+      "description": "Governed broker api integration entry point; execution remains disabled until the listed external dependency and owner permission are configured.",
+      "id": "apps_hub.broker_integration",
+      "layer": "apps_hub",
+      "required_permissions": [
+        "owner_session",
+        "broker_trade_scope"
+      ],
+      "status": "external_dependency",
+      "test_coverage": [
+        "contract:feature_registry",
+        "manual:external_boundary"
+      ],
+      "title": "Broker API integration",
+      "ui_entry_point": "/apps/finance#broker-integration"
+    },
+    {
+      "backend_capability": "external_broker_connector",
+      "category": "Broker execution",
+      "dependencies": [
+        "broker_account",
+        "broker_api",
+        "owner_risk_confirmation"
+      ],
+      "description": "Governed live order execution entry point; execution remains disabled until the listed external dependency and owner permission are configured.",
+      "id": "apps_hub.live_order_execution",
+      "layer": "apps_hub",
+      "required_permissions": [
+        "owner_session",
+        "broker_trade_scope"
+      ],
+      "status": "external_dependency",
+      "test_coverage": [
+        "contract:feature_registry",
+        "manual:external_boundary"
+      ],
+      "title": "Live order execution",
+      "ui_entry_point": "/apps/finance#live-order-execution"
+    },
+    {
+      "backend_capability": "external_broker_connector",
+      "category": "Broker execution",
+      "dependencies": [
+        "broker_account",
+        "broker_api",
+        "owner_risk_confirmation"
+      ],
+      "description": "Governed order risk confirmation entry point; execution remains disabled until the listed external dependency and owner permission are configured.",
+      "id": "apps_hub.order_risk_confirmation",
+      "layer": "apps_hub",
+      "required_permissions": [
+        "owner_session",
+        "broker_trade_scope"
+      ],
+      "status": "external_dependency",
+      "test_coverage": [
+        "contract:feature_registry",
+        "manual:external_boundary"
+      ],
+      "title": "Order risk confirmation",
+      "ui_entry_point": "/apps/finance#order-risk-confirmation"
+    },
+    {
+      "backend_capability": "external_broker_connector",
+      "category": "Broker execution",
+      "dependencies": [
+        "broker_account",
+        "broker_api",
+        "owner_risk_confirmation"
+      ],
+      "description": "Governed broker permission enforcement entry point; execution remains disabled until the listed external dependency and owner permission are configured.",
+      "id": "apps_hub.broker_permission_enforcement",
+      "layer": "apps_hub",
+      "required_permissions": [
+        "owner_session",
+        "broker_trade_scope"
+      ],
+      "status": "external_dependency",
+      "test_coverage": [
+        "contract:feature_registry",
+        "manual:external_boundary"
+      ],
+      "title": "Broker permission enforcement",
+      "ui_entry_point": "/apps/finance#broker-permission-enforcement"
+    },
+    {
+      "backend_capability": "age_gate_policy",
+      "category": "Protected experiences",
+      "dependencies": [
+        "jurisdiction_check",
+        "age_verification",
+        "consent_policy"
+      ],
+      "description": "Governed adult capability age gate entry point; execution remains disabled until the listed external dependency and owner permission are configured.",
+      "id": "apps_hub.adult_age_gate",
+      "layer": "apps_hub",
+      "required_permissions": [
+        "owner_session",
+        "age_verified"
+      ],
+      "status": "external_dependency",
+      "test_coverage": [
+        "contract:feature_registry",
+        "manual:legal_boundary"
+      ],
+      "title": "Adult capability age gate",
+      "ui_entry_point": "/apps/entertainment#adult-age-gate"
+    },
+    {
+      "backend_capability": "age_gate_policy",
+      "category": "Protected experiences",
+      "dependencies": [
+        "jurisdiction_check",
+        "age_verification",
+        "consent_policy"
+      ],
+      "description": "Governed consent enforcement entry point; execution remains disabled until the listed external dependency and owner permission are configured.",
+      "id": "apps_hub.consent_enforcement",
+      "layer": "apps_hub",
+      "required_permissions": [
+        "owner_session",
+        "age_verified"
+      ],
+      "status": "external_dependency",
+      "test_coverage": [
+        "contract:feature_registry",
+        "manual:legal_boundary"
+      ],
+      "title": "Consent enforcement",
+      "ui_entry_point": "/apps/entertainment#consent-enforcement"
+    },
+    {
+      "backend_capability": "age_gate_policy",
+      "category": "Protected experiences",
+      "dependencies": [
+        "jurisdiction_check",
+        "age_verification",
+        "consent_policy"
+      ],
+      "description": "Governed minor safety boundary entry point; execution remains disabled until the listed external dependency and owner permission are configured.",
+      "id": "apps_hub.minor_safety_boundary",
+      "layer": "apps_hub",
+      "required_permissions": [
+        "owner_session",
+        "age_verified"
+      ],
+      "status": "external_dependency",
+      "test_coverage": [
+        "contract:feature_registry",
+        "manual:legal_boundary"
+      ],
+      "title": "Minor safety boundary",
+      "ui_entry_point": "/apps/entertainment#minor-safety-boundary"
+    },
+    {
+      "backend_capability": "age_gate_policy",
+      "category": "Protected experiences",
+      "dependencies": [
+        "jurisdiction_check",
+        "age_verification",
+        "consent_policy"
+      ],
+      "description": "Governed jurisdiction boundary entry point; execution remains disabled until the listed external dependency and owner permission are configured.",
+      "id": "apps_hub.jurisdiction_boundary",
+      "layer": "apps_hub",
+      "required_permissions": [
+        "owner_session",
+        "age_verified"
+      ],
+      "status": "external_dependency",
+      "test_coverage": [
+        "contract:feature_registry",
+        "manual:legal_boundary"
+      ],
+      "title": "Jurisdiction boundary",
+      "ui_entry_point": "/apps/entertainment#jurisdiction-boundary"
+    }
+  ],
+  "layers": {
+    "ai_command_center": 52,
+    "ai_presence": 45,
+    "apps_hub": 47,
+    "mission_control": 39,
+    "universal_workspace": 62
+  },
+  "product": "AI OS",
+  "registry_sha256": "7a3d96d361c5447bb024c2004be1546f6e3b6e25ed95a3883bd6eefdaf62ea11",
+  "schema_version": 1,
+  "statuses": {
+    "external_dependency": 37,
+    "implemented": 178,
+    "planned": 10,
+    "runtime_dependent": 20
+  },
+  "total": 245,
+  "validation": {
+    "backend_or_boundary_present": true,
+    "test_coverage_present": true,
+    "ui_paths_present": true,
+    "unique_ids": true
+  }
+}

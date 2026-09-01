@@ -1,5 +1,15 @@
 import type { ColorSchemeName } from "react-native";
 
+export type MobileAppearancePreference = "light" | "dark" | "system";
+
+export function resolvedAppearanceScheme(
+  preference: MobileAppearancePreference,
+  system: ColorSchemeName | null | undefined,
+): "light" | "dark" {
+  if (preference !== "system") return preference;
+  return system === "light" ? "light" : "dark";
+}
+
 export interface WorkStationColors {
   background: string;
   panel: string;

@@ -32,6 +32,7 @@ done
 
 cd "${repository_root}"
 git diff --check
+npm run report:features
 if [[ "${require_clean}" == true && -n "$(git status --short)" ]]; then
   echo "Release verification requires a clean Git worktree." >&2
   exit 1

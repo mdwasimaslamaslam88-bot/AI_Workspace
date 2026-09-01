@@ -6,13 +6,13 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  useColorScheme,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useWorkStation } from "@/context/work-station";
-import { workStationColors, type WorkStationColors } from "@/theme/colors";
+import type { WorkStationColors } from "@/theme/colors";
+import { useWorkStationAppearance } from "@/theme/appearance";
 
 
 const TASKS: ModelTask[] = [
@@ -30,8 +30,8 @@ const TASKS: ModelTask[] = [
 const TERMINAL = new Set(["completed", "failed", "cancelled", "timed_out"]);
 
 export default function AgentsScreen() {
-  const scheme = useColorScheme();
-  const styles = useMemo(() => createStyles(workStationColors(scheme)), [scheme]);
+  const { colors } = useWorkStationAppearance();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { state, client } = useWorkStation();
   const [capabilities, setCapabilities] = useState<AgentOSCapabilities | null>(null);
   const [runs, setRuns] = useState<AgentRun[]>([]);

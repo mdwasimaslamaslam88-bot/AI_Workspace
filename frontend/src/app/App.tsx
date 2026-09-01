@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 
 import { ApiClient, ApiError, type UploadProgress } from "../api/client";
 import type {
@@ -14,6 +14,8 @@ import type {
   ExternalAISettings,
   ExternalProvider,
   ExternalProviderUpsertRequest,
+  FeatureLayer,
+  FeatureRegistry,
   IndexedDocument,
   LocalModel,
   MemoryCreateRequest,
@@ -21,6 +23,7 @@ import type {
   Message,
   PersonalMemory,
   ProductCapability,
+  ProductFeature,
   SelfUpdateStatus,
   SystemDiagnostics,
   ToolDescriptor,
@@ -56,6 +59,8 @@ import { ModelSelector } from "../features/models/ModelSelector";
 import { SettingsPanel } from "../features/settings/SettingsPanel";
 import { ToolPanel } from "../features/tools/ToolPanel";
 import { WorkflowPanel } from "../features/workflows/WorkflowPanel";
+import { PresenceHeader } from "../features/shell/PresenceHeader";
+import { ProductLayerNavigation } from "../features/shell/ProductLayerNavigation";
 import {
   listenForDesktopDeepLinks,
   notifyDesktopTaskFinished,
@@ -72,6 +77,12 @@ type AuthenticationStatus =
   | "anonymous"
   | "disconnected"
   | "authenticated";
+
+const FeatureCatalogPanel = lazy(() =>
+  import("../features/catalog/FeatureCatalogPanel").then((module) => ({
+    default: module.FeatureCatalogPanel,
+  })),
+);
 
 function safeNotice(
   error: unknown,
@@ -170,6 +181,9 @@ export function App() {
   const [workflowsOpen, setWorkflowsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [agentsOpen, setAgentsOpen] = useState(false);
+  const [catalogLayer, setCatalogLayer] = useState<
+    Extract<FeatureLayer, "universal_workspace" | "apps_hub"> | null
+  >(null);
 
   const authAbort = useRef<AbortController | null>(null);
   const modelsAbort = useRef<AbortController | null>(null);
@@ -207,6 +221,7 @@ export function App() {
     setWorkflowsOpen(false);
     setSettingsOpen(false);
     setAgentsOpen(false);
+    setCatalogLayer(null);
     setAuthenticationStatus("anonymous");
   }, []);
 
@@ -813,6 +828,16 @@ export function App() {
     [client],
   );
 
+  const loadFeatureRegistry = useCallback(
+    (signal?: AbortSignal): Promise<FeatureRegistry> => {
+      if (client === null) {
+        return Promise.reject(new ApiError("authentication", "Authentication failed."));
+      }
+      return client.getFeatureRegistry(signal);
+    },
+    [client],
+  );
+
   const loadSystemDiagnostics = useCallback(
     async (signal?: AbortSignal): Promise<SystemDiagnostics> => {
       if (client === null) {
@@ -1407,6 +1432,7 @@ export function App() {
       setToolsOpen(target === "tools" || target === "studio");
       setWorkflowsOpen(target === "workflows");
       setAgentsOpen(false);
+      setCatalogLayer(null);
     })
       .then((dispose) => {
         if (active) unlisten = dispose;
@@ -1418,6 +1444,51 @@ export function App() {
       unlisten?.();
     };
   }, [authenticationStatus]);
+
+  const activeLayer: FeatureLayer =
+    catalogLayer ??
+    (settingsOpen
+      ? "ai_command_center"
+      : agentsOpen || workflowsOpen
+        ? "mission_control"
+        : memoryOpen
+          ? "universal_workspace"
+          : toolsOpen
+            ? "apps_hub"
+            : "ai_presence");
+
+  function closeProductPanels() {
+    setSettingsOpen(false);
+    setWorkflowsOpen(false);
+    setToolsOpen(false);
+    setMemoryOpen(false);
+    setAgentsOpen(false);
+    setCatalogLayer(null);
+  }
+
+  function selectProductLayer(layer: FeatureLayer) {
+    closeProductPanels();
+    if (layer === "mission_control") setAgentsOpen(true);
+    else if (layer === "universal_workspace" || layer === "apps_hub") setCatalogLayer(layer);
+    else if (layer === "ai_command_center") setSettingsOpen(true);
+  }
+
+  function openCatalogFeature(feature: ProductFeature) {
+    closeProductPanels();
+    if (feature.backend_capability === "bounded_tools") {
+      setToolsOpen(true);
+    } else if (feature.id.includes("memory") || feature.id.includes("knowledge_rag")) {
+      setMemoryOpen(true);
+    } else if (
+      feature.backend_capability.includes("agent") ||
+      feature.backend_capability === "conversation_and_agent_workspace" ||
+      feature.backend_capability === "research_and_analysis_agent"
+    ) {
+      setAgentsOpen(true);
+    } else {
+      window.setTimeout(() => document.getElementById("chat-prompt")?.focus(), 0);
+    }
+  }
 
   if (authenticationStatus === "checking") {
     return (
@@ -1499,6 +1570,7 @@ export function App() {
               setToolsOpen(false);
               setMemoryOpen(false);
               setAgentsOpen(false);
+              setCatalogLayer(null);
             }}
           >
             Settings
@@ -1514,6 +1586,7 @@ export function App() {
               setMemoryOpen(false);
               setSettingsOpen(false);
               setAgentsOpen(false);
+              setCatalogLayer(null);
             }}
           >
             Workflows
@@ -1529,6 +1602,7 @@ export function App() {
               setWorkflowsOpen(false);
               setSettingsOpen(false);
               setAgentsOpen(false);
+              setCatalogLayer(null);
             }}
           >
             Tools
@@ -1544,6 +1618,7 @@ export function App() {
               setWorkflowsOpen(false);
               setSettingsOpen(false);
               setAgentsOpen(false);
+              setCatalogLayer(null);
             }}
           >
             Memory
@@ -1559,6 +1634,7 @@ export function App() {
               setToolsOpen(false);
               setWorkflowsOpen(false);
               setSettingsOpen(false);
+              setCatalogLayer(null);
             }}
           >
             Agents
@@ -1573,6 +1649,15 @@ export function App() {
             onReload={() => void reloadModels()}
           />
         </header>
+        <ProductLayerNavigation activeLayer={activeLayer} onSelect={selectProductLayer} />
+        <PresenceHeader
+          state={chatNotice !== null ? "NEEDS INPUT" : generating ? "WORKING" : "WAITING"}
+          modelName={selectedModel?.display_name ?? null}
+          onAsk={() => {
+            closeProductPanels();
+            window.setTimeout(() => document.getElementById("chat-prompt")?.focus(), 0);
+          }}
+        />
         {settingsOpen && (
           <div id="personal-settings-panel">
             <SettingsPanel
@@ -1643,6 +1728,18 @@ export function App() {
               onForget={forgetMemory}
               onSetEnabled={setMemoryEnabled}
             />
+          </div>
+        )}
+        {catalogLayer !== null && (
+          <div id="feature-catalog-layer">
+            <Suspense fallback={<p className="muted" role="status">Loading workspace modules…</p>}>
+              <FeatureCatalogPanel
+                layer={catalogLayer}
+                onClose={() => setCatalogLayer(null)}
+                onLoad={loadFeatureRegistry}
+                onOpen={openCatalogFeature}
+              />
+            </Suspense>
           </div>
         )}
         <ChatView

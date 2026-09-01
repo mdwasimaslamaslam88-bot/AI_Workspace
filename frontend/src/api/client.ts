@@ -20,6 +20,7 @@ import {
   type CurrentUser,
   type ExternalAISettings,
   type ExternalProviderUpsertRequest,
+  type FeatureRegistry,
   type IndexedDocument,
   type ImageEditingRequest,
   type ImageGenerationRequest,
@@ -61,6 +62,7 @@ import {
   parseConversationPage,
   parseCurrentUser,
   parseExternalAISettings,
+  parseFeatureRegistry,
   parseGenerationResponse,
   parseMemoryPage,
   parseMemorySetting,
@@ -294,6 +296,13 @@ export class ApiClient {
     return this.#request("api/v1/ai/capabilities", {
       signal,
       decode: parseProductCapabilityPage,
+    });
+  }
+
+  getFeatureRegistry(signal?: AbortSignal): Promise<FeatureRegistry> {
+    return this.#request("api/v1/features", {
+      signal,
+      decode: parseFeatureRegistry,
     });
   }
 

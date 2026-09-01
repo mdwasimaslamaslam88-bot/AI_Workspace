@@ -1,15 +1,13 @@
 import { Tabs } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useColorScheme } from "react-native";
 
 import { WorkStationProvider } from "@/context/work-station";
-import { workStationColors } from "@/theme/colors";
+import { AppearanceProvider, useWorkStationAppearance } from "@/theme/appearance";
 
-export default function RootLayout() {
-  const scheme = useColorScheme();
-  const colors = workStationColors(scheme);
+function Navigation() {
+  const { colors, scheme } = useWorkStationAppearance();
   return (
-    <WorkStationProvider>
+    <>
       <StatusBar style={scheme === "light" ? "dark" : "light"} />
       <Tabs
         screenOptions={{
@@ -22,11 +20,21 @@ export default function RootLayout() {
           tabBarInactiveTintColor: colors.muted,
         }}
       >
-        <Tabs.Screen name="index" options={{ title: "Chats", headerTitle: "WORK STATION" }} />
-        <Tabs.Screen name="studio" options={{ title: "Studio", headerTitle: "Private AI studio" }} />
-        <Tabs.Screen name="agents" options={{ title: "Agents", headerTitle: "Agent OS" }} />
-        <Tabs.Screen name="settings" options={{ title: "Settings", headerTitle: "Settings & diagnostics" }} />
+        <Tabs.Screen name="index" options={{ title: "Home", headerTitle: "AI Presence" }} />
+        <Tabs.Screen name="agents" options={{ title: "Missions", headerTitle: "Mission Control" }} />
+        <Tabs.Screen name="studio" options={{ title: "Workspaces", headerTitle: "Universal Workspace" }} />
+        <Tabs.Screen name="settings" options={{ title: "Command", headerTitle: "AI Command Center" }} />
       </Tabs>
-    </WorkStationProvider>
+    </>
+  );
+}
+
+export default function RootLayout() {
+  return (
+    <AppearanceProvider>
+      <WorkStationProvider>
+        <Navigation />
+      </WorkStationProvider>
+    </AppearanceProvider>
   );
 }

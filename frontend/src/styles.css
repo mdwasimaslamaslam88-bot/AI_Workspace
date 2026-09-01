@@ -23,6 +23,8 @@
   --danger: #ffb4ab;
   --danger-bg: #3c1e22;
   --focus: #a8f3da;
+  --shell-glass: rgba(7, 15, 31, 0.92);
+  --toolbar-glass: rgba(10, 14, 20, 0.84);
 }
 
 :root[data-theme="light"] {
@@ -43,6 +45,8 @@
   --danger: #9e302b;
   --danger-bg: #fee9e7;
   --focus: #006b5b;
+  --shell-glass: rgba(255, 255, 255, 0.94);
+  --toolbar-glass: rgba(248, 250, 252, 0.94);
 }
 
 * {
@@ -318,7 +322,7 @@ textarea {
   flex-direction: column;
   gap: 1rem;
   border-right: 1px solid var(--line);
-  background: rgba(12, 18, 25, 0.92);
+  background: var(--shell-glass);
   padding: 1rem;
 }
 
@@ -457,13 +461,13 @@ textarea {
   display: grid;
   min-width: 0;
   min-height: 100vh;
-  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-rows: auto auto auto minmax(0, 1fr);
 }
 
 .workspace-toolbar {
   min-height: 5.5rem;
   border-bottom: 1px solid var(--line);
-  background: rgba(10, 14, 20, 0.8);
+  background: var(--toolbar-glass);
   padding: 0.8rem clamp(1rem, 4vw, 2rem);
   flex-wrap: wrap;
   justify-content: flex-end;
@@ -506,21 +510,232 @@ textarea {
 #personal-memory-panel,
 #personal-tools-panel,
 #personal-workflows-panel,
-#personal-settings-panel {
-  grid-row: 2;
+#personal-settings-panel,
+#personal-agents-panel,
+#feature-catalog-layer {
+  grid-row: 4;
   grid-column: 1;
 }
 
 #personal-memory-panel,
 #personal-tools-panel,
 #personal-workflows-panel,
-#personal-settings-panel {
+#personal-settings-panel,
+#personal-agents-panel,
+#feature-catalog-layer {
   z-index: 5;
   width: min(calc(100% - 2rem), 42rem);
-  max-height: calc(100vh - 7.5rem);
+  max-height: calc(100vh - 16rem);
   margin: 1rem;
   justify-self: end;
   overflow-y: auto;
+}
+
+#feature-catalog-layer {
+  width: min(calc(100% - 2rem), 76rem);
+}
+
+.product-layer-navigation {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(8rem, 1fr));
+  gap: 0.45rem;
+  border-bottom: 1px solid var(--line);
+  padding: 0.55rem clamp(1rem, 4vw, 2rem);
+  overflow-x: auto;
+  background: var(--panel);
+}
+
+.product-layer {
+  display: grid;
+  min-height: 3.4rem;
+  align-content: center;
+  gap: 0.1rem;
+  border: 1px solid transparent;
+  border-radius: 0.75rem;
+  color: var(--muted);
+  background: transparent;
+  padding: 0.45rem 0.7rem;
+  text-align: left;
+}
+
+.product-layer span {
+  color: var(--text);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.product-layer small {
+  overflow: hidden;
+  font-size: 0.65rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.product-layer:hover,
+.product-layer.active {
+  border-color: var(--line);
+  background: var(--accent-soft);
+}
+
+.product-layer.active span {
+  color: var(--accent);
+}
+
+.presence-header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1rem;
+  border-bottom: 1px solid var(--line);
+  padding: 0.75rem clamp(1rem, 4vw, 2rem);
+  background: linear-gradient(100deg, var(--panel), var(--accent-soft));
+}
+
+.companion-avatar {
+  position: relative;
+  width: 4.25rem;
+  height: 4.25rem;
+  flex: none;
+}
+
+.companion-avatar img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 0.6rem 1.8rem rgba(0, 0, 0, 0.24);
+}
+
+.companion-avatar > span {
+  position: absolute;
+  right: 0;
+  bottom: 0.15rem;
+  width: 0.9rem;
+  height: 0.9rem;
+  border: 2px solid var(--panel);
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.companion-avatar-needs-input > span {
+  background: var(--danger);
+}
+
+.presence-copy h2,
+.presence-copy p {
+  margin-bottom: 0.15rem;
+}
+
+.presence-copy > p:last-child {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.presence-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.presence-state {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--accent);
+  padding: 0.4rem 0.65rem;
+  font-size: 0.68rem;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+}
+
+.presence-state-needs-input {
+  color: var(--danger);
+}
+
+.feature-catalog-panel {
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: var(--panel);
+  padding: 1rem;
+  box-shadow: 0 1.5rem 5rem rgba(0, 0, 0, 0.45);
+}
+
+.feature-catalog-header,
+.feature-card-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.feature-catalog-header p,
+.feature-card p,
+.feature-card h4 {
+  margin-bottom: 0.55rem;
+}
+
+.feature-search {
+  margin: 1rem 0 0.75rem;
+}
+
+.feature-count {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.feature-category-list {
+  display: grid;
+  gap: 1.1rem;
+}
+
+.feature-category h3 {
+  margin: 0 0 0.6rem;
+}
+
+.feature-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: 0.65rem;
+}
+
+.feature-card {
+  display: flex;
+  min-height: 13rem;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: 0.8rem;
+  background: var(--panel-raised);
+  padding: 0.85rem;
+}
+
+.feature-card > .button {
+  margin-top: auto;
+}
+
+.feature-card p {
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.feature-status {
+  flex: none;
+  border-radius: 999px;
+  padding: 0.25rem 0.45rem;
+  color: var(--muted);
+  background: var(--panel-soft);
+  font-size: 0.62rem;
+  font-weight: 850;
+}
+
+.feature-status-implemented,
+.feature-status-runtime_dependent {
+  color: var(--accent);
+}
+
+.feature-status-planned {
+  color: var(--danger);
 }
 
 .memory-panel,
@@ -1535,10 +1750,26 @@ textarea {
   #personal-memory-panel,
   #personal-tools-panel,
   #personal-workflows-panel,
-  #personal-settings-panel {
+  #personal-settings-panel,
+  #personal-agents-panel,
+  #feature-catalog-layer {
     width: calc(100% - 1rem);
-    max-height: calc(100vh - 5rem);
+    max-height: calc(100vh - 7rem);
     margin: 0.5rem;
+  }
+
+  .product-layer-navigation {
+    grid-template-columns: repeat(5, minmax(7.5rem, 1fr));
+    padding-inline: 0.5rem;
+  }
+
+  .presence-header {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .presence-actions {
+    grid-column: 1 / -1;
+    justify-content: space-between;
   }
 
   .memory-form,

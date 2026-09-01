@@ -50,6 +50,31 @@ mutation. It never repairs the artifact before scoring.
   agents, update state and metadata-only security containment events
 - PWA/web, Ubuntu/Windows Tauri packaging paths and Android/iOS Expo client
 
+## Five-layer product shell and feature registry
+
+The web/desktop shell presents five stable product layers without changing the
+execution architecture: AI Presence/Home, Mission Control, Universal
+Workspace, AI Command Center, and Apps/Life/Business Hub. The companion header
+uses real chat state (`WAITING`, `WORKING`, or `NEEDS INPUT`); mission-specific
+planning, retry, verification, and terminal states remain sourced from Agent
+OS records. The mobile shell maps the same concepts to four bottom-navigation
+destinations: Home, Missions, Workspaces, and Command. Home keeps the shared
+Ask AI Anything surface and reports recording/generation state directly.
+
+`GET /api/v1/features` is the authenticated machine-readable registry. It is
+separate from `/api/v1/ai/capabilities`: the former describes product
+discoverability and implementation boundaries, while the latter remains the
+authoritative live check for executable local multimodal capabilities. The
+workspace/app catalogs are lazy-loaded and never turn `planned` or
+`external_dependency` entries into active controls. Run
+`npm run report:features` to validate and regenerate the deterministic coverage
+evidence in `reports/feature-registry-report.json` and
+`docs/FEATURE_COVERAGE.md`.
+
+The generated companion portrait is presentation-only. Voice, listening,
+working, verification, and completion labels continue to come from actual
+capture or execution state; the avatar does not simulate activity.
+
 ## Local-first policy
 
 Local admitted models are exhausted first. An external provider is considered
@@ -59,16 +84,21 @@ complete-category benchmark record exactly matches the model policy. Provider
 keys are XChaCha20-Poly1305 encrypted, write-only through clients, excluded from
 prompts and responses, and never accepted through a custom provider URL.
 
-## Verified production evidence (2026-09-01)
+## Verified production evidence (2026-09-02)
 
 The final local release matrix passed with the production runtime enabled and
 with native Android and desktop-launch gates required. Measured results were:
 
-- backend: 2,839 passed, 36 skipped
-- web: 154 tests passed; mobile: 52 tests passed
-- Android: Expo Doctor 21/21 and 338 Gradle tasks; signed/aligned APK contract
+- backend: 2,846 passed, 36 skipped
+- web: 158 tests passed; mobile: 53 tests passed
+- Android: Expo Doctor 21/21, a 338-task debug gate, and a 532-task optimized
+  owner-sideload APK build; package identity, signing, alignment and artifact
+  safety passed
 - PostgreSQL integration: 36 tests passed
-- browser/PWA install, authenticated chat, cache isolation and logout: passed
+- browser/PWA install, authenticated feature registry, chat, cache isolation and
+  logout: passed
+- desktop: Rust tests, production binary, AppImage and DEB packaging, plus live
+  production-binary and AppImage launch checks passed
 - real vision, RAG, memory, FLUX.2 image generation/editing/inpainting, voice,
   tools and workflows: passed
 - canonical quality benchmark: 459 tests, 97.88/100, 457 PASS, 1 PARTIAL,

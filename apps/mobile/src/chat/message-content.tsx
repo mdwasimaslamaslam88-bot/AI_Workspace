@@ -1,13 +1,13 @@
 import { useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, useColorScheme, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { copyPrivateMessageContent } from "@/chat/clipboard";
 import { parseMobileInlineMarkdown, parseMobileMarkdown } from "@/chat/markdown";
-import { workStationColors } from "@/theme/colors";
+import { useWorkStationAppearance } from "@/theme/appearance";
+import type { WorkStationColors } from "@/theme/colors";
 
 export function MobileMessageContent({ content }: { content: string }) {
-  const scheme = useColorScheme();
-  const colors = workStationColors(scheme);
+  const { colors } = useWorkStationAppearance();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const blocks = useMemo(() => parseMobileMarkdown(content), [content]);
   const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">("idle");
@@ -99,7 +99,7 @@ export function MobileMessageContent({ content }: { content: string }) {
   );
 }
 
-function createStyles(colors: ReturnType<typeof workStationColors>) {
+function createStyles(colors: WorkStationColors) {
   return StyleSheet.create({
     container: { gap: 8 },
     body: { color: colors.text, fontSize: 15, lineHeight: 22 },

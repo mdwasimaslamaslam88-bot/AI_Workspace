@@ -163,14 +163,15 @@ current security updates. Database backups and the workstation data directory
 contain private content and require encrypted owner-controlled storage. Mobile
 and desktop signing credentials must remain outside Git.
 
-The 2026-08-31 dependency audit has zero high or critical npm advisories. It
-does report one moderate root advisory in `uuid@7.0.3` (buffer bounds when a
-caller supplies a buffer), reached through Expo's build-time `xcode` tool and
-expanded by npm into 11 affected dependency nodes. The application does not
-invoke that UUID buffer API, and native Android validation passes, but this is
-still retained as an upstream build-tool residual. A forced transitive override
-is not used because the current Expo dependency graph does not resolve it and a
-breaking framework change would need the full mobile release matrix.
+The 2026-09-02 dependency audit has zero high or critical npm advisories. It
+reports 14 moderate affected nodes from two upstream chains: malformed-percent
+decoding in `decode-uri-component`, reached through `query-string` and
+`expo-router`, and a supplied-buffer bounds issue in `uuid`, reached through
+Expo's build-time `xcode` tooling. Native Android validation and Expo Doctor
+21/21 pass, but these remain upstream toolchain residuals. The audit's proposed
+forced remediation would install breaking, SDK-incompatible Expo package
+versions, so it is not applied without a compatible Expo release and the full
+mobile release matrix.
 
 This host's usable container boundary is the rootful Docker daemon; unprivileged
 mount/network namespaces are restricted by the host AppArmor policy, so accepted

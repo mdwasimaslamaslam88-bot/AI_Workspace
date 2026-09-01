@@ -25,16 +25,24 @@
         "backgroundColor": "#040C1F",
         "foregroundImage": "./assets/work-station/adaptive-icon.png"
       },
-      "permissions": ["CAMERA", "RECORD_AUDIO"],
+      "permissions": [
+        "CAMERA",
+        "RECORD_AUDIO"
+      ],
       "predictiveBackGestureEnabled": true
     },
-    "web": { "output": "static", "favicon": "./assets/work-station/app-icon.png" },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/work-station/app-icon.png"
+    },
     "plugins": [
       "expo-router",
       "./plugins/with-local-loopback-network-security",
       [
         "expo-secure-store",
-        { "faceIDPermission": "Allow WORK STATION to unlock your private session." }
+        {
+          "faceIDPermission": "Allow WORK STATION to unlock your private session."
+        }
       ],
       [
         "expo-image-picker",
@@ -60,7 +68,8 @@
         }
       ],
       "expo-secure-store",
-      "expo-audio"
+      "expo-audio",
+      "expo-image"
     ],
     "experiments": {
       "typedRoutes": true,

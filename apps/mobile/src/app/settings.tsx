@@ -24,7 +24,6 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  useColorScheme,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -33,7 +32,8 @@ import * as ScreenCapture from "expo-screen-capture";
 import { shouldClearTransientSession } from "@/auth/transient-session";
 import { useWorkStation } from "@/context/work-station";
 import { requestPrivateNotificationPermission } from "@/notifications/private-notifications";
-import { workStationColors, type WorkStationColors } from "@/theme/colors";
+import type { WorkStationColors } from "@/theme/colors";
+import { useWorkStationAppearance } from "@/theme/appearance";
 
 const SECTIONS = [
   "Account",
@@ -53,8 +53,8 @@ const SECTIONS = [
 
 export default function SettingsScreen() {
   ScreenCapture.usePreventScreenCapture("work-station-owner-settings");
-  const scheme = useColorScheme();
-  const styles = useMemo(() => createStyles(workStationColors(scheme)), [scheme]);
+  const { colors, preference, setPreference } = useWorkStationAppearance();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const { state, client, user, logout, retry, rotateSession } = useWorkStation();
   const [capabilities, setCapabilities] = useState<ProductCapability[]>([]);
   const [models, setModels] = useState<LocalModel[]>([]);
@@ -123,6 +123,27 @@ export default function SettingsScreen() {
   return (
     <SafeAreaView edges={["left", "right"]} style={styles.safe}>
       <ScrollView contentContainerStyle={styles.content}>
+        <View style={styles.card}>
+          <Text style={styles.eyebrow}>APPEARANCE</Text>
+          <Text style={styles.heading}>Light, dark, or system</Text>
+          <Text style={styles.muted}>Theme selection changes presentation only; AI execution stays isolated.</Text>
+          <View style={styles.capabilityTags}>
+            {(["light", "dark", "system"] as const).map((option) => (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityState={{ selected: preference === option }}
+                key={option}
+                style={[styles.secondaryButton, preference === option && styles.selectedButton]}
+                onPress={() => {
+                  if (setPreference === undefined) return;
+                  void setPreference(option).catch(() => setNotice("Appearance preference could not be saved."));
+                }}
+              >
+                <Text style={styles.buttonText}>{option[0]?.toUpperCase()}{option.slice(1)}</Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
         <View style={styles.statusCard}>
           <Text style={styles.eyebrow}>CONNECTION</Text>
           <Text style={styles.heading}>{state.replaceAll("_", " ")}</Text>
@@ -637,6 +658,7 @@ function createStyles(colors: WorkStationColors) {
   unavailable: { color: colors.danger, fontWeight: "800" },
   error: { color: colors.danger },
   secondaryButton: { alignSelf: "flex-start", minHeight: 44, justifyContent: "center", borderColor: colors.line, borderWidth: 1, borderRadius: 10, paddingHorizontal: 14 },
+  selectedButton: { borderColor: colors.accent, backgroundColor: colors.accentSoft },
   input: { minHeight: 48, borderColor: colors.line, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, color: colors.text, backgroundColor: colors.soft },
   issuedSession: { gap: 9, borderColor: colors.accentBorder, borderWidth: 1, borderRadius: 12, backgroundColor: colors.accentSoft, padding: 12 },
   token: { color: colors.text, fontFamily: "monospace", fontSize: 12 },
