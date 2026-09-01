@@ -33,7 +33,7 @@ if rg --pcre2 -n 'connect-src[^\"]* https:(?:[ ;])' \
   exit 1
 fi
 
-if ! ldconfig -p 2>/dev/null | rg -q 'libsodium\.so'; then
+if ! ldconfig -p 2>/dev/null | rg 'libsodium\.so' >/dev/null; then
   echo "The authenticated provider/update vault requires libsodium." >&2
   exit 1
 fi
