@@ -8088,7 +8088,7 @@
     },
     {
       "backend": {
-        "capability": "external_ai_provider_service",
+        "capability": "connector_service",
         "state": "bound"
       },
       "category": "Connector governance",
@@ -8107,9 +8107,10 @@
       "runtime_state": "available_by_contract",
       "status": "implemented",
       "test_coverage": [
-        "backend:test_external_ai_api",
-        "web:settings_panel",
-        "mobile:settings"
+        "backend:test_connectors_api",
+        "backend:test_connectors_postgres",
+        "web:connector_panel",
+        "mobile:studio_connections"
       ],
       "ui": {
         "entry_point": "/apps#connector-management",
@@ -8118,7 +8119,7 @@
     },
     {
       "backend": {
-        "capability": "external_ai_provider_service",
+        "capability": "connector_service",
         "state": "bound"
       },
       "category": "Connector governance",
@@ -8137,9 +8138,10 @@
       "runtime_state": "available_by_contract",
       "status": "implemented",
       "test_coverage": [
-        "backend:test_external_ai_api",
-        "web:settings_panel",
-        "mobile:settings"
+        "backend:test_connectors_api",
+        "backend:test_connectors_postgres",
+        "web:connector_panel",
+        "mobile:studio_connections"
       ],
       "ui": {
         "entry_point": "/apps#connector-permissions",
@@ -8148,7 +8150,7 @@
     },
     {
       "backend": {
-        "capability": "external_ai_provider_service",
+        "capability": "connector_service",
         "state": "bound"
       },
       "category": "Connector governance",
@@ -8167,9 +8169,10 @@
       "runtime_state": "available_by_contract",
       "status": "implemented",
       "test_coverage": [
-        "backend:test_external_ai_api",
-        "web:settings_panel",
-        "mobile:settings"
+        "backend:test_connectors_api",
+        "backend:test_connectors_postgres",
+        "web:connector_panel",
+        "mobile:studio_connections"
       ],
       "ui": {
         "entry_point": "/apps#credential-isolation",
@@ -8178,7 +8181,7 @@
     },
     {
       "backend": {
-        "capability": "external_ai_provider_service",
+        "capability": "connector_service",
         "state": "bound"
       },
       "category": "Connector governance",
@@ -8197,9 +8200,10 @@
       "runtime_state": "available_by_contract",
       "status": "implemented",
       "test_coverage": [
-        "backend:test_external_ai_api",
-        "web:settings_panel",
-        "mobile:settings"
+        "backend:test_connectors_api",
+        "backend:test_connectors_postgres",
+        "web:connector_panel",
+        "mobile:studio_connections"
       ],
       "ui": {
         "entry_point": "/apps#connector-audit",
@@ -8208,7 +8212,7 @@
     },
     {
       "backend": {
-        "capability": "external_ai_provider_service",
+        "capability": "connector_service",
         "state": "bound"
       },
       "category": "Connector governance",
@@ -8227,9 +8231,10 @@
       "runtime_state": "available_by_contract",
       "status": "implemented",
       "test_coverage": [
-        "backend:test_external_ai_api",
-        "web:settings_panel",
-        "mobile:settings"
+        "backend:test_connectors_api",
+        "backend:test_connectors_postgres",
+        "web:connector_panel",
+        "mobile:studio_connections"
       ],
       "ui": {
         "entry_point": "/apps#connector-retry",
@@ -8238,7 +8243,7 @@
     },
     {
       "backend": {
-        "capability": "external_ai_provider_service",
+        "capability": "connector_service",
         "state": "bound"
       },
       "category": "Connector governance",
@@ -8257,9 +8262,10 @@
       "runtime_state": "available_by_contract",
       "status": "implemented",
       "test_coverage": [
-        "backend:test_external_ai_api",
-        "web:settings_panel",
-        "mobile:settings"
+        "backend:test_connectors_api",
+        "backend:test_connectors_postgres",
+        "web:connector_panel",
+        "mobile:studio_connections"
       ],
       "ui": {
         "entry_point": "/apps#connector-health",
@@ -8268,7 +8274,7 @@
     },
     {
       "backend": {
-        "capability": "external_ai_provider_service",
+        "capability": "connector_service",
         "state": "bound"
       },
       "category": "Connector governance",
@@ -8287,9 +8293,10 @@
       "runtime_state": "available_by_contract",
       "status": "implemented",
       "test_coverage": [
-        "backend:test_external_ai_api",
-        "web:settings_panel",
-        "mobile:settings"
+        "backend:test_connectors_api",
+        "backend:test_connectors_postgres",
+        "web:connector_panel",
+        "mobile:studio_connections"
       ],
       "ui": {
         "entry_point": "/apps#rate-limit-handling",
@@ -8298,7 +8305,7 @@
     },
     {
       "backend": {
-        "capability": "external_ai_provider_service",
+        "capability": "connector_service",
         "state": "bound"
       },
       "category": "Connector governance",
@@ -8317,9 +8324,10 @@
       "runtime_state": "available_by_contract",
       "status": "implemented",
       "test_coverage": [
-        "backend:test_external_ai_api",
-        "web:settings_panel",
-        "mobile:settings"
+        "backend:test_connectors_api",
+        "backend:test_connectors_postgres",
+        "web:connector_panel",
+        "mobile:studio_connections"
       ],
       "ui": {
         "entry_point": "/apps#connector-failure-state",
@@ -8328,7 +8336,7 @@
     },
     {
       "backend": {
-        "capability": "external_ai_provider_service",
+        "capability": "connector_service",
         "state": "bound"
       },
       "category": "Connector governance",
@@ -8347,9 +8355,10 @@
       "runtime_state": "available_by_contract",
       "status": "implemented",
       "test_coverage": [
-        "backend:test_external_ai_api",
-        "web:settings_panel",
-        "mobile:settings"
+        "backend:test_connectors_api",
+        "backend:test_connectors_postgres",
+        "web:connector_panel",
+        "mobile:studio_connections"
       ],
       "ui": {
         "entry_point": "/apps#connector-revocation",
@@ -8361,14 +8370,14 @@
         "capability": "external_ai_provider_service",
         "state": "bound"
       },
-      "category": "Connector governance",
+      "category": "External AI governance",
       "coverage_modes": [
         "automated_backend",
         "automated_mobile",
         "automated_web"
       ],
       "dependencies": [],
-      "description": "Provider quota awareness exposed through the existing authenticated connector governance capability.",
+      "description": "Provider quota awareness exposed through the existing authenticated external ai governance capability.",
       "id": "apps_hub.quota_awareness",
       "layer": "apps_hub",
       "permissions": [
@@ -8391,14 +8400,14 @@
         "capability": "external_ai_provider_service",
         "state": "bound"
       },
-      "category": "Connector governance",
+      "category": "External AI governance",
       "coverage_modes": [
         "automated_backend",
         "automated_mobile",
         "automated_web"
       ],
       "dependencies": [],
-      "description": "Provider cost tracking exposed through the existing authenticated connector governance capability.",
+      "description": "Provider cost tracking exposed through the existing authenticated external ai governance capability.",
       "id": "apps_hub.cost_tracking",
       "layer": "apps_hub",
       "permissions": [
@@ -8421,14 +8430,14 @@
         "capability": "external_ai_provider_service",
         "state": "bound"
       },
-      "category": "Connector governance",
+      "category": "External AI governance",
       "coverage_modes": [
         "automated_backend",
         "automated_mobile",
         "automated_web"
       ],
       "dependencies": [],
-      "description": "Provider spending limits exposed through the existing authenticated connector governance capability.",
+      "description": "Provider spending limits exposed through the existing authenticated external ai governance capability.",
       "id": "apps_hub.spending_limits",
       "layer": "apps_hub",
       "permissions": [
@@ -8712,7 +8721,7 @@
     }
   ],
   "product": "AI OS",
-  "registry_sha256": "3b2418fe7591c075682b7331e34428711daac23594aca97d946c6decd7f07574",
+  "registry_sha256": "e9ec99386a8ae7adaeebfdab65bf0f4dd9a7bf9d52acc743826cb789fdc8cfcf",
   "schema_version": 1,
   "summary": {
     "broken_registry_wiring": 0,

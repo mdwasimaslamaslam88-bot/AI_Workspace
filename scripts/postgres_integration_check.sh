@@ -318,6 +318,8 @@ PY
     export DATABASE_SSL_MODE=disable
     export DATABASE_URL="${ephemeral_url}"
     export EXTERNAL_AI_STATE_ROOT="${cluster_root}/external-ai"
+    export CONNECTOR_STATE_ROOT="${cluster_root}/connectors"
+    export CONNECTOR_ALLOWED_ORIGINS="[]"
     export HARDWARE_STATE_PATH="${cluster_root}/hardware-capability.json"
     export REMOTE_GATEWAY_MODE=local
     export SELF_UPDATE_STATE_ROOT="${cluster_root}/self-update"
@@ -483,5 +485,5 @@ elif [[ "${run_browser}" == true ]]; then
 elif [[ "${run_runtime}" == true ]]; then
   echo "ephemeral PostgreSQL validation: runtime E2E passed"
 else
-  echo "ephemeral PostgreSQL validation: 36 integration tests passed"
+  echo "ephemeral PostgreSQL validation: 39 integration tests passed"
 fi

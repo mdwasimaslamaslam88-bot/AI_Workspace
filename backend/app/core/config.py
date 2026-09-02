@@ -148,6 +148,8 @@ class Settings(BaseSettings):
     ASSET_STORAGE_ROOT: Path | None = None
     HARDWARE_STATE_PATH: Path | None = None
     EXTERNAL_AI_STATE_ROOT: Path | None = None
+    CONNECTOR_STATE_ROOT: Path | None = None
+    CONNECTOR_ALLOWED_ORIGINS: list[str] = []
     SELF_UPDATE_STATE_ROOT: Path | None = None
     WORK_STATION_WEB_ROOT: Path | None = None
     REMOTE_GATEWAY_MODE: Literal["local", "tailscale"] = "local"
@@ -406,6 +408,7 @@ class Settings(BaseSettings):
         "ASSET_STORAGE_ROOT",
         "HARDWARE_STATE_PATH",
         "EXTERNAL_AI_STATE_ROOT",
+        "CONNECTOR_STATE_ROOT",
         "SELF_UPDATE_STATE_ROOT",
         "WORK_STATION_WEB_ROOT",
         "COMFYUI_BASE_URL",
@@ -481,6 +484,7 @@ class Settings(BaseSettings):
         "ASSET_STORAGE_ROOT",
         "HARDWARE_STATE_PATH",
         "EXTERNAL_AI_STATE_ROOT",
+        "CONNECTOR_STATE_ROOT",
         "SELF_UPDATE_STATE_ROOT",
     )
     @classmethod
@@ -497,6 +501,18 @@ class Settings(BaseSettings):
                 "private state paths must be outside the project source tree"
             )
         return candidate
+
+    @field_validator("CONNECTOR_ALLOWED_ORIGINS")
+    @classmethod
+    def require_exact_connector_origins(cls, value):
+        from app.connectors.runtime import normalize_connector_origin
+
+        normalized = [normalize_connector_origin(origin) for origin in value]
+        if len(normalized) > 64:
+            raise ValueError("at most 64 connector origins may be allowlisted")
+        if len(set(normalized)) != len(normalized):
+            raise ValueError("connector origins must be unique")
+        return normalized
 
     @field_validator("WORK_STATION_WEB_ROOT")
     @classmethod

@@ -12,6 +12,12 @@ import type {
   ConversationCursor,
   ConversationSummary,
   ConversationStateUpdateRequest,
+  Connector,
+  ConnectorExecution,
+  ConnectorExecutionRequest,
+  ConnectorExecutionResult,
+  ConnectorSettings,
+  ConnectorWriteRequest,
   CurrentUser,
   ExternalAISettings,
   ExternalProvider,
@@ -56,6 +62,7 @@ import { ConnectView, ReconnectView } from "../features/auth/ConnectView";
 import { ChatView, type SafeNotice } from "../features/chat/ChatView";
 import { AgentPanel } from "../features/agents/AgentPanel";
 import { ConversationList } from "../features/conversations/ConversationList";
+import { ConnectorPanel } from "../features/connectors/ConnectorPanel";
 import { MemoryPanel } from "../features/memory/MemoryPanel";
 import { ModelSelector } from "../features/models/ModelSelector";
 import { SettingsPanel } from "../features/settings/SettingsPanel";
@@ -183,6 +190,7 @@ export function App() {
   const [workflowsOpen, setWorkflowsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [agentsOpen, setAgentsOpen] = useState(false);
+  const [connectorsOpen, setConnectorsOpen] = useState(false);
   const [voicePresence, setVoicePresence] = useState<PresenceState | null>(null);
   const [agentPresence, setAgentPresence] = useState<PresenceState | null>(null);
   const [catalogLayer, setCatalogLayer] = useState<
@@ -225,6 +233,7 @@ export function App() {
     setWorkflowsOpen(false);
     setSettingsOpen(false);
     setAgentsOpen(false);
+    setConnectorsOpen(false);
     setCatalogLayer(null);
     setAuthenticationStatus("anonymous");
   }, []);
@@ -862,6 +871,79 @@ export function App() {
     [client],
   );
 
+  const loadConnectorSettings = useCallback(
+    (signal?: AbortSignal): Promise<ConnectorSettings> => {
+      if (client === null) {
+        return Promise.reject(new ApiError("authentication", "Authentication failed."));
+      }
+      return client.getConnectorSettings(signal);
+    },
+    [client],
+  );
+
+  const loadConnectors = useCallback(
+    async (signal?: AbortSignal): Promise<Connector[]> => {
+      if (client === null) {
+        throw new ApiError("authentication", "Authentication failed.");
+      }
+      return (await client.listConnectors(signal)).items;
+    },
+    [client],
+  );
+
+  const loadConnectorAudit = useCallback(
+    async (signal?: AbortSignal): Promise<ConnectorExecution[]> => {
+      if (client === null) {
+        throw new ApiError("authentication", "Authentication failed.");
+      }
+      return (await client.listConnectorExecutions({ limit: 50, signal })).items;
+    },
+    [client],
+  );
+
+  const createConnector = useCallback(
+    (request: ConnectorWriteRequest): Promise<Connector> => {
+      if (client === null) {
+        return Promise.reject(new ApiError("authentication", "Authentication failed."));
+      }
+      return client.createConnector(request);
+    },
+    [client],
+  );
+
+  const checkConnectorHealth = useCallback(
+    (connectorId: string): Promise<ConnectorExecutionResult> => {
+      if (client === null) {
+        return Promise.reject(new ApiError("authentication", "Authentication failed."));
+      }
+      return client.checkConnectorHealth(connectorId);
+    },
+    [client],
+  );
+
+  const executeConnector = useCallback(
+    (
+      connectorId: string,
+      request: ConnectorExecutionRequest,
+    ): Promise<ConnectorExecutionResult> => {
+      if (client === null) {
+        return Promise.reject(new ApiError("authentication", "Authentication failed."));
+      }
+      return client.executeConnector(connectorId, request);
+    },
+    [client],
+  );
+
+  const revokeConnector = useCallback(
+    (connectorId: string): Promise<Connector> => {
+      if (client === null) {
+        return Promise.reject(new ApiError("authentication", "Authentication failed."));
+      }
+      return client.revokeConnector(connectorId);
+    },
+    [client],
+  );
+
   const setExternalAIEnabled = useCallback(
     (enabled: boolean): Promise<ExternalAISettings> => {
       if (client === null) {
@@ -1465,6 +1547,7 @@ export function App() {
       setToolsOpen(target === "tools" || target === "studio");
       setWorkflowsOpen(target === "workflows");
       setAgentsOpen(false);
+      setConnectorsOpen(false);
       setCatalogLayer(null);
     })
       .then((dispose) => {
@@ -1486,7 +1569,7 @@ export function App() {
         ? "mission_control"
         : memoryOpen
           ? "universal_workspace"
-          : toolsOpen
+          : toolsOpen || connectorsOpen
             ? "apps_hub"
             : "ai_presence");
 
@@ -1503,6 +1586,7 @@ export function App() {
     setToolsOpen(false);
     setMemoryOpen(false);
     setAgentsOpen(false);
+    setConnectorsOpen(false);
     setCatalogLayer(null);
   }
 
@@ -1517,6 +1601,11 @@ export function App() {
     closeProductPanels();
     if (feature.backend_capability === "bounded_tools") {
       setToolsOpen(true);
+    } else if (
+      feature.backend_capability === "connector_service" ||
+      feature.backend_capability === "external_connector"
+    ) {
+      setConnectorsOpen(true);
     } else if (feature.id.includes("memory") || feature.id.includes("knowledge_rag")) {
       setMemoryOpen(true);
     } else if (
@@ -1610,6 +1699,7 @@ export function App() {
               setToolsOpen(false);
               setMemoryOpen(false);
               setAgentsOpen(false);
+              setConnectorsOpen(false);
               setCatalogLayer(null);
             }}
           >
@@ -1626,6 +1716,7 @@ export function App() {
               setMemoryOpen(false);
               setSettingsOpen(false);
               setAgentsOpen(false);
+              setConnectorsOpen(false);
               setCatalogLayer(null);
             }}
           >
@@ -1642,6 +1733,7 @@ export function App() {
               setWorkflowsOpen(false);
               setSettingsOpen(false);
               setAgentsOpen(false);
+              setConnectorsOpen(false);
               setCatalogLayer(null);
             }}
           >
@@ -1658,6 +1750,7 @@ export function App() {
               setWorkflowsOpen(false);
               setSettingsOpen(false);
               setAgentsOpen(false);
+              setConnectorsOpen(false);
               setCatalogLayer(null);
             }}
           >
@@ -1674,10 +1767,28 @@ export function App() {
               setToolsOpen(false);
               setWorkflowsOpen(false);
               setSettingsOpen(false);
+              setConnectorsOpen(false);
               setCatalogLayer(null);
             }}
           >
             Agents
+          </button>
+          <button
+            type="button"
+            className="button button-secondary"
+            aria-expanded={connectorsOpen}
+            aria-controls="personal-connectors-panel"
+            onClick={() => {
+              setConnectorsOpen((current) => !current);
+              setAgentsOpen(false);
+              setMemoryOpen(false);
+              setToolsOpen(false);
+              setWorkflowsOpen(false);
+              setSettingsOpen(false);
+              setCatalogLayer(null);
+            }}
+          >
+            Connections
           </button>
           <ModelSelector
             models={models}
@@ -1736,6 +1847,20 @@ export function App() {
               onCancel={cancelAgentRun}
               onStreamEvents={streamAgentRunEvents}
               onPresenceStateChange={setAgentPresence}
+            />
+          </div>
+        )}
+        {connectorsOpen && (
+          <div id="personal-connectors-panel">
+            <ConnectorPanel
+              onClose={() => setConnectorsOpen(false)}
+              onLoadSettings={loadConnectorSettings}
+              onLoad={loadConnectors}
+              onLoadAudit={loadConnectorAudit}
+              onCreate={createConnector}
+              onHealth={checkConnectorHealth}
+              onExecute={executeConnector}
+              onRevoke={revokeConnector}
             />
           </div>
         )}

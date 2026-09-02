@@ -1,5 +1,7 @@
 import type {
   FeatureRegistry,
+  Connector,
+  ConnectorSettings,
   LocalModel,
   MemoryCategory,
   PersonalMemory,
@@ -79,6 +81,8 @@ export default function StudioScreen() {
   const [toolArguments, setToolArguments] = useState("{}");
   const [lastExecution, setLastExecution] = useState<ToolExecution | null>(null);
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
+  const [connectorSettings, setConnectorSettings] = useState<ConnectorSettings | null>(null);
+  const [connectors, setConnectors] = useState<Connector[]>([]);
   const [workflowName, setWorkflowName] = useState("");
   const [imageModelId, setImageModelId] = useState<string | null>(null);
   const [imagePrompt, setImagePrompt] = useState("");
@@ -141,7 +145,7 @@ export default function StudioScreen() {
     setBusyAction("Refreshing private studio");
     setNotice(null);
     try {
-      const [modelPage, conversationPage, memoryPage, setting, toolPage, executionPage, workflowPage, registry] =
+      const [modelPage, conversationPage, memoryPage, setting, toolPage, executionPage, workflowPage, registry, connectionSettings, connectorPage] =
         await Promise.all([
           client.listModels(),
           client.listConversations(),
@@ -151,6 +155,8 @@ export default function StudioScreen() {
           client.listToolExecutions({ limit: 10 }),
           client.listWorkflows({ limit: 20 }),
           client.getFeatureRegistry().catch(() => null),
+          client.getConnectorSettings().catch(() => null),
+          client.listConnectors().catch(() => ({ items: [] })),
         ]);
       setModels(modelPage.items);
       setConversationId((current) =>
@@ -169,6 +175,8 @@ export default function StudioScreen() {
       setLastExecution(executionPage.items[0] ?? null);
       setWorkflows(workflowPage.items);
       if (registry !== null) setFeatureRegistry(registry);
+      setConnectorSettings(connectionSettings);
+      setConnectors(connectorPage.items);
       for (const workflow of workflowPage.items) {
         if (workflow.status === "running") monitorWorkflow(workflow.id);
       }
@@ -348,6 +356,23 @@ export default function StudioScreen() {
     });
   }
 
+  async function checkConnector(connectorId: string) {
+    await perform("Checking connection", async (signal) => {
+      await connectedClient.checkConnectorHealth(connectorId, signal);
+      const page = await connectedClient.listConnectors(signal);
+      setConnectors(page.items);
+    });
+  }
+
+  async function revokeConnector(connectorId: string) {
+    await perform("Revoking connection", async (signal) => {
+      const revoked = await connectedClient.revokeConnector(connectorId, signal);
+      setConnectors((current) => current.map((item) =>
+        item.id === revoked.id ? revoked : item
+      ));
+    });
+  }
+
   async function showImage(assetId: string, signal: AbortSignal) {
     const cached = cachePrivateMedia(await connectedClient.downloadAsset(assetId, signal));
     replaceCache(imageCache, cached);
@@ -484,6 +509,39 @@ export default function StudioScreen() {
           </View>
         )}
         {notice !== null && <Text accessibilityRole="alert" style={styles.error}>{notice}</Text>}
+
+        <View style={styles.card}>
+          <Text style={styles.eyebrow}>CONNECTED APPS</Text>
+          <Text accessibilityRole="header" style={styles.heading}>Scoped connections</Text>
+          <Text style={styles.muted}>
+            Credentials stay encrypted and write-only on the workstation. Registration uses the protected desktop/web management surface.
+          </Text>
+          {connectorSettings?.configured !== true ? (
+            <Text style={styles.warning}>Connector runtime is not configured.</Text>
+          ) : connectorSettings.allowed_origins.length === 0 ? (
+            <Text style={styles.warning}>No network egress origin is operator-approved.</Text>
+          ) : connectors.length === 0 ? (
+            <Text style={styles.muted}>No owner connections registered.</Text>
+          ) : connectors.map((connector) => (
+            <View key={connector.id} style={styles.listItem}>
+              <View style={styles.titleGrow}>
+                <Text style={styles.itemLabel}>{connector.name}</Text>
+                <Text style={styles.detail}>
+                  {connector.kind.replaceAll("_", " ")} · {connector.connection_status.replaceAll("_", " ")} · {connector.scopes.join(", ")}
+                </Text>
+                <Text style={styles.detail}>{connector.base_url}</Text>
+              </View>
+              {connector.revoked_at === null && <View>
+                <Pressable accessibilityRole="button" style={styles.touchAction} onPress={() => void checkConnector(connector.id)}>
+                  <Text style={styles.link}>Health</Text>
+                </Pressable>
+                <Pressable accessibilityRole="button" style={styles.touchAction} onPress={() => void revokeConnector(connector.id)}>
+                  <Text style={styles.danger}>Revoke</Text>
+                </Pressable>
+              </View>}
+            </View>
+          ))}
+        </View>
 
         <View style={styles.card}>
           <View style={styles.cardTitleRow}>

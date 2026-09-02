@@ -44,6 +44,8 @@ mutation. It never repairs the artifact before scoring.
 - explicit conversation/project-like history and owner-controlled memory
 - capability-separated vision, image generation/editing and voice runtimes
 - fixed-registry tools and durable bounded workflows
+- owner-scoped REST, webhook, and loopback API connectors with exact egress,
+  path, permission, retry, rate, audit, and revocation policy
 - normalized hardware discovery, GPU-upgrade fingerprints and simulations
 - verified backup/restore, staged self-update checkpoints and atomic rollback
 - authenticated diagnostics for hardware, models/routes, provider cost/health,
@@ -84,23 +86,31 @@ complete-category benchmark record exactly matches the model policy. Provider
 keys are XChaCha20-Poly1305 encrypted, write-only through clients, excluded from
 prompts and responses, and never accepted through a custom provider URL.
 
+Connected applications use a separate policy boundary. Operator-owned exact
+origins constrain egress; owners then constrain scopes and path prefixes.
+Connector credentials use a distinct owner-only key outside PostgreSQL and are
+never returned by the API. See `CONNECTORS.md`. A generic connector does not
+promote any email, calendar, CRM, social, OAuth, or other provider-specific
+feature beyond its truthful registry status.
+
 ## Verified production evidence (2026-09-02)
 
 The final local release matrix passed with the production runtime enabled and
 with native Android and desktop-launch gates required. Measured results were:
 
-- backend: 2,846 passed, 36 skipped
-- web: 158 tests passed; mobile: 53 tests passed
+- backend: 2,868 passed, 39 skipped
+- web: 171 tests passed; mobile: 57 tests passed
 - Android: Expo Doctor 21/21, a 338-task debug gate, and a 532-task optimized
   owner-sideload APK build; package identity, signing, alignment and artifact
   safety passed
-- PostgreSQL integration: 36 tests passed
+- PostgreSQL integration: 39 tests passed with migration `0013` and no schema drift
 - browser/PWA install, authenticated feature registry, chat, cache isolation and
   logout: passed
 - desktop: Rust tests, production binary, AppImage and DEB packaging, plus live
   production-binary and AppImage launch checks passed
 - real vision, RAG, memory, FLUX.2 image generation/editing/inpainting, voice,
-  tools and workflows: passed
+  Agent OS, an encrypted owner-scoped local API connector, tools and workflows:
+  passed
 - canonical quality benchmark: 459 tests, 97.88/100, 457 PASS, 1 PARTIAL,
   1 FAIL, safety 100%, hallucination 0%, executable code 24/24
 - massive stability run: 10,000/10,000 passed

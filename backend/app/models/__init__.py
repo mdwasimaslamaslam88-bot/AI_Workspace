@@ -5,6 +5,15 @@ Import future modules that define mapped ``Base`` subclasses here.
 
 from app.models.asset import Asset, AssetProvenanceKind
 from app.models.conversation import Conversation
+from app.models.connector import (
+    Connector,
+    ConnectorAction,
+    ConnectorAuthKind,
+    ConnectorExecution,
+    ConnectorExecutionStatus,
+    ConnectorHealthStatus,
+    ConnectorKind,
+)
 from app.models.document import Document, DocumentChunk, DocumentStatus
 from app.models.message import Message, MessageRole
 from app.models.message_asset import MessageAsset
@@ -19,6 +28,13 @@ __all__ = [
     "Asset",
     "AssetProvenanceKind",
     "Conversation",
+    "Connector",
+    "ConnectorAction",
+    "ConnectorAuthKind",
+    "ConnectorExecution",
+    "ConnectorExecutionStatus",
+    "ConnectorHealthStatus",
+    "ConnectorKind",
     "Document",
     "DocumentChunk",
     "DocumentStatus",

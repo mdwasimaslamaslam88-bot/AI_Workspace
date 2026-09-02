@@ -152,6 +152,8 @@ def _inspect_schema(connection) -> dict:
         "tool_execution_foreign_keys": inspector.get_foreign_keys("tool_executions"),
         "workflow_foreign_keys": inspector.get_foreign_keys("workflows"),
         "workflow_step_foreign_keys": inspector.get_foreign_keys("workflow_steps"),
+        "connector_foreign_keys": inspector.get_foreign_keys("connectors"),
+        "connector_execution_foreign_keys": inspector.get_foreign_keys("connector_executions"),
         "conversation_indexes": inspector.get_indexes("conversations"),
         "user_session_indexes": inspector.get_indexes("user_sessions"),
         "asset_indexes": inspector.get_indexes("assets"),
@@ -161,6 +163,8 @@ def _inspect_schema(connection) -> dict:
         "tool_execution_indexes": inspector.get_indexes("tool_executions"),
         "workflow_indexes": inspector.get_indexes("workflows"),
         "workflow_step_indexes": inspector.get_indexes("workflow_steps"),
+        "connector_indexes": inspector.get_indexes("connectors"),
+        "connector_execution_indexes": inspector.get_indexes("connector_executions"),
         "conversation_checks": inspector.get_check_constraints("conversations"),
         "user_session_checks": inspector.get_check_constraints("user_sessions"),
         "message_checks": inspector.get_check_constraints("messages"),
@@ -173,6 +177,8 @@ def _inspect_schema(connection) -> dict:
         "tool_execution_checks": inspector.get_check_constraints("tool_executions"),
         "workflow_checks": inspector.get_check_constraints("workflows"),
         "workflow_step_checks": inspector.get_check_constraints("workflow_steps"),
+        "connector_checks": inspector.get_check_constraints("connectors"),
+        "connector_execution_checks": inspector.get_check_constraints("connector_executions"),
         "user_uniques": inspector.get_unique_constraints("users"),
         "user_session_uniques": inspector.get_unique_constraints("user_sessions"),
         "message_uniques": inspector.get_unique_constraints("messages"),
@@ -183,6 +189,7 @@ def _inspect_schema(connection) -> dict:
         "message_citation_uniques": inspector.get_unique_constraints("message_citations"),
         "workflow_step_uniques": inspector.get_unique_constraints("workflow_steps"),
         "workflow_uniques": inspector.get_unique_constraints("workflows"),
+        "connector_uniques": inspector.get_unique_constraints("connectors"),
         "columns": {
             table_name: inspector.get_columns(table_name)
             for table_name in (
@@ -200,6 +207,8 @@ def _inspect_schema(connection) -> dict:
                 "tool_executions",
                 "workflows",
                 "workflow_steps",
+                "connectors",
+                "connector_executions",
             )
         },
     }
@@ -259,6 +268,8 @@ async def test_migration_creates_exact_expected_postgresql_schema(
         "tool_executions",
         "workflows",
         "workflow_steps",
+        "connectors",
+        "connector_executions",
     }
 
     owner_fk = _foreign_key(
@@ -659,6 +670,118 @@ async def test_migration_creates_exact_expected_postgresql_schema(
     _assert_required_uuid(workflow_steps["workflow_id"])
     _assert_required_uuid(workflow_steps["owner_id"])
     _assert_required_timestamp(workflow_steps["created_at"])
+
+    connector_checks = _checks_by_name(snapshot["connector_checks"])
+    assert set(connector_checks) == {
+        "ck_connectors_auth_kind_allowed",
+        "ck_connectors_base_url_bounded",
+        "ck_connectors_credential_state_consistent",
+        "ck_connectors_health_path_bounded",
+        "ck_connectors_health_state_consistent",
+        "ck_connectors_health_status_allowed",
+        "ck_connectors_kind_allowed",
+        "ck_connectors_max_retries_bounded",
+        "ck_connectors_name_bounded_nonblank",
+        "ck_connectors_path_prefixes_json_bounded",
+        "ck_connectors_rate_limit_bounded",
+        "ck_connectors_revocation_state_consistent",
+        "ck_connectors_scopes_json_bounded",
+        "ck_connectors_timeout_seconds_bounded",
+    }
+    connector_execution_checks = _checks_by_name(
+        snapshot["connector_execution_checks"]
+    )
+    assert set(connector_execution_checks) == {
+        "ck_connector_executions_action_allowed",
+        "ck_connector_executions_attempts_bounded",
+        "ck_connector_executions_duration_nonnegative",
+        "ck_connector_executions_error_code_allowed",
+        "ck_connector_executions_method_allowed",
+        "ck_connector_executions_path_bounded",
+        "ck_connector_executions_request_hash_valid",
+        "ck_connector_executions_response_bytes_bounded",
+        "ck_connector_executions_response_hash_valid",
+        "ck_connector_executions_response_status_bounded",
+        "ck_connector_executions_status_allowed",
+        "ck_connector_executions_terminal_state_consistent",
+    }
+    assert {
+        item["name"]
+        for item in snapshot["connector_indexes"]
+        if item.get("duplicates_constraint") is None
+    } == {"ix_connectors_owner_created_at", "ix_connectors_owner_enabled"}
+    assert {
+        item["name"]
+        for item in snapshot["connector_execution_indexes"]
+        if item.get("duplicates_constraint") is None
+    } == {
+        "ix_connector_executions_owner_started_at",
+        "ix_connector_executions_connector_started_at",
+    }
+    assert {item["name"] for item in snapshot["connector_uniques"]} == {
+        "uq_connectors_id_owner"
+    }
+    assert _foreign_key(
+        snapshot,
+        "connector",
+        "fk_connectors_owner_id_users",
+    )["options"]["ondelete"] == "CASCADE"
+    connector_owner_fk = _foreign_key(
+        snapshot,
+        "connector_execution",
+        "fk_connector_executions_connector_owner_connectors",
+    )
+    assert connector_owner_fk["constrained_columns"] == ["connector_id", "owner_id"]
+    assert connector_owner_fk["referred_columns"] == ["id", "owner_id"]
+    assert connector_owner_fk["options"]["ondelete"] == "CASCADE"
+    connectors = _columns_by_name(snapshot, "connectors")
+    assert set(connectors) == {
+        "id",
+        "owner_id",
+        "name",
+        "kind",
+        "base_url",
+        "auth_kind",
+        "credential_ciphertext",
+        "scopes_json",
+        "path_prefixes_json",
+        "health_path",
+        "enabled",
+        "timeout_seconds",
+        "max_retries",
+        "rate_limit_requests_per_minute",
+        "health_status",
+        "last_health_checked_at",
+        "created_at",
+        "updated_at",
+        "revoked_at",
+    }
+    _assert_required_uuid(connectors["id"])
+    _assert_required_uuid(connectors["owner_id"])
+    _assert_required_timestamp(connectors["created_at"])
+    _assert_required_timestamp(connectors["updated_at"])
+    connector_executions = _columns_by_name(snapshot, "connector_executions")
+    assert set(connector_executions) == {
+        "id",
+        "connector_id",
+        "owner_id",
+        "action",
+        "method",
+        "path",
+        "status",
+        "attempts",
+        "response_status_code",
+        "request_body_sha256",
+        "response_body_sha256",
+        "response_bytes",
+        "error_code",
+        "started_at",
+        "completed_at",
+        "duration_ms",
+    }
+    _assert_required_uuid(connector_executions["id"])
+    _assert_required_uuid(connector_executions["connector_id"])
+    _assert_required_uuid(connector_executions["owner_id"])
 
     users = _columns_by_name(snapshot, "users")
     assert set(users) == {

@@ -18,6 +18,13 @@ import {
   type ConversationSummary,
   type ConversationTextGenerationRequest,
   type ConversationTextGenerationResponse,
+  type Connector,
+  type ConnectorExecutionPage,
+  type ConnectorExecutionRequest,
+  type ConnectorExecutionResult,
+  type ConnectorPage,
+  type ConnectorSettings,
+  type ConnectorWriteRequest,
   type CurrentUser,
   type ExternalAISettings,
   type ExternalProviderUpsertRequest,
@@ -62,6 +69,11 @@ import {
   parseConversation,
   parseConversationCreateResponse,
   parseConversationPage,
+  parseConnector,
+  parseConnectorExecutionPage,
+  parseConnectorExecutionResult,
+  parseConnectorPage,
+  parseConnectorSettings,
   parseCurrentUser,
   parseExternalAISettings,
   parseFeatureRegistry,
@@ -449,6 +461,87 @@ export class ApiClient {
     return this.#request("api/v1/external-ai/settings", {
       signal,
       decode: parseExternalAISettings,
+    });
+  }
+
+  getConnectorSettings(signal?: AbortSignal): Promise<ConnectorSettings> {
+    return this.#request("api/v1/connectors/settings", {
+      signal,
+      decode: parseConnectorSettings,
+    });
+  }
+
+  listConnectors(signal?: AbortSignal): Promise<ConnectorPage> {
+    return this.#request("api/v1/connectors", {
+      signal,
+      decode: parseConnectorPage,
+    });
+  }
+
+  createConnector(
+    request: ConnectorWriteRequest,
+    signal?: AbortSignal,
+  ): Promise<Connector> {
+    return this.#request("api/v1/connectors", {
+      method: "POST",
+      body: request,
+      signal,
+      decode: parseConnector,
+    });
+  }
+
+  updateConnector(
+    connectorId: string,
+    request: ConnectorWriteRequest,
+    signal?: AbortSignal,
+  ): Promise<Connector> {
+    return this.#request(`api/v1/connectors/${encodeURIComponent(connectorId)}`, {
+      method: "PUT",
+      body: request,
+      signal,
+      decode: parseConnector,
+    });
+  }
+
+  revokeConnector(connectorId: string, signal?: AbortSignal): Promise<Connector> {
+    return this.#request(`api/v1/connectors/${encodeURIComponent(connectorId)}`, {
+      method: "DELETE",
+      signal,
+      decode: parseConnector,
+    });
+  }
+
+  checkConnectorHealth(
+    connectorId: string,
+    signal?: AbortSignal,
+  ): Promise<ConnectorExecutionResult> {
+    return this.#request(
+      `api/v1/connectors/${encodeURIComponent(connectorId)}/health`,
+      { method: "POST", signal, decode: parseConnectorExecutionResult },
+    );
+  }
+
+  executeConnector(
+    connectorId: string,
+    request: ConnectorExecutionRequest,
+    signal?: AbortSignal,
+  ): Promise<ConnectorExecutionResult> {
+    return this.#request(
+      `api/v1/connectors/${encodeURIComponent(connectorId)}/executions`,
+      { method: "POST", body: request, signal, decode: parseConnectorExecutionResult },
+    );
+  }
+
+  listConnectorExecutions(
+    options: { connectorId?: string; limit?: number; signal?: AbortSignal } = {},
+  ): Promise<ConnectorExecutionPage> {
+    const query = new URLSearchParams();
+    if (options.connectorId !== undefined) query.set("connector_id", options.connectorId);
+    if (options.limit !== undefined) query.set("limit", String(options.limit));
+    const suffix = query.size === 0 ? "" : `?${query.toString()}`;
+    return this.#request(`api/v1/connectors/executions${suffix}`, {
+      signal: options.signal,
+      decode: parseConnectorExecutionPage,
     });
   }
 

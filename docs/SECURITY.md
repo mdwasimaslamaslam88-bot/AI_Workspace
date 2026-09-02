@@ -92,6 +92,16 @@ environment variables are disabled, and keys never enter prompts. External
 model admission requires a content-addressed registered complete-category
 benchmark record that exactly matches policy metrics.
 
+Connected-app credentials use a separate owner-only state root and encryption
+key outside PostgreSQL. An operator must allowlist each exact credential-free
+origin; non-loopback origins require HTTPS. The owner separately grants read or
+write scope and one or more bounded path prefixes. Connector HTTP disables
+redirects and environment proxy discovery, bounds JSON bodies and responses,
+and retries only reads or explicitly idempotent actions. Revocation deletes the
+credential ciphertext. Connector audit rows retain status, timing, sizes, and
+content hashes—not headers, credentials, or payload bodies. Database composite
+ownership constraints backstop API owner filtering.
+
 The process retains at most 512 metadata-only containment events for repeated
 authentication failure, rate limiting, oversized bodies and unexpected error
 containment. Authenticated diagnostics return only event kind and timestamp;

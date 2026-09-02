@@ -617,6 +617,97 @@ export interface ExternalProviderUpsertRequest {
   models?: ExternalModelPolicyRequest[];
 }
 
+export type ConnectorKind = "rest" | "webhook" | "local_api";
+export type ConnectorAuthKind = "none" | "bearer" | "api_key" | "oauth2_bearer";
+export type ConnectorConnectionStatus =
+  | "revoked"
+  | "disabled"
+  | "ready"
+  | "healthy"
+  | "unavailable";
+export type ConnectorExecutionStatus =
+  | "completed"
+  | "failed"
+  | "timed_out"
+  | "rate_limited";
+
+export interface ConnectorSettings {
+  configured: boolean;
+  allowed_origins: string[];
+  supported_kinds: ConnectorKind[];
+  supported_auth_kinds: ConnectorAuthKind[];
+}
+
+export interface Connector {
+  id: UUID;
+  name: string;
+  kind: ConnectorKind;
+  base_url: string;
+  auth_kind: ConnectorAuthKind;
+  credential_configured: boolean;
+  scopes: Array<"read" | "write">;
+  path_prefixes: string[];
+  health_path: string;
+  enabled: boolean;
+  connection_status: ConnectorConnectionStatus;
+  timeout_seconds: number;
+  max_retries: number;
+  rate_limit_requests_per_minute: number;
+  last_health_checked_at: Timestamp | null;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+  revoked_at: Timestamp | null;
+}
+
+export interface ConnectorPage { items: Connector[]; }
+
+export interface ConnectorWriteRequest {
+  name: string;
+  kind: ConnectorKind;
+  base_url: string;
+  auth_kind: ConnectorAuthKind;
+  credential?: string;
+  scopes: Array<"read" | "write">;
+  path_prefixes: string[];
+  health_path: string;
+  enabled: boolean;
+  timeout_seconds?: number;
+  max_retries?: number;
+  rate_limit_requests_per_minute?: number;
+}
+
+export interface ConnectorExecutionRequest {
+  method: "GET" | "HEAD" | "POST" | "PUT" | "PATCH" | "DELETE";
+  path: string;
+  json_body?: JsonValue;
+  idempotency_key?: string;
+}
+
+export interface ConnectorExecution {
+  id: UUID;
+  connector_id: UUID;
+  action: "execute" | "health";
+  method: string;
+  path: string;
+  status: ConnectorExecutionStatus;
+  attempts: number;
+  response_status_code: number | null;
+  request_body_sha256: string | null;
+  response_body_sha256: string | null;
+  response_bytes: number | null;
+  error_code: string | null;
+  started_at: Timestamp;
+  completed_at: Timestamp;
+  duration_ms: number;
+}
+
+export interface ConnectorExecutionResult {
+  execution: ConnectorExecution;
+  payload: JsonValue;
+}
+
+export interface ConnectorExecutionPage { items: ConnectorExecution[]; }
+
 export type SelfUpdateState =
   | "idle"
   | "validating"
@@ -1053,6 +1144,10 @@ const agentRuntimeStatuses = [
   "timed_out",
 ] as const;
 const agentInputSources = ["text", "voice"] as const;
+const connectorKinds = ["rest", "webhook", "local_api"] as const;
+const connectorAuthKinds = ["none", "bearer", "api_key", "oauth2_bearer"] as const;
+const connectorConnectionStatuses = ["revoked", "disabled", "ready", "healthy", "unavailable"] as const;
+const connectorExecutionStatuses = ["completed", "failed", "timed_out", "rate_limited"] as const;
 const securityEventKinds = [
   "authentication_failure",
   "rate_limit_containment",
@@ -1585,6 +1680,131 @@ export function parseExternalAISettings(value: unknown): ExternalAISettings {
     providers,
     supported_provider_kinds: supportedKinds,
   };
+}
+
+export function parseConnectorSettings(value: unknown): ConnectorSettings {
+  const item = record(value);
+  if (
+    !Array.isArray(item.allowed_origins) || item.allowed_origins.length > 64 ||
+    !Array.isArray(item.supported_kinds) || item.supported_kinds.length !== connectorKinds.length ||
+    !Array.isArray(item.supported_auth_kinds) || item.supported_auth_kinds.length !== connectorAuthKinds.length
+  ) return invalidResponse();
+  const allowedOrigins = item.allowed_origins.map(stringField);
+  const supportedKinds = item.supported_kinds.map((kind) => enumField(kind, connectorKinds));
+  const supportedAuthKinds = item.supported_auth_kinds.map((kind) => enumField(kind, connectorAuthKinds));
+  if (
+    new Set(allowedOrigins).size !== allowedOrigins.length ||
+    new Set(supportedKinds).size !== connectorKinds.length ||
+    new Set(supportedAuthKinds).size !== connectorAuthKinds.length
+  ) return invalidResponse();
+  return {
+    configured: booleanField(item.configured),
+    allowed_origins: allowedOrigins,
+    supported_kinds: supportedKinds,
+    supported_auth_kinds: supportedAuthKinds,
+  };
+}
+
+export function parseConnector(value: unknown): Connector {
+  const item = record(value);
+  if (
+    !Array.isArray(item.scopes) || item.scopes.length < 1 || item.scopes.length > 2 ||
+    !Array.isArray(item.path_prefixes) || item.path_prefixes.length < 1 || item.path_prefixes.length > 16
+  ) return invalidResponse();
+  const scopes = item.scopes.map((scope) => enumField(scope, ["read", "write"] as const));
+  const pathPrefixes = item.path_prefixes.map(stringField);
+  const timeout = integerOrNull(item.timeout_seconds);
+  const retries = integerOrNull(item.max_retries);
+  const rateLimit = integerOrNull(item.rate_limit_requests_per_minute);
+  if (
+    new Set(scopes).size !== scopes.length ||
+    new Set(pathPrefixes).size !== pathPrefixes.length ||
+    timeout === null || timeout < 1 || timeout > 10 ||
+    retries === null || retries < 0 || retries > 2 ||
+    rateLimit === null || rateLimit < 1 || rateLimit > 600
+  ) return invalidResponse();
+  return {
+    id: stringField(item.id),
+    name: stringField(item.name),
+    kind: enumField(item.kind, connectorKinds),
+    base_url: stringField(item.base_url),
+    auth_kind: enumField(item.auth_kind, connectorAuthKinds),
+    credential_configured: booleanField(item.credential_configured),
+    scopes,
+    path_prefixes: pathPrefixes,
+    health_path: stringField(item.health_path),
+    enabled: booleanField(item.enabled),
+    connection_status: enumField(item.connection_status, connectorConnectionStatuses),
+    timeout_seconds: timeout,
+    max_retries: retries,
+    rate_limit_requests_per_minute: rateLimit,
+    last_health_checked_at: nullableString(item.last_health_checked_at),
+    created_at: stringField(item.created_at),
+    updated_at: stringField(item.updated_at),
+    revoked_at: nullableString(item.revoked_at),
+  };
+}
+
+export function parseConnectorPage(value: unknown): ConnectorPage {
+  const item = record(value);
+  if (!Array.isArray(item.items) || item.items.length > 100) return invalidResponse();
+  return { items: item.items.map(parseConnector) };
+}
+
+export function parseConnectorExecution(value: unknown): ConnectorExecution {
+  const item = record(value);
+  const status = enumField(item.status, connectorExecutionStatuses);
+  const attempts = integerOrNull(item.attempts);
+  const responseStatus = integerOrNull(item.response_status_code);
+  const responseBytes = integerOrNull(item.response_bytes);
+  const duration = integerOrNull(item.duration_ms);
+  const requestHash = nullableString(item.request_body_sha256);
+  const responseHash = nullableString(item.response_body_sha256);
+  const errorCode = nullableString(item.error_code);
+  if (
+    attempts === null || attempts < 0 || attempts > 3 ||
+    (responseStatus !== null && (responseStatus < 100 || responseStatus > 599)) ||
+    (responseBytes !== null && (responseBytes < 0 || responseBytes > 262_144)) ||
+    duration === null || duration < 0 ||
+    (requestHash !== null && !/^[a-f0-9]{64}$/.test(requestHash)) ||
+    (responseHash !== null && !/^[a-f0-9]{64}$/.test(responseHash)) ||
+    (status === "completed" && (
+      responseStatus === null || responseStatus < 200 || responseStatus > 299 ||
+      responseHash === null || responseBytes === null || errorCode !== null
+    )) ||
+    (status !== "completed" && errorCode === null)
+  ) return invalidResponse();
+  return {
+    id: stringField(item.id),
+    connector_id: stringField(item.connector_id),
+    action: enumField(item.action, ["execute", "health"] as const),
+    method: enumField(item.method, ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"] as const),
+    path: stringField(item.path),
+    status,
+    attempts,
+    response_status_code: responseStatus,
+    request_body_sha256: requestHash,
+    response_body_sha256: responseHash,
+    response_bytes: responseBytes,
+    error_code: errorCode,
+    started_at: stringField(item.started_at),
+    completed_at: stringField(item.completed_at),
+    duration_ms: duration,
+  };
+}
+
+export function parseConnectorExecutionResult(value: unknown): ConnectorExecutionResult {
+  const item = record(value);
+  return {
+    execution: parseConnectorExecution(item.execution),
+    payload: jsonValue(item.payload),
+  };
+}
+
+export function parseConnectorExecutionPage(value: unknown): ConnectorExecutionPage {
+  const item = record(value);
+  if (!Array.isArray(item.items) || item.items.length > 100) return invalidResponse();
+  return { items: item.items.map(parseConnectorExecution) };
 }
 
 export function parseSelfUpdateStatus(value: unknown): SelfUpdateStatus {

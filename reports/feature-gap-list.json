@@ -1003,7 +1003,7 @@
     }
   ],
   "product": "AI OS",
-  "registry_sha256": "3b2418fe7591c075682b7331e34428711daac23594aca97d946c6decd7f07574",
+  "registry_sha256": "e9ec99386a8ae7adaeebfdab65bf0f4dd9a7bf9d52acc743826cb789fdc8cfcf",
   "schema_version": 1,
   "summary": {
     "broken_registry_wiring": 0,

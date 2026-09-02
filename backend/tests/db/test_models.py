@@ -21,6 +21,8 @@ import app.models  # noqa: F401  # Populate the model registry.
 from app.db.base import Base
 from app.models import (
     Asset,
+    Connector,
+    ConnectorExecution,
     Conversation,
     Document,
     DocumentChunk,
@@ -49,6 +51,8 @@ EXPECTED_TABLES = {
     "conversations",
     "messages",
     "assets",
+    "connectors",
+    "connector_executions",
     "message_assets",
     "documents",
     "document_chunks",
@@ -100,6 +104,8 @@ def test_model_registry_contains_only_the_approved_domain_tables():
     assert Conversation.__table__ is Base.metadata.tables["conversations"]
     assert Message.__table__ is Base.metadata.tables["messages"]
     assert Asset.__table__ is Base.metadata.tables["assets"]
+    assert Connector.__table__ is Base.metadata.tables["connectors"]
+    assert ConnectorExecution.__table__ is Base.metadata.tables["connector_executions"]
     assert MessageAsset.__table__ is Base.metadata.tables["message_assets"]
     assert Document.__table__ is Base.metadata.tables["documents"]
     assert DocumentChunk.__table__ is Base.metadata.tables["document_chunks"]

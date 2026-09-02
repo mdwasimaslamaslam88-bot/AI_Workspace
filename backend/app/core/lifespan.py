@@ -28,6 +28,7 @@ from app.clients.ollama import close_ollama, create_ollama_client
 from app.clients.postgres import create_postgres_engine, dispose_postgres
 from app.clients.redis import close_redis, create_redis_client
 from app.core.config import Settings, settings
+from app.connectors import ConnectorCredentialBox, ConnectorRuntime
 from app.db.session import create_session_factory
 from app.hardware import HardwareCapabilityService, detect_hardware
 from app.hardware.planner import GIBIBYTE
@@ -359,6 +360,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             )
             app.state.external_ai_service = external_ai_service
             resource_stack.push_async_callback(external_ai_service.close)
+        app.state.connector_runtime = None
+        if settings.CONNECTOR_STATE_ROOT is not None:
+            connector_runtime = ConnectorRuntime(
+                ConnectorCredentialBox(settings.CONNECTOR_STATE_ROOT),
+                tuple(settings.CONNECTOR_ALLOWED_ORIGINS),
+                ConnectorRuntime.create_client(),
+            )
+            app.state.connector_runtime = connector_runtime
+            resource_stack.push_async_callback(connector_runtime.close)
         app.state.self_update_manager = (
             SelfUpdateManager(
                 Path(__file__).resolve().parents[3],

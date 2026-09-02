@@ -366,6 +366,96 @@ describe("mobile API client", () => {
     ]);
   });
 
+  it("manages scoped connector health, actions, audit, and revocation", async () => {
+    const connector = {
+      id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+      name: "Private API",
+      kind: "rest",
+      base_url: "https://api.example.test",
+      auth_kind: "none",
+      credential_configured: false,
+      scopes: ["read", "write"],
+      path_prefixes: ["/v1/"],
+      health_path: "/v1/health",
+      enabled: true,
+      connection_status: "ready",
+      timeout_seconds: 5,
+      max_retries: 1,
+      rate_limit_requests_per_minute: 30,
+      last_health_checked_at: null,
+      created_at: timestamp,
+      updated_at: timestamp,
+      revoked_at: null,
+    };
+    const execution = {
+      id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+      connector_id: connector.id,
+      action: "execute",
+      method: "POST",
+      path: "/v1/actions",
+      status: "completed",
+      attempts: 1,
+      response_status_code: 200,
+      request_body_sha256: "a".repeat(64),
+      response_body_sha256: "b".repeat(64),
+      response_bytes: 2,
+      error_code: null,
+      started_at: timestamp,
+      completed_at: timestamp,
+      duration_ms: 3,
+    };
+    const calls: Array<{ path: string; method: string; body: unknown }> = [];
+    const fetchMock = vi.fn(async (input: URL | RequestInfo, init?: RequestInit) => {
+      const url = new URL(input.toString());
+      calls.push({
+        path: `${url.pathname}${url.search}`,
+        method: init?.method ?? "GET",
+        body: init?.body === undefined ? undefined : JSON.parse(String(init.body)),
+      });
+      if (url.pathname.endsWith("/settings")) return new Response(JSON.stringify({
+        configured: true,
+        allowed_origins: [connector.base_url],
+        supported_kinds: ["rest", "webhook", "local_api"],
+        supported_auth_kinds: ["none", "bearer", "api_key", "oauth2_bearer"],
+      }));
+      if (url.pathname.endsWith("/executions") && (init?.method ?? "GET") === "GET") {
+        return new Response(JSON.stringify({ items: [execution] }));
+      }
+      if (url.pathname.endsWith("/connectors")) {
+        return new Response(JSON.stringify({ items: [connector] }));
+      }
+      if (url.pathname.endsWith("/health")) {
+        return new Response(JSON.stringify({ execution: { ...execution, action: "health", method: "GET", path: "/v1/health", request_body_sha256: null }, payload: { healthy: true } }));
+      }
+      if (url.pathname.endsWith("/executions")) {
+        return new Response(JSON.stringify({ execution, payload: {} }), { status: 201 });
+      }
+      return new Response(JSON.stringify({ ...connector, enabled: false, connection_status: "revoked", revoked_at: timestamp }));
+    });
+    const client = new MobileApiClient("mobile-session", {
+      baseUrl: "https://work-station.example.ts.net",
+      fetchImplementation: fetchMock,
+    });
+
+    await client.getConnectorSettings();
+    await client.listConnectors();
+    await client.checkConnectorHealth(connector.id);
+    await client.executeConnector(connector.id, {
+      method: "POST", path: "/v1/actions", json_body: {},
+    });
+    await client.listConnectorExecutions({ connectorId: connector.id, limit: 10 });
+    await client.revokeConnector(connector.id);
+
+    expect(calls).toEqual([
+      { path: "/api/v1/connectors/settings", method: "GET", body: undefined },
+      { path: "/api/v1/connectors", method: "GET", body: undefined },
+      { path: `/api/v1/connectors/${connector.id}/health`, method: "POST", body: undefined },
+      { path: `/api/v1/connectors/${connector.id}/executions`, method: "POST", body: { method: "POST", path: "/v1/actions", json_body: {} } },
+      { path: `/api/v1/connectors/executions?connector_id=${connector.id}&limit=10`, method: "GET", body: undefined },
+      { path: `/api/v1/connectors/${connector.id}`, method: "DELETE", body: undefined },
+    ]);
+  });
+
   it("manages owner device sessions through shared contracts", async () => {
     const issuedToken = "q".repeat(43);
     const accessSession = {
