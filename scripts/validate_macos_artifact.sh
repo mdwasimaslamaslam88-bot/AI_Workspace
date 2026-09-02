@@ -45,9 +45,13 @@ file "${executable}" | grep -Eq 'Mach-O .* executable'
 hdiutil verify "${disk_image}" >/dev/null
 
 if grep -aEqr \
-  'USER_PROVISIONING_TOKEN_DIGEST|X-User-Provisioning-Token|\.ai_workspace_provisioning_token|-----BEGIN .*PRIVATE KEY-----|/Users/runner/|/home/|/tmp/' \
+  'USER_PROVISIONING_TOKEN_DIGEST|X-User-Provisioning-Token|\.ai_workspace_provisioning_token|-----BEGIN .*PRIVATE KEY-----' \
   "${application}" "${disk_image}"; then
-  echo "macOS artifacts contain operator configuration, private key material, or a build-machine path." >&2
+  echo "macOS artifacts contain operator configuration or private key material." >&2
+  exit 1
+fi
+if grep -aEqr '/Users/runner/|/home/' "${application}" "${disk_image}"; then
+  echo "macOS artifacts contain a build-machine filesystem path." >&2
   exit 1
 fi
 

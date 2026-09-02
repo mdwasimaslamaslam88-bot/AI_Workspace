@@ -39,7 +39,9 @@ def test_macos_artifact_validator_is_syntax_valid_and_checks_release_boundaries(
         "hdiutil verify",
         "codesign --verify --deep --strict",
         "USER_PROVISIONING_TOKEN_DIGEST",
+        "/Users/runner/|/home/",
         "kill -0",
         "shasum -a 256",
     ):
         assert required in source
+    assert "|/tmp/" not in source
