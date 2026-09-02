@@ -25,6 +25,11 @@ import {
   type ConnectorPage,
   type ConnectorSettings,
   type ConnectorWriteRequest,
+  type CreativeCapabilities,
+  type CreativeExperience,
+  type CreativeExperienceCreateRequest,
+  type CreativeExperiencePage,
+  type CreativeTurnCreateRequest,
   type CurrentUser,
   type ExternalAISettings,
   type ExternalProviderUpsertRequest,
@@ -104,6 +109,9 @@ import {
   parseConnectorExecutionResult,
   parseConnectorPage,
   parseConnectorSettings,
+  parseCreativeCapabilities,
+  parseCreativeExperience,
+  parseCreativeExperiencePage,
   parseCurrentUser,
   parseExternalAISettings,
   parseFeatureRegistry,
@@ -827,6 +835,49 @@ export class ApiClient {
   ): Promise<LearningReviewItem> {
     return this.#request(`api/v1/learning/programs/${encodeURIComponent(programId)}/review-items/${encodeURIComponent(itemId)}/reviews`, {
       method: "POST", body: request, signal, decode: parseLearningReviewItem,
+    });
+  }
+
+  getCreativeCapabilities(signal?: AbortSignal): Promise<CreativeCapabilities> {
+    return this.#request("api/v1/creative/capabilities", {
+      signal, decode: parseCreativeCapabilities,
+    });
+  }
+
+  listCreativeExperiences(signal?: AbortSignal): Promise<CreativeExperiencePage> {
+    return this.#request("api/v1/creative/experiences", {
+      signal, decode: parseCreativeExperiencePage,
+    });
+  }
+
+  createCreativeExperience(
+    request: CreativeExperienceCreateRequest,
+    signal?: AbortSignal,
+  ): Promise<CreativeExperience> {
+    return this.#request("api/v1/creative/experiences", {
+      method: "POST", body: request, signal, decode: parseCreativeExperience,
+    });
+  }
+
+  getCreativeExperience(id: string, signal?: AbortSignal): Promise<CreativeExperience> {
+    return this.#request(`api/v1/creative/experiences/${encodeURIComponent(id)}`, {
+      signal, decode: parseCreativeExperience,
+    });
+  }
+
+  addCreativeTurn(
+    id: string,
+    request: CreativeTurnCreateRequest,
+    signal?: AbortSignal,
+  ): Promise<CreativeExperience> {
+    return this.#request(`api/v1/creative/experiences/${encodeURIComponent(id)}/turns`, {
+      method: "POST", body: request, signal, decode: parseCreativeExperience,
+    });
+  }
+
+  completeCreativeExperience(id: string, signal?: AbortSignal): Promise<CreativeExperience> {
+    return this.#request(`api/v1/creative/experiences/${encodeURIComponent(id)}/complete`, {
+      method: "POST", signal, decode: parseCreativeExperience,
     });
   }
 

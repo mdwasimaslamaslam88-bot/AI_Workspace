@@ -827,7 +827,7 @@
     },
     {
       "backend_state": "bound",
-      "category": "Media workspaces",
+      "category": "Local media runtimes",
       "code": "runtime_readiness",
       "dependencies": [
         "verified_capability_model",
@@ -842,37 +842,7 @@
     },
     {
       "backend_state": "bound",
-      "category": "Media workspaces",
-      "code": "runtime_readiness",
-      "dependencies": [
-        "verified_capability_model",
-        "asset_storage"
-      ],
-      "id": "universal_workspace.character_experiences",
-      "layer": "universal_workspace",
-      "locally_actionable": true,
-      "priority": "P3",
-      "status": "runtime_dependent",
-      "ui_state": "runtime_gated"
-    },
-    {
-      "backend_state": "bound",
-      "category": "Media workspaces",
-      "code": "runtime_readiness",
-      "dependencies": [
-        "verified_capability_model",
-        "asset_storage"
-      ],
-      "id": "universal_workspace.games",
-      "layer": "universal_workspace",
-      "locally_actionable": true,
-      "priority": "P3",
-      "status": "runtime_dependent",
-      "ui_state": "runtime_gated"
-    },
-    {
-      "backend_state": "bound",
-      "category": "Media workspaces",
+      "category": "Local media runtimes",
       "code": "runtime_readiness",
       "dependencies": [
         "verified_capability_model",
@@ -887,22 +857,7 @@
     },
     {
       "backend_state": "bound",
-      "category": "Media workspaces",
-      "code": "runtime_readiness",
-      "dependencies": [
-        "verified_capability_model",
-        "asset_storage"
-      ],
-      "id": "universal_workspace.interactive_stories",
-      "layer": "universal_workspace",
-      "locally_actionable": true,
-      "priority": "P3",
-      "status": "runtime_dependent",
-      "ui_state": "runtime_gated"
-    },
-    {
-      "backend_state": "bound",
-      "category": "Media workspaces",
+      "category": "Local media runtimes",
       "code": "runtime_readiness",
       "dependencies": [
         "verified_capability_model",
@@ -4310,7 +4265,7 @@
         "capability": "multimodal_workspace",
         "state": "bound"
       },
-      "category": "Media workspaces",
+      "category": "Local media runtimes",
       "coverage_modes": [
         "automated_backend",
         "automated_web"
@@ -4343,7 +4298,7 @@
         "capability": "multimodal_workspace",
         "state": "bound"
       },
-      "category": "Media workspaces",
+      "category": "Local media runtimes",
       "coverage_modes": [
         "automated_backend",
         "automated_web"
@@ -4376,7 +4331,7 @@
         "capability": "multimodal_workspace",
         "state": "bound"
       },
-      "category": "Media workspaces",
+      "category": "Local media runtimes",
       "coverage_modes": [
         "automated_backend",
         "automated_web"
@@ -4406,101 +4361,107 @@
     },
     {
       "backend": {
-        "capability": "multimodal_workspace",
+        "capability": "creative_experience_service",
         "state": "bound"
       },
-      "category": "Media workspaces",
+      "category": "Creative experiences",
       "coverage_modes": [
         "automated_backend",
+        "automated_mobile",
         "automated_web"
       ],
       "dependencies": [
-        "verified_capability_model",
-        "asset_storage"
+        "verified_local_model",
+        "database"
       ],
-      "description": "Interactive stories using the existing local capability layer; availability follows authenticated runtime and model diagnostics.",
+      "description": "Interactive stories exposed through the existing authenticated creative experiences capability.",
       "id": "universal_workspace.interactive_stories",
       "layer": "universal_workspace",
       "permissions": [
         "owner_session",
-        "asset_access"
+        "model_inference"
       ],
-      "runtime_state": "requires_authenticated_health_probe",
-      "status": "runtime_dependent",
+      "runtime_state": "available_by_contract",
+      "status": "implemented",
       "test_coverage": [
-        "backend:test_image_api",
-        "backend:test_voice_api",
-        "web:feature_catalog"
+        "backend:test_creative_api",
+        "backend:test_creative_postgres",
+        "web:creative_panel",
+        "mobile:studio"
       ],
       "ui": {
-        "entry_point": "/workspaces#interactive-stories",
-        "state": "runtime_gated"
+        "entry_point": "/workspaces/creative#interactive-stories",
+        "state": "enabled"
       }
     },
     {
       "backend": {
-        "capability": "multimodal_workspace",
+        "capability": "creative_experience_service",
         "state": "bound"
       },
-      "category": "Media workspaces",
+      "category": "Creative experiences",
       "coverage_modes": [
         "automated_backend",
+        "automated_mobile",
         "automated_web"
       ],
       "dependencies": [
-        "verified_capability_model",
-        "asset_storage"
+        "verified_local_model",
+        "database"
       ],
-      "description": "Games workspace using the existing local capability layer; availability follows authenticated runtime and model diagnostics.",
+      "description": "Games workspace exposed through the existing authenticated creative experiences capability.",
       "id": "universal_workspace.games",
       "layer": "universal_workspace",
       "permissions": [
         "owner_session",
-        "asset_access"
+        "model_inference"
       ],
-      "runtime_state": "requires_authenticated_health_probe",
-      "status": "runtime_dependent",
+      "runtime_state": "available_by_contract",
+      "status": "implemented",
       "test_coverage": [
-        "backend:test_image_api",
-        "backend:test_voice_api",
-        "web:feature_catalog"
+        "backend:test_creative_api",
+        "backend:test_creative_postgres",
+        "web:creative_panel",
+        "mobile:studio"
       ],
       "ui": {
-        "entry_point": "/workspaces#games",
-        "state": "runtime_gated"
+        "entry_point": "/workspaces/creative#games",
+        "state": "enabled"
       }
     },
     {
       "backend": {
-        "capability": "multimodal_workspace",
+        "capability": "creative_experience_service",
         "state": "bound"
       },
-      "category": "Media workspaces",
+      "category": "Creative experiences",
       "coverage_modes": [
         "automated_backend",
+        "automated_mobile",
         "automated_web"
       ],
       "dependencies": [
-        "verified_capability_model",
-        "asset_storage"
+        "verified_local_model",
+        "database"
       ],
-      "description": "Fictional character experiences using the existing local capability layer; availability follows authenticated runtime and model diagnostics.",
+      "description": "Fictional character experiences exposed through the existing authenticated creative experiences capability.",
       "id": "universal_workspace.character_experiences",
       "layer": "universal_workspace",
       "permissions": [
         "owner_session",
-        "asset_access"
+        "model_inference"
       ],
-      "runtime_state": "requires_authenticated_health_probe",
-      "status": "runtime_dependent",
+      "runtime_state": "available_by_contract",
+      "status": "implemented",
       "test_coverage": [
-        "backend:test_image_api",
-        "backend:test_voice_api",
-        "web:feature_catalog"
+        "backend:test_creative_api",
+        "backend:test_creative_postgres",
+        "web:creative_panel",
+        "mobile:studio"
       ],
       "ui": {
-        "entry_point": "/workspaces#character-experiences",
-        "state": "runtime_gated"
+        "entry_point": "/workspaces/creative#character-experiences",
+        "state": "enabled"
       }
     },
     {
@@ -8764,7 +8725,7 @@
     }
   ],
   "product": "AI OS",
-  "registry_sha256": "b70bd919cbb0c6abf6b2c2d55ae1a363d21d7c38695da528b33b1de50bf18468",
+  "registry_sha256": "8739c06c478a912b1fd9b6cfa9022a291953e7c6f2e0a7a5fafafb2f6106f7ce",
   "schema_version": 1,
   "summary": {
     "broken_registry_wiring": 0,
@@ -8773,7 +8734,7 @@
     "missing_coverage_records": 0,
     "missing_ui_paths": 0,
     "planned_gaps": 5,
-    "runtime_gates": 17
+    "runtime_gates": 14
   },
   "total": 245
 }

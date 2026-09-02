@@ -14,6 +14,12 @@ from app.models.connector import (
     ConnectorHealthStatus,
     ConnectorKind,
 )
+from app.models.creative import (
+    CreativeExperience,
+    CreativeExperienceMode,
+    CreativeExperienceStatus,
+    CreativeTurn,
+)
 from app.models.document import Document, DocumentChunk, DocumentStatus
 from app.models.finance import (
     FinanceArtifact,
@@ -66,6 +72,10 @@ __all__ = [
     "ConnectorExecutionStatus",
     "ConnectorHealthStatus",
     "ConnectorKind",
+    "CreativeExperience",
+    "CreativeExperienceMode",
+    "CreativeExperienceStatus",
+    "CreativeTurn",
     "Document",
     "DocumentChunk",
     "DocumentStatus",

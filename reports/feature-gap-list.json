@@ -827,7 +827,7 @@
     },
     {
       "backend_state": "bound",
-      "category": "Media workspaces",
+      "category": "Local media runtimes",
       "code": "runtime_readiness",
       "dependencies": [
         "verified_capability_model",
@@ -842,37 +842,7 @@
     },
     {
       "backend_state": "bound",
-      "category": "Media workspaces",
-      "code": "runtime_readiness",
-      "dependencies": [
-        "verified_capability_model",
-        "asset_storage"
-      ],
-      "id": "universal_workspace.character_experiences",
-      "layer": "universal_workspace",
-      "locally_actionable": true,
-      "priority": "P3",
-      "status": "runtime_dependent",
-      "ui_state": "runtime_gated"
-    },
-    {
-      "backend_state": "bound",
-      "category": "Media workspaces",
-      "code": "runtime_readiness",
-      "dependencies": [
-        "verified_capability_model",
-        "asset_storage"
-      ],
-      "id": "universal_workspace.games",
-      "layer": "universal_workspace",
-      "locally_actionable": true,
-      "priority": "P3",
-      "status": "runtime_dependent",
-      "ui_state": "runtime_gated"
-    },
-    {
-      "backend_state": "bound",
-      "category": "Media workspaces",
+      "category": "Local media runtimes",
       "code": "runtime_readiness",
       "dependencies": [
         "verified_capability_model",
@@ -887,22 +857,7 @@
     },
     {
       "backend_state": "bound",
-      "category": "Media workspaces",
-      "code": "runtime_readiness",
-      "dependencies": [
-        "verified_capability_model",
-        "asset_storage"
-      ],
-      "id": "universal_workspace.interactive_stories",
-      "layer": "universal_workspace",
-      "locally_actionable": true,
-      "priority": "P3",
-      "status": "runtime_dependent",
-      "ui_state": "runtime_gated"
-    },
-    {
-      "backend_state": "bound",
-      "category": "Media workspaces",
+      "category": "Local media runtimes",
       "code": "runtime_readiness",
       "dependencies": [
         "verified_capability_model",
@@ -917,7 +872,7 @@
     }
   ],
   "product": "AI OS",
-  "registry_sha256": "b70bd919cbb0c6abf6b2c2d55ae1a363d21d7c38695da528b33b1de50bf18468",
+  "registry_sha256": "8739c06c478a912b1fd9b6cfa9022a291953e7c6f2e0a7a5fafafb2f6106f7ce",
   "schema_version": 1,
   "summary": {
     "broken_registry_wiring": 0,
@@ -926,6 +881,6 @@
     "missing_coverage_records": 0,
     "missing_ui_paths": 0,
     "planned_gaps": 5,
-    "runtime_gates": 17
+    "runtime_gates": 14
   }
 }

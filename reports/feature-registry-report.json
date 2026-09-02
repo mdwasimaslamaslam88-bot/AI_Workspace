@@ -2249,7 +2249,7 @@
     },
     {
       "backend_capability": "multimodal_workspace",
-      "category": "Media workspaces",
+      "category": "Local media runtimes",
       "dependencies": [
         "verified_capability_model",
         "asset_storage"
@@ -2272,7 +2272,7 @@
     },
     {
       "backend_capability": "multimodal_workspace",
-      "category": "Media workspaces",
+      "category": "Local media runtimes",
       "dependencies": [
         "verified_capability_model",
         "asset_storage"
@@ -2295,7 +2295,7 @@
     },
     {
       "backend_capability": "multimodal_workspace",
-      "category": "Media workspaces",
+      "category": "Local media runtimes",
       "dependencies": [
         "verified_capability_model",
         "asset_storage"
@@ -2317,73 +2317,76 @@
       "ui_entry_point": "/workspaces#voice"
     },
     {
-      "backend_capability": "multimodal_workspace",
-      "category": "Media workspaces",
+      "backend_capability": "creative_experience_service",
+      "category": "Creative experiences",
       "dependencies": [
-        "verified_capability_model",
-        "asset_storage"
+        "verified_local_model",
+        "database"
       ],
-      "description": "Interactive stories using the existing local capability layer; availability follows authenticated runtime and model diagnostics.",
+      "description": "Interactive stories exposed through the existing authenticated creative experiences capability.",
       "id": "universal_workspace.interactive_stories",
       "layer": "universal_workspace",
       "required_permissions": [
         "owner_session",
-        "asset_access"
+        "model_inference"
       ],
-      "status": "runtime_dependent",
+      "status": "implemented",
       "test_coverage": [
-        "backend:test_image_api",
-        "backend:test_voice_api",
-        "web:feature_catalog"
+        "backend:test_creative_api",
+        "backend:test_creative_postgres",
+        "web:creative_panel",
+        "mobile:studio"
       ],
       "title": "Interactive stories",
-      "ui_entry_point": "/workspaces#interactive-stories"
+      "ui_entry_point": "/workspaces/creative#interactive-stories"
     },
     {
-      "backend_capability": "multimodal_workspace",
-      "category": "Media workspaces",
+      "backend_capability": "creative_experience_service",
+      "category": "Creative experiences",
       "dependencies": [
-        "verified_capability_model",
-        "asset_storage"
+        "verified_local_model",
+        "database"
       ],
-      "description": "Games workspace using the existing local capability layer; availability follows authenticated runtime and model diagnostics.",
+      "description": "Games workspace exposed through the existing authenticated creative experiences capability.",
       "id": "universal_workspace.games",
       "layer": "universal_workspace",
       "required_permissions": [
         "owner_session",
-        "asset_access"
+        "model_inference"
       ],
-      "status": "runtime_dependent",
+      "status": "implemented",
       "test_coverage": [
-        "backend:test_image_api",
-        "backend:test_voice_api",
-        "web:feature_catalog"
+        "backend:test_creative_api",
+        "backend:test_creative_postgres",
+        "web:creative_panel",
+        "mobile:studio"
       ],
       "title": "Games workspace",
-      "ui_entry_point": "/workspaces#games"
+      "ui_entry_point": "/workspaces/creative#games"
     },
     {
-      "backend_capability": "multimodal_workspace",
-      "category": "Media workspaces",
+      "backend_capability": "creative_experience_service",
+      "category": "Creative experiences",
       "dependencies": [
-        "verified_capability_model",
-        "asset_storage"
+        "verified_local_model",
+        "database"
       ],
-      "description": "Fictional character experiences using the existing local capability layer; availability follows authenticated runtime and model diagnostics.",
+      "description": "Fictional character experiences exposed through the existing authenticated creative experiences capability.",
       "id": "universal_workspace.character_experiences",
       "layer": "universal_workspace",
       "required_permissions": [
         "owner_session",
-        "asset_access"
+        "model_inference"
       ],
-      "status": "runtime_dependent",
+      "status": "implemented",
       "test_coverage": [
-        "backend:test_image_api",
-        "backend:test_voice_api",
-        "web:feature_catalog"
+        "backend:test_creative_api",
+        "backend:test_creative_postgres",
+        "web:creative_panel",
+        "mobile:studio"
       ],
       "title": "Fictional character experiences",
-      "ui_entry_point": "/workspaces#character-experiences"
+      "ui_entry_point": "/workspaces/creative#character-experiences"
     },
     {
       "backend_capability": "external_video_connector",
@@ -5219,13 +5222,13 @@
     "universal_workspace": 62
   },
   "product": "AI OS",
-  "registry_sha256": "b70bd919cbb0c6abf6b2c2d55ae1a363d21d7c38695da528b33b1de50bf18468",
+  "registry_sha256": "8739c06c478a912b1fd9b6cfa9022a291953e7c6f2e0a7a5fafafb2f6106f7ce",
   "schema_version": 1,
   "statuses": {
     "external_dependency": 39,
-    "implemented": 184,
+    "implemented": 187,
     "planned": 5,
-    "runtime_dependent": 17
+    "runtime_dependent": 14
   },
   "total": 245,
   "validation": {

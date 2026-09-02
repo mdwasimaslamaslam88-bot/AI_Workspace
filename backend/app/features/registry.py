@@ -279,7 +279,7 @@ _GROUPS = (
     ),
     _Group(
         "universal_workspace",
-        "Media workspaces",
+        "Local media runtimes",
         "/workspaces",
         "multimodal_workspace",
         "runtime_dependent",
@@ -290,6 +290,23 @@ _GROUPS = (
             ("image", "Image workspace"),
             ("audio", "Audio workspace"),
             ("voice", "Voice workspace"),
+        ),
+    ),
+    _Group(
+        "universal_workspace",
+        "Creative experiences",
+        "/workspaces/creative",
+        "creative_experience_service",
+        "implemented",
+        ("owner_session", "model_inference"),
+        ("verified_local_model", "database"),
+        (
+            "backend:test_creative_api",
+            "backend:test_creative_postgres",
+            "web:creative_panel",
+            "mobile:studio",
+        ),
+        _features(
             ("interactive_stories", "Interactive stories"),
             ("games", "Games workspace"),
             ("character_experiences", "Fictional character experiences"),

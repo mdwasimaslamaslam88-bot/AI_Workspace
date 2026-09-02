@@ -1,4 +1,7 @@
 import type {
+  CreativeCapabilities,
+  CreativeExperience,
+  CreativeExperienceMode,
   FeatureRegistry,
   FinanceWorkspace,
   LearningProgram,
@@ -56,6 +59,8 @@ const marketAssetClasses: MarketAssetClass[] = [
   "fx",
 ];
 
+const creativeModes: CreativeExperienceMode[] = ["story", "game", "character"];
+
 function safeError(cause: unknown): string {
   if (cause instanceof WorkflowPollingTimeoutError) return cause.message;
   return cause instanceof MobileApiError
@@ -105,6 +110,16 @@ export default function StudioScreen() {
   const [learningAnswer, setLearningAnswer] = useState("");
   const [reviewFront, setReviewFront] = useState("");
   const [reviewBack, setReviewBack] = useState("");
+  const [creativeCapabilities, setCreativeCapabilities] = useState<CreativeCapabilities | null>(null);
+  const [creativeExperiences, setCreativeExperiences] = useState<CreativeExperience[]>([]);
+  const [selectedCreativeId, setSelectedCreativeId] = useState<string | null>(null);
+  const [creativeMode, setCreativeMode] = useState<CreativeExperienceMode>("story");
+  const [creativeTitle, setCreativeTitle] = useState("");
+  const [creativePremise, setCreativePremise] = useState("");
+  const [creativeGenre, setCreativeGenre] = useState("");
+  const [creativeLanguage, setCreativeLanguage] = useState("en");
+  const [creativeCharacter, setCreativeCharacter] = useState("");
+  const [creativeTurn, setCreativeTurn] = useState("");
   const [selectedFinanceId, setSelectedFinanceId] = useState<string | null>(null);
   const [financeName, setFinanceName] = useState("");
   const [financeCurrency, setFinanceCurrency] = useState("USD");
@@ -166,6 +181,12 @@ export default function StudioScreen() {
       ?? learningPrograms[0]
       ?? null,
     [learningPrograms, selectedLearningId],
+  );
+  const selectedCreative = useMemo(
+    () => creativeExperiences.find((experience) => experience.id === selectedCreativeId)
+      ?? creativeExperiences[0]
+      ?? null,
+    [creativeExperiences, selectedCreativeId],
   );
 
   const updateWorkflow = useCallback((workflow: Workflow) => {
@@ -232,7 +253,7 @@ export default function StudioScreen() {
     setBusyAction("Refreshing private studio");
     setNotice(null);
     try {
-      const [modelPage, conversationPage, memoryPage, setting, toolPage, executionPage, workflowPage, registry, connectionSettings, connectorPage, campaignPage, financePage, learningPage] =
+      const [modelPage, conversationPage, memoryPage, setting, toolPage, executionPage, workflowPage, registry, connectionSettings, connectorPage, campaignPage, financePage, learningPage, creativeCapabilityResult, creativePage] =
         await Promise.all([
           client.listModels(),
           client.listConversations(),
@@ -247,6 +268,8 @@ export default function StudioScreen() {
           client.listMarketingCampaigns().catch(() => ({ items: [] })),
           client.listFinanceWorkspaces().catch(() => ({ items: [] })),
           client.listLearningPrograms().catch(() => ({ items: [] })),
+          client.getCreativeCapabilities().catch(() => null),
+          client.listCreativeExperiences().catch(() => ({ items: [] })),
         ]);
       setModels(modelPage.items);
       setConversationId((current) =>
@@ -276,6 +299,11 @@ export default function StudioScreen() {
       setSelectedLearningId((current) => learningPage.items.some((program) => program.id === current)
         ? current
         : learningPage.items[0]?.id ?? null);
+      setCreativeCapabilities(creativeCapabilityResult);
+      setCreativeExperiences(creativePage.items);
+      setSelectedCreativeId((current) => creativePage.items.some((experience) => experience.id === current)
+        ? current
+        : creativePage.items[0]?.id ?? null);
       for (const workflow of workflowPage.items) {
         if (workflow.status === "running") monitorWorkflow(workflow.id);
       }
@@ -688,6 +716,51 @@ export default function StudioScreen() {
     });
   }
 
+  function replaceCreativeExperience(experience: CreativeExperience) {
+    setCreativeExperiences((current) => [experience, ...current.filter((item) => item.id !== experience.id)]);
+    setSelectedCreativeId(experience.id);
+  }
+
+  async function createMobileCreativeExperience() {
+    if (
+      creativeTitle.trim().length === 0 || creativePremise.trim().length === 0 ||
+      creativeGenre.trim().length === 0 ||
+      !/^[A-Za-z][A-Za-z0-9-]{1,34}$/.test(creativeLanguage) ||
+      (creativeMode === "character" && creativeCharacter.trim().length === 0)
+    ) return;
+    await perform("Creating creative experience", async (signal) => {
+      replaceCreativeExperience(await connectedClient.createCreativeExperience({
+        mode: creativeMode,
+        title: creativeTitle.trim(),
+        premise: creativePremise.trim(),
+        genre: creativeGenre.trim(),
+        language: creativeLanguage,
+        character_name: creativeMode === "character" ? creativeCharacter.trim() : null,
+      }, signal));
+      setCreativeTitle("");
+      setCreativePremise("");
+      setCreativeGenre("");
+      setCreativeCharacter("");
+    });
+  }
+
+  async function addMobileCreativeTurn() {
+    if (selectedCreative === null || creativeTurn.trim().length === 0) return;
+    await perform("Generating verified creative turn", async (signal) => {
+      replaceCreativeExperience(await connectedClient.addCreativeTurn(
+        selectedCreative.id, { owner_input: creativeTurn.trim() }, signal,
+      ));
+      setCreativeTurn("");
+    }, true);
+  }
+
+  async function completeMobileCreativeExperience() {
+    if (selectedCreative === null || selectedCreative.turn_count === 0) return;
+    await perform("Completing creative experience", async (signal) => {
+      replaceCreativeExperience(await connectedClient.completeCreativeExperience(selectedCreative.id, signal));
+    });
+  }
+
   async function showImage(assetId: string, signal: AbortSignal) {
     const cached = cachePrivateMedia(await connectedClient.downloadAsset(assetId, signal));
     replaceCache(imageCache, cached);
@@ -964,6 +1037,34 @@ export default function StudioScreen() {
               <Text style={styles.warning}>Pronunciation scoring: external dependency. No local score is fabricated.</Text>
             </>}
           </>}
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.eyebrow}>CREATIVE EXPERIENCES</Text>
+          <Text accessibilityRole="header" style={styles.heading}>Stories, games & characters</Text>
+          <Text style={styles.muted}>General-audience experiences run through the verified local Agent OS. Stored output is the untouched model artifact.</Text>
+          {creativeCapabilities !== null && <Text style={styles.detail}>Local text: ready · image and voice: runtime-dependent · video, animation, generative audio editing, and protected adult operation: external dependency</Text>}
+          <ScrollView horizontal contentContainerStyle={styles.chipRow}>
+            {creativeModes.map((mode) => <Pressable accessibilityRole="button" accessibilityState={{ selected: creativeMode === mode }} key={mode} style={[styles.chip, creativeMode === mode && styles.selectedChip]} onPress={() => setCreativeMode(mode)}><Text style={styles.chipText}>{mode}</Text></Pressable>)}
+          </ScrollView>
+          <TextInput accessibilityLabel="Creative experience title" maxLength={160} value={creativeTitle} onChangeText={setCreativeTitle} placeholder="Experience title" placeholderTextColor={colors.subtle} style={styles.input} />
+          <TextInput accessibilityLabel="Creative experience premise" multiline maxLength={4_000} value={creativePremise} onChangeText={setCreativePremise} placeholder="Premise and setting" placeholderTextColor={colors.subtle} style={styles.textArea} />
+          <TextInput accessibilityLabel="Creative experience genre" maxLength={80} value={creativeGenre} onChangeText={setCreativeGenre} placeholder="Genre" placeholderTextColor={colors.subtle} style={styles.input} />
+          <TextInput accessibilityLabel="Creative experience language" autoCapitalize="none" maxLength={35} value={creativeLanguage} onChangeText={setCreativeLanguage} placeholder="Language tag, e.g. en" placeholderTextColor={colors.subtle} style={styles.input} />
+          {creativeMode === "character" && <TextInput accessibilityLabel="Fictional character name" maxLength={120} value={creativeCharacter} onChangeText={setCreativeCharacter} placeholder="Fictional character name" placeholderTextColor={colors.subtle} style={styles.input} />}
+          <Pressable accessibilityRole="button" disabled={busyAction !== null || creativeTitle.trim().length === 0 || creativePremise.trim().length === 0 || creativeGenre.trim().length === 0 || (creativeMode === "character" && creativeCharacter.trim().length === 0)} style={[styles.primaryButton, busyAction !== null && styles.disabled]} onPress={() => void createMobileCreativeExperience()}><Text style={styles.primaryButtonText}>Create experience</Text></Pressable>
+          {creativeExperiences.length > 0 && <ScrollView horizontal contentContainerStyle={styles.chipRow}>
+            {creativeExperiences.map((experience) => <Pressable accessibilityRole="button" accessibilityState={{ selected: selectedCreative?.id === experience.id }} key={experience.id} style={[styles.chip, selectedCreative?.id === experience.id && styles.selectedChip]} onPress={() => setSelectedCreativeId(experience.id)}><Text style={styles.chipText}>{experience.title}</Text></Pressable>)}
+          </ScrollView>}
+          {selectedCreative !== null && <>
+            <View style={styles.result}><Text style={styles.itemLabel}>{selectedCreative.mode} · {selectedCreative.status} · {selectedCreative.turn_count}/100 turns</Text><Text style={styles.itemText}>{selectedCreative.premise}</Text></View>
+            {selectedCreative.turns.map((turn) => <View key={turn.id} style={styles.result}><Text style={styles.itemLabel}>Turn {turn.position} · verified {turn.output_sha256.slice(0, 12)}</Text><Text selectable style={styles.detail}>You: {turn.owner_input}</Text><Text selectable style={styles.itemText}>AI: {turn.output}</Text><Text style={styles.detail}>Model {turn.model_id}</Text></View>)}
+            {selectedCreative.status === "active" && <>
+              <TextInput accessibilityLabel="Creative next move" multiline maxLength={4_000} value={creativeTurn} onChangeText={setCreativeTurn} placeholder="What happens next?" placeholderTextColor={colors.subtle} style={styles.textArea} />
+              <View style={styles.buttonRow}><Pressable accessibilityRole="button" disabled={busyAction !== null || creativeTurn.trim().length === 0 || selectedCreative.turn_count >= 100} style={styles.primaryButton} onPress={() => void addMobileCreativeTurn()}><Text style={styles.primaryButtonText}>Generate verified turn</Text></Pressable><Pressable accessibilityRole="button" disabled={busyAction !== null || selectedCreative.turn_count === 0} style={styles.secondaryButton} onPress={() => void completeMobileCreativeExperience()}><Text style={styles.buttonText}>Complete</Text></Pressable></View>
+            </>}
+          </>}
+          <Text style={styles.warning}>No local video, animation, generative audio editing, or protected adult capability is claimed. External policy/runtime checks remain required.</Text>
         </View>
 
         <View style={styles.card}>

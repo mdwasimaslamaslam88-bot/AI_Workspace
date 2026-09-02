@@ -32,7 +32,7 @@ def test_feature_implementation_matrix_is_complete_and_prioritized():
         "broken_registry_wiring": 0,
         "planned_gaps": 5,
         "external_boundaries": 39,
-        "runtime_gates": 17,
+        "runtime_gates": 14,
     }
     assert [gap["priority"] for gap in matrix["gaps"]] == sorted(
         (gap["priority"] for gap in matrix["gaps"]),

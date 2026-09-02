@@ -20,6 +20,7 @@ RUNTIME_SMOKE_MODULES = (
     "scripts.real_marketing_smoke",
     "scripts.real_finance_smoke",
     "scripts.real_learning_smoke",
+    "scripts.real_creative_smoke",
     "scripts.real_tools_smoke",
     "scripts.real_workflow_smoke",
 )
@@ -44,7 +45,7 @@ def main() -> None:
     run_runtime_modules(load_backend_environment(PROJECT_ROOT))
     print(
         "real runtime E2E: vision, RAG, memory, image, voice, Agent OS, "
-        "connectors, marketing, finance, learning, tools, and workflows passed"
+        "connectors, marketing, finance, learning, creative experiences, tools, and workflows passed"
     )
 
 

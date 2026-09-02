@@ -55,6 +55,10 @@ mutation. It never repairs the artifact before scoring.
 - owner-scoped AI Teacher programs with verified local lessons, multilingual
   practice, adaptive progress, and deterministic spaced repetition;
   pronunciation scoring remains an explicit external dependency
+- owner-scoped interactive stories, text games, and fictional-character
+  experiences with local-only verified turns and a fixed general-audience
+  safety boundary; advanced video, animation, and generative audio remain
+  explicit external dependencies
 - normalized hardware discovery, GPU-upgrade fingerprints and simulations
 - verified backup/restore, staged self-update checkpoints and atomic rollback
 - authenticated diagnostics for hardware, models/routes, provider cost/health,
@@ -146,6 +150,21 @@ production binary, AppImage, DEB, and launch smoke also passed. Native Android
 was not rebuilt in this gate because this host had no Android SDK root;
 pronunciation scoring remains an explicit acoustic-runtime/provider boundary.
 
+The Step 8 creative regression gate on 2026-09-03 passed 2,924 backend tests
+(48 intentional environment/runtime skips), 191 web tests, 61 mobile tests,
+Expo Doctor 21/21 after one transient directory-service retry, desktop Rust
+tests 2/2, and 48 tests against disposable PostgreSQL with migration `0017`
+and no schema drift. The real-runtime matrix again passed all prior vision,
+RAG, memory, FLUX.2 generation/editing/inpainting, voice, Agent OS,
+connectors, marketing, finance, learning, tools, and workflow probes. Its new
+creative probe generated an untouched local-model story turn, matched the
+persisted SHA-256 and model evidence, enforced owner isolation and the fixed
+general-audience gate, and verified completion behavior. The Linux production
+binary, AppImage, DEB, and both launch smokes passed. Native Android remained
+an explicit host boundary because no Android SDK root is configured; video,
+animation, generative audio editing, and protected adult operation remain
+external dependencies rather than simulated local capabilities.
+
 The Phase 1 baseline was 97.74 with 455 PASS, 3 PARTIAL, and 1 FAIL. The
 content-addressed FLUX.2 Klein Base 4B FP8 route fixed both image non-passes;
 the complete image category rose from 93.88 to 99.42 with all 13 image cases
@@ -156,8 +175,8 @@ production output was altered. See `AI_QUALITY_PHASE1.md` for exact evidence.
 
 ## Persistence and boundaries
 
-Conversations, RAG, memory, learning programs, tools and workflows are durable
-in PostgreSQL.
+Conversations, RAG, memory, learning programs, creative experiences, tools and
+workflows are durable in PostgreSQL.
 Interactive Agent OS run records are intentionally bounded process memory (100
 records per owner) and are lost on backend restart; the API and UI report this
 instead of implying durable execution.

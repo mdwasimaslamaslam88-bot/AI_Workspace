@@ -131,6 +131,16 @@ External AI selection. The selector fails closed if an admitted local route is
 unavailable, even when a fallback provider is configured. Pronunciation scoring
 remains a disabled external dependency, not an inferred score from transcription.
 
+Creative experience agents likewise receive only model inference and disable
+External AI fallback. Experience and turn rows use composite owner foreign
+keys, and each persisted untouched response includes the independent Agent OS
+verifier's matching SHA-256 plus model evidence. A Unicode-normalized fixed
+gate rejects known explicit sexual, non-consensual, exploitative, grooming, and
+minor-related sexual content before generation and before persistence. The
+workspace remains general-audience only; video, animation, generative audio,
+and protected adult operation are not promoted beyond explicit external
+dependencies without separately verified runtime and policy controls.
+
 The process retains at most 512 metadata-only containment events for repeated
 authentication failure, rate limiting, oversized bodies and unexpected error
 containment. Authenticated diagnostics return only event kind and timestamp;
@@ -202,7 +212,7 @@ current security updates. Database backups and the workstation data directory
 contain private content and require encrypted owner-controlled storage. Mobile
 and desktop signing credentials must remain outside Git.
 
-The 2026-09-02 dependency audit has zero high or critical npm advisories. It
+The 2026-09-03 dependency audit has zero high or critical npm advisories. It
 reports 14 moderate affected nodes from two upstream chains: malformed-percent
 decoding in `decode-uri-component`, reached through `query-string` and
 `expo-router`, and a supplied-buffer bounds issue in `uuid`, reached through

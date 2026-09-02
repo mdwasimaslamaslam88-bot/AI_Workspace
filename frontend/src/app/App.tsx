@@ -18,6 +18,10 @@ import type {
   ConnectorExecutionResult,
   ConnectorSettings,
   ConnectorWriteRequest,
+  CreativeCapabilities,
+  CreativeExperience,
+  CreativeExperienceCreateRequest,
+  CreativeTurnCreateRequest,
   CurrentUser,
   BacktestRequest,
   ExternalAISettings,
@@ -89,6 +93,7 @@ import { ChatView, type SafeNotice } from "../features/chat/ChatView";
 import { AgentPanel } from "../features/agents/AgentPanel";
 import { ConversationList } from "../features/conversations/ConversationList";
 import { ConnectorPanel } from "../features/connectors/ConnectorPanel";
+import { CreativePanel } from "../features/creative/CreativePanel";
 import { FinancePanel } from "../features/finance/FinancePanel";
 import { LearningPanel } from "../features/learning/LearningPanel";
 import { MemoryPanel } from "../features/memory/MemoryPanel";
@@ -223,6 +228,7 @@ export function App() {
   const [marketingOpen, setMarketingOpen] = useState(false);
   const [financeOpen, setFinanceOpen] = useState(false);
   const [learningOpen, setLearningOpen] = useState(false);
+  const [creativeOpen, setCreativeOpen] = useState(false);
   const [voicePresence, setVoicePresence] = useState<PresenceState | null>(null);
   const [agentPresence, setAgentPresence] = useState<PresenceState | null>(null);
   const [catalogLayer, setCatalogLayer] = useState<
@@ -269,6 +275,7 @@ export function App() {
     setMarketingOpen(false);
     setFinanceOpen(false);
     setLearningOpen(false);
+    setCreativeOpen(false);
     setCatalogLayer(null);
     setAuthenticationStatus("anonymous");
   }, []);
@@ -1125,6 +1132,36 @@ export function App() {
     return client.reviewLearningItem(programId, itemId, request, signal);
   }, [client]);
 
+  const loadCreativeCapabilities = useCallback((signal?: AbortSignal): Promise<CreativeCapabilities> => {
+    if (client === null) return Promise.reject(new ApiError("authentication", "Authentication failed."));
+    return client.getCreativeCapabilities(signal);
+  }, [client]);
+
+  const loadCreativeExperiences = useCallback(async (signal?: AbortSignal): Promise<CreativeExperience[]> => {
+    if (client === null) throw new ApiError("authentication", "Authentication failed.");
+    return (await client.listCreativeExperiences(signal)).items;
+  }, [client]);
+
+  const getCreativeExperience = useCallback((id: string, signal?: AbortSignal): Promise<CreativeExperience> => {
+    if (client === null) return Promise.reject(new ApiError("authentication", "Authentication failed."));
+    return client.getCreativeExperience(id, signal);
+  }, [client]);
+
+  const createCreativeExperience = useCallback((request: CreativeExperienceCreateRequest, signal?: AbortSignal): Promise<CreativeExperience> => {
+    if (client === null) return Promise.reject(new ApiError("authentication", "Authentication failed."));
+    return client.createCreativeExperience(request, signal);
+  }, [client]);
+
+  const addCreativeTurn = useCallback((id: string, request: CreativeTurnCreateRequest, signal?: AbortSignal): Promise<CreativeExperience> => {
+    if (client === null) return Promise.reject(new ApiError("authentication", "Authentication failed."));
+    return client.addCreativeTurn(id, request, signal);
+  }, [client]);
+
+  const completeCreativeExperience = useCallback((id: string, signal?: AbortSignal): Promise<CreativeExperience> => {
+    if (client === null) return Promise.reject(new ApiError("authentication", "Authentication failed."));
+    return client.completeCreativeExperience(id, signal);
+  }, [client]);
+
   const setExternalAIEnabled = useCallback(
     (enabled: boolean): Promise<ExternalAISettings> => {
       if (client === null) {
@@ -1732,6 +1769,7 @@ export function App() {
       setMarketingOpen(false);
       setFinanceOpen(false);
       setLearningOpen(false);
+      setCreativeOpen(false);
       setCatalogLayer(null);
     })
       .then((dispose) => {
@@ -1755,6 +1793,8 @@ export function App() {
           ? "universal_workspace"
           : learningOpen
             ? "universal_workspace"
+            : creativeOpen
+              ? "universal_workspace"
             : toolsOpen || connectorsOpen || marketingOpen || financeOpen
               ? "apps_hub"
             : "ai_presence");
@@ -1776,6 +1816,7 @@ export function App() {
     setMarketingOpen(false);
     setFinanceOpen(false);
     setLearningOpen(false);
+    setCreativeOpen(false);
     setCatalogLayer(null);
   }
 
@@ -1799,6 +1840,8 @@ export function App() {
       setFinanceOpen(true);
     } else if (feature.backend_capability === "learning_program_service") {
       setLearningOpen(true);
+    } else if (feature.backend_capability === "creative_experience_service") {
+      setCreativeOpen(true);
     } else if (
       feature.backend_capability === "connector_service" ||
       feature.backend_capability === "external_connector"
@@ -1901,6 +1944,7 @@ export function App() {
               setMarketingOpen(false);
               setFinanceOpen(false);
               setLearningOpen(false);
+              setCreativeOpen(false);
               setCatalogLayer(null);
             }}
           >
@@ -1921,6 +1965,7 @@ export function App() {
               setMarketingOpen(false);
               setFinanceOpen(false);
               setLearningOpen(false);
+              setCreativeOpen(false);
               setCatalogLayer(null);
             }}
           >
@@ -1941,6 +1986,7 @@ export function App() {
               setMarketingOpen(false);
               setFinanceOpen(false);
               setLearningOpen(false);
+              setCreativeOpen(false);
               setCatalogLayer(null);
             }}
           >
@@ -1961,6 +2007,7 @@ export function App() {
               setMarketingOpen(false);
               setFinanceOpen(false);
               setLearningOpen(false);
+              setCreativeOpen(false);
               setCatalogLayer(null);
             }}
           >
@@ -1981,6 +2028,7 @@ export function App() {
               setMarketingOpen(false);
               setFinanceOpen(false);
               setLearningOpen(false);
+              setCreativeOpen(false);
               setCatalogLayer(null);
             }}
           >
@@ -1996,6 +2044,7 @@ export function App() {
               setMarketingOpen(false);
               setFinanceOpen(false);
               setLearningOpen(false);
+              setCreativeOpen(false);
               setAgentsOpen(false);
               setMemoryOpen(false);
               setToolsOpen(false);
@@ -2044,6 +2093,19 @@ export function App() {
             }}
           >
             Learn
+          </button>
+          <button
+            type="button"
+            className="button button-secondary"
+            aria-expanded={creativeOpen}
+            aria-controls="personal-creative-panel"
+            onClick={() => {
+              const open = !creativeOpen;
+              closeProductPanels();
+              setCreativeOpen(open);
+            }}
+          >
+            Create
           </button>
           <ModelSelector
             models={models}
@@ -2166,6 +2228,19 @@ export function App() {
               onAttempt={submitLearningAttempt}
               onCreateReviewItem={createLearningReviewItem}
               onReview={reviewLearningItem}
+            />
+          </div>
+        )}
+        {creativeOpen && (
+          <div id="personal-creative-panel">
+            <CreativePanel
+              onClose={() => setCreativeOpen(false)}
+              onCapabilities={loadCreativeCapabilities}
+              onLoad={loadCreativeExperiences}
+              onGet={getCreativeExperience}
+              onCreate={createCreativeExperience}
+              onTurn={addCreativeTurn}
+              onComplete={completeCreativeExperience}
             />
           </div>
         )}

@@ -1084,6 +1084,69 @@ export interface LearningCapabilities {
   pronunciation_dependencies: ["pronunciation_scoring_provider"];
 }
 
+export type CreativeExperienceMode = "story" | "game" | "character";
+export type CreativeExperienceStatus = "active" | "completed" | "archived";
+
+export interface CreativeExperienceCreateRequest {
+  mode: CreativeExperienceMode;
+  title: string;
+  premise: string;
+  genre: string;
+  language: string;
+  character_name: string | null;
+}
+
+export interface CreativeTurnCreateRequest { owner_input: string; }
+
+export interface CreativeTurn {
+  id: UUID;
+  position: number;
+  owner_input: string;
+  output: string;
+  output_sha256: string;
+  model_id: string;
+  created_at: Timestamp;
+}
+
+export interface CreativeExperience {
+  id: UUID;
+  mode: CreativeExperienceMode;
+  title: string;
+  premise: string;
+  genre: string;
+  language: string;
+  character_name: string | null;
+  safety_tier: "general";
+  status: CreativeExperienceStatus;
+  turn_count: number;
+  turns: CreativeTurn[];
+  created_at: Timestamp;
+  updated_at: Timestamp;
+  completed_at: Timestamp | null;
+}
+
+export interface CreativeExperiencePage { items: CreativeExperience[]; }
+
+export interface CreativeCapabilities {
+  interactive_stories: true;
+  text_games: true;
+  fictional_characters: true;
+  verified_local_text_generation: true;
+  general_audience_only: true;
+  image_generation_status: "runtime_dependent";
+  voice_status: "runtime_dependent";
+  video_generation_status: "external_dependency";
+  animation_status: "external_dependency";
+  audio_generation_editing_status: "external_dependency";
+  adult_experience_status: "external_dependency";
+  external_dependencies: [
+    "verified_video_animation_or_audio_runtime",
+    "jurisdiction_check",
+    "age_verification",
+    "consent_policy",
+  ];
+}
+
 export type SelfUpdateState =
   | "idle"
   | "validating"
@@ -1537,6 +1600,8 @@ const marketAlertStatuses = ["active", "triggered", "cancelled"] as const;
 const learningProgramStatuses = ["active", "completed", "archived"] as const;
 const learningLessonStatuses = ["planned", "ready", "completed"] as const;
 const learningActivityKinds = ["exercise", "quiz", "conversation", "revision"] as const;
+const creativeExperienceModes = ["story", "game", "character"] as const;
+const creativeExperienceStatuses = ["active", "completed", "archived"] as const;
 const securityEventKinds = [
   "authentication_failure",
   "rate_limit_containment",
@@ -2601,6 +2666,117 @@ export function parseLearningCapabilities(value: unknown): LearningCapabilities 
     pronunciation_scoring: false,
     pronunciation_status: "external_dependency",
     pronunciation_dependencies: ["pronunciation_scoring_provider"],
+  };
+}
+
+export function parseCreativeTurn(value: unknown): CreativeTurn {
+  const item = record(value);
+  const ownerInput = stringField(item.owner_input);
+  const output = stringField(item.output);
+  const outputHash = stringField(item.output_sha256);
+  const modelId = stringField(item.model_id);
+  if (
+    ownerInput.length < 1 || ownerInput.length > 4_000 ||
+    output.length < 1 || output.length > 32_768 ||
+    !/^[a-f0-9]{64}$/.test(outputHash) ||
+    modelId.length < 1 || modelId.length > 96
+  ) return invalidResponse();
+  return {
+    id: stringField(item.id),
+    position: boundedInteger(item.position, 1, 100),
+    owner_input: ownerInput,
+    output,
+    output_sha256: outputHash,
+    model_id: modelId,
+    created_at: stringField(item.created_at),
+  };
+}
+
+export function parseCreativeExperience(value: unknown): CreativeExperience {
+  const item = record(value);
+  if (!Array.isArray(item.turns) || item.turns.length > 100) return invalidResponse();
+  const mode = enumField(item.mode, creativeExperienceModes);
+  const title = stringField(item.title);
+  const premise = stringField(item.premise);
+  const genre = stringField(item.genre);
+  const language = stringField(item.language);
+  const characterName = nullableString(item.character_name);
+  const status = enumField(item.status, creativeExperienceStatuses);
+  const turns = item.turns.map(parseCreativeTurn);
+  const turnCount = boundedInteger(item.turn_count, 0, 100);
+  const completedAt = nullableString(item.completed_at);
+  if (
+    title.length < 1 || title.length > 160 ||
+    premise.length < 1 || premise.length > 4_000 ||
+    genre.length < 1 || genre.length > 80 ||
+    !/^[A-Za-z][A-Za-z0-9-]{1,34}$/.test(language) ||
+    (characterName !== null && (characterName.length < 1 || characterName.length > 120)) ||
+    (mode === "character" && characterName === null) ||
+    item.safety_tier !== "general" ||
+    turnCount !== turns.length ||
+    turns.some((turn, index) => turn.position !== index + 1) ||
+    (status === "completed" && completedAt === null) ||
+    (status !== "completed" && completedAt !== null)
+  ) return invalidResponse();
+  return {
+    id: stringField(item.id),
+    mode,
+    title,
+    premise,
+    genre,
+    language,
+    character_name: characterName,
+    safety_tier: "general",
+    status,
+    turn_count: turnCount,
+    turns,
+    created_at: stringField(item.created_at),
+    updated_at: stringField(item.updated_at),
+    completed_at: completedAt,
+  };
+}
+
+export function parseCreativeExperiencePage(value: unknown): CreativeExperiencePage {
+  const item = record(value);
+  if (!Array.isArray(item.items) || item.items.length > 20) return invalidResponse();
+  return { items: item.items.map(parseCreativeExperience) };
+}
+
+export function parseCreativeCapabilities(value: unknown): CreativeCapabilities {
+  const item = record(value);
+  const expectedDependencies: CreativeCapabilities["external_dependencies"] = [
+    "verified_video_animation_or_audio_runtime",
+    "jurisdiction_check",
+    "age_verification",
+    "consent_policy",
+  ];
+  if (
+    item.interactive_stories !== true || item.text_games !== true ||
+    item.fictional_characters !== true || item.verified_local_text_generation !== true ||
+    item.general_audience_only !== true ||
+    item.image_generation_status !== "runtime_dependent" ||
+    item.voice_status !== "runtime_dependent" ||
+    item.video_generation_status !== "external_dependency" ||
+    item.animation_status !== "external_dependency" ||
+    item.audio_generation_editing_status !== "external_dependency" ||
+    item.adult_experience_status !== "external_dependency" ||
+    !Array.isArray(item.external_dependencies) ||
+    item.external_dependencies.length !== expectedDependencies.length ||
+    item.external_dependencies.some((dependency, index) => dependency !== expectedDependencies[index])
+  ) return invalidResponse();
+  return {
+    interactive_stories: true,
+    text_games: true,
+    fictional_characters: true,
+    verified_local_text_generation: true,
+    general_audience_only: true,
+    image_generation_status: "runtime_dependent",
+    voice_status: "runtime_dependent",
+    video_generation_status: "external_dependency",
+    animation_status: "external_dependency",
+    audio_generation_editing_status: "external_dependency",
+    adult_experience_status: "external_dependency",
+    external_dependencies: expectedDependencies,
   };
 }
 

@@ -1070,9 +1070,38 @@ textarea {
   margin-top: 0.75rem;
 }
 
+.creative-panel .workflow-form {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.creative-panel .workflow-form > label,
+.creative-panel .workflow-form > button {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 0.35rem;
+}
+
+.creative-turns {
+  display: grid;
+  gap: 0.8rem;
+  padding-left: 1.4rem;
+}
+
+.creative-turns > li {
+  border: 1px solid var(--line);
+  border-radius: 0.8rem;
+  background: var(--panel-soft);
+  padding: 0.85rem;
+}
+
+.creative-turns p {
+  white-space: pre-wrap;
+}
+
 @media (max-width: 720px) {
   .finance-panel .workflow-form,
-  .learning-panel .workflow-form {
+  .learning-panel .workflow-form,
+  .creative-panel .workflow-form {
     grid-template-columns: 1fr;
   }
 }
@@ -1965,6 +1994,7 @@ textarea {
   #personal-settings-panel,
   #personal-agents-panel,
   #personal-learning-panel,
+  #personal-creative-panel,
   #feature-catalog-layer {
     width: calc(100% - 1rem);
     max-height: calc(100vh - 7rem);

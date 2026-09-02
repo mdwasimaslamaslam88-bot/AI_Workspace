@@ -101,6 +101,27 @@ def test_learning_registry_exposes_persistent_learning_without_promoting_pronunc
     assert pronunciation.dependencies == ("pronunciation_scoring_provider",)
 
 
+def test_creative_registry_exposes_verified_text_experiences_without_promoting_media():
+    records = {feature.id: feature for feature in FEATURE_REGISTRY}
+    for identifier in (
+        "universal_workspace.interactive_stories",
+        "universal_workspace.games",
+        "universal_workspace.character_experiences",
+    ):
+        assert records[identifier].status == "implemented"
+        assert records[identifier].backend_capability == "creative_experience_service"
+        assert "backend:test_creative_api" in records[identifier].test_coverage
+    for identifier in (
+        "universal_workspace.video",
+        "universal_workspace.multimedia_creation",
+        "apps_hub.adult_age_gate",
+        "apps_hub.consent_enforcement",
+        "apps_hub.minor_safety_boundary",
+        "apps_hub.jurisdiction_boundary",
+    ):
+        assert records[identifier].status == "external_dependency"
+
+
 def test_feature_registry_requires_authentication():
     session = AsyncMock(spec=AsyncSession)
 
