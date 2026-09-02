@@ -100,7 +100,11 @@ healthy. No service file binds the API or an AI runtime to a public interface.
 - Linux desktop: Tauri AppImage and Debian package under `apps/desktop/src-tauri/target`
 - Windows: real NSIS and standalone PE artifacts from the Windows workflow
 - Android: ARM64 owner-sideload APK from `mobile_check.sh --output-apk`
-- macOS/iOS store distribution: target host and owner-controlled signing
+- macOS: arm64 app ZIP and DMG from the macOS workflow, with a strict-valid
+  ad-hoc owner-sideload signature; Developer ID trust/notarization remains an
+  owner-credential boundary
+- iOS store distribution: Apple target host, provisioning and owner-controlled
+  signing
 
 Never copy `.env`, token files, private keys, database dumps, or asset backups
 into a client package.

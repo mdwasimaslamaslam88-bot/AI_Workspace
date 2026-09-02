@@ -198,3 +198,29 @@ socket and use fixed, restricted launch contracts.
 Simulated hardware tiers and future-model contracts are admission tests only.
 They are never reported as real model execution. WORK STATION does not claim to
 be unhackable or universally correct.
+
+## Final ten-step release evidence (2026-09-03)
+
+The sequential production release gate completed after the evidence above. The
+final complete local run passed 2,926 backend tests (48 intentional
+environment/runtime skips), 191 web tests, 61 mobile tests, Expo Doctor 21/21,
+2 desktop Rust tests, 48 PostgreSQL tests through migration `0017`, Linux
+packaging and real launch smokes, browser/PWA E2E, security gates, and the full
+configured real-runtime matrix.
+
+Native target-host validation also passed:
+
+- Windows x64 portable PE and NSIS artifacts were built, inspected, scanned,
+  extracted, and launch-smoked by workflow run `33688155298`.
+- macOS arm64 app ZIP and DMG artifacts were built, strict-validated with an
+  ad-hoc signature, scanned, and launch-smoked by workflow run `33691644096`.
+- Android was rebuilt locally with the native SDK (532 Gradle tasks), producing
+  a v2/v3-signed, aligned owner-sideload APK for
+  `com.workstation.personalai`; no emulator or physical device was attached.
+
+The authoritative final evidence is in `reports/RELEASE_REPORT.md`,
+`reports/PLATFORM_STATUS.md`, `reports/TEST_SUMMARY.md`,
+`reports/SECURITY_REPORT.md`, and `reports/EXTERNAL_BOUNDARIES.md`. The release
+keeps the current AI benchmark at its honestly measured 97.88/100 and preserves
+the registry classifications: 187 implemented, 14 runtime-dependent, 39
+external-dependent, and 5 planned/disabled capabilities.
