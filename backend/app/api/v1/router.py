@@ -6,6 +6,7 @@ from app.api.v1.agent_os import router as agent_os_router
 from app.api.v1.ai import router as ai_router
 from app.api.v1.assets import router as assets_router
 from app.api.v1.conversations import router as conversations_router
+from app.api.v1.communications import router as communications_router
 from app.api.v1.documents import router as documents_router
 from app.api.v1.external_ai import router as external_ai_router
 from app.api.v1.features import router as features_router
@@ -27,6 +28,7 @@ router.include_router(external_ai_router)
 router.include_router(features_router)
 router.include_router(self_update_router)
 router.include_router(users_router)
+router.include_router(communications_router)
 router.include_router(voice_router)
 router.include_router(images_router)
 router.include_router(memories_router)

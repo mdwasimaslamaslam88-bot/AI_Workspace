@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { presenceStateForAgentStatus, type PresenceState } from "@work-station/shared";
 
 import type {
   AgentKind,
@@ -15,6 +16,7 @@ interface AgentPanelProps {
   onLoadRuns: (signal?: AbortSignal) => Promise<AgentRun[]>;
   onCreate: (request: AgentRunCreateRequest) => Promise<AgentRun>;
   onCancel: (runId: string) => Promise<AgentRun>;
+  onPresenceStateChange?: (state: PresenceState | null) => void;
 }
 
 const TASKS: Array<{ value: ModelTask; label: string }> = [
@@ -40,6 +42,7 @@ export function AgentPanel({
   onLoadRuns,
   onCreate,
   onCancel,
+  onPresenceStateChange,
 }: AgentPanelProps) {
   const [capabilities, setCapabilities] = useState<AgentOSCapabilities | null>(null);
   const [runs, setRuns] = useState<AgentRun[]>([]);
@@ -79,6 +82,16 @@ export function AgentPanel({
     const timer = window.setInterval(() => void load(), 1500);
     return () => window.clearInterval(timer);
   }, [load, runs]);
+
+  useEffect(() => {
+    const latest = runs.find((run) => !TERMINAL.has(run.status)) ?? runs[0];
+    onPresenceStateChange?.(presenceStateForAgentStatus(latest?.status));
+  }, [onPresenceStateChange, runs]);
+
+  useEffect(
+    () => () => onPresenceStateChange?.(null),
+    [onPresenceStateChange],
+  );
 
   const submit = useCallback(async () => {
     const normalized = goal.trim();

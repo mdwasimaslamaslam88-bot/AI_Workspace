@@ -69,4 +69,14 @@ describe("mobile accessibility contract", () => {
       expect(settings).toContain(label);
     }
   });
+
+  it("keeps external calls disabled until a provider is configured", () => {
+    const home = fs.readFileSync(
+      path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../src/app/index.tsx"),
+      "utf8",
+    );
+    expect(home).toContain('accessibilityLabel="Call"');
+    expect(home).toContain("Requires an owner-configured communication provider");
+    expect(home).toMatch(/accessibilityLabel="Call"[\s\S]{0,240}disabled/);
+  });
 });

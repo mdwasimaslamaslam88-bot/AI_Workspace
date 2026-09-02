@@ -9,6 +9,7 @@ import { ConversationList } from "../src/features/conversations/ConversationList
 import { ModelSelector } from "../src/features/models/ModelSelector";
 import { SettingsPanel } from "../src/features/settings/SettingsPanel";
 import { FeatureCatalogPanel } from "../src/features/catalog/FeatureCatalogPanel";
+import { PresenceHeader } from "../src/features/shell/PresenceHeader";
 import {
   conversation,
   message,
@@ -53,6 +54,15 @@ const indexedDocument: IndexedDocument = {
 };
 
 describe("critical surface accessibility", () => {
+  it("exposes the communication boundary without a fake call action", async () => {
+    const { container } = render(
+      <PresenceHeader state="WAITING" modelName="Local model" onAsk={vi.fn()} />,
+    );
+    expect(screen.getByRole("button", { name: "Call" })).toBeDisabled();
+    expect(screen.getByText(/owner-configured communication provider/)).toBeInTheDocument();
+    await expectNoStructuralViolations(container);
+  });
+
   it("keeps owner connection controls structurally accessible", async () => {
     const { container } = render(
       <ConnectView connecting={false} error={null} onConnect={vi.fn(async () => undefined)} />,

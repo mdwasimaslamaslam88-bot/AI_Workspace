@@ -636,7 +636,12 @@ textarea {
 .presence-actions {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.7rem;
+}
+
+.presence-external-action {
+  display: inline-flex;
 }
 
 .presence-state {

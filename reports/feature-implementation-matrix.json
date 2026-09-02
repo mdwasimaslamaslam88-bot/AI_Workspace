@@ -157,6 +157,21 @@
     },
     {
       "backend_state": "external_boundary",
+      "category": "Extended speech profiles",
+      "code": "external_dependency",
+      "dependencies": [
+        "verified_female_voice_model",
+        "verified_multilingual_speech_models"
+      ],
+      "id": "ai_presence.female_voice_profile",
+      "layer": "ai_presence",
+      "locally_actionable": false,
+      "priority": "P2",
+      "status": "external_dependency",
+      "ui_state": "disabled_until_authorized"
+    },
+    {
+      "backend_state": "external_boundary",
       "category": "Realtime communications",
       "code": "external_dependency",
       "dependencies": [
@@ -164,6 +179,36 @@
         "owner_configuration"
       ],
       "id": "ai_presence.live_screen_sharing",
+      "layer": "ai_presence",
+      "locally_actionable": false,
+      "priority": "P2",
+      "status": "external_dependency",
+      "ui_state": "disabled_until_authorized"
+    },
+    {
+      "backend_state": "external_boundary",
+      "category": "Extended speech profiles",
+      "code": "external_dependency",
+      "dependencies": [
+        "verified_female_voice_model",
+        "verified_multilingual_speech_models"
+      ],
+      "id": "ai_presence.mixed_language_conversation",
+      "layer": "ai_presence",
+      "locally_actionable": false,
+      "priority": "P2",
+      "status": "external_dependency",
+      "ui_state": "disabled_until_authorized"
+    },
+    {
+      "backend_state": "external_boundary",
+      "category": "Extended speech profiles",
+      "code": "external_dependency",
+      "dependencies": [
+        "verified_female_voice_model",
+        "verified_multilingual_speech_models"
+      ],
+      "id": "ai_presence.multilingual_conversation",
       "layer": "ai_presence",
       "locally_actionable": false,
       "priority": "P2",
@@ -754,21 +799,6 @@
         "verified_local_model",
         "asset_storage"
       ],
-      "id": "ai_presence.female_voice_profile",
-      "layer": "ai_presence",
-      "locally_actionable": true,
-      "priority": "P3",
-      "status": "runtime_dependent",
-      "ui_state": "runtime_gated"
-    },
-    {
-      "backend_state": "bound",
-      "category": "Multimodal presence",
-      "code": "runtime_readiness",
-      "dependencies": [
-        "verified_local_model",
-        "asset_storage"
-      ],
       "id": "ai_presence.file_input",
       "layer": "ai_presence",
       "locally_actionable": true,
@@ -815,36 +845,6 @@
         "asset_storage"
       ],
       "id": "ai_presence.microphone_input",
-      "layer": "ai_presence",
-      "locally_actionable": true,
-      "priority": "P3",
-      "status": "runtime_dependent",
-      "ui_state": "runtime_gated"
-    },
-    {
-      "backend_state": "bound",
-      "category": "Multimodal presence",
-      "code": "runtime_readiness",
-      "dependencies": [
-        "verified_local_model",
-        "asset_storage"
-      ],
-      "id": "ai_presence.mixed_language_conversation",
-      "layer": "ai_presence",
-      "locally_actionable": true,
-      "priority": "P3",
-      "status": "runtime_dependent",
-      "ui_state": "runtime_gated"
-    },
-    {
-      "backend_state": "bound",
-      "category": "Multimodal presence",
-      "code": "runtime_readiness",
-      "dependencies": [
-        "verified_local_model",
-        "asset_storage"
-      ],
-      "id": "ai_presence.multilingual_conversation",
       "layer": "ai_presence",
       "locally_actionable": true,
       "priority": "P3",
@@ -1543,41 +1543,6 @@
         "verified_local_model",
         "asset_storage"
       ],
-      "description": "Female voice profile using the existing local capability layer; availability follows authenticated runtime and model diagnostics.",
-      "id": "ai_presence.female_voice_profile",
-      "layer": "ai_presence",
-      "permissions": [
-        "owner_session",
-        "media_capture"
-      ],
-      "runtime_state": "requires_authenticated_health_probe",
-      "status": "runtime_dependent",
-      "test_coverage": [
-        "backend:test_voice_api",
-        "backend:test_image_api",
-        "web:app",
-        "mobile:chat"
-      ],
-      "ui": {
-        "entry_point": "/home#female-voice-profile",
-        "state": "runtime_gated"
-      }
-    },
-    {
-      "backend": {
-        "capability": "multimodal_runtime",
-        "state": "bound"
-      },
-      "category": "Multimodal presence",
-      "coverage_modes": [
-        "automated_backend",
-        "automated_mobile",
-        "automated_web"
-      ],
-      "dependencies": [
-        "verified_local_model",
-        "asset_storage"
-      ],
       "description": "Voice playback using the existing local capability layer; availability follows authenticated runtime and model diagnostics.",
       "id": "ai_presence.voice_playback",
       "layer": "ai_presence",
@@ -1630,76 +1595,6 @@
       ],
       "ui": {
         "entry_point": "/home#automatic-language-detection",
-        "state": "runtime_gated"
-      }
-    },
-    {
-      "backend": {
-        "capability": "multimodal_runtime",
-        "state": "bound"
-      },
-      "category": "Multimodal presence",
-      "coverage_modes": [
-        "automated_backend",
-        "automated_mobile",
-        "automated_web"
-      ],
-      "dependencies": [
-        "verified_local_model",
-        "asset_storage"
-      ],
-      "description": "Multilingual conversation using the existing local capability layer; availability follows authenticated runtime and model diagnostics.",
-      "id": "ai_presence.multilingual_conversation",
-      "layer": "ai_presence",
-      "permissions": [
-        "owner_session",
-        "media_capture"
-      ],
-      "runtime_state": "requires_authenticated_health_probe",
-      "status": "runtime_dependent",
-      "test_coverage": [
-        "backend:test_voice_api",
-        "backend:test_image_api",
-        "web:app",
-        "mobile:chat"
-      ],
-      "ui": {
-        "entry_point": "/home#multilingual-conversation",
-        "state": "runtime_gated"
-      }
-    },
-    {
-      "backend": {
-        "capability": "multimodal_runtime",
-        "state": "bound"
-      },
-      "category": "Multimodal presence",
-      "coverage_modes": [
-        "automated_backend",
-        "automated_mobile",
-        "automated_web"
-      ],
-      "dependencies": [
-        "verified_local_model",
-        "asset_storage"
-      ],
-      "description": "Mixed-language conversation using the existing local capability layer; availability follows authenticated runtime and model diagnostics.",
-      "id": "ai_presence.mixed_language_conversation",
-      "layer": "ai_presence",
-      "permissions": [
-        "owner_session",
-        "media_capture"
-      ],
-      "runtime_state": "requires_authenticated_health_probe",
-      "status": "runtime_dependent",
-      "test_coverage": [
-        "backend:test_voice_api",
-        "backend:test_image_api",
-        "web:app",
-        "mobile:chat"
-      ],
-      "ui": {
-        "entry_point": "/home#mixed-language-conversation",
         "state": "runtime_gated"
       }
     },
@@ -1911,6 +1806,102 @@
       "ui": {
         "entry_point": "/home#image-editing",
         "state": "runtime_gated"
+      }
+    },
+    {
+      "backend": {
+        "capability": "external_speech_model_contract",
+        "state": "external_boundary"
+      },
+      "category": "Extended speech profiles",
+      "coverage_modes": [
+        "contract_validation",
+        "documented_boundary"
+      ],
+      "dependencies": [
+        "verified_female_voice_model",
+        "verified_multilingual_speech_models"
+      ],
+      "description": "Governed female voice profile entry point; execution remains disabled until the listed external dependency and owner permission are configured.",
+      "id": "ai_presence.female_voice_profile",
+      "layer": "ai_presence",
+      "permissions": [
+        "owner_session",
+        "media_capture"
+      ],
+      "runtime_state": "blocked_by_external_dependency",
+      "status": "external_dependency",
+      "test_coverage": [
+        "contract:feature_registry",
+        "manual:external_boundary"
+      ],
+      "ui": {
+        "entry_point": "/home#female-voice-profile",
+        "state": "disabled_until_authorized"
+      }
+    },
+    {
+      "backend": {
+        "capability": "external_speech_model_contract",
+        "state": "external_boundary"
+      },
+      "category": "Extended speech profiles",
+      "coverage_modes": [
+        "contract_validation",
+        "documented_boundary"
+      ],
+      "dependencies": [
+        "verified_female_voice_model",
+        "verified_multilingual_speech_models"
+      ],
+      "description": "Governed multilingual conversation entry point; execution remains disabled until the listed external dependency and owner permission are configured.",
+      "id": "ai_presence.multilingual_conversation",
+      "layer": "ai_presence",
+      "permissions": [
+        "owner_session",
+        "media_capture"
+      ],
+      "runtime_state": "blocked_by_external_dependency",
+      "status": "external_dependency",
+      "test_coverage": [
+        "contract:feature_registry",
+        "manual:external_boundary"
+      ],
+      "ui": {
+        "entry_point": "/home#multilingual-conversation",
+        "state": "disabled_until_authorized"
+      }
+    },
+    {
+      "backend": {
+        "capability": "external_speech_model_contract",
+        "state": "external_boundary"
+      },
+      "category": "Extended speech profiles",
+      "coverage_modes": [
+        "contract_validation",
+        "documented_boundary"
+      ],
+      "dependencies": [
+        "verified_female_voice_model",
+        "verified_multilingual_speech_models"
+      ],
+      "description": "Governed mixed-language conversation entry point; execution remains disabled until the listed external dependency and owner permission are configured.",
+      "id": "ai_presence.mixed_language_conversation",
+      "layer": "ai_presence",
+      "permissions": [
+        "owner_session",
+        "media_capture"
+      ],
+      "runtime_state": "blocked_by_external_dependency",
+      "status": "external_dependency",
+      "test_coverage": [
+        "contract:feature_registry",
+        "manual:external_boundary"
+      ],
+      "ui": {
+        "entry_point": "/home#mixed-language-conversation",
+        "state": "disabled_until_authorized"
       }
     },
     {
@@ -8721,16 +8712,16 @@
     }
   ],
   "product": "AI OS",
-  "registry_sha256": "7a3d96d361c5447bb024c2004be1546f6e3b6e25ed95a3883bd6eefdaf62ea11",
+  "registry_sha256": "3b2418fe7591c075682b7331e34428711daac23594aca97d946c6decd7f07574",
   "schema_version": 1,
   "summary": {
     "broken_registry_wiring": 0,
-    "external_boundaries": 37,
+    "external_boundaries": 40,
     "missing_backend_contracts": 0,
     "missing_coverage_records": 0,
     "missing_ui_paths": 0,
     "planned_gaps": 10,
-    "runtime_gates": 20
+    "runtime_gates": 17
   },
   "total": 245
 }

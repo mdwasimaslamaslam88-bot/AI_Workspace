@@ -157,6 +157,21 @@
     },
     {
       "backend_state": "external_boundary",
+      "category": "Extended speech profiles",
+      "code": "external_dependency",
+      "dependencies": [
+        "verified_female_voice_model",
+        "verified_multilingual_speech_models"
+      ],
+      "id": "ai_presence.female_voice_profile",
+      "layer": "ai_presence",
+      "locally_actionable": false,
+      "priority": "P2",
+      "status": "external_dependency",
+      "ui_state": "disabled_until_authorized"
+    },
+    {
+      "backend_state": "external_boundary",
       "category": "Realtime communications",
       "code": "external_dependency",
       "dependencies": [
@@ -164,6 +179,36 @@
         "owner_configuration"
       ],
       "id": "ai_presence.live_screen_sharing",
+      "layer": "ai_presence",
+      "locally_actionable": false,
+      "priority": "P2",
+      "status": "external_dependency",
+      "ui_state": "disabled_until_authorized"
+    },
+    {
+      "backend_state": "external_boundary",
+      "category": "Extended speech profiles",
+      "code": "external_dependency",
+      "dependencies": [
+        "verified_female_voice_model",
+        "verified_multilingual_speech_models"
+      ],
+      "id": "ai_presence.mixed_language_conversation",
+      "layer": "ai_presence",
+      "locally_actionable": false,
+      "priority": "P2",
+      "status": "external_dependency",
+      "ui_state": "disabled_until_authorized"
+    },
+    {
+      "backend_state": "external_boundary",
+      "category": "Extended speech profiles",
+      "code": "external_dependency",
+      "dependencies": [
+        "verified_female_voice_model",
+        "verified_multilingual_speech_models"
+      ],
+      "id": "ai_presence.multilingual_conversation",
       "layer": "ai_presence",
       "locally_actionable": false,
       "priority": "P2",
@@ -754,21 +799,6 @@
         "verified_local_model",
         "asset_storage"
       ],
-      "id": "ai_presence.female_voice_profile",
-      "layer": "ai_presence",
-      "locally_actionable": true,
-      "priority": "P3",
-      "status": "runtime_dependent",
-      "ui_state": "runtime_gated"
-    },
-    {
-      "backend_state": "bound",
-      "category": "Multimodal presence",
-      "code": "runtime_readiness",
-      "dependencies": [
-        "verified_local_model",
-        "asset_storage"
-      ],
       "id": "ai_presence.file_input",
       "layer": "ai_presence",
       "locally_actionable": true,
@@ -815,36 +845,6 @@
         "asset_storage"
       ],
       "id": "ai_presence.microphone_input",
-      "layer": "ai_presence",
-      "locally_actionable": true,
-      "priority": "P3",
-      "status": "runtime_dependent",
-      "ui_state": "runtime_gated"
-    },
-    {
-      "backend_state": "bound",
-      "category": "Multimodal presence",
-      "code": "runtime_readiness",
-      "dependencies": [
-        "verified_local_model",
-        "asset_storage"
-      ],
-      "id": "ai_presence.mixed_language_conversation",
-      "layer": "ai_presence",
-      "locally_actionable": true,
-      "priority": "P3",
-      "status": "runtime_dependent",
-      "ui_state": "runtime_gated"
-    },
-    {
-      "backend_state": "bound",
-      "category": "Multimodal presence",
-      "code": "runtime_readiness",
-      "dependencies": [
-        "verified_local_model",
-        "asset_storage"
-      ],
-      "id": "ai_presence.multilingual_conversation",
       "layer": "ai_presence",
       "locally_actionable": true,
       "priority": "P3",
@@ -1003,15 +1003,15 @@
     }
   ],
   "product": "AI OS",
-  "registry_sha256": "7a3d96d361c5447bb024c2004be1546f6e3b6e25ed95a3883bd6eefdaf62ea11",
+  "registry_sha256": "3b2418fe7591c075682b7331e34428711daac23594aca97d946c6decd7f07574",
   "schema_version": 1,
   "summary": {
     "broken_registry_wiring": 0,
-    "external_boundaries": 37,
+    "external_boundaries": 40,
     "missing_backend_contracts": 0,
     "missing_coverage_records": 0,
     "missing_ui_paths": 0,
     "planned_gaps": 10,
-    "runtime_gates": 20
+    "runtime_gates": 17
   }
 }

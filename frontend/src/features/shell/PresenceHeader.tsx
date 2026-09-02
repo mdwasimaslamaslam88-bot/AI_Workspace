@@ -1,4 +1,4 @@
-export type PresenceState = "WORKING" | "WAITING" | "NEEDS INPUT";
+import type { PresenceState } from "@work-station/shared";
 
 interface PresenceHeaderProps {
   state: PresenceState;
@@ -29,6 +29,22 @@ export function PresenceHeader({ state, modelName, onAsk }: PresenceHeaderProps)
         <button type="button" className="button button-primary" onClick={onAsk}>
           Ask AI Anything
         </button>
+        <span id="phone-call" className="presence-external-action">
+          <button
+            type="button"
+            className="button button-secondary"
+            aria-describedby="realtime-communication-boundary"
+            disabled
+          >
+            Call
+          </button>
+        </span>
+        <span id="configured-callback" />
+        <span id="video-interaction" />
+        <span id="live-screen-sharing" />
+        <span id="realtime-communication-boundary" className="sr-only">
+          Calls, callbacks, video, and screen sharing require an owner-configured communication provider.
+        </span>
       </div>
     </section>
   );

@@ -1,4 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { resolvePresenceState, type PresenceState } from "@work-station/shared";
 
 import { ApiClient, ApiError, type UploadProgress } from "../api/client";
 import type {
@@ -181,6 +182,8 @@ export function App() {
   const [workflowsOpen, setWorkflowsOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [agentsOpen, setAgentsOpen] = useState(false);
+  const [voicePresence, setVoicePresence] = useState<PresenceState | null>(null);
+  const [agentPresence, setAgentPresence] = useState<PresenceState | null>(null);
   const [catalogLayer, setCatalogLayer] = useState<
     Extract<FeatureLayer, "universal_workspace" | "apps_hub"> | null
   >(null);
@@ -1457,6 +1460,13 @@ export function App() {
             ? "apps_hub"
             : "ai_presence");
 
+  const presenceState = resolvePresenceState({
+    voice: voicePresence ?? agentPresence,
+    generating: generating || creatingConversation,
+    working: messagesLoading || modelsLoading,
+    needsInput: chatNotice !== null,
+  });
+
   function closeProductPanels() {
     setSettingsOpen(false);
     setWorkflowsOpen(false);
@@ -1651,7 +1661,7 @@ export function App() {
         </header>
         <ProductLayerNavigation activeLayer={activeLayer} onSelect={selectProductLayer} />
         <PresenceHeader
-          state={chatNotice !== null ? "NEEDS INPUT" : generating ? "WORKING" : "WAITING"}
+          state={presenceState}
           modelName={selectedModel?.display_name ?? null}
           onAsk={() => {
             closeProductPanels();
@@ -1694,6 +1704,7 @@ export function App() {
               onLoadRuns={loadAgentRuns}
               onCreate={createAgentRun}
               onCancel={cancelAgentRun}
+              onPresenceStateChange={setAgentPresence}
             />
           </div>
         )}
@@ -1788,6 +1799,7 @@ export function App() {
           onSynthesizeVoice={synthesizeVoice}
           onGenerateImage={generateImage}
           onEditImage={editImage}
+          onPresenceStateChange={setVoicePresence}
         />
       </section>
     </main>

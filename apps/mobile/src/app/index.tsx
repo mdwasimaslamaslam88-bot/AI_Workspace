@@ -1,4 +1,12 @@
-import type { Asset, ConversationCursor, ConversationStateUpdateRequest, ConversationSummary, LocalModel, Message } from "@work-station/shared";
+import {
+  resolvePresenceState,
+  type Asset,
+  type ConversationCursor,
+  type ConversationStateUpdateRequest,
+  type ConversationSummary,
+  type LocalModel,
+  type Message,
+} from "@work-station/shared";
 import {
   AudioModule,
   RecordingPresets,
@@ -163,13 +171,35 @@ export default function ChatScreen() {
   const [attachments, setAttachments] = useState<Asset[]>([]);
   const [busy, setBusy] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [completed, setCompleted] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const generation = useRef<AbortController | null>(null);
+  const completionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const conversationPageRequest = useRef<AbortController | null>(null);
   const messagePageRequest = useRef<AbortController | null>(null);
   const selectedConversation = useRef<ConversationSummary | null>(null);
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const recorderState = useAudioRecorderState(recorder);
+  const presenceState = resolvePresenceState({
+    voice: recorderState.isRecording ? "LISTENING" : null,
+    generating,
+    working: busy && !generating,
+    completed,
+    needsInput: notice !== null,
+  });
+
+  const markCompleted = useCallback(() => {
+    if (completionTimer.current !== null) clearTimeout(completionTimer.current);
+    setCompleted(true);
+    completionTimer.current = setTimeout(() => {
+      completionTimer.current = null;
+      setCompleted(false);
+    }, 2_500);
+  }, []);
+
+  useEffect(() => () => {
+    if (completionTimer.current !== null) clearTimeout(completionTimer.current);
+  }, []);
   const visibleConversations = [...conversations].sort((left, right) =>
     Number(left.is_archived) - Number(right.is_archived) ||
     Number(right.is_pinned) - Number(left.is_pinned),
@@ -423,6 +453,7 @@ export default function ChatScreen() {
         uploaded = await connectedClient.uploadAsset({ uri, name: "voice-prompt.m4a", mimeType: "audio/mp4" });
         const transcript = await connectedClient.transcribe(uploaded.id, voiceModel.model_id);
         setPrompt(transcript.text);
+        markCompleted();
       } catch (cause) {
         setNotice(safeError(cause));
       } finally {
@@ -438,6 +469,7 @@ export default function ChatScreen() {
     }
     await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
     await recorder.prepareToRecordAsync();
+    setCompleted(false);
     recorder.record();
   }
 
@@ -448,10 +480,12 @@ export default function ChatScreen() {
     generation.current = controller;
     setGenerating(true);
     setBusy(true);
+    setCompleted(false);
     setNotice(null);
     setPrompt("");
     const attachmentIds = attachments.map((asset) => asset.id);
     setAttachments([]);
+    let succeeded = false;
     try {
       let conversation = selected;
       if (conversation === null) {
@@ -479,6 +513,7 @@ export default function ChatScreen() {
       const conversationPage = await listConversationPage(connectedClient);
       setConversations(conversationPage.items);
       setConversationCursor(conversationPage.next_cursor);
+      succeeded = true;
     } catch (cause) {
       setNotice(safeError(cause));
       if (selected !== null) await loadMessages(selected);
@@ -486,6 +521,7 @@ export default function ChatScreen() {
       generation.current = null;
       setGenerating(false);
       setBusy(false);
+      if (succeeded) markCompleted();
     }
   }
 
@@ -661,13 +697,7 @@ export default function ChatScreen() {
           <Text style={styles.eyebrow}>ASK AI ANYTHING</Text>
           <Text style={styles.presenceTitle}>What shall we accomplish?</Text>
           <Text accessibilityLiveRegion="polite" style={styles.presenceState}>
-            {recorderState.isRecording
-              ? "LISTENING"
-              : generating
-                ? "WORKING"
-                : notice !== null
-                  ? "NEEDS INPUT"
-                  : "WAITING"}
+            {presenceState}
           </Text>
         </View>
       </View>
@@ -930,6 +960,16 @@ export default function ChatScreen() {
       )}
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={92}>
         <View style={styles.composerTools}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Call"
+            accessibilityHint="Requires an owner-configured communication provider"
+            accessibilityState={{ disabled: true }}
+            disabled
+            style={[styles.composerTool, styles.disabled]}
+          >
+            <Text style={styles.muted}>Call</Text>
+          </Pressable>
           <Pressable accessibilityRole="button" style={styles.composerTool} onPress={() => void chooseDocument()}><Text style={styles.link}>File</Text></Pressable>
           <Pressable accessibilityRole="button" style={styles.composerTool} onPress={() => void chooseImage(false)}><Text style={styles.link}>Photo</Text></Pressable>
           <Pressable accessibilityRole="button" style={styles.composerTool} onPress={() => void chooseImage(true)}><Text style={styles.link}>Camera</Text></Pressable>

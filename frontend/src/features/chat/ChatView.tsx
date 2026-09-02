@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
+import type { PresenceState } from "@work-station/shared";
 
 import type { UploadProgress } from "../../api/client";
 import type {
@@ -102,6 +103,7 @@ interface ChatViewProps extends AttachmentActions {
   imageEditingAvailable?: boolean;
   onGenerateImage?: (prompt: string) => Promise<void>;
   onEditImage?: (sourceAssetId: string, instruction: string) => Promise<void>;
+  onPresenceStateChange?: (state: PresenceState | null) => void;
 }
 
 const EMPTY_ATTACHMENT_STATES = new Map<string, MessageAttachment["state"]>();
@@ -683,6 +685,7 @@ export function ChatView({
   imageEditingAvailable = false,
   onGenerateImage,
   onEditImage,
+  onPresenceStateChange,
 }: ChatViewProps) {
   const [draft, setDraft] = useState("");
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
@@ -716,6 +719,20 @@ export function ChatView({
   const recordingTimer = useRef<number | null>(null);
   const voiceController = useRef<AbortController | null>(null);
   const voiceUploadInput = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (recording) onPresenceStateChange?.("LISTENING");
+    else if (transcribing) onPresenceStateChange?.("THINKING");
+    else if (synthesizingMessageId !== null || imageOperation !== null) {
+      onPresenceStateChange?.("WORKING");
+    } else onPresenceStateChange?.(null);
+  }, [
+    imageOperation,
+    onPresenceStateChange,
+    recording,
+    synthesizingMessageId,
+    transcribing,
+  ]);
   const attachedStates = useMemo(
     () =>
       new Map(

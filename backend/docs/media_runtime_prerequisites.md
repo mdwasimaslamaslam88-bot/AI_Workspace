@@ -50,6 +50,20 @@ assets, and left no audio bytes, transcript, text input, or storage path in
 application logs. The final release rerun observed 1,297 MiB and 21 percent GPU
 utilization. Both model inference paths run offline after installation.
 
+The installed Faster-Whisper model is the English-only `small.en` variant. It
+returns its detected language metadata, but the product does not claim verified
+multilingual or mixed-language speech from this model. The installed Lessac
+Piper model has no female-voice declaration in its official model card, so it
+is not labeled as the requested verified female profile. The official
+multilingual `Systran/faster-whisper-small` model and public-domain
+`en_US-ljspeech-medium` female Piper voice were integrity-discovered as safe
+candidates on 2026-09-02. The available immutable download route projected
+hours for the 461 MiB STT model and tens of minutes for the 61 MiB voice, so
+both transfers were stopped and their incomplete files were moved to trash.
+Neither candidate was production-admitted. Those three feature entries remain
+explicit external/model-installation boundaries until complete artifacts can be
+downloaded, hash-verified, and pass real local speech tests.
+
 ComfyUI is restricted to `127.0.0.1`, one active request, low-VRAM mode, 1.5 GiB
 VRAM reserve, no custom nodes, no API nodes, no browser launch, disabled PNG
 metadata, bounded uploads, and cache-free workflows. The application submits

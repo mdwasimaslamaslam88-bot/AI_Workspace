@@ -345,30 +345,6 @@
         "verified_local_model",
         "asset_storage"
       ],
-      "description": "Female voice profile using the existing local capability layer; availability follows authenticated runtime and model diagnostics.",
-      "id": "ai_presence.female_voice_profile",
-      "layer": "ai_presence",
-      "required_permissions": [
-        "owner_session",
-        "media_capture"
-      ],
-      "status": "runtime_dependent",
-      "test_coverage": [
-        "backend:test_voice_api",
-        "backend:test_image_api",
-        "web:app",
-        "mobile:chat"
-      ],
-      "title": "Female voice profile",
-      "ui_entry_point": "/home#female-voice-profile"
-    },
-    {
-      "backend_capability": "multimodal_runtime",
-      "category": "Multimodal presence",
-      "dependencies": [
-        "verified_local_model",
-        "asset_storage"
-      ],
       "description": "Voice playback using the existing local capability layer; availability follows authenticated runtime and model diagnostics.",
       "id": "ai_presence.voice_playback",
       "layer": "ai_presence",
@@ -409,54 +385,6 @@
       ],
       "title": "Automatic language detection",
       "ui_entry_point": "/home#automatic-language-detection"
-    },
-    {
-      "backend_capability": "multimodal_runtime",
-      "category": "Multimodal presence",
-      "dependencies": [
-        "verified_local_model",
-        "asset_storage"
-      ],
-      "description": "Multilingual conversation using the existing local capability layer; availability follows authenticated runtime and model diagnostics.",
-      "id": "ai_presence.multilingual_conversation",
-      "layer": "ai_presence",
-      "required_permissions": [
-        "owner_session",
-        "media_capture"
-      ],
-      "status": "runtime_dependent",
-      "test_coverage": [
-        "backend:test_voice_api",
-        "backend:test_image_api",
-        "web:app",
-        "mobile:chat"
-      ],
-      "title": "Multilingual conversation",
-      "ui_entry_point": "/home#multilingual-conversation"
-    },
-    {
-      "backend_capability": "multimodal_runtime",
-      "category": "Multimodal presence",
-      "dependencies": [
-        "verified_local_model",
-        "asset_storage"
-      ],
-      "description": "Mixed-language conversation using the existing local capability layer; availability follows authenticated runtime and model diagnostics.",
-      "id": "ai_presence.mixed_language_conversation",
-      "layer": "ai_presence",
-      "required_permissions": [
-        "owner_session",
-        "media_capture"
-      ],
-      "status": "runtime_dependent",
-      "test_coverage": [
-        "backend:test_voice_api",
-        "backend:test_image_api",
-        "web:app",
-        "mobile:chat"
-      ],
-      "title": "Mixed-language conversation",
-      "ui_entry_point": "/home#mixed-language-conversation"
     },
     {
       "backend_capability": "multimodal_runtime",
@@ -601,6 +529,72 @@
       ],
       "title": "Image editing",
       "ui_entry_point": "/home#image-editing"
+    },
+    {
+      "backend_capability": "external_speech_model_contract",
+      "category": "Extended speech profiles",
+      "dependencies": [
+        "verified_female_voice_model",
+        "verified_multilingual_speech_models"
+      ],
+      "description": "Governed female voice profile entry point; execution remains disabled until the listed external dependency and owner permission are configured.",
+      "id": "ai_presence.female_voice_profile",
+      "layer": "ai_presence",
+      "required_permissions": [
+        "owner_session",
+        "media_capture"
+      ],
+      "status": "external_dependency",
+      "test_coverage": [
+        "contract:feature_registry",
+        "manual:external_boundary"
+      ],
+      "title": "Female voice profile",
+      "ui_entry_point": "/home#female-voice-profile"
+    },
+    {
+      "backend_capability": "external_speech_model_contract",
+      "category": "Extended speech profiles",
+      "dependencies": [
+        "verified_female_voice_model",
+        "verified_multilingual_speech_models"
+      ],
+      "description": "Governed multilingual conversation entry point; execution remains disabled until the listed external dependency and owner permission are configured.",
+      "id": "ai_presence.multilingual_conversation",
+      "layer": "ai_presence",
+      "required_permissions": [
+        "owner_session",
+        "media_capture"
+      ],
+      "status": "external_dependency",
+      "test_coverage": [
+        "contract:feature_registry",
+        "manual:external_boundary"
+      ],
+      "title": "Multilingual conversation",
+      "ui_entry_point": "/home#multilingual-conversation"
+    },
+    {
+      "backend_capability": "external_speech_model_contract",
+      "category": "Extended speech profiles",
+      "dependencies": [
+        "verified_female_voice_model",
+        "verified_multilingual_speech_models"
+      ],
+      "description": "Governed mixed-language conversation entry point; execution remains disabled until the listed external dependency and owner permission are configured.",
+      "id": "ai_presence.mixed_language_conversation",
+      "layer": "ai_presence",
+      "required_permissions": [
+        "owner_session",
+        "media_capture"
+      ],
+      "status": "external_dependency",
+      "test_coverage": [
+        "contract:feature_registry",
+        "manual:external_boundary"
+      ],
+      "title": "Mixed-language conversation",
+      "ui_entry_point": "/home#mixed-language-conversation"
     },
     {
       "backend_capability": "external_realtime_connector",
@@ -5118,13 +5112,13 @@
     "universal_workspace": 62
   },
   "product": "AI OS",
-  "registry_sha256": "7a3d96d361c5447bb024c2004be1546f6e3b6e25ed95a3883bd6eefdaf62ea11",
+  "registry_sha256": "3b2418fe7591c075682b7331e34428711daac23594aca97d946c6decd7f07574",
   "schema_version": 1,
   "statuses": {
-    "external_dependency": 37,
+    "external_dependency": 40,
     "implemented": 178,
     "planned": 10,
-    "runtime_dependent": 20
+    "runtime_dependent": 17
   },
   "total": 245,
   "validation": {
