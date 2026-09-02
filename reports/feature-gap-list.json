@@ -1,0 +1,1017 @@
+{
+  "gaps": [
+    {
+      "backend_state": "planned_contract_only",
+      "category": "Owner checkpoints",
+      "code": "planned_implementation",
+      "dependencies": [
+        "persistent_mission_scheduler"
+      ],
+      "id": "mission_control.mission_approve",
+      "layer": "mission_control",
+      "locally_actionable": true,
+      "priority": "P1",
+      "status": "planned",
+      "ui_state": "disabled_documented_gap"
+    },
+    {
+      "backend_state": "planned_contract_only",
+      "category": "Owner checkpoints",
+      "code": "planned_implementation",
+      "dependencies": [
+        "persistent_mission_scheduler"
+      ],
+      "id": "mission_control.mission_manual_retry",
+      "layer": "mission_control",
+      "locally_actionable": true,
+      "priority": "P1",
+      "status": "planned",
+      "ui_state": "disabled_documented_gap"
+    },
+    {
+      "backend_state": "planned_contract_only",
+      "category": "Owner checkpoints",
+      "code": "planned_implementation",
+      "dependencies": [
+        "persistent_mission_scheduler"
+      ],
+      "id": "mission_control.mission_modify",
+      "layer": "mission_control",
+      "locally_actionable": true,
+      "priority": "P1",
+      "status": "planned",
+      "ui_state": "disabled_documented_gap"
+    },
+    {
+      "backend_state": "planned_contract_only",
+      "category": "Owner checkpoints",
+      "code": "planned_implementation",
+      "dependencies": [
+        "persistent_mission_scheduler"
+      ],
+      "id": "mission_control.mission_pause",
+      "layer": "mission_control",
+      "locally_actionable": true,
+      "priority": "P1",
+      "status": "planned",
+      "ui_state": "disabled_documented_gap"
+    },
+    {
+      "backend_state": "planned_contract_only",
+      "category": "Owner checkpoints",
+      "code": "planned_implementation",
+      "dependencies": [
+        "persistent_mission_scheduler"
+      ],
+      "id": "mission_control.mission_resume",
+      "layer": "mission_control",
+      "locally_actionable": true,
+      "priority": "P1",
+      "status": "planned",
+      "ui_state": "disabled_documented_gap"
+    },
+    {
+      "backend_state": "planned_contract_only",
+      "category": "Market operations",
+      "code": "planned_implementation",
+      "dependencies": [
+        "market_workspace_persistence_and_simulation"
+      ],
+      "id": "universal_workspace.alerts",
+      "layer": "universal_workspace",
+      "locally_actionable": true,
+      "priority": "P1",
+      "status": "planned",
+      "ui_state": "disabled_documented_gap"
+    },
+    {
+      "backend_state": "planned_contract_only",
+      "category": "Market operations",
+      "code": "planned_implementation",
+      "dependencies": [
+        "market_workspace_persistence_and_simulation"
+      ],
+      "id": "universal_workspace.paper_trading",
+      "layer": "universal_workspace",
+      "locally_actionable": true,
+      "priority": "P1",
+      "status": "planned",
+      "ui_state": "disabled_documented_gap"
+    },
+    {
+      "backend_state": "planned_contract_only",
+      "category": "Market operations",
+      "code": "planned_implementation",
+      "dependencies": [
+        "market_workspace_persistence_and_simulation"
+      ],
+      "id": "universal_workspace.strategy_backtesting",
+      "layer": "universal_workspace",
+      "locally_actionable": true,
+      "priority": "P1",
+      "status": "planned",
+      "ui_state": "disabled_documented_gap"
+    },
+    {
+      "backend_state": "planned_contract_only",
+      "category": "Market operations",
+      "code": "planned_implementation",
+      "dependencies": [
+        "market_workspace_persistence_and_simulation"
+      ],
+      "id": "universal_workspace.trading_journal",
+      "layer": "universal_workspace",
+      "locally_actionable": true,
+      "priority": "P1",
+      "status": "planned",
+      "ui_state": "disabled_documented_gap"
+    },
+    {
+      "backend_state": "planned_contract_only",
+      "category": "Market operations",
+      "code": "planned_implementation",
+      "dependencies": [
+        "market_workspace_persistence_and_simulation"
+      ],
+      "id": "universal_workspace.watchlists",
+      "layer": "universal_workspace",
+      "locally_actionable": true,
+      "priority": "P1",
+      "status": "planned",
+      "ui_state": "disabled_documented_gap"
+    },
+    {
+      "backend_state": "external_boundary",
+      "category": "Realtime communications",
+      "code": "external_dependency",
+      "dependencies": [
+        "webrtc_or_telephony_provider",
+        "owner_configuration"
+      ],
+      "id": "ai_presence.configured_callback",
+      "layer": "ai_presence",
+      "locally_actionable": false,
+      "priority": "P2",
+      "status": "external_dependency",
+      "ui_state": "disabled_until_authorized"
+    },
+    {
+      "backend_state": "external_boundary",
+      "category": "Realtime communications",
+      "code": "external_dependency",
+      "dependencies": [
+        "webrtc_or_telephony_provider",
+        "owner_configuration"
+      ],
+      "id": "ai_presence.live_screen_sharing",
+      "layer": "ai_presence",
+      "locally_actionable": false,
+      "priority": "P2",
+      "status": "external_dependency",
+      "ui_state": "disabled_until_authorized"
+    },
+    {
+      "backend_state": "external_boundary",
+      "category": "Realtime communications",
+      "code": "external_dependency",
+      "dependencies": [
+        "webrtc_or_telephony_provider",
+        "owner_configuration"
+      ],
+      "id": "ai_presence.natural_turn_taking",
+      "layer": "ai_presence",
+      "locally_actionable": false,
+      "priority": "P2",
+      "status": "external_dependency",
+      "ui_state": "disabled_until_authorized"
+    },
+    {
+      "backend_state": "external_boundary",
+      "category": "Realtime communications",
+      "code": "external_dependency",
+      "dependencies": [
+        "webrtc_or_telephony_provider",
+        "owner_configuration"
+      ],
+      "id": "ai_presence.phone_call",
+      "layer": "ai_presence",
+      "locally_actionable": false,
+      "priority": "P2",
+      "status": "external_dependency",
+      "ui_state": "disabled_until_authorized"
+    },
+    {
+      "backend_state": "external_boundary",
+      "category": "Realtime communications",
+      "code": "external_dependency",
+      "dependencies": [
+        "webrtc_or_telephony_provider",
+        "owner_configuration"
+      ],
+      "id": "ai_presence.realtime_camera_stream",
+      "layer": "ai_presence",
+      "locally_actionable": false,
+      "priority": "P2",
+      "status": "external_dependency",
+      "ui_state": "disabled_until_authorized"
+    },
+    {
+      "backend_state": "external_boundary",
+      "category": "Realtime communications",
+      "code": "external_dependency",
+      "dependencies": [
+        "webrtc_or_telephony_provider",
+        "owner_configuration"
+      ],
+      "id": "ai_presence.video_interaction",
+      "layer": "ai_presence",
+      "locally_actionable": false,
+      "priority": "P2",
+      "status": "external_dependency",
+      "ui_state": "disabled_until_authorized"
+    },
+    {
+      "backend_state": "external_boundary",
+      "category": "Realtime communications",
+      "code": "external_dependency",
+      "dependencies": [
+        "webrtc_or_telephony_provider",
+        "owner_configuration"
+      ],
+      "id": "ai_presence.voice_interruption",
+      "layer": "ai_presence",
+      "locally_actionable": false,
+      "priority": "P2",
+      "status": "external_dependency",
+      "ui_state": "disabled_until_authorized"
+    },
+    {
+      "backend_state": "external_boundary",
+      "category": "Protected experiences",
+      "code": "external_dependency",
+      "dependencies": [
+        "jurisdiction_check",
+        "age_verification",
+        "consent_policy"
+      ],
+      "id": "apps_hub.adult_age_gate",
+      "layer": "apps_hub",
+      "locally_actionable": false,
+      "priority": "P2",
+      "status": "external_dependency",
+      "ui_state": "disabled_until_authorized"
+    },
+    {
+      "backend_state": "external_boundary",
+      "category": "Broker execution",
+      "code": "external_dependency",
+      "dependencies": [
+        "broker_account",
+        "broker_api",
+        "owner_risk_confirmation"
+      ],
+      "id": "apps_hub.broker_integration",
+      "layer": "apps_hub",
+      "locally_actionable": false,
+      "priority": "P2",
+      "status": "external_dependency",
+      "ui_state": "disabled_until_authorized"
+    },
+    {
+      "backend_state": "external_boundary",
+      "category": "Broker execution",
+      "code": "external_dependency",
+      "dependencies": [
+        "broker_account",
+        "broker_api",
+        "owner_risk_confirmation"
+      ],
+      "id": "apps_hub.broker_permission_enforcement",
+      "layer": "apps_hub",
+      "locally_actionable": false,
+      "priority": "P2",
+      "status": "external_dependency",
+      "ui_state": "disabled_until_authorized"
+    },
+    {
+      "backend_state": "external_boundary",
+      "category": "Connected productivity",
+      "code": "external_dependency",
+      "dependencies": [
+        "provider_oauth_or_api_key",
+        "owner_consent"
+      ],
+      "id": "apps_hub.browser_automation",
+      "layer": "apps_hub",
+      "locally_actionable": false,
+      "priority": "P2",
+      "status": "external_dependency",
+      "ui_state": "disabled_until_authorized"
+    },
+    {
+      "backend_state": "external_boundary",
+      "category": "Connected productivity",
+      "code": "external_dependency",
+      "dependencies": [
+        "provider_oauth_or_api_key",
+        "owner_consent"
+      ],
+      "id": "apps_hub.calendar",
+      "layer": "apps_hub",
+      "locally_actionable": false,
+      "priority": "P2",
+      "status": "external_dependency",
+      "ui_state": "disabled_until_authorized"
+    },
+    {
+      "backend_state": "external_boundary",
+      "category": "Connected productivity",
+      "code": "external_dependency",
+      "dependencies": [
+        "provider_oauth_or_api_key",
+        "owner_consent"
+      ],
+      "id": "apps_hub.campaign_publishing",
+      "layer": "apps_hub",
+      "locally_actionable": false,
+      "priority": "P2",
+      "status": "external_dependency",
+      "ui_state": "disabled_until_authorized"
+    },
+    {
+      "backend_state": "external_boundary",
+      "category": "Protected experiences",
+      "code": "external_dependency",
+      "dependencies": [
+        "jurisdiction_check",
+        "age_verification",
+        "consent_policy"
+      ],
+      "id": "apps_hub.consent_enforcement",
+      "layer": "apps_hub",
+      "locally_actionable": false,
+      "priority": "P2",
+      "status": "external_dependency",
+      "ui_state": "disabled_until_authorized"
+    },
+    {
+      "backend_state": "external_boundary",
+      "category": "Connected productivity",
+      "code": "external_dependency",
+      "dependencies": [
+        "provider_oauth_or_api_key",
+        "owner_consent"
+      ],
+      "id": "apps_hub.crm",
+      "layer": "apps_hub",
+      "locally_actionable": false,
+      "priority": "P2",
+      "status": "external_dependency",
+      "ui_state": "disabled_until_authorized"
+    },
+    {
+      "backend_state": "external_boundary",
+      "category": "Connected productivity",
+      "code": "external_dependency",
+      "dependencies": [
+        "provider_oauth_or_api_key",
+        "owner_consent"
+      ],
+      "id": "apps_hub.database_integration",
+      "layer": "apps_hub",
+      "locally_actionable": false,
+      "priority": "P2",
+      "status": "external_dependency",
+      "ui_state": "disabled_until_authorized"
+    },
+    {
+      "backend_state": "external_boundary",
+      "category": "Connected productivity",
+      "code": "external_dependency",
+      "dependencies": [
+        "provider_oauth_or_api_key",
+        "owner_consent"
+      ],
+      "id": "apps_hub.desktop_automation",
+      "layer": "apps_hub",
+      "locally_actionable": false,
+      "priority": "P2",
+      "status": "external_dependency",
+      "ui_state": "disabled_until_authorized"
+    },
+    {
+      "backend_state": "external_boundary",
+      "category": "Connected productivity",
+      "code": "external_dependency",
+      "dependencies": [
+        "provider_oauth_or_api_key",
+        "owner_consent"
+      ],
+      "id": "apps_hub.email",
+      "layer": "apps_hub",
+      "locally_actionable": false,
+      "priority": "P2",
+      "status": "external_dependency",
+      "ui_state": "disabled_until_authorized"
+    },
+    {
+      "backend_state": "external_boundary",
+      "category": "Connected productivity",
+      "code": "external_dependency",
+      "dependencies": [
+        "provider_oauth_or_api_key",
+        "owner_consent"
+      ],
+      "id": "apps_hub.graphql_integration",
+      "layer": "apps_hub",
+      "locally_actionable": false,
+      "priority": "P2",
+      "status": "external_dependency",
+      "ui_state": "disabled_until_authorized"
+    },
+    {
+      "backend_state": "external_boundary",
+      "category": "Protected experiences",
+      "code": "external_dependency",
+      "dependencies": [
+        "jurisdiction_check",
+        "age_verification",
+        "consent_policy"
+      ],
+      "id": "apps_hub.jurisdiction_boundary",
+      "layer": "apps_hub",
+      "locally_actionable": false,
+      "priority": "P2",
+      "status": "external_dependency",
+      "ui_state": "disabled_until_authorized"
+    },
+    {
+      "backend_state": "external_boundary",
+      "category": "Connected productivity",
+      "code": "external_dependency",
+      "dependencies": [
+        "provider_oauth_or_api_key",
+        "owner_consent"
+      ],
+      "id": "apps_hub.lead_automation",
+      "layer": "apps_hub",
+      "locally_actionable": false,
+      "priority": "P2",
+      "status": "external_dependency",
+      "ui_state": "disabled_until_authorized"
+    },
+    {
+      "backend_state": "external_boundary",
+      "category": "Broker execution",
+      "code": "external_dependency",
+      "dependencies": [
+        "broker_account",
+        "broker_api",
+        "owner_risk_confirmation"
+      ],
+      "id": "apps_hub.live_order_execution",
+      "layer": "apps_hub",
+      "locally_actionable": false,
+      "priority": "P2",
+      "status": "external_dependency",
+      "ui_state": "disabled_until_authorized"
+    },
+    {
+      "backend_state": "external_boundary",
+      "category": "Connected productivity",
+      "code": "external_dependency",
+      "dependencies": [
+        "provider_oauth_or_api_key",
+        "owner_consent"
+      ],
+      "id": "apps_hub.local_api_integration",
+      "layer": "apps_hub",
+      "locally_actionable": false,
+      "priority": "P2",
+      "status": "external_dependency",
+      "ui_state": "disabled_until_authorized"
+    },
+    {
+      "backend_state": "external_boundary",
+      "category": "Connected productivity",
+      "code": "external_dependency",
+      "dependencies": [
+        "provider_oauth_or_api_key",
+        "owner_consent"
+      ],
+      "id": "apps_hub.marketing_analytics",
+      "layer": "apps_hub",
+      "locally_actionable": false,
+      "priority": "P2",
+      "status": "external_dependency",
+      "ui_state": "disabled_until_authorized"
+    },
+    {
+      "backend_state": "external_boundary",
+      "category": "Connected productivity",
+      "code": "external_dependency",
+      "dependencies": [
+        "provider_oauth_or_api_key",
+        "owner_consent"
+      ],
+      "id": "apps_hub.meetings",
+      "layer": "apps_hub",
+      "locally_actionable": false,
+      "priority": "P2",
+      "status": "external_dependency",
+      "ui_state": "disabled_until_authorized"
+    },
+    {
+      "backend_state": "external_boundary",
+      "category": "Protected experiences",
+      "code": "external_dependency",
+      "dependencies": [
+        "jurisdiction_check",
+        "age_verification",
+        "consent_policy"
+      ],
+      "id": "apps_hub.minor_safety_boundary",
+      "layer": "apps_hub",
+      "locally_actionable": false,
+      "priority": "P2",
+      "status": "external_dependency",
+      "ui_state": "disabled_until_authorized"
+    },
+    {
+      "backend_state": "external_boundary",
+      "category": "Connected productivity",
+      "code": "external_dependency",
+      "dependencies": [
+        "provider_oauth_or_api_key",
+        "owner_consent"
+      ],
+      "id": "apps_hub.oauth_integration",
+      "layer": "apps_hub",
+      "locally_actionable": false,
+      "priority": "P2",
+      "status": "external_dependency",
+      "ui_state": "disabled_until_authorized"
+    },
+    {
+      "backend_state": "external_boundary",
+      "category": "Broker execution",
+      "code": "external_dependency",
+      "dependencies": [
+        "broker_account",
+        "broker_api",
+        "owner_risk_confirmation"
+      ],
+      "id": "apps_hub.order_risk_confirmation",
+      "layer": "apps_hub",
+      "locally_actionable": false,
+      "priority": "P2",
+      "status": "external_dependency",
+      "ui_state": "disabled_until_authorized"
+    },
+    {
+      "backend_state": "external_boundary",
+      "category": "Connected productivity",
+      "code": "external_dependency",
+      "dependencies": [
+        "provider_oauth_or_api_key",
+        "owner_consent"
+      ],
+      "id": "apps_hub.rest_integration",
+      "layer": "apps_hub",
+      "locally_actionable": false,
+      "priority": "P2",
+      "status": "external_dependency",
+      "ui_state": "disabled_until_authorized"
+    },
+    {
+      "backend_state": "external_boundary",
+      "category": "Connected productivity",
+      "code": "external_dependency",
+      "dependencies": [
+        "provider_oauth_or_api_key",
+        "owner_consent"
+      ],
+      "id": "apps_hub.sdk_integration",
+      "layer": "apps_hub",
+      "locally_actionable": false,
+      "priority": "P2",
+      "status": "external_dependency",
+      "ui_state": "disabled_until_authorized"
+    },
+    {
+      "backend_state": "external_boundary",
+      "category": "Connected productivity",
+      "code": "external_dependency",
+      "dependencies": [
+        "provider_oauth_or_api_key",
+        "owner_consent"
+      ],
+      "id": "apps_hub.social_media",
+      "layer": "apps_hub",
+      "locally_actionable": false,
+      "priority": "P2",
+      "status": "external_dependency",
+      "ui_state": "disabled_until_authorized"
+    },
+    {
+      "backend_state": "external_boundary",
+      "category": "Connected productivity",
+      "code": "external_dependency",
+      "dependencies": [
+        "provider_oauth_or_api_key",
+        "owner_consent"
+      ],
+      "id": "apps_hub.social_scheduling",
+      "layer": "apps_hub",
+      "locally_actionable": false,
+      "priority": "P2",
+      "status": "external_dependency",
+      "ui_state": "disabled_until_authorized"
+    },
+    {
+      "backend_state": "external_boundary",
+      "category": "Connected productivity",
+      "code": "external_dependency",
+      "dependencies": [
+        "provider_oauth_or_api_key",
+        "owner_consent"
+      ],
+      "id": "apps_hub.webhook_integration",
+      "layer": "apps_hub",
+      "locally_actionable": false,
+      "priority": "P2",
+      "status": "external_dependency",
+      "ui_state": "disabled_until_authorized"
+    },
+    {
+      "backend_state": "external_boundary",
+      "category": "Video creation",
+      "code": "external_dependency",
+      "dependencies": [
+        "verified_video_runtime_or_provider"
+      ],
+      "id": "universal_workspace.multimedia_creation",
+      "layer": "universal_workspace",
+      "locally_actionable": false,
+      "priority": "P2",
+      "status": "external_dependency",
+      "ui_state": "disabled_until_authorized"
+    },
+    {
+      "backend_state": "external_boundary",
+      "category": "Learning services",
+      "code": "external_dependency",
+      "dependencies": [
+        "pronunciation_scoring_provider",
+        "spaced_repetition_store"
+      ],
+      "id": "universal_workspace.pronunciation_scoring",
+      "layer": "universal_workspace",
+      "locally_actionable": false,
+      "priority": "P2",
+      "status": "external_dependency",
+      "ui_state": "disabled_until_authorized"
+    },
+    {
+      "backend_state": "external_boundary",
+      "category": "Learning services",
+      "code": "external_dependency",
+      "dependencies": [
+        "pronunciation_scoring_provider",
+        "spaced_repetition_store"
+      ],
+      "id": "universal_workspace.spaced_repetition",
+      "layer": "universal_workspace",
+      "locally_actionable": false,
+      "priority": "P2",
+      "status": "external_dependency",
+      "ui_state": "disabled_until_authorized"
+    },
+    {
+      "backend_state": "external_boundary",
+      "category": "Video creation",
+      "code": "external_dependency",
+      "dependencies": [
+        "verified_video_runtime_or_provider"
+      ],
+      "id": "universal_workspace.video",
+      "layer": "universal_workspace",
+      "locally_actionable": false,
+      "priority": "P2",
+      "status": "external_dependency",
+      "ui_state": "disabled_until_authorized"
+    },
+    {
+      "backend_state": "bound",
+      "category": "Multimodal presence",
+      "code": "runtime_readiness",
+      "dependencies": [
+        "verified_local_model",
+        "asset_storage"
+      ],
+      "id": "ai_presence.automatic_language_detection",
+      "layer": "ai_presence",
+      "locally_actionable": true,
+      "priority": "P3",
+      "status": "runtime_dependent",
+      "ui_state": "runtime_gated"
+    },
+    {
+      "backend_state": "bound",
+      "category": "Multimodal presence",
+      "code": "runtime_readiness",
+      "dependencies": [
+        "verified_local_model",
+        "asset_storage"
+      ],
+      "id": "ai_presence.camera_image_input",
+      "layer": "ai_presence",
+      "locally_actionable": true,
+      "priority": "P3",
+      "status": "runtime_dependent",
+      "ui_state": "runtime_gated"
+    },
+    {
+      "backend_state": "bound",
+      "category": "Multimodal presence",
+      "code": "runtime_readiness",
+      "dependencies": [
+        "verified_local_model",
+        "asset_storage"
+      ],
+      "id": "ai_presence.document_grounding",
+      "layer": "ai_presence",
+      "locally_actionable": true,
+      "priority": "P3",
+      "status": "runtime_dependent",
+      "ui_state": "runtime_gated"
+    },
+    {
+      "backend_state": "bound",
+      "category": "Multimodal presence",
+      "code": "runtime_readiness",
+      "dependencies": [
+        "verified_local_model",
+        "asset_storage"
+      ],
+      "id": "ai_presence.female_voice_profile",
+      "layer": "ai_presence",
+      "locally_actionable": true,
+      "priority": "P3",
+      "status": "runtime_dependent",
+      "ui_state": "runtime_gated"
+    },
+    {
+      "backend_state": "bound",
+      "category": "Multimodal presence",
+      "code": "runtime_readiness",
+      "dependencies": [
+        "verified_local_model",
+        "asset_storage"
+      ],
+      "id": "ai_presence.file_input",
+      "layer": "ai_presence",
+      "locally_actionable": true,
+      "priority": "P3",
+      "status": "runtime_dependent",
+      "ui_state": "runtime_gated"
+    },
+    {
+      "backend_state": "bound",
+      "category": "Multimodal presence",
+      "code": "runtime_readiness",
+      "dependencies": [
+        "verified_local_model",
+        "asset_storage"
+      ],
+      "id": "ai_presence.image_editing",
+      "layer": "ai_presence",
+      "locally_actionable": true,
+      "priority": "P3",
+      "status": "runtime_dependent",
+      "ui_state": "runtime_gated"
+    },
+    {
+      "backend_state": "bound",
+      "category": "Multimodal presence",
+      "code": "runtime_readiness",
+      "dependencies": [
+        "verified_local_model",
+        "asset_storage"
+      ],
+      "id": "ai_presence.image_generation",
+      "layer": "ai_presence",
+      "locally_actionable": true,
+      "priority": "P3",
+      "status": "runtime_dependent",
+      "ui_state": "runtime_gated"
+    },
+    {
+      "backend_state": "bound",
+      "category": "Multimodal presence",
+      "code": "runtime_readiness",
+      "dependencies": [
+        "verified_local_model",
+        "asset_storage"
+      ],
+      "id": "ai_presence.microphone_input",
+      "layer": "ai_presence",
+      "locally_actionable": true,
+      "priority": "P3",
+      "status": "runtime_dependent",
+      "ui_state": "runtime_gated"
+    },
+    {
+      "backend_state": "bound",
+      "category": "Multimodal presence",
+      "code": "runtime_readiness",
+      "dependencies": [
+        "verified_local_model",
+        "asset_storage"
+      ],
+      "id": "ai_presence.mixed_language_conversation",
+      "layer": "ai_presence",
+      "locally_actionable": true,
+      "priority": "P3",
+      "status": "runtime_dependent",
+      "ui_state": "runtime_gated"
+    },
+    {
+      "backend_state": "bound",
+      "category": "Multimodal presence",
+      "code": "runtime_readiness",
+      "dependencies": [
+        "verified_local_model",
+        "asset_storage"
+      ],
+      "id": "ai_presence.multilingual_conversation",
+      "layer": "ai_presence",
+      "locally_actionable": true,
+      "priority": "P3",
+      "status": "runtime_dependent",
+      "ui_state": "runtime_gated"
+    },
+    {
+      "backend_state": "bound",
+      "category": "Multimodal presence",
+      "code": "runtime_readiness",
+      "dependencies": [
+        "verified_local_model",
+        "asset_storage"
+      ],
+      "id": "ai_presence.speech_recognition",
+      "layer": "ai_presence",
+      "locally_actionable": true,
+      "priority": "P3",
+      "status": "runtime_dependent",
+      "ui_state": "runtime_gated"
+    },
+    {
+      "backend_state": "bound",
+      "category": "Multimodal presence",
+      "code": "runtime_readiness",
+      "dependencies": [
+        "verified_local_model",
+        "asset_storage"
+      ],
+      "id": "ai_presence.speech_synthesis",
+      "layer": "ai_presence",
+      "locally_actionable": true,
+      "priority": "P3",
+      "status": "runtime_dependent",
+      "ui_state": "runtime_gated"
+    },
+    {
+      "backend_state": "bound",
+      "category": "Multimodal presence",
+      "code": "runtime_readiness",
+      "dependencies": [
+        "verified_local_model",
+        "asset_storage"
+      ],
+      "id": "ai_presence.vision_understanding",
+      "layer": "ai_presence",
+      "locally_actionable": true,
+      "priority": "P3",
+      "status": "runtime_dependent",
+      "ui_state": "runtime_gated"
+    },
+    {
+      "backend_state": "bound",
+      "category": "Multimodal presence",
+      "code": "runtime_readiness",
+      "dependencies": [
+        "verified_local_model",
+        "asset_storage"
+      ],
+      "id": "ai_presence.voice_playback",
+      "layer": "ai_presence",
+      "locally_actionable": true,
+      "priority": "P3",
+      "status": "runtime_dependent",
+      "ui_state": "runtime_gated"
+    },
+    {
+      "backend_state": "bound",
+      "category": "Media workspaces",
+      "code": "runtime_readiness",
+      "dependencies": [
+        "verified_capability_model",
+        "asset_storage"
+      ],
+      "id": "universal_workspace.audio",
+      "layer": "universal_workspace",
+      "locally_actionable": true,
+      "priority": "P3",
+      "status": "runtime_dependent",
+      "ui_state": "runtime_gated"
+    },
+    {
+      "backend_state": "bound",
+      "category": "Media workspaces",
+      "code": "runtime_readiness",
+      "dependencies": [
+        "verified_capability_model",
+        "asset_storage"
+      ],
+      "id": "universal_workspace.character_experiences",
+      "layer": "universal_workspace",
+      "locally_actionable": true,
+      "priority": "P3",
+      "status": "runtime_dependent",
+      "ui_state": "runtime_gated"
+    },
+    {
+      "backend_state": "bound",
+      "category": "Media workspaces",
+      "code": "runtime_readiness",
+      "dependencies": [
+        "verified_capability_model",
+        "asset_storage"
+      ],
+      "id": "universal_workspace.games",
+      "layer": "universal_workspace",
+      "locally_actionable": true,
+      "priority": "P3",
+      "status": "runtime_dependent",
+      "ui_state": "runtime_gated"
+    },
+    {
+      "backend_state": "bound",
+      "category": "Media workspaces",
+      "code": "runtime_readiness",
+      "dependencies": [
+        "verified_capability_model",
+        "asset_storage"
+      ],
+      "id": "universal_workspace.image",
+      "layer": "universal_workspace",
+      "locally_actionable": true,
+      "priority": "P3",
+      "status": "runtime_dependent",
+      "ui_state": "runtime_gated"
+    },
+    {
+      "backend_state": "bound",
+      "category": "Media workspaces",
+      "code": "runtime_readiness",
+      "dependencies": [
+        "verified_capability_model",
+        "asset_storage"
+      ],
+      "id": "universal_workspace.interactive_stories",
+      "layer": "universal_workspace",
+      "locally_actionable": true,
+      "priority": "P3",
+      "status": "runtime_dependent",
+      "ui_state": "runtime_gated"
+    },
+    {
+      "backend_state": "bound",
+      "category": "Media workspaces",
+      "code": "runtime_readiness",
+      "dependencies": [
+        "verified_capability_model",
+        "asset_storage"
+      ],
+      "id": "universal_workspace.voice",
+      "layer": "universal_workspace",
+      "locally_actionable": true,
+      "priority": "P3",
+      "status": "runtime_dependent",
+      "ui_state": "runtime_gated"
+    }
+  ],
+  "product": "AI OS",
+  "registry_sha256": "7a3d96d361c5447bb024c2004be1546f6e3b6e25ed95a3883bd6eefdaf62ea11",
+  "schema_version": 1,
+  "summary": {
+    "broken_registry_wiring": 0,
+    "external_boundaries": 37,
+    "missing_backend_contracts": 0,
+    "missing_coverage_records": 0,
+    "missing_ui_paths": 0,
+    "planned_gaps": 10,
+    "runtime_gates": 20
+  }
+}

@@ -12,6 +12,9 @@ from app.db.dependencies import get_db_session
 from app.models.user import User
 
 
+_COVERAGE_PREFIXES = {"agent", "backend", "contract", "desktop", "manual", "mobile", "web"}
+
+
 def _current_user() -> User:
     now = datetime(2026, 9, 2, tzinfo=timezone.utc)
     return User(id=uuid4(), created_at=now, updated_at=now)
@@ -31,10 +34,21 @@ def test_feature_registry_is_complete_and_honest():
         assert feature.ui_entry_point.startswith("/")
         assert feature.backend_capability
         assert feature.test_coverage
+        assert all(
+            coverage.partition(":")[0] in _COVERAGE_PREFIXES
+            and bool(coverage.partition(":")[1])
+            and bool(coverage.partition(":")[2])
+            for coverage in feature.test_coverage
+        )
         if feature.status == "external_dependency":
             assert feature.dependencies
+            assert feature.ui_entry_point
+            assert any(coverage.startswith("manual:") for coverage in feature.test_coverage)
         if feature.status == "planned":
             assert "manual:documented_gap" in feature.test_coverage
+            assert feature.dependencies
+        if feature.status in {"implemented", "runtime_dependent"}:
+            assert feature.backend_capability
 
 
 def test_feature_registry_requires_authentication():

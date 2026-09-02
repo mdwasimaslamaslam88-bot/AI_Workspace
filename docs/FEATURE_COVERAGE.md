@@ -21,4 +21,15 @@ This report is generated from the authenticated product registry. It distinguish
 
 Every record has a unique ID, category, description, UI entry point, backend capability identifier, permission set, dependency set, status, and coverage reference. Externally dependent records stay non-executable until owner-authorized provider requirements are satisfied. Planned records are visible as disabled boundaries and are never reported as ready.
 
-The complete per-feature evidence is in `reports/feature-registry-report.json`.
+## Implementation matrix and gaps
+
+The deterministic `reports/feature-implementation-matrix.json` maps every capability to its UI state, backend state, permissions, dependencies, runtime classification, and coverage modes. `reports/feature-gap-list.json` prioritizes internal planned work separately from external and runtime boundaries.
+
+- Missing UI paths: **0**
+- Missing backend contracts: **0**
+- Missing coverage records: **0**
+- Planned implementation gaps: **10**
+- External boundaries: **37**
+- Runtime gates: **20**
+
+The complete per-feature source evidence remains in `reports/feature-registry-report.json`.
