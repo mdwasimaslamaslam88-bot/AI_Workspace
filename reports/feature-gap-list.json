@@ -634,28 +634,12 @@
     },
     {
       "backend_state": "external_boundary",
-      "category": "Learning services",
+      "category": "Pronunciation scoring",
       "code": "external_dependency",
       "dependencies": [
-        "pronunciation_scoring_provider",
-        "spaced_repetition_store"
+        "pronunciation_scoring_provider"
       ],
       "id": "universal_workspace.pronunciation_scoring",
-      "layer": "universal_workspace",
-      "locally_actionable": false,
-      "priority": "P2",
-      "status": "external_dependency",
-      "ui_state": "disabled_until_authorized"
-    },
-    {
-      "backend_state": "external_boundary",
-      "category": "Learning services",
-      "code": "external_dependency",
-      "dependencies": [
-        "pronunciation_scoring_provider",
-        "spaced_repetition_store"
-      ],
-      "id": "universal_workspace.spaced_repetition",
       "layer": "universal_workspace",
       "locally_actionable": false,
       "priority": "P2",
@@ -933,11 +917,11 @@
     }
   ],
   "product": "AI OS",
-  "registry_sha256": "2290af549cfad90310e6fbbf7c8afd8a7e1bc153dcfe0cefdcb7c7e83c817086",
+  "registry_sha256": "b70bd919cbb0c6abf6b2c2d55ae1a363d21d7c38695da528b33b1de50bf18468",
   "schema_version": 1,
   "summary": {
     "broken_registry_wiring": 0,
-    "external_boundaries": 40,
+    "external_boundaries": 39,
     "missing_backend_contracts": 0,
     "missing_coverage_records": 0,
     "missing_ui_paths": 0,

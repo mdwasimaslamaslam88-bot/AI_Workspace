@@ -52,6 +52,9 @@ mutation. It never repairs the artifact before scoring.
 - owner-scoped finance workspaces with verified source-grounded research,
   deterministic backtesting, watchlists, alerts, paper orders, portfolio/risk
   analysis, and journals; live brokers remain an external dependency
+- owner-scoped AI Teacher programs with verified local lessons, multilingual
+  practice, adaptive progress, and deterministic spaced repetition;
+  pronunciation scoring remains an explicit external dependency
 - normalized hardware discovery, GPU-upgrade fingerprints and simulations
 - verified backup/restore, staged self-update checkpoints and atomic rollback
 - authenticated diagnostics for hardware, models/routes, provider cost/health,
@@ -130,6 +133,19 @@ connector request, and calculated analytics only from the submitted source
 metrics. Provider-specific publishing remains an external dependency until an
 owner configures and authorizes a legitimate connector.
 
+The Step 7 learning regression gate on 2026-09-03 passed 2,911 backend tests
+(46 intentional environment/runtime skips), 186 web tests, 60 mobile tests,
+Expo Doctor 21/21, desktop Rust tests 2/2, and 46 tests against disposable
+PostgreSQL with migration `0016` and no schema drift. The complete real-runtime
+matrix passed vision, RAG, memory, image generation/editing/inpainting, voice,
+Agent OS, connectors, marketing, finance, learning, tools, and workflows. Its
+learning probe generated and independently verified an untouched local-model
+lesson, used private preferences under the fail-closed local-only route,
+persisted adaptive progress, and exercised spaced repetition. The Linux
+production binary, AppImage, DEB, and launch smoke also passed. Native Android
+was not rebuilt in this gate because this host had no Android SDK root;
+pronunciation scoring remains an explicit acoustic-runtime/provider boundary.
+
 The Phase 1 baseline was 97.74 with 455 PASS, 3 PARTIAL, and 1 FAIL. The
 content-addressed FLUX.2 Klein Base 4B FP8 route fixed both image non-passes;
 the complete image category rose from 93.88 to 99.42 with all 13 image cases
@@ -140,7 +156,8 @@ production output was altered. See `AI_QUALITY_PHASE1.md` for exact evidence.
 
 ## Persistence and boundaries
 
-Conversations, RAG, memory, tools and workflows are durable in PostgreSQL.
+Conversations, RAG, memory, learning programs, tools and workflows are durable
+in PostgreSQL.
 Interactive Agent OS run records are intentionally bounded process memory (100
 records per owner) and are lost on backend restart; the API and UI report this
 instead of implying durable execution.

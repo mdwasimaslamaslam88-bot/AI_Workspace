@@ -28,6 +28,11 @@ from app.models import (
     DocumentChunk,
     FinanceArtifact,
     FinanceWorkspace,
+    LearningActivity,
+    LearningAttempt,
+    LearningLesson,
+    LearningProgram,
+    LearningReviewItem,
     MarketAlert,
     MarketWatchItem,
     Message,
@@ -78,6 +83,11 @@ EXPECTED_TABLES = {
     "paper_orders",
     "market_alerts",
     "finance_artifacts",
+    "learning_programs",
+    "learning_lessons",
+    "learning_activities",
+    "learning_attempts",
+    "learning_review_items",
 }
 EXPECTED_MESSAGE_ROLES = ("system", "user", "assistant", "tool")
 
@@ -139,6 +149,11 @@ def test_model_registry_contains_only_the_approved_domain_tables():
     assert PaperOrder.__table__ is Base.metadata.tables["paper_orders"]
     assert MarketAlert.__table__ is Base.metadata.tables["market_alerts"]
     assert FinanceArtifact.__table__ is Base.metadata.tables["finance_artifacts"]
+    assert LearningProgram.__table__ is Base.metadata.tables["learning_programs"]
+    assert LearningLesson.__table__ is Base.metadata.tables["learning_lessons"]
+    assert LearningActivity.__table__ is Base.metadata.tables["learning_activities"]
+    assert LearningAttempt.__table__ is Base.metadata.tables["learning_attempts"]
+    assert LearningReviewItem.__table__ is Base.metadata.tables["learning_review_items"]
 
 
 def test_user_has_uuid_primary_key_timestamps_and_access_credential_digest():

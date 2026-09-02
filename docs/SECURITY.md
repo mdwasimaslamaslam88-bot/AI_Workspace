@@ -120,6 +120,17 @@ broker endpoint. Unconfirmed or policy-exceeding simulations are persisted as
 rejections; source-linked research is persisted only with verifier digest and
 model evidence. Live broker access remains a separate external boundary.
 
+Learning teacher agents receive only model inference. Programs, lessons,
+activities, attempts, and review cards are bound by composite owner foreign
+keys. Lesson text is persisted only with the independent Agent OS verifier's
+matching SHA-256 and model evidence. Expected practice answers are stored as
+normalized SHA-256 digests and are not returned by API contracts; incorrect
+attempts do not reveal the explanation before success or exhaustion. Owner
+memory may personalize a lesson only through an Agent OS request that disables
+External AI selection. The selector fails closed if an admitted local route is
+unavailable, even when a fallback provider is configured. Pronunciation scoring
+remains a disabled external dependency, not an inferred score from transcription.
+
 The process retains at most 512 metadata-only containment events for repeated
 authentication failure, rate limiting, oversized bodies and unexpected error
 containment. Authenticated diagnostics return only event kind and timestamp;

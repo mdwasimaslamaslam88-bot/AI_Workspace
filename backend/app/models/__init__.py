@@ -30,6 +30,16 @@ from app.models.finance import (
     PaperPosition,
 )
 from app.models.message import Message, MessageRole
+from app.models.learning import (
+    LearningActivity,
+    LearningActivityKind,
+    LearningAttempt,
+    LearningLesson,
+    LearningLessonStatus,
+    LearningProgram,
+    LearningProgramStatus,
+    LearningReviewItem,
+)
 from app.models.message_asset import MessageAsset
 from app.models.message_citation import MessageCitation
 from app.models.memory import Memory, MemoryCategory, MemorySetting
@@ -67,6 +77,14 @@ __all__ = [
     "MarketAlertStatus",
     "MarketAssetClass",
     "MarketWatchItem",
+    "LearningActivity",
+    "LearningActivityKind",
+    "LearningAttempt",
+    "LearningLesson",
+    "LearningLessonStatus",
+    "LearningProgram",
+    "LearningProgramStatus",
+    "LearningReviewItem",
     "PaperOrder",
     "PaperOrderSide",
     "PaperOrderStatus",

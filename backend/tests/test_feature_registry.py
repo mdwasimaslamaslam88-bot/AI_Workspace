@@ -78,6 +78,29 @@ def test_finance_registry_exposes_local_paper_workflows_without_promoting_broker
         assert "broker_account" in records[identifier].dependencies
 
 
+def test_learning_registry_exposes_persistent_learning_without_promoting_pronunciation():
+    records = {feature.id: feature for feature in FEATURE_REGISTRY}
+    for identifier in (
+        "universal_workspace.curriculum_beginner_advanced",
+        "universal_workspace.lessons",
+        "universal_workspace.exercises",
+        "universal_workspace.quizzes",
+        "universal_workspace.conversation_practice",
+        "universal_workspace.revision",
+        "universal_workspace.progress_tracking",
+        "universal_workspace.personalized_difficulty",
+        "universal_workspace.multilingual_teaching",
+        "universal_workspace.spaced_repetition",
+    ):
+        assert records[identifier].status == "implemented"
+        assert records[identifier].backend_capability == "learning_program_service"
+        assert "backend:test_learning_api" in records[identifier].test_coverage
+    pronunciation = records["universal_workspace.pronunciation_scoring"]
+    assert pronunciation.status == "external_dependency"
+    assert pronunciation.backend_capability == "external_pronunciation_scoring_provider"
+    assert pronunciation.dependencies == ("pronunciation_scoring_provider",)
+
+
 def test_feature_registry_requires_authentication():
     session = AsyncMock(spec=AsyncSession)
 

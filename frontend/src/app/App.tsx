@@ -29,6 +29,15 @@ import type {
   FinanceWorkspace,
   FinanceWorkspaceCreateRequest,
   IndexedDocument,
+  LearningActivityCreateRequest,
+  LearningAttempt,
+  LearningAttemptRequest,
+  LearningCapabilities,
+  LearningProgram,
+  LearningProgramCreateRequest,
+  LearningReviewItem,
+  LearningReviewItemCreateRequest,
+  LearningReviewRequest,
   LocalModel,
   MarketingAnalyticsRequest,
   MarketingCampaign,
@@ -81,6 +90,7 @@ import { AgentPanel } from "../features/agents/AgentPanel";
 import { ConversationList } from "../features/conversations/ConversationList";
 import { ConnectorPanel } from "../features/connectors/ConnectorPanel";
 import { FinancePanel } from "../features/finance/FinancePanel";
+import { LearningPanel } from "../features/learning/LearningPanel";
 import { MemoryPanel } from "../features/memory/MemoryPanel";
 import { MarketingPanel } from "../features/marketing/MarketingPanel";
 import { ModelSelector } from "../features/models/ModelSelector";
@@ -212,6 +222,7 @@ export function App() {
   const [connectorsOpen, setConnectorsOpen] = useState(false);
   const [marketingOpen, setMarketingOpen] = useState(false);
   const [financeOpen, setFinanceOpen] = useState(false);
+  const [learningOpen, setLearningOpen] = useState(false);
   const [voicePresence, setVoicePresence] = useState<PresenceState | null>(null);
   const [agentPresence, setAgentPresence] = useState<PresenceState | null>(null);
   const [catalogLayer, setCatalogLayer] = useState<
@@ -257,6 +268,7 @@ export function App() {
     setConnectorsOpen(false);
     setMarketingOpen(false);
     setFinanceOpen(false);
+    setLearningOpen(false);
     setCatalogLayer(null);
     setAuthenticationStatus("anonymous");
   }, []);
@@ -1068,6 +1080,51 @@ export function App() {
     return client.addTradingJournalEntry(id, request, signal);
   }, [client]);
 
+  const loadLearningCapabilities = useCallback((signal?: AbortSignal): Promise<LearningCapabilities> => {
+    if (client === null) return Promise.reject(new ApiError("authentication", "Authentication failed."));
+    return client.getLearningCapabilities(signal);
+  }, [client]);
+
+  const loadLearningPrograms = useCallback(async (signal?: AbortSignal): Promise<LearningProgram[]> => {
+    if (client === null) throw new ApiError("authentication", "Authentication failed.");
+    return (await client.listLearningPrograms(signal)).items;
+  }, [client]);
+
+  const getLearningProgram = useCallback((id: string, signal?: AbortSignal): Promise<LearningProgram> => {
+    if (client === null) return Promise.reject(new ApiError("authentication", "Authentication failed."));
+    return client.getLearningProgram(id, signal);
+  }, [client]);
+
+  const createLearningProgram = useCallback((request: LearningProgramCreateRequest, signal?: AbortSignal): Promise<LearningProgram> => {
+    if (client === null) return Promise.reject(new ApiError("authentication", "Authentication failed."));
+    return client.createLearningProgram(request, signal);
+  }, [client]);
+
+  const generateLearningLesson = useCallback((programId: string, lessonId: string, signal?: AbortSignal): Promise<LearningProgram> => {
+    if (client === null) return Promise.reject(new ApiError("authentication", "Authentication failed."));
+    return client.generateLearningLesson(programId, lessonId, signal);
+  }, [client]);
+
+  const createLearningActivity = useCallback((programId: string, lessonId: string, request: LearningActivityCreateRequest, signal?: AbortSignal): Promise<LearningProgram> => {
+    if (client === null) return Promise.reject(new ApiError("authentication", "Authentication failed."));
+    return client.createLearningActivity(programId, lessonId, request, signal);
+  }, [client]);
+
+  const submitLearningAttempt = useCallback((programId: string, activityId: string, request: LearningAttemptRequest, signal?: AbortSignal): Promise<LearningAttempt> => {
+    if (client === null) return Promise.reject(new ApiError("authentication", "Authentication failed."));
+    return client.submitLearningAttempt(programId, activityId, request, signal);
+  }, [client]);
+
+  const createLearningReviewItem = useCallback((programId: string, request: LearningReviewItemCreateRequest, signal?: AbortSignal): Promise<LearningReviewItem> => {
+    if (client === null) return Promise.reject(new ApiError("authentication", "Authentication failed."));
+    return client.createLearningReviewItem(programId, request, signal);
+  }, [client]);
+
+  const reviewLearningItem = useCallback((programId: string, itemId: string, request: LearningReviewRequest, signal?: AbortSignal): Promise<LearningReviewItem> => {
+    if (client === null) return Promise.reject(new ApiError("authentication", "Authentication failed."));
+    return client.reviewLearningItem(programId, itemId, request, signal);
+  }, [client]);
+
   const setExternalAIEnabled = useCallback(
     (enabled: boolean): Promise<ExternalAISettings> => {
       if (client === null) {
@@ -1674,6 +1731,7 @@ export function App() {
       setConnectorsOpen(false);
       setMarketingOpen(false);
       setFinanceOpen(false);
+      setLearningOpen(false);
       setCatalogLayer(null);
     })
       .then((dispose) => {
@@ -1695,8 +1753,10 @@ export function App() {
         ? "mission_control"
         : memoryOpen
           ? "universal_workspace"
-          : toolsOpen || connectorsOpen || marketingOpen || financeOpen
-            ? "apps_hub"
+          : learningOpen
+            ? "universal_workspace"
+            : toolsOpen || connectorsOpen || marketingOpen || financeOpen
+              ? "apps_hub"
             : "ai_presence");
 
   const presenceState = resolvePresenceState({
@@ -1715,6 +1775,7 @@ export function App() {
     setConnectorsOpen(false);
     setMarketingOpen(false);
     setFinanceOpen(false);
+    setLearningOpen(false);
     setCatalogLayer(null);
   }
 
@@ -1736,6 +1797,8 @@ export function App() {
       feature.backend_capability === "market_workspace_service"
     ) {
       setFinanceOpen(true);
+    } else if (feature.backend_capability === "learning_program_service") {
+      setLearningOpen(true);
     } else if (
       feature.backend_capability === "connector_service" ||
       feature.backend_capability === "external_connector"
@@ -1837,6 +1900,7 @@ export function App() {
               setConnectorsOpen(false);
               setMarketingOpen(false);
               setFinanceOpen(false);
+              setLearningOpen(false);
               setCatalogLayer(null);
             }}
           >
@@ -1856,6 +1920,7 @@ export function App() {
               setConnectorsOpen(false);
               setMarketingOpen(false);
               setFinanceOpen(false);
+              setLearningOpen(false);
               setCatalogLayer(null);
             }}
           >
@@ -1875,6 +1940,7 @@ export function App() {
               setConnectorsOpen(false);
               setMarketingOpen(false);
               setFinanceOpen(false);
+              setLearningOpen(false);
               setCatalogLayer(null);
             }}
           >
@@ -1894,6 +1960,7 @@ export function App() {
               setConnectorsOpen(false);
               setMarketingOpen(false);
               setFinanceOpen(false);
+              setLearningOpen(false);
               setCatalogLayer(null);
             }}
           >
@@ -1913,6 +1980,7 @@ export function App() {
               setConnectorsOpen(false);
               setMarketingOpen(false);
               setFinanceOpen(false);
+              setLearningOpen(false);
               setCatalogLayer(null);
             }}
           >
@@ -1927,6 +1995,7 @@ export function App() {
               setConnectorsOpen((current) => !current);
               setMarketingOpen(false);
               setFinanceOpen(false);
+              setLearningOpen(false);
               setAgentsOpen(false);
               setMemoryOpen(false);
               setToolsOpen(false);
@@ -1962,6 +2031,19 @@ export function App() {
             }}
           >
             Finance
+          </button>
+          <button
+            type="button"
+            className="button button-secondary"
+            aria-expanded={learningOpen}
+            aria-controls="personal-learning-panel"
+            onClick={() => {
+              const open = !learningOpen;
+              closeProductPanels();
+              setLearningOpen(open);
+            }}
+          >
+            Learn
           </button>
           <ModelSelector
             models={models}
@@ -2068,6 +2150,22 @@ export function App() {
               onCreateAlert={createMarketAlert}
               onEvaluateAlerts={evaluateMarketAlerts}
               onJournal={addTradingJournalEntry}
+            />
+          </div>
+        )}
+        {learningOpen && (
+          <div id="personal-learning-panel">
+            <LearningPanel
+              onClose={() => setLearningOpen(false)}
+              onCapabilities={loadLearningCapabilities}
+              onLoad={loadLearningPrograms}
+              onGet={getLearningProgram}
+              onCreate={createLearningProgram}
+              onGenerateLesson={generateLearningLesson}
+              onCreateActivity={createLearningActivity}
+              onAttempt={submitLearningAttempt}
+              onCreateReviewItem={createLearningReviewItem}
+              onReview={reviewLearningItem}
             />
           </div>
         )}

@@ -158,6 +158,19 @@ class LocalModelSelector:
         )
         return ModelSelection(decision.model_id, decision.inference_mode)
 
+    async def select_local(
+        self,
+        task: ModelTask,
+        *,
+        required_context_tokens: int,
+        excluded_model_ids: frozenset[str],
+    ) -> ModelSelection:
+        return await self.select(
+            task,
+            required_context_tokens=required_context_tokens,
+            excluded_model_ids=excluded_model_ids,
+        )
+
 
 class LocalFirstModelSelector:
     """Exhaust safe local routes before consulting opted-in providers."""
@@ -213,6 +226,20 @@ class LocalFirstModelSelector:
                 )
         raise ModelRoutingUnavailableError(
             "no local or configured external model satisfies the task"
+        )
+
+    async def select_local(
+        self,
+        task: ModelTask,
+        *,
+        required_context_tokens: int,
+        excluded_model_ids: frozenset[str],
+    ) -> ModelSelection:
+        """Select only an admitted local route for private-context missions."""
+        return await self.local.select(
+            task,
+            required_context_tokens=required_context_tokens,
+            excluded_model_ids=excluded_model_ids,
         )
 
 
@@ -398,7 +425,17 @@ class AgentOrchestrator:
             for attempt_number in range(1, request.max_retries + 2):
                 model: ModelSelection | None = None
                 try:
-                    model = await self.model_selector.select(
+                    selector = self.model_selector.select
+                    if not request.allow_external_models:
+                        local_selector = getattr(
+                            self.model_selector, "select_local", None
+                        )
+                        if not callable(local_selector):
+                            raise ModelRoutingUnavailableError(
+                                "local-only model selection is unavailable"
+                            )
+                        selector = local_selector
+                    model = await selector(
                         step.task,
                         required_context_tokens=request.required_context_tokens,
                         excluded_model_ids=frozenset(excluded),

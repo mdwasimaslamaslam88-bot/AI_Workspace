@@ -220,6 +220,7 @@ class AgentRunRequest:
     deadline_seconds: float = 180.0
     required_context_tokens: int = 0
     require_objective_evidence: bool = False
+    allow_external_models: bool = True
 
     def __post_init__(self) -> None:
         if (
@@ -262,6 +263,8 @@ class AgentRunRequest:
             raise ValueError("agent context requirement is outside its bound")
         if not isinstance(self.require_objective_evidence, bool):
             raise TypeError("objective evidence requirement must be boolean")
+        if not isinstance(self.allow_external_models, bool):
+            raise TypeError("external model allowance must be boolean")
 
 
 @dataclass(frozen=True, slots=True)

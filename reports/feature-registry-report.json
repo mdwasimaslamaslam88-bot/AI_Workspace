@@ -2428,200 +2428,257 @@
       "ui_entry_point": "/workspaces/video#multimedia-creation"
     },
     {
-      "backend_capability": "learning_agent",
+      "backend_capability": "learning_program_service",
       "category": "AI Teacher",
       "dependencies": [
-        "verified_local_model"
+        "verified_local_model",
+        "database"
       ],
       "description": "Beginner-to-advanced curriculum exposed through the existing authenticated ai teacher capability.",
       "id": "universal_workspace.curriculum_beginner_advanced",
       "layer": "universal_workspace",
       "required_permissions": [
         "owner_session",
-        "memory_read"
+        "memory_read",
+        "model_inference"
       ],
       "status": "implemented",
       "test_coverage": [
-        "contract:feature_registry",
-        "agent:planner_verifier"
+        "backend:test_learning_api",
+        "backend:test_learning_postgres",
+        "web:learning_panel",
+        "mobile:studio"
       ],
       "title": "Beginner-to-advanced curriculum",
       "ui_entry_point": "/workspaces/learning#curriculum-beginner-advanced"
     },
     {
-      "backend_capability": "learning_agent",
+      "backend_capability": "learning_program_service",
       "category": "AI Teacher",
       "dependencies": [
-        "verified_local_model"
+        "verified_local_model",
+        "database"
       ],
       "description": "Personalized lessons exposed through the existing authenticated ai teacher capability.",
       "id": "universal_workspace.lessons",
       "layer": "universal_workspace",
       "required_permissions": [
         "owner_session",
-        "memory_read"
+        "memory_read",
+        "model_inference"
       ],
       "status": "implemented",
       "test_coverage": [
-        "contract:feature_registry",
-        "agent:planner_verifier"
+        "backend:test_learning_api",
+        "backend:test_learning_postgres",
+        "web:learning_panel",
+        "mobile:studio"
       ],
       "title": "Personalized lessons",
       "ui_entry_point": "/workspaces/learning#lessons"
     },
     {
-      "backend_capability": "learning_agent",
+      "backend_capability": "learning_program_service",
       "category": "AI Teacher",
       "dependencies": [
-        "verified_local_model"
+        "verified_local_model",
+        "database"
       ],
       "description": "Learning exercises exposed through the existing authenticated ai teacher capability.",
       "id": "universal_workspace.exercises",
       "layer": "universal_workspace",
       "required_permissions": [
         "owner_session",
-        "memory_read"
+        "memory_read",
+        "model_inference"
       ],
       "status": "implemented",
       "test_coverage": [
-        "contract:feature_registry",
-        "agent:planner_verifier"
+        "backend:test_learning_api",
+        "backend:test_learning_postgres",
+        "web:learning_panel",
+        "mobile:studio"
       ],
       "title": "Learning exercises",
       "ui_entry_point": "/workspaces/learning#exercises"
     },
     {
-      "backend_capability": "learning_agent",
+      "backend_capability": "learning_program_service",
       "category": "AI Teacher",
       "dependencies": [
-        "verified_local_model"
+        "verified_local_model",
+        "database"
       ],
       "description": "Adaptive quizzes exposed through the existing authenticated ai teacher capability.",
       "id": "universal_workspace.quizzes",
       "layer": "universal_workspace",
       "required_permissions": [
         "owner_session",
-        "memory_read"
+        "memory_read",
+        "model_inference"
       ],
       "status": "implemented",
       "test_coverage": [
-        "contract:feature_registry",
-        "agent:planner_verifier"
+        "backend:test_learning_api",
+        "backend:test_learning_postgres",
+        "web:learning_panel",
+        "mobile:studio"
       ],
       "title": "Adaptive quizzes",
       "ui_entry_point": "/workspaces/learning#quizzes"
     },
     {
-      "backend_capability": "learning_agent",
+      "backend_capability": "learning_program_service",
       "category": "AI Teacher",
       "dependencies": [
-        "verified_local_model"
+        "verified_local_model",
+        "database"
       ],
       "description": "Conversation practice exposed through the existing authenticated ai teacher capability.",
       "id": "universal_workspace.conversation_practice",
       "layer": "universal_workspace",
       "required_permissions": [
         "owner_session",
-        "memory_read"
+        "memory_read",
+        "model_inference"
       ],
       "status": "implemented",
       "test_coverage": [
-        "contract:feature_registry",
-        "agent:planner_verifier"
+        "backend:test_learning_api",
+        "backend:test_learning_postgres",
+        "web:learning_panel",
+        "mobile:studio"
       ],
       "title": "Conversation practice",
       "ui_entry_point": "/workspaces/learning#conversation-practice"
     },
     {
-      "backend_capability": "learning_agent",
+      "backend_capability": "learning_program_service",
       "category": "AI Teacher",
       "dependencies": [
-        "verified_local_model"
+        "verified_local_model",
+        "database"
       ],
       "description": "Guided revision exposed through the existing authenticated ai teacher capability.",
       "id": "universal_workspace.revision",
       "layer": "universal_workspace",
       "required_permissions": [
         "owner_session",
-        "memory_read"
+        "memory_read",
+        "model_inference"
       ],
       "status": "implemented",
       "test_coverage": [
-        "contract:feature_registry",
-        "agent:planner_verifier"
+        "backend:test_learning_api",
+        "backend:test_learning_postgres",
+        "web:learning_panel",
+        "mobile:studio"
       ],
       "title": "Guided revision",
       "ui_entry_point": "/workspaces/learning#revision"
     },
     {
-      "backend_capability": "learning_agent",
+      "backend_capability": "learning_program_service",
       "category": "AI Teacher",
       "dependencies": [
-        "verified_local_model"
+        "verified_local_model",
+        "database"
       ],
       "description": "Learning progress tracking exposed through the existing authenticated ai teacher capability.",
       "id": "universal_workspace.progress_tracking",
       "layer": "universal_workspace",
       "required_permissions": [
         "owner_session",
-        "memory_read"
+        "memory_read",
+        "model_inference"
       ],
       "status": "implemented",
       "test_coverage": [
-        "contract:feature_registry",
-        "agent:planner_verifier"
+        "backend:test_learning_api",
+        "backend:test_learning_postgres",
+        "web:learning_panel",
+        "mobile:studio"
       ],
       "title": "Learning progress tracking",
       "ui_entry_point": "/workspaces/learning#progress-tracking"
     },
     {
-      "backend_capability": "learning_agent",
+      "backend_capability": "learning_program_service",
       "category": "AI Teacher",
       "dependencies": [
-        "verified_local_model"
+        "verified_local_model",
+        "database"
       ],
       "description": "Personalized difficulty exposed through the existing authenticated ai teacher capability.",
       "id": "universal_workspace.personalized_difficulty",
       "layer": "universal_workspace",
       "required_permissions": [
         "owner_session",
-        "memory_read"
+        "memory_read",
+        "model_inference"
       ],
       "status": "implemented",
       "test_coverage": [
-        "contract:feature_registry",
-        "agent:planner_verifier"
+        "backend:test_learning_api",
+        "backend:test_learning_postgres",
+        "web:learning_panel",
+        "mobile:studio"
       ],
       "title": "Personalized difficulty",
       "ui_entry_point": "/workspaces/learning#personalized-difficulty"
     },
     {
-      "backend_capability": "learning_agent",
+      "backend_capability": "learning_program_service",
       "category": "AI Teacher",
       "dependencies": [
-        "verified_local_model"
+        "verified_local_model",
+        "database"
       ],
       "description": "Multilingual teaching exposed through the existing authenticated ai teacher capability.",
       "id": "universal_workspace.multilingual_teaching",
       "layer": "universal_workspace",
       "required_permissions": [
         "owner_session",
-        "memory_read"
+        "memory_read",
+        "model_inference"
       ],
       "status": "implemented",
       "test_coverage": [
-        "contract:feature_registry",
-        "agent:planner_verifier"
+        "backend:test_learning_api",
+        "backend:test_learning_postgres",
+        "web:learning_panel",
+        "mobile:studio"
       ],
       "title": "Multilingual teaching",
       "ui_entry_point": "/workspaces/learning#multilingual-teaching"
     },
     {
-      "backend_capability": "external_learning_connector",
-      "category": "Learning services",
+      "backend_capability": "learning_program_service",
+      "category": "Spaced repetition",
       "dependencies": [
-        "pronunciation_scoring_provider",
-        "spaced_repetition_store"
+        "database"
+      ],
+      "description": "Spaced repetition scheduling exposed through the existing authenticated spaced repetition capability.",
+      "id": "universal_workspace.spaced_repetition",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_api",
+        "backend:test_learning_postgres",
+        "web:learning_panel",
+        "mobile:studio"
+      ],
+      "title": "Spaced repetition scheduling",
+      "ui_entry_point": "/workspaces/learning#spaced-repetition"
+    },
+    {
+      "backend_capability": "external_pronunciation_scoring_provider",
+      "category": "Pronunciation scoring",
+      "dependencies": [
+        "pronunciation_scoring_provider"
       ],
       "description": "Governed pronunciation scoring entry point; execution remains disabled until the listed external dependency and owner permission are configured.",
       "id": "universal_workspace.pronunciation_scoring",
@@ -2636,29 +2693,7 @@
         "manual:external_boundary"
       ],
       "title": "Pronunciation scoring",
-      "ui_entry_point": "/workspaces/learning#pronunciation-scoring"
-    },
-    {
-      "backend_capability": "external_learning_connector",
-      "category": "Learning services",
-      "dependencies": [
-        "pronunciation_scoring_provider",
-        "spaced_repetition_store"
-      ],
-      "description": "Governed spaced repetition scheduling entry point; execution remains disabled until the listed external dependency and owner permission are configured.",
-      "id": "universal_workspace.spaced_repetition",
-      "layer": "universal_workspace",
-      "required_permissions": [
-        "owner_session",
-        "microphone"
-      ],
-      "status": "external_dependency",
-      "test_coverage": [
-        "contract:feature_registry",
-        "manual:external_boundary"
-      ],
-      "title": "Spaced repetition scheduling",
-      "ui_entry_point": "/workspaces/learning#spaced-repetition"
+      "ui_entry_point": "/workspaces/learning#pronunciation-scoring#pronunciation-scoring"
     },
     {
       "backend_capability": "marketing_campaign_service",
@@ -5184,11 +5219,11 @@
     "universal_workspace": 62
   },
   "product": "AI OS",
-  "registry_sha256": "2290af549cfad90310e6fbbf7c8afd8a7e1bc153dcfe0cefdcb7c7e83c817086",
+  "registry_sha256": "b70bd919cbb0c6abf6b2c2d55ae1a363d21d7c38695da528b33b1de50bf18468",
   "schema_version": 1,
   "statuses": {
-    "external_dependency": 40,
-    "implemented": 183,
+    "external_dependency": 39,
+    "implemented": 184,
     "planned": 5,
     "runtime_dependent": 17
   },

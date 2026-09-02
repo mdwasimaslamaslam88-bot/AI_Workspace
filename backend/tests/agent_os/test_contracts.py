@@ -43,6 +43,8 @@ def test_agent_contracts_are_typed_bounded_and_fail_closed():
         replace(request, max_retries=3)
     with pytest.raises(ValueError, match="goal"):
         replace(request, goal="   ")
+    with pytest.raises(TypeError, match="external model allowance"):
+        replace(request, allow_external_models="false")  # type: ignore[arg-type]
 
 
 def test_agent_policy_rejects_privilege_escalation_before_execution():

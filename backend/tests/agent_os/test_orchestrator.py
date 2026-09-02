@@ -139,6 +139,40 @@ async def test_orchestrator_retries_with_an_alternate_model_after_failed_verific
 
 
 @pytest.mark.asyncio
+async def test_orchestrator_private_context_request_uses_only_local_selector():
+    selector = Mock(
+        select=AsyncMock(
+            return_value=ModelSelection(
+                f"external_ai:{'e' * 24}",
+                InferenceMode.AUTO,
+                source=ModelSource.EXTERNAL,
+            )
+        ),
+        select_local=AsyncMock(
+            return_value=ModelSelection(MODEL_ONE, InferenceMode.AUTO)
+        ),
+    )
+    specialist = Mock(
+        kind=AgentKind.DEBUGGING,
+        execute=AsyncMock(
+            return_value=AgentExecution(output="Private local result.", model_id=MODEL_ONE)
+        ),
+    )
+
+    result = await AgentOrchestrator(
+        RuleBasedAgentPlanner(),
+        selector,
+        (specialist,),
+        IndependentVerificationEngine(),
+    ).run(_request(allow_external_models=False))
+
+    assert result.status is AgentRunStatus.COMPLETED
+    selector.select.assert_not_awaited()
+    selector.select_local.assert_awaited_once()
+    assert result.attempts[0].model_id == MODEL_ONE
+
+
+@pytest.mark.asyncio
 async def test_orchestrator_stops_after_bounded_failures():
     selector = Mock(
         select=AsyncMock(

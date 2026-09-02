@@ -1028,8 +1028,51 @@ textarea {
   white-space: pre-wrap;
 }
 
+.learning-panel .workflow-form {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.learning-panel .workflow-form > label,
+.learning-panel .learning-attempt > strong,
+.learning-panel .workflow-form > button {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 0.35rem;
+}
+
+.learning-curriculum {
+  display: grid;
+  gap: 0.9rem;
+  padding-left: 1.4rem;
+}
+
+.learning-curriculum > li {
+  border: 1px solid var(--line);
+  border-radius: 0.8rem;
+  background: var(--panel-soft);
+  padding: 0.85rem;
+}
+
+.learning-curriculum header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.learning-content {
+  max-height: 24rem;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+
+.learning-attempt {
+  margin-top: 0.75rem;
+}
+
 @media (max-width: 720px) {
-  .finance-panel .workflow-form {
+  .finance-panel .workflow-form,
+  .learning-panel .workflow-form {
     grid-template-columns: 1fr;
   }
 }
@@ -1921,6 +1964,7 @@ textarea {
   #personal-workflows-panel,
   #personal-settings-panel,
   #personal-agents-panel,
+  #personal-learning-panel,
   #feature-catalog-layer {
     width: calc(100% - 1rem);
     max-height: calc(100vh - 7rem);

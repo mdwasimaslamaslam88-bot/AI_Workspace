@@ -966,6 +966,124 @@ export interface FinanceWorkspacePage { items: FinanceWorkspace[]; }
 export interface PortfolioAnalysis { portfolio: FinanceArtifact; risk: FinanceArtifact; }
 export interface MarketAlertEvaluation { items: MarketAlert[]; }
 
+export type LearningProgramStatus = "active" | "completed" | "archived";
+export type LearningLessonStatus = "planned" | "ready" | "completed";
+export type LearningActivityKind = "exercise" | "quiz" | "conversation" | "revision";
+
+export interface LearningProgramCreateRequest {
+  subject: string;
+  goal: string;
+  target_language: string;
+  instruction_language: string;
+  start_difficulty: number;
+  target_difficulty: number;
+  weekly_minutes: number;
+  adaptive_difficulty: boolean;
+}
+
+export interface LearningActivityCreateRequest {
+  kind: LearningActivityKind;
+  prompt: string;
+  expected_answer: string;
+  explanation: string;
+  difficulty: number;
+  max_attempts: number;
+}
+
+export interface LearningAttemptRequest { answer: string; }
+export interface LearningReviewItemCreateRequest { front: string; back: string; }
+export interface LearningReviewRequest { quality: number; }
+
+export interface LearningAttempt {
+  id: UUID;
+  activity_id: UUID;
+  is_correct: boolean;
+  score_bps: number;
+  feedback: string;
+  created_at: Timestamp;
+}
+
+export interface LearningActivity {
+  id: UUID;
+  lesson_id: UUID;
+  kind: LearningActivityKind;
+  prompt: string;
+  explanation_available_after_attempt: true;
+  difficulty: number;
+  max_attempts: number;
+  attempts: LearningAttempt[];
+  created_at: Timestamp;
+}
+
+export interface LearningLesson {
+  id: UUID;
+  position: number;
+  title: string;
+  objectives: string[];
+  difficulty: number;
+  status: LearningLessonStatus;
+  content: string | null;
+  output_sha256: string | null;
+  model_id: string | null;
+  memory_context_count: number;
+  score_bps: number | null;
+  activities: LearningActivity[];
+  created_at: Timestamp;
+  generated_at: Timestamp | null;
+  completed_at: Timestamp | null;
+}
+
+export interface LearningReviewItem {
+  id: UUID;
+  front: string;
+  back: string;
+  interval_days: number;
+  ease_milli: number;
+  repetitions: number;
+  due_at: Timestamp;
+  last_quality: number | null;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+}
+
+export interface LearningProgram {
+  id: UUID;
+  subject: string;
+  goal: string;
+  target_language: string;
+  instruction_language: string;
+  start_difficulty: number;
+  current_difficulty: number;
+  target_difficulty: number;
+  weekly_minutes: number;
+  adaptive_difficulty: boolean;
+  status: LearningProgramStatus;
+  total_lessons: number;
+  completed_lessons: number;
+  total_attempts: number;
+  correct_attempts: number;
+  progress_bps: number;
+  accuracy_bps: number | null;
+  lessons: LearningLesson[];
+  review_items: LearningReviewItem[];
+  created_at: Timestamp;
+  updated_at: Timestamp;
+  completed_at: Timestamp | null;
+}
+
+export interface LearningProgramPage { items: LearningProgram[]; }
+
+export interface LearningCapabilities {
+  teacher_mode: true;
+  speaking_partner: true;
+  exam_mode: true;
+  vocabulary_trainer: true;
+  spaced_repetition: true;
+  pronunciation_scoring: false;
+  pronunciation_status: "external_dependency";
+  pronunciation_dependencies: ["pronunciation_scoring_provider"];
+}
+
 export type SelfUpdateState =
   | "idle"
   | "validating"
@@ -1416,6 +1534,9 @@ const paperOrderSides = ["buy", "sell"] as const;
 const paperOrderStatuses = ["executed", "rejected"] as const;
 const marketAlertConditions = ["at_or_above", "at_or_below"] as const;
 const marketAlertStatuses = ["active", "triggered", "cancelled"] as const;
+const learningProgramStatuses = ["active", "completed", "archived"] as const;
+const learningLessonStatuses = ["planned", "ready", "completed"] as const;
+const learningActivityKinds = ["exercise", "quiz", "conversation", "revision"] as const;
 const securityEventKinds = [
   "authentication_failure",
   "rate_limit_containment",
@@ -2322,6 +2443,165 @@ export function parseMarketAlertEvaluation(value: unknown): MarketAlertEvaluatio
   const item = record(value);
   if (!Array.isArray(item.items) || item.items.length > 100) return invalidResponse();
   return { items: item.items.map(parseMarketAlert) };
+}
+
+export function parseLearningAttempt(value: unknown): LearningAttempt {
+  const item = record(value);
+  return {
+    id: stringField(item.id),
+    activity_id: stringField(item.activity_id),
+    is_correct: booleanField(item.is_correct),
+    score_bps: boundedInteger(item.score_bps, 0, 10_000),
+    feedback: stringField(item.feedback),
+    created_at: stringField(item.created_at),
+  };
+}
+
+function parseLearningActivity(value: unknown): LearningActivity {
+  const item = record(value);
+  if (
+    item.explanation_available_after_attempt !== true ||
+    !Array.isArray(item.attempts) || item.attempts.length > 10
+  ) return invalidResponse();
+  return {
+    id: stringField(item.id),
+    lesson_id: stringField(item.lesson_id),
+    kind: enumField(item.kind, learningActivityKinds),
+    prompt: stringField(item.prompt),
+    explanation_available_after_attempt: true,
+    difficulty: boundedInteger(item.difficulty, 1, 5),
+    max_attempts: boundedInteger(item.max_attempts, 1, 10),
+    attempts: item.attempts.map(parseLearningAttempt),
+    created_at: stringField(item.created_at),
+  };
+}
+
+function parseLearningLesson(value: unknown): LearningLesson {
+  const item = record(value);
+  if (
+    !Array.isArray(item.objectives) || item.objectives.length < 1 || item.objectives.length > 16 ||
+    !Array.isArray(item.activities) || item.activities.length > 30
+  ) return invalidResponse();
+  const content = nullableString(item.content);
+  const outputHash = nullableString(item.output_sha256);
+  const modelId = nullableString(item.model_id);
+  const status = enumField(item.status, learningLessonStatuses);
+  if (
+    (content !== null && (content.length < 1 || content.length > 65_536)) ||
+    (outputHash !== null && !/^[a-f0-9]{64}$/.test(outputHash)) ||
+    (status === "planned" && (content !== null || outputHash !== null || modelId !== null)) ||
+    (status !== "planned" && (content === null || outputHash === null || modelId === null))
+  ) return invalidResponse();
+  return {
+    id: stringField(item.id),
+    position: boundedInteger(item.position, 1, 50),
+    title: stringField(item.title),
+    objectives: item.objectives.map(stringField),
+    difficulty: boundedInteger(item.difficulty, 1, 5),
+    status,
+    content,
+    output_sha256: outputHash,
+    model_id: modelId,
+    memory_context_count: boundedInteger(item.memory_context_count, 0, 4),
+    score_bps: item.score_bps === null ? null : boundedInteger(item.score_bps, 0, 10_000),
+    activities: item.activities.map(parseLearningActivity),
+    created_at: stringField(item.created_at),
+    generated_at: nullableString(item.generated_at),
+    completed_at: nullableString(item.completed_at),
+  };
+}
+
+export function parseLearningReviewItem(value: unknown): LearningReviewItem {
+  const item = record(value);
+  return {
+    id: stringField(item.id),
+    front: stringField(item.front),
+    back: stringField(item.back),
+    interval_days: boundedInteger(item.interval_days, 0, 36_500),
+    ease_milli: boundedInteger(item.ease_milli, 1_300, 3_000),
+    repetitions: boundedInteger(item.repetitions, 0, 10_000),
+    due_at: stringField(item.due_at),
+    last_quality: item.last_quality === null ? null : boundedInteger(item.last_quality, 0, 5),
+    created_at: stringField(item.created_at),
+    updated_at: stringField(item.updated_at),
+  };
+}
+
+export function parseLearningProgram(value: unknown): LearningProgram {
+  const item = record(value);
+  if (
+    !Array.isArray(item.lessons) || item.lessons.length < 1 || item.lessons.length > 50 ||
+    !Array.isArray(item.review_items) || item.review_items.length > 500
+  ) return invalidResponse();
+  const totalLessons = boundedInteger(item.total_lessons, 1, 50);
+  const completedLessons = boundedInteger(item.completed_lessons, 0, totalLessons);
+  const totalAttempts = boundedInteger(item.total_attempts, 0, 1_000_000);
+  const correctAttempts = boundedInteger(item.correct_attempts, 0, totalAttempts);
+  const start = boundedInteger(item.start_difficulty, 1, 5);
+  const current = boundedInteger(item.current_difficulty, 1, 5);
+  const target = boundedInteger(item.target_difficulty, 1, 5);
+  const progress = boundedInteger(item.progress_bps, 0, 10_000);
+  const accuracy = item.accuracy_bps === null ? null : boundedInteger(item.accuracy_bps, 0, 10_000);
+  if (
+    start > target || current < start || current > target ||
+    progress !== Math.floor(completedLessons * 10_000 / totalLessons) ||
+    accuracy !== (totalAttempts === 0 ? null : Math.floor(correctAttempts * 10_000 / totalAttempts))
+  ) return invalidResponse();
+  const lessons = item.lessons.map(parseLearningLesson);
+  if (lessons.some((lesson, index) => lesson.position !== index + 1)) return invalidResponse();
+  return {
+    id: stringField(item.id),
+    subject: stringField(item.subject),
+    goal: stringField(item.goal),
+    target_language: stringField(item.target_language),
+    instruction_language: stringField(item.instruction_language),
+    start_difficulty: start,
+    current_difficulty: current,
+    target_difficulty: target,
+    weekly_minutes: boundedInteger(item.weekly_minutes, 15, 10_080),
+    adaptive_difficulty: booleanField(item.adaptive_difficulty),
+    status: enumField(item.status, learningProgramStatuses),
+    total_lessons: totalLessons,
+    completed_lessons: completedLessons,
+    total_attempts: totalAttempts,
+    correct_attempts: correctAttempts,
+    progress_bps: progress,
+    accuracy_bps: accuracy,
+    lessons,
+    review_items: item.review_items.map(parseLearningReviewItem),
+    created_at: stringField(item.created_at),
+    updated_at: stringField(item.updated_at),
+    completed_at: nullableString(item.completed_at),
+  };
+}
+
+export function parseLearningProgramPage(value: unknown): LearningProgramPage {
+  const item = record(value);
+  if (!Array.isArray(item.items) || item.items.length > 20) return invalidResponse();
+  return { items: item.items.map(parseLearningProgram) };
+}
+
+export function parseLearningCapabilities(value: unknown): LearningCapabilities {
+  const item = record(value);
+  if (
+    item.teacher_mode !== true || item.speaking_partner !== true ||
+    item.exam_mode !== true || item.vocabulary_trainer !== true ||
+    item.spaced_repetition !== true || item.pronunciation_scoring !== false ||
+    item.pronunciation_status !== "external_dependency" ||
+    !Array.isArray(item.pronunciation_dependencies) ||
+    item.pronunciation_dependencies.length !== 1 ||
+    item.pronunciation_dependencies[0] !== "pronunciation_scoring_provider"
+  ) return invalidResponse();
+  return {
+    teacher_mode: true,
+    speaking_partner: true,
+    exam_mode: true,
+    vocabulary_trainer: true,
+    spaced_repetition: true,
+    pronunciation_scoring: false,
+    pronunciation_status: "external_dependency",
+    pronunciation_dependencies: ["pronunciation_scoring_provider"],
+  };
 }
 
 export function parseSelfUpdateStatus(value: unknown): SelfUpdateStatus {

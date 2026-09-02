@@ -1,6 +1,7 @@
 import type {
   FeatureRegistry,
   FinanceWorkspace,
+  LearningProgram,
   Connector,
   ConnectorSettings,
   LocalModel,
@@ -95,6 +96,15 @@ export default function StudioScreen() {
   const [connectors, setConnectors] = useState<Connector[]>([]);
   const [campaigns, setCampaigns] = useState<MarketingCampaign[]>([]);
   const [financeWorkspaces, setFinanceWorkspaces] = useState<FinanceWorkspace[]>([]);
+  const [learningPrograms, setLearningPrograms] = useState<LearningProgram[]>([]);
+  const [selectedLearningId, setSelectedLearningId] = useState<string | null>(null);
+  const [learningSubject, setLearningSubject] = useState("");
+  const [learningGoal, setLearningGoal] = useState("");
+  const [learningTargetLanguage, setLearningTargetLanguage] = useState("ja");
+  const [learningInstructionLanguage, setLearningInstructionLanguage] = useState("en");
+  const [learningAnswer, setLearningAnswer] = useState("");
+  const [reviewFront, setReviewFront] = useState("");
+  const [reviewBack, setReviewBack] = useState("");
   const [selectedFinanceId, setSelectedFinanceId] = useState<string | null>(null);
   const [financeName, setFinanceName] = useState("");
   const [financeCurrency, setFinanceCurrency] = useState("USD");
@@ -150,6 +160,12 @@ export default function StudioScreen() {
       ?? financeWorkspaces[0]
       ?? null,
     [financeWorkspaces, selectedFinanceId],
+  );
+  const selectedLearning = useMemo(
+    () => learningPrograms.find((program) => program.id === selectedLearningId)
+      ?? learningPrograms[0]
+      ?? null,
+    [learningPrograms, selectedLearningId],
   );
 
   const updateWorkflow = useCallback((workflow: Workflow) => {
@@ -216,7 +232,7 @@ export default function StudioScreen() {
     setBusyAction("Refreshing private studio");
     setNotice(null);
     try {
-      const [modelPage, conversationPage, memoryPage, setting, toolPage, executionPage, workflowPage, registry, connectionSettings, connectorPage, campaignPage, financePage] =
+      const [modelPage, conversationPage, memoryPage, setting, toolPage, executionPage, workflowPage, registry, connectionSettings, connectorPage, campaignPage, financePage, learningPage] =
         await Promise.all([
           client.listModels(),
           client.listConversations(),
@@ -230,6 +246,7 @@ export default function StudioScreen() {
           client.listConnectors().catch(() => ({ items: [] })),
           client.listMarketingCampaigns().catch(() => ({ items: [] })),
           client.listFinanceWorkspaces().catch(() => ({ items: [] })),
+          client.listLearningPrograms().catch(() => ({ items: [] })),
         ]);
       setModels(modelPage.items);
       setConversationId((current) =>
@@ -255,6 +272,10 @@ export default function StudioScreen() {
       setSelectedFinanceId((current) => financePage.items.some((workspace) => workspace.id === current)
         ? current
         : financePage.items[0]?.id ?? null);
+      setLearningPrograms(learningPage.items);
+      setSelectedLearningId((current) => learningPage.items.some((program) => program.id === current)
+        ? current
+        : learningPage.items[0]?.id ?? null);
       for (const workflow of workflowPage.items) {
         if (workflow.status === "running") monitorWorkflow(workflow.id);
       }
@@ -599,6 +620,74 @@ export default function StudioScreen() {
     }, true);
   }
 
+  function replaceLearningProgram(program: LearningProgram) {
+    setLearningPrograms((current) => [program, ...current.filter((item) => item.id !== program.id)]);
+    setSelectedLearningId(program.id);
+  }
+
+  async function createLearningProgram() {
+    if (
+      learningSubject.trim().length === 0 || learningGoal.trim().length === 0 ||
+      !/^[A-Za-z][A-Za-z0-9-]{1,34}$/.test(learningTargetLanguage) ||
+      !/^[A-Za-z][A-Za-z0-9-]{1,34}$/.test(learningInstructionLanguage)
+    ) return;
+    await perform("Creating learning curriculum", async (signal) => {
+      replaceLearningProgram(await connectedClient.createLearningProgram({
+        subject: learningSubject.trim(),
+        goal: learningGoal.trim(),
+        target_language: learningTargetLanguage,
+        instruction_language: learningInstructionLanguage,
+        start_difficulty: 1,
+        target_difficulty: 5,
+        weekly_minutes: 150,
+        adaptive_difficulty: true,
+      }, signal));
+      setLearningSubject("");
+      setLearningGoal("");
+    });
+  }
+
+  async function generateMobileLesson(lessonId: string) {
+    if (selectedLearning === null) return;
+    await perform("Generating verified lesson", async (signal) => {
+      replaceLearningProgram(await connectedClient.generateLearningLesson(
+        selectedLearning.id, lessonId, signal,
+      ));
+    }, true);
+  }
+
+  async function submitMobileLearningAttempt(activityId: string) {
+    if (selectedLearning === null || learningAnswer.trim().length === 0) return;
+    await perform("Checking learning answer", async (signal) => {
+      const attempt = await connectedClient.submitLearningAttempt(
+        selectedLearning.id, activityId, { answer: learningAnswer.trim() }, signal,
+      );
+      setNotice(attempt.feedback);
+      replaceLearningProgram(await connectedClient.getLearningProgram(selectedLearning.id, signal));
+      setLearningAnswer("");
+    });
+  }
+
+  async function addMobileReviewItem() {
+    if (selectedLearning === null || reviewFront.trim().length === 0 || reviewBack.trim().length === 0) return;
+    await perform("Adding vocabulary review", async (signal) => {
+      await connectedClient.createLearningReviewItem(selectedLearning.id, {
+        front: reviewFront.trim(), back: reviewBack.trim(),
+      }, signal);
+      replaceLearningProgram(await connectedClient.getLearningProgram(selectedLearning.id, signal));
+      setReviewFront("");
+      setReviewBack("");
+    });
+  }
+
+  async function reviewMobileItem(itemId: string, quality: number) {
+    if (selectedLearning === null) return;
+    await perform("Scheduling learning review", async (signal) => {
+      await connectedClient.reviewLearningItem(selectedLearning.id, itemId, { quality }, signal);
+      replaceLearningProgram(await connectedClient.getLearningProgram(selectedLearning.id, signal));
+    });
+  }
+
   async function showImage(assetId: string, signal: AbortSignal) {
     const cached = cachePrivateMedia(await connectedClient.downloadAsset(assetId, signal));
     replaceCache(imageCache, cached);
@@ -840,6 +929,39 @@ export default function StudioScreen() {
               <Text style={styles.warning}>The next action confirms a paper-only buy. It cannot place a broker order.</Text>
               <Pressable accessibilityRole="button" disabled={busyAction !== null || positiveInteger(paperQuantity) === null || positiveInteger(paperPrice) === null || marketSymbol.trim().length === 0 || marketSource.trim().length === 0} style={styles.secondaryButton} onPress={() => void executePaperOrder()}><Text style={styles.buttonText}>Confirm & submit paper buy</Text></Pressable>
               {selectedFinance.artifacts.slice(0, 5).map((artifact) => <View key={artifact.id} style={styles.result}><Text style={styles.itemLabel}>{artifact.kind} · verified</Text><Text style={styles.detail}>{artifact.model_id} · {artifact.source_reference}</Text><Text selectable style={styles.itemText}>{artifact.output}</Text></View>)}
+            </>}
+          </>}
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.eyebrow}>UNIVERSAL LEARNING</Text>
+          <Text accessibilityRole="header" style={styles.heading}>AI Teacher</Text>
+          <Text style={styles.muted}>Private curriculum, verified lessons, adaptive exact-answer practice, vocabulary, and spaced repetition. Pronunciation scoring remains unavailable until a verified provider is configured.</Text>
+          {learningPrograms.length === 0 ? <>
+            <TextInput accessibilityLabel="Learning subject" maxLength={160} value={learningSubject} onChangeText={setLearningSubject} placeholder="Subject, e.g. Japanese" placeholderTextColor={colors.subtle} style={styles.input} />
+            <TextInput accessibilityLabel="Learning goal" multiline maxLength={2_000} value={learningGoal} onChangeText={setLearningGoal} placeholder="What you want to achieve" placeholderTextColor={colors.subtle} style={styles.textArea} />
+            <TextInput accessibilityLabel="Learning target language" autoCapitalize="none" maxLength={35} value={learningTargetLanguage} onChangeText={setLearningTargetLanguage} placeholder="Target language tag, e.g. ja" placeholderTextColor={colors.subtle} style={styles.input} />
+            <TextInput accessibilityLabel="Learning instruction language" autoCapitalize="none" maxLength={35} value={learningInstructionLanguage} onChangeText={setLearningInstructionLanguage} placeholder="Teaching language tag, e.g. en" placeholderTextColor={colors.subtle} style={styles.input} />
+            <Pressable accessibilityRole="button" disabled={busyAction !== null || learningSubject.trim().length === 0 || learningGoal.trim().length === 0} style={[styles.primaryButton, busyAction !== null && styles.disabled]} onPress={() => void createLearningProgram()}><Text style={styles.primaryButtonText}>Create curriculum</Text></Pressable>
+          </> : <>
+            <ScrollView horizontal contentContainerStyle={styles.chipRow}>
+              {learningPrograms.map((program) => <Pressable accessibilityRole="button" accessibilityState={{ selected: selectedLearning?.id === program.id }} key={program.id} style={[styles.chip, selectedLearning?.id === program.id && styles.selectedChip]} onPress={() => setSelectedLearningId(program.id)}><Text style={styles.chipText}>{program.subject}</Text></Pressable>)}
+            </ScrollView>
+            {selectedLearning !== null && <>
+              <View style={styles.result}><Text style={styles.itemLabel}>{selectedLearning.status} · difficulty {selectedLearning.current_difficulty}/5</Text><Text style={styles.itemText}>{selectedLearning.completed_lessons}/{selectedLearning.total_lessons} lessons · {selectedLearning.progress_bps / 100}%</Text><Text style={styles.detail}>{selectedLearning.target_language} content taught in {selectedLearning.instruction_language}</Text></View>
+              {selectedLearning.lessons.map((lesson) => <View key={lesson.id} style={styles.result}>
+                <Text style={styles.itemLabel}>Lesson {lesson.position} · {lesson.status}</Text>
+                <Text style={styles.itemText}>{lesson.title}</Text>
+                {lesson.status === "planned" && <Pressable accessibilityRole="button" disabled={busyAction !== null} style={styles.primaryButton} onPress={() => void generateMobileLesson(lesson.id)}><Text style={styles.primaryButtonText}>Generate verified lesson</Text></Pressable>}
+                {lesson.content !== null && <Text selectable style={styles.itemText}>{lesson.content}</Text>}
+                {lesson.activities.map((activity) => <View key={activity.id} style={styles.result}><Text style={styles.detail}>{activity.kind} · {activity.prompt}</Text><TextInput accessibilityLabel={`Answer for ${activity.prompt}`} maxLength={4_000} value={learningAnswer} onChangeText={setLearningAnswer} placeholder="Your answer" placeholderTextColor={colors.subtle} style={styles.input} /><Pressable accessibilityRole="button" disabled={busyAction !== null || learningAnswer.trim().length === 0 || activity.attempts.length >= activity.max_attempts} style={styles.secondaryButton} onPress={() => void submitMobileLearningAttempt(activity.id)}><Text style={styles.buttonText}>Check answer</Text></Pressable></View>)}
+              </View>)}
+              <Text style={styles.itemLabel}>Vocabulary and spaced repetition</Text>
+              <TextInput accessibilityLabel="Review card front" maxLength={1_000} value={reviewFront} onChangeText={setReviewFront} placeholder="Prompt or term" placeholderTextColor={colors.subtle} style={styles.input} />
+              <TextInput accessibilityLabel="Review card back" multiline maxLength={2_000} value={reviewBack} onChangeText={setReviewBack} placeholder="Answer or translation" placeholderTextColor={colors.subtle} style={styles.textArea} />
+              <Pressable accessibilityRole="button" disabled={busyAction !== null || reviewFront.trim().length === 0 || reviewBack.trim().length === 0} style={styles.secondaryButton} onPress={() => void addMobileReviewItem()}><Text style={styles.buttonText}>Add review card</Text></Pressable>
+              {selectedLearning.review_items.map((item) => <View key={item.id} style={styles.listItem}><View style={styles.titleGrow}><Text style={styles.itemText}>{item.front} — {item.back}</Text><Text style={styles.detail}>Due {new Date(item.due_at).toLocaleDateString()} · interval {item.interval_days} day(s)</Text></View><Pressable accessibilityRole="button" style={styles.touchAction} onPress={() => void reviewMobileItem(item.id, 4)}><Text style={styles.link}>Recalled</Text></Pressable></View>)}
+              <Text style={styles.warning}>Pronunciation scoring: external dependency. No local score is fabricated.</Text>
             </>}
           </>}
         </View>
