@@ -41,10 +41,10 @@ executable_name="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "${inf
 
 executable="${application}/Contents/MacOS/${executable_name}"
 [[ -x "${executable}" ]]
-file "${executable}" | rg -q 'Mach-O .* executable'
+file "${executable}" | grep -Eq 'Mach-O .* executable'
 hdiutil verify "${disk_image}" >/dev/null
 
-if rg -a -q --hidden --no-ignore \
+if grep -aEqr \
   'USER_PROVISIONING_TOKEN_DIGEST|X-User-Provisioning-Token|\.ai_workspace_provisioning_token|-----BEGIN .*PRIVATE KEY-----|/Users/runner/|/home/|/tmp/' \
   "${application}" "${disk_image}"; then
   echo "macOS artifacts contain operator configuration, private key material, or a build-machine path." >&2
