@@ -16,6 +16,7 @@ from app.api.v1.diagnostics import router as diagnostics_router
 from app.api.v1.health import router as health_router
 from app.api.v1.images import router as images_router
 from app.api.v1.memories import router as memories_router
+from app.api.v1.marketing import router as marketing_router
 from app.api.v1.tools import router as tools_router
 from app.api.v1.users import router as users_router
 from app.api.v1.voice import router as voice_router
@@ -34,6 +35,7 @@ router.include_router(connectors_router)
 router.include_router(voice_router)
 router.include_router(images_router)
 router.include_router(memories_router)
+router.include_router(marketing_router)
 router.include_router(tools_router)
 router.include_router(workflows_router)
 router.include_router(documents_router)

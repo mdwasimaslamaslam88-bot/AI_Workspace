@@ -34,6 +34,10 @@ import {
   type ImageGenerationRequest,
   type ImageOperation,
   type LocalModelPage,
+  type MarketingAnalyticsRequest,
+  type MarketingCampaign,
+  type MarketingCampaignCreateRequest,
+  type MarketingCampaignPage,
   type MemoryCreateRequest,
   type MemoryPage,
   type MemorySetting,
@@ -79,6 +83,8 @@ import {
   parseFeatureRegistry,
   parseGenerationResponse,
   parseMemoryPage,
+  parseMarketingCampaign,
+  parseMarketingCampaignPage,
   parseMemorySetting,
   parseMessagePage,
   parseModelPage,
@@ -542,6 +548,56 @@ export class ApiClient {
     return this.#request(`api/v1/connectors/executions${suffix}`, {
       signal: options.signal,
       decode: parseConnectorExecutionPage,
+    });
+  }
+
+  listMarketingCampaigns(signal?: AbortSignal): Promise<MarketingCampaignPage> {
+    return this.#request("api/v1/marketing/campaigns", {
+      signal,
+      decode: parseMarketingCampaignPage,
+    });
+  }
+
+  createMarketingCampaign(
+    request: MarketingCampaignCreateRequest,
+    signal?: AbortSignal,
+  ): Promise<MarketingCampaign> {
+    return this.#request("api/v1/marketing/campaigns", {
+      method: "POST", body: request, signal, decode: parseMarketingCampaign,
+    });
+  }
+
+  getMarketingCampaign(id: string, signal?: AbortSignal): Promise<MarketingCampaign> {
+    return this.#request(`api/v1/marketing/campaigns/${encodeURIComponent(id)}`, {
+      signal, decode: parseMarketingCampaign,
+    });
+  }
+
+  startMarketingCampaign(id: string, signal?: AbortSignal): Promise<MarketingCampaign> {
+    return this.#request(`api/v1/marketing/campaigns/${encodeURIComponent(id)}/start`, {
+      method: "POST", signal, decode: parseMarketingCampaign,
+    });
+  }
+
+  approveMarketingCampaign(id: string, signal?: AbortSignal): Promise<MarketingCampaign> {
+    return this.#request(`api/v1/marketing/campaigns/${encodeURIComponent(id)}/approve`, {
+      method: "POST", signal, decode: parseMarketingCampaign,
+    });
+  }
+
+  submitMarketingAnalytics(
+    id: string,
+    request: MarketingAnalyticsRequest,
+    signal?: AbortSignal,
+  ): Promise<MarketingCampaign> {
+    return this.#request(`api/v1/marketing/campaigns/${encodeURIComponent(id)}/analytics`, {
+      method: "POST", body: request, signal, decode: parseMarketingCampaign,
+    });
+  }
+
+  cancelMarketingCampaign(id: string, signal?: AbortSignal): Promise<MarketingCampaign> {
+    return this.#request(`api/v1/marketing/campaigns/${encodeURIComponent(id)}`, {
+      method: "DELETE", signal, decode: parseMarketingCampaign,
     });
   }
 

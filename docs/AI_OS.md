@@ -46,6 +46,9 @@ mutation. It never repairs the artifact before scoring.
 - fixed-registry tools and durable bounded workflows
 - owner-scoped REST, webhook, and loopback API connectors with exact egress,
   path, permission, retry, rate, audit, and revocation policy
+- durable source-grounded marketing campaigns with verified local-agent stages,
+  explicit owner publish approval, connector audit linkage, and deterministic
+  submitted-source analytics
 - normalized hardware discovery, GPU-upgrade fingerprints and simulations
 - verified backup/restore, staged self-update checkpoints and atomic rollback
 - authenticated diagnostics for hardware, models/routes, provider cost/health,
@@ -114,6 +117,15 @@ with native Android and desktop-launch gates required. Measured results were:
 - canonical quality benchmark: 459 tests, 97.88/100, 457 PASS, 1 PARTIAL,
   1 FAIL, safety 100%, hallucination 0%, executable code 24/24
 - massive stability run: 10,000/10,000 passed
+
+The Step 5 marketing regression gate subsequently passed 2,884 backend tests
+(42 environment-dependent skips), 176 web tests, 58 mobile tests, and 42 tests
+against disposable PostgreSQL with migration `0014` and no schema drift. The
+real-runtime matrix also executed the four local-agent campaign stages, held
+publishing for explicit owner approval, sent an authenticated loopback
+connector request, and calculated analytics only from the submitted source
+metrics. Provider-specific publishing remains an external dependency until an
+owner configures and authorizes a legitimate connector.
 
 The Phase 1 baseline was 97.74 with 455 PASS, 3 PARTIAL, and 1 FAIL. The
 content-addressed FLUX.2 Klein Base 4B FP8 route fixed both image non-passes;

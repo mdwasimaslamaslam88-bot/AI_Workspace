@@ -102,6 +102,15 @@ credential ciphertext. Connector audit rows retain status, timing, sizes, and
 content hashes—not headers, credentials, or payload bodies. Database composite
 ownership constraints backstop API owner filtering.
 
+Marketing campaign agents receive model inference only and cannot publish.
+Owner-scoped composite foreign keys bind every campaign and publisher
+connector to the same owner. Source facts are marked as untrusted data in the
+agent instruction, every generated stage must match an independent verifier
+digest, and publishing is a separate direct owner action after the persisted
+`needs_approval` state. The connector audit retains only response hashes and
+metadata. Analytics are validated and computed only after owner lookup, so a
+foreign campaign identity cannot be used as a validation oracle.
+
 The process retains at most 512 metadata-only containment events for repeated
 authentication failure, rate limiting, oversized bodies and unexpected error
 containment. Authenticated diagnostics return only event kind and timestamp;

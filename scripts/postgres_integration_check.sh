@@ -485,5 +485,5 @@ elif [[ "${run_browser}" == true ]]; then
 elif [[ "${run_runtime}" == true ]]; then
   echo "ephemeral PostgreSQL validation: runtime E2E passed"
 else
-  echo "ephemeral PostgreSQL validation: 39 integration tests passed"
+  echo "ephemeral PostgreSQL validation: 42 integration tests passed"
 fi

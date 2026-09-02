@@ -708,6 +708,100 @@ export interface ConnectorExecutionResult {
 
 export interface ConnectorExecutionPage { items: ConnectorExecution[]; }
 
+export type MarketingCampaignStatus =
+  | "pending"
+  | "running"
+  | "needs_approval"
+  | "publishing"
+  | "awaiting_analytics"
+  | "completed"
+  | "failed"
+  | "cancelled"
+  | "timed_out";
+export type MarketingStageKind =
+  | "research"
+  | "strategy"
+  | "content"
+  | "creative"
+  | "approval"
+  | "publish"
+  | "analytics"
+  | "optimization";
+export type MarketingStageStatus =
+  | "pending"
+  | "running"
+  | "blocked"
+  | "completed"
+  | "failed"
+  | "cancelled";
+export type MarketingChannel = "email" | "social" | "search" | "web";
+
+export interface MarketingSourceFact {
+  source_reference: string;
+  fact: string;
+}
+
+export interface MarketingCampaignCreateRequest {
+  name: string;
+  objective: string;
+  product: string;
+  audience: string;
+  channels: MarketingChannel[];
+  source_facts: MarketingSourceFact[];
+  publisher_connector_id?: UUID;
+  publish_path?: string;
+}
+
+export interface MarketingAnalyticsRequest {
+  source_reference: string;
+  observed_at: Timestamp;
+  impressions: number;
+  clicks: number;
+  conversions: number;
+  spend_minor: number;
+  revenue_minor: number;
+}
+
+export interface MarketingStage {
+  id: UUID;
+  position: number;
+  kind: MarketingStageKind;
+  status: MarketingStageStatus;
+  output: string | null;
+  output_sha256: string | null;
+  model_id: string | null;
+  connector_execution_id: UUID | null;
+  error_code: string | null;
+  started_at: Timestamp | null;
+  completed_at: Timestamp | null;
+  duration_ms: number | null;
+}
+
+export interface MarketingCampaign {
+  id: UUID;
+  name: string;
+  objective: string;
+  product: string;
+  audience: string;
+  channels: MarketingChannel[];
+  source_facts: MarketingSourceFact[];
+  publisher_connector_id: UUID | null;
+  publish_path: string | null;
+  status: MarketingCampaignStatus;
+  current_stage: MarketingStageKind | null;
+  analytics: JsonValue | null;
+  error_code: string | null;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+  started_at: Timestamp | null;
+  approved_at: Timestamp | null;
+  published_at: Timestamp | null;
+  completed_at: Timestamp | null;
+  stages: MarketingStage[];
+}
+
+export interface MarketingCampaignPage { items: MarketingCampaign[]; }
+
 export type SelfUpdateState =
   | "idle"
   | "validating"
@@ -1148,6 +1242,10 @@ const connectorKinds = ["rest", "webhook", "local_api"] as const;
 const connectorAuthKinds = ["none", "bearer", "api_key", "oauth2_bearer"] as const;
 const connectorConnectionStatuses = ["revoked", "disabled", "ready", "healthy", "unavailable"] as const;
 const connectorExecutionStatuses = ["completed", "failed", "timed_out", "rate_limited"] as const;
+const marketingCampaignStatuses = ["pending", "running", "needs_approval", "publishing", "awaiting_analytics", "completed", "failed", "cancelled", "timed_out"] as const;
+const marketingStageKinds = ["research", "strategy", "content", "creative", "approval", "publish", "analytics", "optimization"] as const;
+const marketingStageStatuses = ["pending", "running", "blocked", "completed", "failed", "cancelled"] as const;
+const marketingChannels = ["email", "social", "search", "web"] as const;
 const securityEventKinds = [
   "authentication_failure",
   "rate_limit_containment",
@@ -1805,6 +1903,97 @@ export function parseConnectorExecutionPage(value: unknown): ConnectorExecutionP
   const item = record(value);
   if (!Array.isArray(item.items) || item.items.length > 100) return invalidResponse();
   return { items: item.items.map(parseConnectorExecution) };
+}
+
+function parseMarketingSourceFact(value: unknown): MarketingSourceFact {
+  const item = record(value);
+  const sourceReference = stringField(item.source_reference);
+  const fact = stringField(item.fact);
+  if (
+    sourceReference.length < 1 || sourceReference.length > 512 ||
+    sourceReference !== sourceReference.trim() ||
+    fact.length < 1 || fact.length > 2_000 || fact !== fact.trim()
+  ) return invalidResponse();
+  return { source_reference: sourceReference, fact };
+}
+
+function parseMarketingStage(value: unknown): MarketingStage {
+  const item = record(value);
+  const position = integerOrNull(item.position);
+  const output = nullableString(item.output);
+  const outputHash = nullableString(item.output_sha256);
+  const modelId = nullableString(item.model_id);
+  const executionId = nullableString(item.connector_execution_id);
+  const errorCode = nullableString(item.error_code);
+  const duration = integerOrNull(item.duration_ms);
+  if (
+    position === null || position < 1 || position > 8 ||
+    (output !== null && output.length > 32_768) ||
+    (outputHash !== null && !/^[a-f0-9]{64}$/.test(outputHash)) ||
+    (modelId !== null && (modelId.length < 1 || modelId.length > 96)) ||
+    (duration !== null && duration < 0)
+  ) return invalidResponse();
+  return {
+    id: stringField(item.id),
+    position,
+    kind: enumField(item.kind, marketingStageKinds),
+    status: enumField(item.status, marketingStageStatuses),
+    output,
+    output_sha256: outputHash,
+    model_id: modelId,
+    connector_execution_id: executionId,
+    error_code: errorCode,
+    started_at: nullableString(item.started_at),
+    completed_at: nullableString(item.completed_at),
+    duration_ms: duration,
+  };
+}
+
+export function parseMarketingCampaign(value: unknown): MarketingCampaign {
+  const item = record(value);
+  if (
+    !Array.isArray(item.channels) || item.channels.length < 1 || item.channels.length > 4 ||
+    !Array.isArray(item.source_facts) || item.source_facts.length < 1 || item.source_facts.length > 16 ||
+    !Array.isArray(item.stages) || item.stages.length !== marketingStageKinds.length
+  ) return invalidResponse();
+  const channels = item.channels.map((channel) => enumField(channel, marketingChannels));
+  const sources = item.source_facts.map(parseMarketingSourceFact);
+  const stages = item.stages.map(parseMarketingStage);
+  const currentStage = nullableString(item.current_stage);
+  if (
+    new Set(channels).size !== channels.length ||
+    new Set(sources.map((source) => `${source.source_reference}\0${source.fact}`)).size !== sources.length ||
+    stages.some((stage, index) => stage.position !== index + 1 || stage.kind !== marketingStageKinds[index]) ||
+    (currentStage !== null && !marketingStageKinds.includes(currentStage as MarketingStageKind))
+  ) return invalidResponse();
+  return {
+    id: stringField(item.id),
+    name: stringField(item.name),
+    objective: stringField(item.objective),
+    product: stringField(item.product),
+    audience: stringField(item.audience),
+    channels,
+    source_facts: sources,
+    publisher_connector_id: nullableString(item.publisher_connector_id),
+    publish_path: nullableString(item.publish_path),
+    status: enumField(item.status, marketingCampaignStatuses),
+    current_stage: currentStage as MarketingStageKind | null,
+    analytics: item.analytics === null ? null : jsonValue(item.analytics),
+    error_code: nullableString(item.error_code),
+    created_at: stringField(item.created_at),
+    updated_at: stringField(item.updated_at),
+    started_at: nullableString(item.started_at),
+    approved_at: nullableString(item.approved_at),
+    published_at: nullableString(item.published_at),
+    completed_at: nullableString(item.completed_at),
+    stages,
+  };
+}
+
+export function parseMarketingCampaignPage(value: unknown): MarketingCampaignPage {
+  const item = record(value);
+  if (!Array.isArray(item.items) || item.items.length > 50) return invalidResponse();
+  return { items: item.items.map(parseMarketingCampaign) };
 }
 
 export function parseSelfUpdateStatus(value: unknown): SelfUpdateStatus {

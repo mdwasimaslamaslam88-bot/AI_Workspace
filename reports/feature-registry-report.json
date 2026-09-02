@@ -2661,190 +2661,217 @@
       "ui_entry_point": "/workspaces/learning#spaced-repetition"
     },
     {
-      "backend_capability": "marketing_agent",
+      "backend_capability": "marketing_campaign_service",
       "category": "Marketing intelligence",
       "dependencies": [
-        "verified_local_model"
+        "verified_local_model",
+        "database"
       ],
       "description": "Marketing research exposed through the existing authenticated marketing intelligence capability.",
       "id": "universal_workspace.marketing_research",
       "layer": "universal_workspace",
       "required_permissions": [
         "owner_session",
-        "network_research"
+        "model_inference"
       ],
       "status": "implemented",
       "test_coverage": [
-        "contract:feature_registry",
-        "agent:research_verifier"
+        "backend:test_marketing_api",
+        "backend:test_marketing_postgres",
+        "web:marketing_panel",
+        "mobile:studio"
       ],
       "title": "Marketing research",
       "ui_entry_point": "/workspaces/marketing#marketing-research"
     },
     {
-      "backend_capability": "marketing_agent",
+      "backend_capability": "marketing_campaign_service",
       "category": "Marketing intelligence",
       "dependencies": [
-        "verified_local_model"
+        "verified_local_model",
+        "database"
       ],
       "description": "Content planning exposed through the existing authenticated marketing intelligence capability.",
       "id": "universal_workspace.content_planning",
       "layer": "universal_workspace",
       "required_permissions": [
         "owner_session",
-        "network_research"
+        "model_inference"
       ],
       "status": "implemented",
       "test_coverage": [
-        "contract:feature_registry",
-        "agent:research_verifier"
+        "backend:test_marketing_api",
+        "backend:test_marketing_postgres",
+        "web:marketing_panel",
+        "mobile:studio"
       ],
       "title": "Content planning",
       "ui_entry_point": "/workspaces/marketing#content-planning"
     },
     {
-      "backend_capability": "marketing_agent",
+      "backend_capability": "marketing_campaign_service",
       "category": "Marketing intelligence",
       "dependencies": [
-        "verified_local_model"
+        "verified_local_model",
+        "database"
       ],
       "description": "Copywriting exposed through the existing authenticated marketing intelligence capability.",
       "id": "universal_workspace.copywriting",
       "layer": "universal_workspace",
       "required_permissions": [
         "owner_session",
-        "network_research"
+        "model_inference"
       ],
       "status": "implemented",
       "test_coverage": [
-        "contract:feature_registry",
-        "agent:research_verifier"
+        "backend:test_marketing_api",
+        "backend:test_marketing_postgres",
+        "web:marketing_panel",
+        "mobile:studio"
       ],
       "title": "Copywriting",
       "ui_entry_point": "/workspaces/marketing#copywriting"
     },
     {
-      "backend_capability": "marketing_agent",
+      "backend_capability": "marketing_campaign_service",
       "category": "Marketing intelligence",
       "dependencies": [
-        "verified_local_model"
+        "verified_local_model",
+        "database"
       ],
       "description": "Campaign planning exposed through the existing authenticated marketing intelligence capability.",
       "id": "universal_workspace.campaign_planning",
       "layer": "universal_workspace",
       "required_permissions": [
         "owner_session",
-        "network_research"
+        "model_inference"
       ],
       "status": "implemented",
       "test_coverage": [
-        "contract:feature_registry",
-        "agent:research_verifier"
+        "backend:test_marketing_api",
+        "backend:test_marketing_postgres",
+        "web:marketing_panel",
+        "mobile:studio"
       ],
       "title": "Campaign planning",
       "ui_entry_point": "/workspaces/marketing#campaign-planning"
     },
     {
-      "backend_capability": "marketing_agent",
+      "backend_capability": "marketing_campaign_service",
       "category": "Marketing intelligence",
       "dependencies": [
-        "verified_local_model"
+        "verified_local_model",
+        "database"
       ],
       "description": "SEO analysis exposed through the existing authenticated marketing intelligence capability.",
       "id": "universal_workspace.seo_analysis",
       "layer": "universal_workspace",
       "required_permissions": [
         "owner_session",
-        "network_research"
+        "model_inference"
       ],
       "status": "implemented",
       "test_coverage": [
-        "contract:feature_registry",
-        "agent:research_verifier"
+        "backend:test_marketing_api",
+        "backend:test_marketing_postgres",
+        "web:marketing_panel",
+        "mobile:studio"
       ],
       "title": "SEO analysis",
       "ui_entry_point": "/workspaces/marketing#seo-analysis"
     },
     {
-      "backend_capability": "marketing_agent",
+      "backend_capability": "marketing_campaign_service",
       "category": "Marketing intelligence",
       "dependencies": [
-        "verified_local_model"
+        "verified_local_model",
+        "database"
       ],
       "description": "Marketing reporting exposed through the existing authenticated marketing intelligence capability.",
       "id": "universal_workspace.reporting",
       "layer": "universal_workspace",
       "required_permissions": [
         "owner_session",
-        "network_research"
+        "model_inference"
       ],
       "status": "implemented",
       "test_coverage": [
-        "contract:feature_registry",
-        "agent:research_verifier"
+        "backend:test_marketing_api",
+        "backend:test_marketing_postgres",
+        "web:marketing_panel",
+        "mobile:studio"
       ],
       "title": "Marketing reporting",
       "ui_entry_point": "/workspaces/marketing#reporting"
     },
     {
-      "backend_capability": "marketing_agent",
+      "backend_capability": "marketing_campaign_service",
       "category": "Marketing intelligence",
       "dependencies": [
-        "verified_local_model"
+        "verified_local_model",
+        "database"
       ],
       "description": "Optimization suggestions exposed through the existing authenticated marketing intelligence capability.",
       "id": "universal_workspace.optimization_suggestions",
       "layer": "universal_workspace",
       "required_permissions": [
         "owner_session",
-        "network_research"
+        "model_inference"
       ],
       "status": "implemented",
       "test_coverage": [
-        "contract:feature_registry",
-        "agent:research_verifier"
+        "backend:test_marketing_api",
+        "backend:test_marketing_postgres",
+        "web:marketing_panel",
+        "mobile:studio"
       ],
       "title": "Optimization suggestions",
       "ui_entry_point": "/workspaces/marketing#optimization-suggestions"
     },
     {
-      "backend_capability": "marketing_agent",
+      "backend_capability": "marketing_campaign_service",
       "category": "Marketing intelligence",
       "dependencies": [
-        "verified_local_model"
+        "verified_local_model",
+        "database"
       ],
       "description": "Lead workflow planning exposed through the existing authenticated marketing intelligence capability.",
       "id": "universal_workspace.lead_workflow_planning",
       "layer": "universal_workspace",
       "required_permissions": [
         "owner_session",
-        "network_research"
+        "model_inference"
       ],
       "status": "implemented",
       "test_coverage": [
-        "contract:feature_registry",
-        "agent:research_verifier"
+        "backend:test_marketing_api",
+        "backend:test_marketing_postgres",
+        "web:marketing_panel",
+        "mobile:studio"
       ],
       "title": "Lead workflow planning",
       "ui_entry_point": "/workspaces/marketing#lead-workflow-planning"
     },
     {
-      "backend_capability": "marketing_agent",
+      "backend_capability": "marketing_campaign_service",
       "category": "Marketing intelligence",
       "dependencies": [
-        "verified_local_model"
+        "verified_local_model",
+        "database"
       ],
       "description": "CRM workflow planning exposed through the existing authenticated marketing intelligence capability.",
       "id": "universal_workspace.crm_workflow_planning",
       "layer": "universal_workspace",
       "required_permissions": [
         "owner_session",
-        "network_research"
+        "model_inference"
       ],
       "status": "implemented",
       "test_coverage": [
-        "contract:feature_registry",
-        "agent:research_verifier"
+        "backend:test_marketing_api",
+        "backend:test_marketing_postgres",
+        "web:marketing_panel",
+        "mobile:studio"
       ],
       "title": "CRM workflow planning",
       "ui_entry_point": "/workspaces/marketing#crm-workflow-planning"
@@ -5121,7 +5148,7 @@
     "universal_workspace": 62
   },
   "product": "AI OS",
-  "registry_sha256": "e9ec99386a8ae7adaeebfdab65bf0f4dd9a7bf9d52acc743826cb789fdc8cfcf",
+  "registry_sha256": "b54d5fcd001943032405e1c5c752acc52501e868a608167e51d61ca20131c574",
   "schema_version": 1,
   "statuses": {
     "external_dependency": 40,

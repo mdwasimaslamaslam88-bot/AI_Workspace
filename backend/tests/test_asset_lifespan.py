@@ -55,6 +55,10 @@ async def test_lifespan_initializes_and_reconciles_configured_storage(
     reconcile_tools = AsyncMock(return_value=0)
     reconcile_workflow_rows = AsyncMock(return_value=0)
     workflow_runner = Mock(shutdown=AsyncMock())
+    marketing_runner = Mock(
+        reconcile_interrupted=AsyncMock(return_value=0),
+        shutdown=AsyncMock(),
+    )
     monkeypatch.setattr(
         lifespan_module, "reconcile_tool_executions", reconcile_tools
     )
@@ -66,6 +70,11 @@ async def test_lifespan_initializes_and_reconciles_configured_storage(
         "WorkflowRunner",
         Mock(return_value=workflow_runner),
     )
+    monkeypatch.setattr(
+        lifespan_module,
+        "MarketingCampaignRunner",
+        Mock(return_value=marketing_runner),
+    )
     storage_factory = Mock(return_value=storage)
     reconcile = AsyncMock()
     monkeypatch.setattr(lifespan_module, "LocalAssetStorage", storage_factory)
@@ -73,6 +82,7 @@ async def test_lifespan_initializes_and_reconciles_configured_storage(
 
     async with lifespan_module.lifespan(app):
         assert app.state.asset_storage is storage
+        assert app.state.marketing_campaign_runner is marketing_runner
         reconcile_tools.assert_awaited_once_with(session_factory)
         reconcile_workflow_rows.assert_awaited_once_with(session_factory)
         reconcile.assert_awaited_once_with(session_factory, storage)

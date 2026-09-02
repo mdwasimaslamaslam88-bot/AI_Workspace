@@ -31,6 +31,8 @@ from app.models import (
     MessageCitation,
     Memory,
     MemorySetting,
+    MarketingCampaign,
+    MarketingStage,
     MessageRole,
     ToolExecution,
     User,
@@ -62,6 +64,8 @@ EXPECTED_TABLES = {
     "tool_executions",
     "workflows",
     "workflow_steps",
+    "marketing_campaigns",
+    "marketing_stages",
 }
 EXPECTED_MESSAGE_ROLES = ("system", "user", "assistant", "tool")
 
@@ -115,6 +119,8 @@ def test_model_registry_contains_only_the_approved_domain_tables():
     assert ToolExecution.__table__ is Base.metadata.tables["tool_executions"]
     assert Workflow.__table__ is Base.metadata.tables["workflows"]
     assert WorkflowStep.__table__ is Base.metadata.tables["workflow_steps"]
+    assert MarketingCampaign.__table__ is Base.metadata.tables["marketing_campaigns"]
+    assert MarketingStage.__table__ is Base.metadata.tables["marketing_stages"]
 
 
 def test_user_has_uuid_primary_key_timestamps_and_access_credential_digest():

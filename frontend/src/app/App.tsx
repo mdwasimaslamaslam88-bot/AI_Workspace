@@ -26,6 +26,9 @@ import type {
   FeatureRegistry,
   IndexedDocument,
   LocalModel,
+  MarketingAnalyticsRequest,
+  MarketingCampaign,
+  MarketingCampaignCreateRequest,
   MemoryCreateRequest,
   MemorySetting,
   Message,
@@ -64,6 +67,7 @@ import { AgentPanel } from "../features/agents/AgentPanel";
 import { ConversationList } from "../features/conversations/ConversationList";
 import { ConnectorPanel } from "../features/connectors/ConnectorPanel";
 import { MemoryPanel } from "../features/memory/MemoryPanel";
+import { MarketingPanel } from "../features/marketing/MarketingPanel";
 import { ModelSelector } from "../features/models/ModelSelector";
 import { SettingsPanel } from "../features/settings/SettingsPanel";
 import { ToolPanel } from "../features/tools/ToolPanel";
@@ -191,6 +195,7 @@ export function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [agentsOpen, setAgentsOpen] = useState(false);
   const [connectorsOpen, setConnectorsOpen] = useState(false);
+  const [marketingOpen, setMarketingOpen] = useState(false);
   const [voicePresence, setVoicePresence] = useState<PresenceState | null>(null);
   const [agentPresence, setAgentPresence] = useState<PresenceState | null>(null);
   const [catalogLayer, setCatalogLayer] = useState<
@@ -234,6 +239,7 @@ export function App() {
     setSettingsOpen(false);
     setAgentsOpen(false);
     setConnectorsOpen(false);
+    setMarketingOpen(false);
     setCatalogLayer(null);
     setAuthenticationStatus("anonymous");
   }, []);
@@ -944,6 +950,47 @@ export function App() {
     [client],
   );
 
+  const loadMarketingCampaigns = useCallback(
+    async (signal?: AbortSignal): Promise<MarketingCampaign[]> => {
+      if (client === null) throw new ApiError("authentication", "Authentication failed.");
+      return (await client.listMarketingCampaigns(signal)).items;
+    },
+    [client],
+  );
+
+  const createMarketingCampaign = useCallback(
+    (request: MarketingCampaignCreateRequest, signal?: AbortSignal) => {
+      if (client === null) return Promise.reject(new ApiError("authentication", "Authentication failed."));
+      return client.createMarketingCampaign(request, signal);
+    },
+    [client],
+  );
+
+  const getMarketingCampaign = useCallback((id: string, signal?: AbortSignal) => {
+    if (client === null) return Promise.reject(new ApiError("authentication", "Authentication failed."));
+    return client.getMarketingCampaign(id, signal);
+  }, [client]);
+
+  const startMarketingCampaign = useCallback((id: string, signal?: AbortSignal) => {
+    if (client === null) return Promise.reject(new ApiError("authentication", "Authentication failed."));
+    return client.startMarketingCampaign(id, signal);
+  }, [client]);
+
+  const approveMarketingCampaign = useCallback((id: string, signal?: AbortSignal) => {
+    if (client === null) return Promise.reject(new ApiError("authentication", "Authentication failed."));
+    return client.approveMarketingCampaign(id, signal);
+  }, [client]);
+
+  const submitMarketingAnalytics = useCallback((id: string, request: MarketingAnalyticsRequest, signal?: AbortSignal) => {
+    if (client === null) return Promise.reject(new ApiError("authentication", "Authentication failed."));
+    return client.submitMarketingAnalytics(id, request, signal);
+  }, [client]);
+
+  const cancelMarketingCampaign = useCallback((id: string, signal?: AbortSignal) => {
+    if (client === null) return Promise.reject(new ApiError("authentication", "Authentication failed."));
+    return client.cancelMarketingCampaign(id, signal);
+  }, [client]);
+
   const setExternalAIEnabled = useCallback(
     (enabled: boolean): Promise<ExternalAISettings> => {
       if (client === null) {
@@ -1548,6 +1595,7 @@ export function App() {
       setWorkflowsOpen(target === "workflows");
       setAgentsOpen(false);
       setConnectorsOpen(false);
+      setMarketingOpen(false);
       setCatalogLayer(null);
     })
       .then((dispose) => {
@@ -1569,7 +1617,7 @@ export function App() {
         ? "mission_control"
         : memoryOpen
           ? "universal_workspace"
-          : toolsOpen || connectorsOpen
+          : toolsOpen || connectorsOpen || marketingOpen
             ? "apps_hub"
             : "ai_presence");
 
@@ -1587,6 +1635,7 @@ export function App() {
     setMemoryOpen(false);
     setAgentsOpen(false);
     setConnectorsOpen(false);
+    setMarketingOpen(false);
     setCatalogLayer(null);
   }
 
@@ -1601,6 +1650,8 @@ export function App() {
     closeProductPanels();
     if (feature.backend_capability === "bounded_tools") {
       setToolsOpen(true);
+    } else if (feature.id === "marketing_agent" || feature.backend_capability === "marketing_campaign_service") {
+      setMarketingOpen(true);
     } else if (
       feature.backend_capability === "connector_service" ||
       feature.backend_capability === "external_connector"
@@ -1700,6 +1751,7 @@ export function App() {
               setMemoryOpen(false);
               setAgentsOpen(false);
               setConnectorsOpen(false);
+              setMarketingOpen(false);
               setCatalogLayer(null);
             }}
           >
@@ -1717,6 +1769,7 @@ export function App() {
               setSettingsOpen(false);
               setAgentsOpen(false);
               setConnectorsOpen(false);
+              setMarketingOpen(false);
               setCatalogLayer(null);
             }}
           >
@@ -1734,6 +1787,7 @@ export function App() {
               setSettingsOpen(false);
               setAgentsOpen(false);
               setConnectorsOpen(false);
+              setMarketingOpen(false);
               setCatalogLayer(null);
             }}
           >
@@ -1751,6 +1805,7 @@ export function App() {
               setSettingsOpen(false);
               setAgentsOpen(false);
               setConnectorsOpen(false);
+              setMarketingOpen(false);
               setCatalogLayer(null);
             }}
           >
@@ -1768,6 +1823,7 @@ export function App() {
               setWorkflowsOpen(false);
               setSettingsOpen(false);
               setConnectorsOpen(false);
+              setMarketingOpen(false);
               setCatalogLayer(null);
             }}
           >
@@ -1780,6 +1836,7 @@ export function App() {
             aria-controls="personal-connectors-panel"
             onClick={() => {
               setConnectorsOpen((current) => !current);
+              setMarketingOpen(false);
               setAgentsOpen(false);
               setMemoryOpen(false);
               setToolsOpen(false);
@@ -1789,6 +1846,19 @@ export function App() {
             }}
           >
             Connections
+          </button>
+          <button
+            type="button"
+            className="button button-secondary"
+            aria-expanded={marketingOpen}
+            aria-controls="personal-marketing-panel"
+            onClick={() => {
+              const open = !marketingOpen;
+              closeProductPanels();
+              setMarketingOpen(open);
+            }}
+          >
+            Marketing
           </button>
           <ModelSelector
             models={models}
@@ -1861,6 +1931,21 @@ export function App() {
               onHealth={checkConnectorHealth}
               onExecute={executeConnector}
               onRevoke={revokeConnector}
+            />
+          </div>
+        )}
+        {marketingOpen && (
+          <div id="personal-marketing-panel">
+            <MarketingPanel
+              onClose={() => setMarketingOpen(false)}
+              onLoad={loadMarketingCampaigns}
+              onLoadConnectors={loadConnectors}
+              onCreate={createMarketingCampaign}
+              onGet={getMarketingCampaign}
+              onStart={startMarketingCampaign}
+              onApprove={approveMarketingCampaign}
+              onAnalytics={submitMarketingAnalytics}
+              onCancel={cancelMarketingCampaign}
             />
           </div>
         )}

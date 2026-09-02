@@ -154,6 +154,8 @@ def _inspect_schema(connection) -> dict:
         "workflow_step_foreign_keys": inspector.get_foreign_keys("workflow_steps"),
         "connector_foreign_keys": inspector.get_foreign_keys("connectors"),
         "connector_execution_foreign_keys": inspector.get_foreign_keys("connector_executions"),
+        "marketing_campaign_foreign_keys": inspector.get_foreign_keys("marketing_campaigns"),
+        "marketing_stage_foreign_keys": inspector.get_foreign_keys("marketing_stages"),
         "conversation_indexes": inspector.get_indexes("conversations"),
         "user_session_indexes": inspector.get_indexes("user_sessions"),
         "asset_indexes": inspector.get_indexes("assets"),
@@ -165,6 +167,8 @@ def _inspect_schema(connection) -> dict:
         "workflow_step_indexes": inspector.get_indexes("workflow_steps"),
         "connector_indexes": inspector.get_indexes("connectors"),
         "connector_execution_indexes": inspector.get_indexes("connector_executions"),
+        "marketing_campaign_indexes": inspector.get_indexes("marketing_campaigns"),
+        "marketing_stage_indexes": inspector.get_indexes("marketing_stages"),
         "conversation_checks": inspector.get_check_constraints("conversations"),
         "user_session_checks": inspector.get_check_constraints("user_sessions"),
         "message_checks": inspector.get_check_constraints("messages"),
@@ -179,6 +183,8 @@ def _inspect_schema(connection) -> dict:
         "workflow_step_checks": inspector.get_check_constraints("workflow_steps"),
         "connector_checks": inspector.get_check_constraints("connectors"),
         "connector_execution_checks": inspector.get_check_constraints("connector_executions"),
+        "marketing_campaign_checks": inspector.get_check_constraints("marketing_campaigns"),
+        "marketing_stage_checks": inspector.get_check_constraints("marketing_stages"),
         "user_uniques": inspector.get_unique_constraints("users"),
         "user_session_uniques": inspector.get_unique_constraints("user_sessions"),
         "message_uniques": inspector.get_unique_constraints("messages"),
@@ -190,6 +196,8 @@ def _inspect_schema(connection) -> dict:
         "workflow_step_uniques": inspector.get_unique_constraints("workflow_steps"),
         "workflow_uniques": inspector.get_unique_constraints("workflows"),
         "connector_uniques": inspector.get_unique_constraints("connectors"),
+        "marketing_campaign_uniques": inspector.get_unique_constraints("marketing_campaigns"),
+        "marketing_stage_uniques": inspector.get_unique_constraints("marketing_stages"),
         "columns": {
             table_name: inspector.get_columns(table_name)
             for table_name in (
@@ -209,6 +217,8 @@ def _inspect_schema(connection) -> dict:
                 "workflow_steps",
                 "connectors",
                 "connector_executions",
+                "marketing_campaigns",
+                "marketing_stages",
             )
         },
     }
@@ -269,7 +279,9 @@ async def test_migration_creates_exact_expected_postgresql_schema(
         "workflows",
         "workflow_steps",
         "connectors",
-        "connector_executions",
+            "connector_executions",
+            "marketing_campaigns",
+            "marketing_stages",
     }
 
     owner_fk = _foreign_key(
@@ -782,6 +794,121 @@ async def test_migration_creates_exact_expected_postgresql_schema(
     _assert_required_uuid(connector_executions["id"])
     _assert_required_uuid(connector_executions["connector_id"])
     _assert_required_uuid(connector_executions["owner_id"])
+
+    marketing_campaign_checks = _checks_by_name(
+        snapshot["marketing_campaign_checks"]
+    )
+    assert set(marketing_campaign_checks) == {
+        "ck_marketing_campaigns_analytics_json_bounded",
+        "ck_marketing_campaigns_audience_bounded_nonblank",
+        "ck_marketing_campaigns_channels_json_bounded",
+        "ck_marketing_campaigns_current_stage_allowed",
+        "ck_marketing_campaigns_error_code_allowed",
+        "ck_marketing_campaigns_lifecycle_consistent",
+        "ck_marketing_campaigns_name_bounded_nonblank",
+        "ck_marketing_campaigns_objective_bounded_nonblank",
+        "ck_marketing_campaigns_product_bounded_nonblank",
+        "ck_marketing_campaigns_publisher_configuration_consistent",
+        "ck_marketing_campaigns_source_facts_json_bounded",
+        "ck_marketing_campaigns_status_allowed",
+    }
+    marketing_stage_checks = _checks_by_name(snapshot["marketing_stage_checks"])
+    assert set(marketing_stage_checks) == {
+        "ck_marketing_stages_error_code_allowed",
+        "ck_marketing_stages_lifecycle_consistent",
+        "ck_marketing_stages_model_id_bounded",
+        "ck_marketing_stages_output_bounded",
+        "ck_marketing_stages_output_sha256_valid",
+        "ck_marketing_stages_position_bounded",
+        "ck_marketing_stages_position_kind_consistent",
+        "ck_marketing_stages_status_allowed",
+    }
+    assert {
+        item["name"]
+        for item in snapshot["marketing_campaign_indexes"]
+        if item.get("duplicates_constraint") is None
+    } == {
+        "ix_marketing_campaigns_owner_created_at",
+        "ix_marketing_campaigns_owner_status",
+    }
+    assert {
+        item["name"]
+        for item in snapshot["marketing_stage_indexes"]
+        if item.get("duplicates_constraint") is None
+    } == {"ix_marketing_stages_owner_campaign_position"}
+    assert {item["name"] for item in snapshot["marketing_campaign_uniques"]} == {
+        "uq_marketing_campaigns_id_owner"
+    }
+    assert {item["name"] for item in snapshot["marketing_stage_uniques"]} == {
+        "uq_marketing_stages_position"
+    }
+    publisher_fk = _foreign_key(
+        snapshot,
+        "marketing_campaign",
+        "fk_marketing_campaigns_publisher_owner_connectors",
+    )
+    assert publisher_fk["constrained_columns"] == [
+        "publisher_connector_id",
+        "owner_id",
+    ]
+    assert publisher_fk["referred_columns"] == ["id", "owner_id"]
+    campaign_stage_fk = _foreign_key(
+        snapshot,
+        "marketing_stage",
+        "fk_marketing_stages_campaign_owner_campaigns",
+    )
+    assert campaign_stage_fk["constrained_columns"] == ["campaign_id", "owner_id"]
+    assert campaign_stage_fk["referred_columns"] == ["id", "owner_id"]
+    assert campaign_stage_fk["options"]["ondelete"] == "CASCADE"
+    marketing_campaigns = _columns_by_name(snapshot, "marketing_campaigns")
+    assert set(marketing_campaigns) == {
+        "id",
+        "owner_id",
+        "name",
+        "objective",
+        "product",
+        "audience",
+        "channels_json",
+        "source_facts_json",
+        "publisher_connector_id",
+        "publish_path",
+        "status",
+        "current_stage",
+        "analytics_json",
+        "error_code",
+        "created_at",
+        "updated_at",
+        "started_at",
+        "approved_at",
+        "published_at",
+        "completed_at",
+    }
+    _assert_required_uuid(marketing_campaigns["id"])
+    _assert_required_uuid(marketing_campaigns["owner_id"])
+    _assert_required_timestamp(marketing_campaigns["created_at"])
+    _assert_required_timestamp(marketing_campaigns["updated_at"])
+    marketing_stages = _columns_by_name(snapshot, "marketing_stages")
+    assert set(marketing_stages) == {
+        "id",
+        "campaign_id",
+        "owner_id",
+        "position",
+        "kind",
+        "status",
+        "output",
+        "output_sha256",
+        "model_id",
+        "connector_execution_id",
+        "error_code",
+        "created_at",
+        "started_at",
+        "completed_at",
+        "duration_ms",
+    }
+    _assert_required_uuid(marketing_stages["id"])
+    _assert_required_uuid(marketing_stages["campaign_id"])
+    _assert_required_uuid(marketing_stages["owner_id"])
+    _assert_required_timestamp(marketing_stages["created_at"])
 
     users = _columns_by_name(snapshot, "users")
     assert set(users) == {

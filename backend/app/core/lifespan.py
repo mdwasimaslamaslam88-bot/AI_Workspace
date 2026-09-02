@@ -34,6 +34,7 @@ from app.hardware import HardwareCapabilityService, detect_hardware
 from app.hardware.planner import GIBIBYTE
 from app.external_ai import EncryptedProviderVault, ExternalAIService
 from app.maintenance import SelfUpdateManager
+from app.marketing import MarketingCampaignRunner, OrchestratedMarketingAgent
 from app.runtimes.configured_media import (
     ConfiguredMediaModel,
     ConfiguredMediaModelDiscoveryRuntime,
@@ -413,4 +414,20 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             app.state.agent_orchestrator
         )
         resource_stack.push_async_callback(app.state.agent_run_manager.shutdown)
+        app.state.marketing_campaign_tasks = {}
+        app.state.marketing_campaign_runner = (
+            MarketingCampaignRunner(
+                app.state.db_session_factory,
+                OrchestratedMarketingAgent(app.state.agent_orchestrator),
+                app.state.connector_runtime,
+                app.state.marketing_campaign_tasks,
+            )
+            if app.state.db_session_factory is not None
+            else None
+        )
+        if app.state.marketing_campaign_runner is not None:
+            await app.state.marketing_campaign_runner.reconcile_interrupted()
+            resource_stack.push_async_callback(
+                app.state.marketing_campaign_runner.shutdown
+            )
         yield

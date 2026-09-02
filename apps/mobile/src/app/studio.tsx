@@ -3,6 +3,7 @@ import type {
   Connector,
   ConnectorSettings,
   LocalModel,
+  MarketingCampaign,
   MemoryCategory,
   PersonalMemory,
   ToolDescriptor,
@@ -83,6 +84,17 @@ export default function StudioScreen() {
   const [workflows, setWorkflows] = useState<Workflow[]>([]);
   const [connectorSettings, setConnectorSettings] = useState<ConnectorSettings | null>(null);
   const [connectors, setConnectors] = useState<Connector[]>([]);
+  const [campaigns, setCampaigns] = useState<MarketingCampaign[]>([]);
+  const [campaignName, setCampaignName] = useState("");
+  const [campaignObjective, setCampaignObjective] = useState("");
+  const [campaignProduct, setCampaignProduct] = useState("");
+  const [campaignAudience, setCampaignAudience] = useState("");
+  const [campaignSourceReference, setCampaignSourceReference] = useState("");
+  const [campaignSourceFact, setCampaignSourceFact] = useState("");
+  const [campaignPublisherId, setCampaignPublisherId] = useState<string | null>(null);
+  const [campaignPublishPath, setCampaignPublishPath] = useState("");
+  const [analyticsSource, setAnalyticsSource] = useState("");
+  const [analyticsValues, setAnalyticsValues] = useState(["", "", "", "", ""]);
   const [workflowName, setWorkflowName] = useState("");
   const [imageModelId, setImageModelId] = useState<string | null>(null);
   const [imagePrompt, setImagePrompt] = useState("");
@@ -97,6 +109,7 @@ export default function StudioScreen() {
   const [selectedFeatureCategory, setSelectedFeatureCategory] = useState<string | null>(null);
   const activeRequest = useRef<AbortController | null>(null);
   const workflowMonitors = useRef(new Map<string, AbortController>());
+  const campaignMonitors = useRef(new Map<string, AbortController>());
   const imageCache = useRef<CachedPrivateMedia | null>(null);
   const audioCache = useRef<CachedPrivateMedia | null>(null);
   const player = useAudioPlayer(null);
@@ -140,12 +153,43 @@ export default function StudioScreen() {
     });
   }, [client, updateWorkflow]);
 
+  const updateCampaign = useCallback((campaign: MarketingCampaign) => {
+    setCampaigns((current) => [campaign, ...current.filter((item) => item.id !== campaign.id)]);
+  }, []);
+
+  const monitorCampaign = useCallback((campaignId: string) => {
+    if (client === null || campaignMonitors.current.has(campaignId)) return;
+    const controller = new AbortController();
+    campaignMonitors.current.set(campaignId, controller);
+    void (async () => {
+      try {
+        for (let attempt = 0; attempt < 1_250; attempt += 1) {
+          const campaign = await client.getMarketingCampaign(campaignId, controller.signal);
+          if (controller.signal.aborted) return;
+          updateCampaign(campaign);
+          if (!["pending", "running", "publishing"].includes(campaign.status)) {
+            if (["completed", "failed", "cancelled", "timed_out"].includes(campaign.status)) {
+              await notifyTaskFinished(campaign.status === "completed").catch(() => undefined);
+            }
+            return;
+          }
+          await new Promise((resolve) => setTimeout(resolve, 500));
+        }
+        if (!controller.signal.aborted) setNotice("Campaign state exceeded its server deadline.");
+      } catch (cause) {
+        if (!controller.signal.aborted) setNotice(safeError(cause));
+      } finally {
+        campaignMonitors.current.delete(campaignId);
+      }
+    })();
+  }, [client, updateCampaign]);
+
   const load = useCallback(async () => {
     if (client === null || state !== "connected") return;
     setBusyAction("Refreshing private studio");
     setNotice(null);
     try {
-      const [modelPage, conversationPage, memoryPage, setting, toolPage, executionPage, workflowPage, registry, connectionSettings, connectorPage] =
+      const [modelPage, conversationPage, memoryPage, setting, toolPage, executionPage, workflowPage, registry, connectionSettings, connectorPage, campaignPage] =
         await Promise.all([
           client.listModels(),
           client.listConversations(),
@@ -157,6 +201,7 @@ export default function StudioScreen() {
           client.getFeatureRegistry().catch(() => null),
           client.getConnectorSettings().catch(() => null),
           client.listConnectors().catch(() => ({ items: [] })),
+          client.listMarketingCampaigns().catch(() => ({ items: [] })),
         ]);
       setModels(modelPage.items);
       setConversationId((current) =>
@@ -177,8 +222,14 @@ export default function StudioScreen() {
       if (registry !== null) setFeatureRegistry(registry);
       setConnectorSettings(connectionSettings);
       setConnectors(connectorPage.items);
+      setCampaigns(campaignPage.items);
       for (const workflow of workflowPage.items) {
         if (workflow.status === "running") monitorWorkflow(workflow.id);
+      }
+      for (const campaign of campaignPage.items) {
+        if (["pending", "running", "publishing"].includes(campaign.status)) {
+          monitorCampaign(campaign.id);
+        }
       }
       const nextImageModels = capabilityModels(modelPage.items, "image_generation");
       const nextVoiceModels = capabilityModels(modelPage.items, "speech_synthesis");
@@ -197,7 +248,7 @@ export default function StudioScreen() {
     } finally {
       setBusyAction(null);
     }
-  }, [client, monitorWorkflow, state]);
+  }, [client, monitorCampaign, monitorWorkflow, state]);
 
   useEffect(() => {
     const timer = setTimeout(() => void load(), 0);
@@ -208,6 +259,8 @@ export default function StudioScreen() {
     activeRequest.current?.abort();
     for (const controller of workflowMonitors.current.values()) controller.abort();
     workflowMonitors.current.clear();
+    for (const controller of campaignMonitors.current.values()) controller.abort();
+    campaignMonitors.current.clear();
     imageCache.current?.remove();
     audioCache.current?.remove();
   }, []);
@@ -371,6 +424,70 @@ export default function StudioScreen() {
         item.id === revoked.id ? revoked : item
       ));
     });
+  }
+
+  async function createCampaign() {
+    const required = [campaignName, campaignObjective, campaignProduct, campaignAudience, campaignSourceReference, campaignSourceFact];
+    if (required.some((value) => value.trim().length === 0)) return;
+    await perform("Creating grounded campaign", async (signal) => {
+      const campaign = await connectedClient.createMarketingCampaign({
+        name: campaignName.trim(),
+        objective: campaignObjective.trim(),
+        product: campaignProduct.trim(),
+        audience: campaignAudience.trim(),
+        channels: ["email"],
+        source_facts: [{
+          source_reference: campaignSourceReference.trim(),
+          fact: campaignSourceFact.trim(),
+        }],
+        ...(campaignPublisherId === null || campaignPublishPath.trim().length === 0 ? {} : {
+          publisher_connector_id: campaignPublisherId,
+          publish_path: campaignPublishPath.trim(),
+        }),
+      }, signal);
+      updateCampaign(campaign);
+      setCampaignName("");
+      setCampaignObjective("");
+      setCampaignProduct("");
+      setCampaignAudience("");
+      setCampaignSourceReference("");
+      setCampaignSourceFact("");
+    });
+  }
+
+  async function startCampaign(campaignId: string) {
+    await perform("Starting verified campaign", async (signal) => {
+      updateCampaign(await connectedClient.startMarketingCampaign(campaignId, signal));
+      monitorCampaign(campaignId);
+    }, "failure_only");
+  }
+
+  async function approveCampaign(campaignId: string) {
+    await perform("Publishing approved campaign", async (signal) => {
+      updateCampaign(await connectedClient.approveMarketingCampaign(campaignId, signal));
+    }, "failure_only");
+  }
+
+  async function cancelCampaign(campaignId: string) {
+    await perform("Cancelling campaign", async (signal) => {
+      campaignMonitors.current.get(campaignId)?.abort();
+      updateCampaign(await connectedClient.cancelMarketingCampaign(campaignId, signal));
+    });
+  }
+
+  async function submitCampaignAnalytics(campaignId: string) {
+    if (analyticsSource.trim().length === 0 || analyticsValues.some((value) => value.trim().length === 0)) return;
+    await perform("Verifying campaign analytics", async (signal) => {
+      updateCampaign(await connectedClient.submitMarketingAnalytics(campaignId, {
+        source_reference: analyticsSource.trim(),
+        observed_at: new Date().toISOString(),
+        impressions: Number(analyticsValues[0]),
+        clicks: Number(analyticsValues[1]),
+        conversions: Number(analyticsValues[2]),
+        spend_minor: Number(analyticsValues[3]),
+        revenue_minor: Number(analyticsValues[4]),
+      }, signal));
+    }, true);
   }
 
   async function showImage(assetId: string, signal: AbortSignal) {
@@ -541,6 +658,42 @@ export default function StudioScreen() {
               </View>}
             </View>
           ))}
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.eyebrow}>DIGITAL MARKETING</Text>
+          <Text accessibilityRole="header" style={styles.heading}>Verified campaign pipeline</Text>
+          <Text style={styles.muted}>Local agents create source-grounded artifacts. Publishing is disabled until you approve a write-scoped connection.</Text>
+          <TextInput accessibilityLabel="Campaign name" maxLength={120} value={campaignName} onChangeText={setCampaignName} placeholder="Campaign name" placeholderTextColor={colors.subtle} style={styles.input} />
+          <TextInput accessibilityLabel="Campaign objective" multiline maxLength={2_000} value={campaignObjective} onChangeText={setCampaignObjective} placeholder="Objective" placeholderTextColor={colors.subtle} style={styles.textArea} />
+          <TextInput accessibilityLabel="Campaign product" maxLength={500} value={campaignProduct} onChangeText={setCampaignProduct} placeholder="Product or service" placeholderTextColor={colors.subtle} style={styles.input} />
+          <TextInput accessibilityLabel="Campaign audience" maxLength={1_000} value={campaignAudience} onChangeText={setCampaignAudience} placeholder="Audience" placeholderTextColor={colors.subtle} style={styles.input} />
+          <TextInput accessibilityLabel="Campaign source reference" maxLength={512} value={campaignSourceReference} onChangeText={setCampaignSourceReference} placeholder="Source reference, e.g. brief.md#section" placeholderTextColor={colors.subtle} style={styles.input} />
+          <TextInput accessibilityLabel="Campaign source fact" multiline maxLength={2_000} value={campaignSourceFact} onChangeText={setCampaignSourceFact} placeholder="Grounded source fact" placeholderTextColor={colors.subtle} style={styles.textArea} />
+          <Text style={styles.itemLabel}>Publisher (optional)</Text>
+          <ScrollView horizontal contentContainerStyle={styles.chipRow}>
+            <Pressable accessibilityRole="button" accessibilityState={{ selected: campaignPublisherId === null }} style={[styles.chip, campaignPublisherId === null && styles.selectedChip]} onPress={() => setCampaignPublisherId(null)}><Text style={styles.chipText}>Draft only</Text></Pressable>
+            {connectors.filter((connector) => connector.enabled && connector.revoked_at === null && connector.scopes.includes("write")).map((connector) => <Pressable accessibilityRole="button" accessibilityState={{ selected: campaignPublisherId === connector.id }} key={connector.id} style={[styles.chip, campaignPublisherId === connector.id && styles.selectedChip]} onPress={() => setCampaignPublisherId(connector.id)}><Text style={styles.chipText}>{connector.name}</Text></Pressable>)}
+          </ScrollView>
+          {campaignPublisherId !== null && <TextInput accessibilityLabel="Campaign publish path" maxLength={512} value={campaignPublishPath} onChangeText={setCampaignPublishPath} placeholder="/v1/campaigns" placeholderTextColor={colors.subtle} style={styles.input} />}
+          <Pressable accessibilityRole="button" disabled={busyAction !== null || [campaignName, campaignObjective, campaignProduct, campaignAudience, campaignSourceReference, campaignSourceFact].some((value) => value.trim().length === 0) || (campaignPublisherId !== null && campaignPublishPath.trim().length === 0)} style={[styles.primaryButton, busyAction !== null && styles.disabled]} onPress={() => void createCampaign()}><Text style={styles.primaryButtonText}>Create grounded campaign</Text></Pressable>
+          {campaigns.length === 0 ? <Text style={styles.muted}>No campaigns yet.</Text> : campaigns.map((campaign) => <View key={campaign.id} style={styles.result}>
+            <View style={styles.cardTitleRow}><View style={styles.titleGrow}><Text style={styles.itemText}>{campaign.name}</Text><Text style={styles.detail}>{campaign.product} · {campaign.status.replaceAll("_", " ")}</Text></View></View>
+            {campaign.stages.map((stage) => <View key={stage.id} style={styles.featureRow}><Text style={styles.itemLabel}>{stage.kind}</Text><Text style={stage.status === "failed" ? styles.danger : styles.detail}>{stage.status}</Text></View>)}
+            <View style={styles.buttonRow}>
+              {campaign.status === "pending" && <Pressable accessibilityRole="button" style={styles.touchAction} onPress={() => void startCampaign(campaign.id)}><Text style={styles.link}>Start</Text></Pressable>}
+              {campaign.status === "needs_approval" && campaign.publisher_connector_id !== null && <Pressable accessibilityRole="button" style={styles.touchAction} onPress={() => void approveCampaign(campaign.id)}><Text style={styles.link}>Approve & publish</Text></Pressable>}
+              {campaign.status === "needs_approval" && campaign.publisher_connector_id === null && <Text style={styles.warning}>Publisher connection required; no publish was attempted.</Text>}
+              {["pending", "running", "needs_approval", "awaiting_analytics"].includes(campaign.status) && <Pressable accessibilityRole="button" style={styles.touchAction} onPress={() => void cancelCampaign(campaign.id)}><Text style={styles.danger}>Cancel</Text></Pressable>}
+            </View>
+            {campaign.status === "awaiting_analytics" && <View style={styles.result}>
+              <Text style={styles.itemLabel}>Source analytics</Text>
+              <TextInput accessibilityLabel="Analytics source" maxLength={512} value={analyticsSource} onChangeText={setAnalyticsSource} placeholder="provider export reference" placeholderTextColor={colors.subtle} style={styles.input} />
+              {["Impressions", "Clicks", "Conversions", "Spend minor units", "Revenue minor units"].map((label, index) => <TextInput accessibilityLabel={label} key={label} keyboardType="number-pad" value={analyticsValues[index]} onChangeText={(value) => setAnalyticsValues((current) => current.map((item, position) => position === index ? value : item))} placeholder={label} placeholderTextColor={colors.subtle} style={styles.input} />)}
+              <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={() => void submitCampaignAnalytics(campaign.id)}><Text style={styles.primaryButtonText}>Verify analytics</Text></Pressable>
+            </View>}
+            {campaign.analytics !== null && <Text selectable style={styles.codeText}>{JSON.stringify(campaign.analytics, null, 2)}</Text>}
+          </View>)}
         </View>
 
         <View style={styles.card}>

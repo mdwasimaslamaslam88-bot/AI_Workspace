@@ -19,6 +19,13 @@ from app.models.message import Message, MessageRole
 from app.models.message_asset import MessageAsset
 from app.models.message_citation import MessageCitation
 from app.models.memory import Memory, MemoryCategory, MemorySetting
+from app.models.marketing import (
+    MarketingCampaign,
+    MarketingCampaignStatus,
+    MarketingStage,
+    MarketingStageKind,
+    MarketingStageStatus,
+)
 from app.models.tool import ToolExecution, ToolExecutionStatus
 from app.models.user import User
 from app.models.user_session import UserSession
@@ -44,6 +51,11 @@ __all__ = [
     "Memory",
     "MemoryCategory",
     "MemorySetting",
+    "MarketingCampaign",
+    "MarketingCampaignStatus",
+    "MarketingStage",
+    "MarketingStageKind",
+    "MarketingStageStatus",
     "ToolExecution",
     "ToolExecutionStatus",
     "MessageRole",
