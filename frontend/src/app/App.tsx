@@ -90,18 +90,8 @@ import {
 } from "../auth/persistence";
 import { ConnectView, ReconnectView } from "../features/auth/ConnectView";
 import { ChatView, type SafeNotice } from "../features/chat/ChatView";
-import { AgentPanel } from "../features/agents/AgentPanel";
 import { ConversationList } from "../features/conversations/ConversationList";
-import { ConnectorPanel } from "../features/connectors/ConnectorPanel";
-import { CreativePanel } from "../features/creative/CreativePanel";
-import { FinancePanel } from "../features/finance/FinancePanel";
-import { LearningPanel } from "../features/learning/LearningPanel";
-import { MemoryPanel } from "../features/memory/MemoryPanel";
-import { MarketingPanel } from "../features/marketing/MarketingPanel";
 import { ModelSelector } from "../features/models/ModelSelector";
-import { SettingsPanel } from "../features/settings/SettingsPanel";
-import { ToolPanel } from "../features/tools/ToolPanel";
-import { WorkflowPanel } from "../features/workflows/WorkflowPanel";
 import { PresenceHeader } from "../features/shell/PresenceHeader";
 import { ProductLayerNavigation } from "../features/shell/ProductLayerNavigation";
 import {
@@ -124,6 +114,56 @@ type AuthenticationStatus =
 const FeatureCatalogPanel = lazy(() =>
   import("../features/catalog/FeatureCatalogPanel").then((module) => ({
     default: module.FeatureCatalogPanel,
+  })),
+);
+const AgentPanel = lazy(() =>
+  import("../features/agents/AgentPanel").then((module) => ({
+    default: module.AgentPanel,
+  })),
+);
+const ConnectorPanel = lazy(() =>
+  import("../features/connectors/ConnectorPanel").then((module) => ({
+    default: module.ConnectorPanel,
+  })),
+);
+const CreativePanel = lazy(() =>
+  import("../features/creative/CreativePanel").then((module) => ({
+    default: module.CreativePanel,
+  })),
+);
+const FinancePanel = lazy(() =>
+  import("../features/finance/FinancePanel").then((module) => ({
+    default: module.FinancePanel,
+  })),
+);
+const LearningPanel = lazy(() =>
+  import("../features/learning/LearningPanel").then((module) => ({
+    default: module.LearningPanel,
+  })),
+);
+const MarketingPanel = lazy(() =>
+  import("../features/marketing/MarketingPanel").then((module) => ({
+    default: module.MarketingPanel,
+  })),
+);
+const MemoryPanel = lazy(() =>
+  import("../features/memory/MemoryPanel").then((module) => ({
+    default: module.MemoryPanel,
+  })),
+);
+const SettingsPanel = lazy(() =>
+  import("../features/settings/SettingsPanel").then((module) => ({
+    default: module.SettingsPanel,
+  })),
+);
+const ToolPanel = lazy(() =>
+  import("../features/tools/ToolPanel").then((module) => ({
+    default: module.ToolPanel,
+  })),
+);
+const WorkflowPanel = lazy(() =>
+  import("../features/workflows/WorkflowPanel").then((module) => ({
+    default: module.WorkflowPanel,
   })),
 );
 
@@ -2126,6 +2166,7 @@ export function App() {
             window.setTimeout(() => document.getElementById("chat-prompt")?.focus(), 0);
           }}
         />
+        <Suspense fallback={<p className="muted" role="status">Loading workspace modules…</p>}>
         {settingsOpen && (
           <div id="personal-settings-panel">
             <SettingsPanel
@@ -2279,16 +2320,15 @@ export function App() {
         )}
         {catalogLayer !== null && (
           <div id="feature-catalog-layer">
-            <Suspense fallback={<p className="muted" role="status">Loading workspace modules…</p>}>
-              <FeatureCatalogPanel
-                layer={catalogLayer}
-                onClose={() => setCatalogLayer(null)}
-                onLoad={loadFeatureRegistry}
-                onOpen={openCatalogFeature}
-              />
-            </Suspense>
+            <FeatureCatalogPanel
+              layer={catalogLayer}
+              onClose={() => setCatalogLayer(null)}
+              onLoad={loadFeatureRegistry}
+              onOpen={openCatalogFeature}
+            />
           </div>
         )}
+        </Suspense>
         <ChatView
           conversation={selectedConversation}
           creatingNew={creatingNew}

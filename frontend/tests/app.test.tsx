@@ -316,7 +316,7 @@ describe("App integration", () => {
     expect(
       await screen.findByRole("heading", { name: "What your AI remembers" }),
     ).toBeVisible();
-    expect(screen.getByText("No personal memories saved.")).toBeVisible();
+    expect(await screen.findByText("No personal memories saved.")).toBeVisible();
     await waitFor(() =>
       expect(
         workspace.calls.filter((call) =>
@@ -339,7 +339,7 @@ describe("App integration", () => {
     await userEvent.click(screen.getByRole("button", { name: "Tools" }));
 
     expect(await screen.findByRole("heading", { name: "Local tools" })).toBeVisible();
-    expect(screen.getByText("No tool calls yet.")).toBeVisible();
+    expect(await screen.findByText("No tool calls yet.")).toBeVisible();
     await waitFor(() =>
       expect(
         workspace.calls.filter((call) =>
@@ -366,7 +366,7 @@ describe("App integration", () => {
     expect(
       await screen.findByRole("heading", { name: "Research tasks" }),
     ).toBeVisible();
-    expect(screen.getByText("No workflows yet.")).toBeVisible();
+    expect(await screen.findByText("No workflows yet.")).toBeVisible();
     await waitFor(() =>
       expect(
         workspace.calls.filter((call) =>
@@ -420,7 +420,7 @@ describe("App integration", () => {
     expect(
       await screen.findByRole("heading", { name: "Settings & diagnostics" }),
     ).toBeVisible();
-    expect(screen.getByText("7 of 11 capabilities available now.")).toBeVisible();
+    expect(await screen.findByText("7 of 11 capabilities available now.")).toBeVisible();
     expect(screen.getByText(/bounded loopback image adapter/)).toBeVisible();
     expect(screen.getByText("Connection mode: LOCAL")).toBeVisible();
     await waitFor(() =>

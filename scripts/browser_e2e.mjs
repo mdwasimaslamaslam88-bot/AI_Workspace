@@ -211,9 +211,9 @@ try {
     "The complete feature registry was not exposed through the workspace catalog.",
   );
   assert.equal(
-    await page.getByRole("button", { name: "Documented boundary" }).first().isDisabled(),
+    await page.getByRole("button", { name: "Connect service" }).first().isDisabled(),
     true,
-    "A planned capability was presented as executable.",
+    "An external-service capability was presented as executable.",
   );
   await page.getByRole("button", { name: "Close", exact: true }).click();
 

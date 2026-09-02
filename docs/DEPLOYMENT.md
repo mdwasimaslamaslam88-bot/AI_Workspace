@@ -22,6 +22,11 @@ npm run build:static --workspace @work-station/mobile
 npm run check:desktop:launch
 ```
 
+The production web build fails if its initial JavaScript entry exceeds 500 KiB
+or if any of the eleven command/workspace panels stops being emitted as an
+on-demand chunk. This keeps the PWA and shared desktop shell responsive without
+moving authorization or AI execution into a client.
+
 On an Android build workstation, validate the managed native project without
 creating a source-tree `android` directory:
 

@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host localhost --port 3000",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && node ../scripts/validate_web_bundle.mjs dist",
     "typecheck": "tsc -b --pretty false",
     "lint": "eslint .",
     "test": "vitest run",
