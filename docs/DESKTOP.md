@@ -107,8 +107,11 @@ to build and validate the application bundle and DMG, run a process-launch
 smoke, and upload checksummed owner-sideload artifacts. Run and download it in
 the same way with `macos-release.yml` and artifact name `Work_Station_macOS`.
 
-The owner-sideload Windows and macOS artifacts are unsigned. Trusted publisher
-signing, Apple notarization, and auto-update signing require owner-controlled
-platform certificates and remain external activation boundaries.
+The Windows artifact is unsigned. The macOS target-host workflow applies and
+verifies an ad-hoc owner-sideload signature so its resource envelope is
+internally consistent; it is not an Apple-trusted publisher signature. Trusted
+publisher signing, Apple notarization, and auto-update signing require
+owner-controlled platform certificates and remain external activation
+boundaries.
 Current Tauri target prerequisites remain documented at
 <https://v2.tauri.app/start/prerequisites/>.

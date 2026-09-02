@@ -55,11 +55,12 @@ if grep -aEqr '/Users/runner/|/home/' "${application}" "${disk_image}"; then
   exit 1
 fi
 
-if codesign --display --verbose=1 "${application}" >/dev/null 2>&1; then
-  codesign --verify --deep --strict "${application}"
-else
-  echo "macOS signing: unsigned owner-sideload artifact"
+if ! codesign --display --verbose=1 "${application}" >/dev/null 2>&1; then
+  echo "macOS artifact is not code-signed." >&2
+  exit 1
 fi
+codesign --verify --deep --strict "${application}"
+codesign --display --verbose=4 "${application}" 2>&1 | grep -E '^(Identifier|Format|Signature)='
 
 launch_log="$(mktemp "${RUNNER_TEMP:-/tmp}/work-station-macos-launch.XXXXXX")"
 "${executable}" >"${launch_log}" 2>&1 &

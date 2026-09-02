@@ -26,6 +26,10 @@ def test_macos_release_workflow_uses_a_bounded_target_host_contract():
         "validate_macos_artifact.sh",
     ):
         assert required in commands
+    build_step = next(
+        step for step in job["steps"] if step["name"] == "Build macOS application and DMG"
+    )
+    assert build_step["env"] == {"APPLE_SIGNING_IDENTITY": "-"}
     assert "secrets." not in workflow_path.read_text(encoding="utf-8")
 
 
@@ -38,6 +42,7 @@ def test_macos_artifact_validator_is_syntax_valid_and_checks_release_boundaries(
         "com.workstation.personalai",
         "hdiutil verify",
         "codesign --verify --deep --strict",
+        "macOS artifact is not code-signed",
         "USER_PROVISIONING_TOKEN_DIGEST",
         "/Users/runner/|/home/",
         "kill -0",
