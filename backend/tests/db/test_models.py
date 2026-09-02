@@ -26,6 +26,10 @@ from app.models import (
     Conversation,
     Document,
     DocumentChunk,
+    FinanceArtifact,
+    FinanceWorkspace,
+    MarketAlert,
+    MarketWatchItem,
     Message,
     MessageAsset,
     MessageCitation,
@@ -34,6 +38,8 @@ from app.models import (
     MarketingCampaign,
     MarketingStage,
     MessageRole,
+    PaperOrder,
+    PaperPosition,
     ToolExecution,
     User,
     UserSession,
@@ -66,6 +72,12 @@ EXPECTED_TABLES = {
     "workflow_steps",
     "marketing_campaigns",
     "marketing_stages",
+    "finance_workspaces",
+    "market_watch_items",
+    "paper_positions",
+    "paper_orders",
+    "market_alerts",
+    "finance_artifacts",
 }
 EXPECTED_MESSAGE_ROLES = ("system", "user", "assistant", "tool")
 
@@ -121,6 +133,12 @@ def test_model_registry_contains_only_the_approved_domain_tables():
     assert WorkflowStep.__table__ is Base.metadata.tables["workflow_steps"]
     assert MarketingCampaign.__table__ is Base.metadata.tables["marketing_campaigns"]
     assert MarketingStage.__table__ is Base.metadata.tables["marketing_stages"]
+    assert FinanceWorkspace.__table__ is Base.metadata.tables["finance_workspaces"]
+    assert MarketWatchItem.__table__ is Base.metadata.tables["market_watch_items"]
+    assert PaperPosition.__table__ is Base.metadata.tables["paper_positions"]
+    assert PaperOrder.__table__ is Base.metadata.tables["paper_orders"]
+    assert MarketAlert.__table__ is Base.metadata.tables["market_alerts"]
+    assert FinanceArtifact.__table__ is Base.metadata.tables["finance_artifacts"]
 
 
 def test_user_has_uuid_primary_key_timestamps_and_access_credential_digest():

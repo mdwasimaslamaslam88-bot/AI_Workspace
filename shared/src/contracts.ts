@@ -802,6 +802,170 @@ export interface MarketingCampaign {
 
 export interface MarketingCampaignPage { items: MarketingCampaign[]; }
 
+export type MarketAssetClass = "indian_stock" | "global_stock" | "crypto" | "fx";
+export type FinanceArtifactKind = "research" | "strategy" | "backtest" | "portfolio" | "risk" | "journal";
+export type PaperOrderSide = "buy" | "sell";
+export type PaperOrderStatus = "executed" | "rejected";
+export type MarketAlertCondition = "at_or_above" | "at_or_below";
+export type MarketAlertStatus = "active" | "triggered" | "cancelled";
+
+export interface FinanceWorkspaceCreateRequest {
+  name: string;
+  base_currency: string;
+  initial_cash_minor: number;
+  max_order_bps: number;
+  max_position_bps: number;
+}
+
+export interface MarketWatchItemRequest {
+  asset_class: MarketAssetClass;
+  symbol: string;
+  display_name: string;
+}
+
+export interface MarketResearchRequest {
+  kind: "research" | "strategy";
+  asset_class: MarketAssetClass;
+  subject: string;
+  source_reference: string;
+  source_facts: MarketingSourceFact[];
+}
+
+export interface MarketBarRequest { observed_at: Timestamp; close_minor: number; }
+
+export interface BacktestRequest {
+  asset_class: MarketAssetClass;
+  symbol: string;
+  source_reference: string;
+  bars: MarketBarRequest[];
+  fast_window: number;
+  slow_window: number;
+  initial_cash_minor: number;
+  fee_bps: number;
+}
+
+export interface PaperOrderRequest {
+  execution_mode: "paper";
+  asset_class: MarketAssetClass;
+  symbol: string;
+  side: PaperOrderSide;
+  quantity_micros: number;
+  price_minor: number;
+  observed_at: Timestamp;
+  source_reference: string;
+  owner_confirmed: boolean;
+}
+
+export interface MarketQuoteRequest {
+  asset_class: MarketAssetClass;
+  symbol: string;
+  price_minor: number;
+  observed_at: Timestamp;
+  source_reference: string;
+}
+
+export interface PortfolioAnalysisRequest {
+  source_reference: string;
+  quotes: MarketQuoteRequest[];
+}
+
+export interface MarketAlertRequest {
+  asset_class: MarketAssetClass;
+  symbol: string;
+  condition: MarketAlertCondition;
+  threshold_minor: number;
+}
+
+export interface TradingJournalRequest {
+  title: string;
+  note: string;
+  source_reference: string;
+}
+
+export interface MarketWatchItem {
+  id: UUID;
+  asset_class: MarketAssetClass;
+  symbol: string;
+  display_name: string;
+  created_at: Timestamp;
+}
+
+export interface PaperPosition {
+  id: UUID;
+  asset_class: MarketAssetClass;
+  symbol: string;
+  quantity_micros: number;
+  cost_basis_minor: number;
+  updated_at: Timestamp;
+}
+
+export interface PaperOrder {
+  id: UUID;
+  asset_class: MarketAssetClass;
+  symbol: string;
+  side: PaperOrderSide;
+  quantity_micros: number;
+  price_minor: number;
+  notional_minor: number;
+  source_reference: string;
+  observed_at: Timestamp;
+  status: PaperOrderStatus;
+  rejection_code: string | null;
+  cash_after_minor: number;
+  created_at: Timestamp;
+  execution_mode: "paper";
+}
+
+export interface MarketAlert {
+  id: UUID;
+  asset_class: MarketAssetClass;
+  symbol: string;
+  condition: MarketAlertCondition;
+  threshold_minor: number;
+  status: MarketAlertStatus;
+  last_price_minor: number | null;
+  last_source_reference: string | null;
+  last_observed_at: Timestamp | null;
+  created_at: Timestamp;
+  triggered_at: Timestamp | null;
+}
+
+export interface FinanceArtifact {
+  id: UUID;
+  kind: FinanceArtifactKind;
+  title: string;
+  source_reference: string;
+  input_sha256: string;
+  output: string;
+  output_sha256: string;
+  model_id: string;
+  duration_ms: number;
+  created_at: Timestamp;
+}
+
+export interface FinanceWorkspace {
+  id: UUID;
+  name: string;
+  base_currency: string;
+  initial_cash_minor: number;
+  cash_minor: number;
+  max_order_bps: number;
+  max_position_bps: number;
+  created_at: Timestamp;
+  updated_at: Timestamp;
+  watch_items: MarketWatchItem[];
+  positions: PaperPosition[];
+  orders: PaperOrder[];
+  alerts: MarketAlert[];
+  artifacts: FinanceArtifact[];
+  execution_mode: "paper";
+  live_broker_status: "external_dependency";
+}
+
+export interface FinanceWorkspacePage { items: FinanceWorkspace[]; }
+export interface PortfolioAnalysis { portfolio: FinanceArtifact; risk: FinanceArtifact; }
+export interface MarketAlertEvaluation { items: MarketAlert[]; }
+
 export type SelfUpdateState =
   | "idle"
   | "validating"
@@ -1246,6 +1410,12 @@ const marketingCampaignStatuses = ["pending", "running", "needs_approval", "publ
 const marketingStageKinds = ["research", "strategy", "content", "creative", "approval", "publish", "analytics", "optimization"] as const;
 const marketingStageStatuses = ["pending", "running", "blocked", "completed", "failed", "cancelled"] as const;
 const marketingChannels = ["email", "social", "search", "web"] as const;
+const marketAssetClasses = ["indian_stock", "global_stock", "crypto", "fx"] as const;
+const financeArtifactKinds = ["research", "strategy", "backtest", "portfolio", "risk", "journal"] as const;
+const paperOrderSides = ["buy", "sell"] as const;
+const paperOrderStatuses = ["executed", "rejected"] as const;
+const marketAlertConditions = ["at_or_above", "at_or_below"] as const;
+const marketAlertStatuses = ["active", "triggered", "cancelled"] as const;
 const securityEventKinds = [
   "authentication_failure",
   "rate_limit_containment",
@@ -1994,6 +2164,164 @@ export function parseMarketingCampaignPage(value: unknown): MarketingCampaignPag
   const item = record(value);
   if (!Array.isArray(item.items) || item.items.length > 50) return invalidResponse();
   return { items: item.items.map(parseMarketingCampaign) };
+}
+
+function boundedInteger(value: unknown, minimum: number, maximum: number): number {
+  const parsed = integerOrNull(value);
+  if (parsed === null || parsed < minimum || parsed > maximum) return invalidResponse();
+  return parsed;
+}
+
+function parseMarketWatchItem(value: unknown): MarketWatchItem {
+  const item = record(value);
+  const symbol = stringField(item.symbol);
+  const displayName = stringField(item.display_name);
+  if (!/^[A-Z0-9][A-Z0-9._:/-]{0,23}$/.test(symbol) || displayName.length < 1 || displayName.length > 120) return invalidResponse();
+  return {
+    id: stringField(item.id),
+    asset_class: enumField(item.asset_class, marketAssetClasses),
+    symbol,
+    display_name: displayName,
+    created_at: stringField(item.created_at),
+  };
+}
+
+function parsePaperPosition(value: unknown): PaperPosition {
+  const item = record(value);
+  const symbol = stringField(item.symbol);
+  if (!/^[A-Z0-9][A-Z0-9._:/-]{0,23}$/.test(symbol)) return invalidResponse();
+  return {
+    id: stringField(item.id),
+    asset_class: enumField(item.asset_class, marketAssetClasses),
+    symbol,
+    quantity_micros: boundedInteger(item.quantity_micros, 1, 1_000_000_000_000_000),
+    cost_basis_minor: boundedInteger(item.cost_basis_minor, 0, 1_000_000_000_000_000),
+    updated_at: stringField(item.updated_at),
+  };
+}
+
+export function parsePaperOrder(value: unknown): PaperOrder {
+  const item = record(value);
+  const symbol = stringField(item.symbol);
+  const rejectionCode = nullableString(item.rejection_code);
+  const status = enumField(item.status, paperOrderStatuses);
+  if (
+    item.execution_mode !== "paper" || !/^[A-Z0-9][A-Z0-9._:/-]{0,23}$/.test(symbol) ||
+    (status === "executed" && rejectionCode !== null) ||
+    (status === "rejected" && rejectionCode === null)
+  ) return invalidResponse();
+  return {
+    id: stringField(item.id),
+    asset_class: enumField(item.asset_class, marketAssetClasses),
+    symbol,
+    side: enumField(item.side, paperOrderSides),
+    quantity_micros: boundedInteger(item.quantity_micros, 1, 1_000_000_000_000_000),
+    price_minor: boundedInteger(item.price_minor, 1, 1_000_000_000_000_000),
+    notional_minor: boundedInteger(item.notional_minor, 1, 1_000_000_000_000_000),
+    source_reference: stringField(item.source_reference),
+    observed_at: stringField(item.observed_at),
+    status,
+    rejection_code: rejectionCode,
+    cash_after_minor: boundedInteger(item.cash_after_minor, 0, 1_000_000_000_000_000),
+    created_at: stringField(item.created_at),
+    execution_mode: "paper",
+  };
+}
+
+export function parseMarketAlert(value: unknown): MarketAlert {
+  const item = record(value);
+  const symbol = stringField(item.symbol);
+  const lastPrice = item.last_price_minor === null
+    ? null
+    : boundedInteger(item.last_price_minor, 1, 1_000_000_000_000_000);
+  if (!/^[A-Z0-9][A-Z0-9._:/-]{0,23}$/.test(symbol)) return invalidResponse();
+  return {
+    id: stringField(item.id),
+    asset_class: enumField(item.asset_class, marketAssetClasses),
+    symbol,
+    condition: enumField(item.condition, marketAlertConditions),
+    threshold_minor: boundedInteger(item.threshold_minor, 1, 1_000_000_000_000_000),
+    status: enumField(item.status, marketAlertStatuses),
+    last_price_minor: lastPrice,
+    last_source_reference: nullableString(item.last_source_reference),
+    last_observed_at: nullableString(item.last_observed_at),
+    created_at: stringField(item.created_at),
+    triggered_at: nullableString(item.triggered_at),
+  };
+}
+
+export function parseFinanceArtifact(value: unknown): FinanceArtifact {
+  const item = record(value);
+  const inputHash = stringField(item.input_sha256);
+  const outputHash = stringField(item.output_sha256);
+  const output = stringField(item.output);
+  if (
+    !/^[a-f0-9]{64}$/.test(inputHash) || !/^[a-f0-9]{64}$/.test(outputHash) ||
+    output.length < 1 || output.length > 65_536
+  ) return invalidResponse();
+  return {
+    id: stringField(item.id),
+    kind: enumField(item.kind, financeArtifactKinds),
+    title: stringField(item.title),
+    source_reference: stringField(item.source_reference),
+    input_sha256: inputHash,
+    output,
+    output_sha256: outputHash,
+    model_id: stringField(item.model_id),
+    duration_ms: boundedInteger(item.duration_ms, 0, 2_147_483_647),
+    created_at: stringField(item.created_at),
+  };
+}
+
+export function parseFinanceWorkspace(value: unknown): FinanceWorkspace {
+  const item = record(value);
+  if (
+    item.execution_mode !== "paper" || item.live_broker_status !== "external_dependency" ||
+    !Array.isArray(item.watch_items) || item.watch_items.length > 100 ||
+    !Array.isArray(item.positions) || item.positions.length > 100 ||
+    !Array.isArray(item.orders) || item.orders.length > 1_000 ||
+    !Array.isArray(item.alerts) || item.alerts.length > 100 ||
+    !Array.isArray(item.artifacts) || item.artifacts.length > 250
+  ) return invalidResponse();
+  const baseCurrency = stringField(item.base_currency);
+  const maxOrder = boundedInteger(item.max_order_bps, 1, 10_000);
+  const maxPosition = boundedInteger(item.max_position_bps, 1, 10_000);
+  if (!/^[A-Z]{3}$/.test(baseCurrency) || maxOrder > maxPosition) return invalidResponse();
+  return {
+    id: stringField(item.id),
+    name: stringField(item.name),
+    base_currency: baseCurrency,
+    initial_cash_minor: boundedInteger(item.initial_cash_minor, 1, 1_000_000_000_000_000),
+    cash_minor: boundedInteger(item.cash_minor, 0, 1_000_000_000_000_000),
+    max_order_bps: maxOrder,
+    max_position_bps: maxPosition,
+    created_at: stringField(item.created_at),
+    updated_at: stringField(item.updated_at),
+    watch_items: item.watch_items.map(parseMarketWatchItem),
+    positions: item.positions.map(parsePaperPosition),
+    orders: item.orders.map(parsePaperOrder),
+    alerts: item.alerts.map(parseMarketAlert),
+    artifacts: item.artifacts.map(parseFinanceArtifact),
+    execution_mode: "paper",
+    live_broker_status: "external_dependency",
+  };
+}
+
+export function parseFinanceWorkspacePage(value: unknown): FinanceWorkspacePage {
+  const item = record(value);
+  if (!Array.isArray(item.items) || item.items.length > 10) return invalidResponse();
+  return { items: item.items.map(parseFinanceWorkspace) };
+}
+
+export function parsePortfolioAnalysis(value: unknown): PortfolioAnalysis {
+  const item = record(value);
+  return { portfolio: parseFinanceArtifact(item.portfolio), risk: parseFinanceArtifact(item.risk) };
+}
+
+export function parseMarketAlertEvaluation(value: unknown): MarketAlertEvaluation {
+  const item = record(value);
+  if (!Array.isArray(item.items) || item.items.length > 100) return invalidResponse();
+  return { items: item.items.map(parseMarketAlert) };
 }
 
 export function parseSelfUpdateStatus(value: unknown): SelfUpdateStatus {

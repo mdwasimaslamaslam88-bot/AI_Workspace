@@ -282,6 +282,12 @@ async def test_migration_creates_exact_expected_postgresql_schema(
             "connector_executions",
             "marketing_campaigns",
             "marketing_stages",
+            "finance_workspaces",
+            "market_watch_items",
+            "paper_positions",
+            "paper_orders",
+            "market_alerts",
+            "finance_artifacts",
     }
 
     owner_fk = _foreign_key(

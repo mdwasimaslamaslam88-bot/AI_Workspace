@@ -49,6 +49,9 @@ mutation. It never repairs the artifact before scoring.
 - durable source-grounded marketing campaigns with verified local-agent stages,
   explicit owner publish approval, connector audit linkage, and deterministic
   submitted-source analytics
+- owner-scoped finance workspaces with verified source-grounded research,
+  deterministic backtesting, watchlists, alerts, paper orders, portfolio/risk
+  analysis, and journals; live brokers remain an external dependency
 - normalized hardware discovery, GPU-upgrade fingerprints and simulations
 - verified backup/restore, staged self-update checkpoints and atomic rollback
 - authenticated diagnostics for hardware, models/routes, provider cost/health,

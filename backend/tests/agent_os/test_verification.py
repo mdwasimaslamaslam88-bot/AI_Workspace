@@ -96,6 +96,19 @@ async def test_objective_evidence_is_required_and_verifier_errors_fail_closed():
 
 
 @pytest.mark.asyncio
+async def test_non_applicable_objective_verifier_does_not_satisfy_evidence():
+    async def not_applicable(_step, _execution):
+        return None
+
+    report = await IndependentVerificationEngine(
+        objective_verifiers=(not_applicable,)
+    ).verify(_step(objective=True), AgentExecution(output="claim"))
+
+    assert report.passed is False
+    assert report.checks[-1].failure is VerificationFailure.EVIDENCE_MISSING
+
+
+@pytest.mark.asyncio
 async def test_objective_verifier_does_not_swallow_task_cancellation():
     async def waiting(_step, _execution):
         await asyncio.Future()

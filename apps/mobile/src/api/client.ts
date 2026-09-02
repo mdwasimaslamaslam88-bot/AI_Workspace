@@ -27,6 +27,11 @@ import {
   type ExternalAISettings,
   type ExternalProviderUpsertRequest,
   type FeatureRegistry,
+  type BacktestRequest,
+  type FinanceArtifact,
+  type FinanceWorkspace,
+  type FinanceWorkspaceCreateRequest,
+  type FinanceWorkspacePage,
   type ImageEditingRequest,
   type ImageGenerationRequest,
   type ImageOperation,
@@ -35,11 +40,21 @@ import {
   type MarketingCampaign,
   type MarketingCampaignCreateRequest,
   type MarketingCampaignPage,
+  type MarketAlert,
+  type MarketAlertEvaluation,
+  type MarketAlertRequest,
+  type MarketQuoteRequest,
+  type MarketResearchRequest,
+  type MarketWatchItemRequest,
   type MemoryCreateRequest,
   type MemoryPage,
   type MemorySetting,
   type MessagePage,
   type PersonalMemory,
+  type PaperOrder,
+  type PaperOrderRequest,
+  type PortfolioAnalysis,
+  type PortfolioAnalysisRequest,
   type ProductCapabilityPage,
   type SelfUpdateStatus,
   type SystemDiagnostics,
@@ -47,6 +62,7 @@ import {
   type ToolExecution,
   type ToolExecutionPage,
   type ToolExecutionRequest,
+  type TradingJournalRequest,
   type UserSession,
   type UserSessionCreateRequest,
   type UserSessionPage,
@@ -74,15 +90,22 @@ import {
   parseCurrentUser,
   parseExternalAISettings,
   parseFeatureRegistry,
+  parseFinanceArtifact,
+  parseFinanceWorkspace,
+  parseFinanceWorkspacePage,
   parseGenerationResponse,
   parseImageOperation,
   parseMemoryPage,
   parseMarketingCampaign,
   parseMarketingCampaignPage,
+  parseMarketAlert,
+  parseMarketAlertEvaluation,
   parseMemorySetting,
   parseMessagePage,
   parseModelPage,
   parsePersonalMemory,
+  parsePaperOrder,
+  parsePortfolioAnalysis,
   parseProductCapabilityPage,
   parseSelfUpdateStatus,
   parseSystemDiagnostics,
@@ -414,6 +437,135 @@ export class MobileApiClient {
       `api/v1/marketing/campaigns/${encodeURIComponent(id)}`,
       parseMarketingCampaign,
       { method: "DELETE", signal },
+    );
+  }
+
+  listFinanceWorkspaces(signal?: AbortSignal): Promise<FinanceWorkspacePage> {
+    return this.#request("api/v1/finance/workspaces", parseFinanceWorkspacePage, { signal });
+  }
+
+  createFinanceWorkspace(
+    request: FinanceWorkspaceCreateRequest,
+    signal?: AbortSignal,
+  ): Promise<FinanceWorkspace> {
+    return this.#request("api/v1/finance/workspaces", parseFinanceWorkspace, {
+      method: "POST", body: request, signal,
+    });
+  }
+
+  getFinanceWorkspace(id: string, signal?: AbortSignal): Promise<FinanceWorkspace> {
+    return this.#request(
+      `api/v1/finance/workspaces/${encodeURIComponent(id)}`,
+      parseFinanceWorkspace,
+      { signal },
+    );
+  }
+
+  addMarketWatchItem(
+    workspaceId: string,
+    request: MarketWatchItemRequest,
+    signal?: AbortSignal,
+  ): Promise<FinanceWorkspace> {
+    return this.#request(
+      `api/v1/finance/workspaces/${encodeURIComponent(workspaceId)}/watchlist`,
+      parseFinanceWorkspace,
+      { method: "POST", body: request, signal },
+    );
+  }
+
+  removeMarketWatchItem(
+    workspaceId: string,
+    itemId: string,
+    signal?: AbortSignal,
+  ): Promise<FinanceWorkspace> {
+    return this.#request(
+      `api/v1/finance/workspaces/${encodeURIComponent(workspaceId)}/watchlist/${encodeURIComponent(itemId)}`,
+      parseFinanceWorkspace,
+      { method: "DELETE", signal },
+    );
+  }
+
+  runMarketResearch(
+    workspaceId: string,
+    request: MarketResearchRequest,
+    signal?: AbortSignal,
+  ): Promise<FinanceArtifact> {
+    return this.#request(
+      `api/v1/finance/workspaces/${encodeURIComponent(workspaceId)}/research`,
+      parseFinanceArtifact,
+      { method: "POST", body: request, signal },
+    );
+  }
+
+  runMarketBacktest(
+    workspaceId: string,
+    request: BacktestRequest,
+    signal?: AbortSignal,
+  ): Promise<FinanceArtifact> {
+    return this.#request(
+      `api/v1/finance/workspaces/${encodeURIComponent(workspaceId)}/backtests`,
+      parseFinanceArtifact,
+      { method: "POST", body: request, signal },
+    );
+  }
+
+  executePaperOrder(
+    workspaceId: string,
+    request: PaperOrderRequest,
+    signal?: AbortSignal,
+  ): Promise<PaperOrder> {
+    return this.#request(
+      `api/v1/finance/workspaces/${encodeURIComponent(workspaceId)}/paper-orders`,
+      parsePaperOrder,
+      { method: "POST", body: request, signal },
+    );
+  }
+
+  analyzePaperPortfolio(
+    workspaceId: string,
+    request: PortfolioAnalysisRequest,
+    signal?: AbortSignal,
+  ): Promise<PortfolioAnalysis> {
+    return this.#request(
+      `api/v1/finance/workspaces/${encodeURIComponent(workspaceId)}/portfolio-analysis`,
+      parsePortfolioAnalysis,
+      { method: "POST", body: request, signal },
+    );
+  }
+
+  createMarketAlert(
+    workspaceId: string,
+    request: MarketAlertRequest,
+    signal?: AbortSignal,
+  ): Promise<MarketAlert> {
+    return this.#request(
+      `api/v1/finance/workspaces/${encodeURIComponent(workspaceId)}/alerts`,
+      parseMarketAlert,
+      { method: "POST", body: request, signal },
+    );
+  }
+
+  evaluateMarketAlerts(
+    workspaceId: string,
+    quote: MarketQuoteRequest,
+    signal?: AbortSignal,
+  ): Promise<MarketAlertEvaluation> {
+    return this.#request(
+      `api/v1/finance/workspaces/${encodeURIComponent(workspaceId)}/alerts/evaluate`,
+      parseMarketAlertEvaluation,
+      { method: "POST", body: { quote }, signal },
+    );
+  }
+
+  addTradingJournalEntry(
+    workspaceId: string,
+    request: TradingJournalRequest,
+    signal?: AbortSignal,
+  ): Promise<FinanceArtifact> {
+    return this.#request(
+      `api/v1/finance/workspaces/${encodeURIComponent(workspaceId)}/journal`,
+      parseFinanceArtifact,
+      { method: "POST", body: request, signal },
     );
   }
 

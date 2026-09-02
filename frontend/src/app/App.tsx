@@ -19,20 +19,33 @@ import type {
   ConnectorSettings,
   ConnectorWriteRequest,
   CurrentUser,
+  BacktestRequest,
   ExternalAISettings,
   ExternalProvider,
   ExternalProviderUpsertRequest,
   FeatureLayer,
   FeatureRegistry,
+  FinanceArtifact,
+  FinanceWorkspace,
+  FinanceWorkspaceCreateRequest,
   IndexedDocument,
   LocalModel,
   MarketingAnalyticsRequest,
   MarketingCampaign,
   MarketingCampaignCreateRequest,
+  MarketAlert,
+  MarketAlertRequest,
+  MarketQuoteRequest,
+  MarketResearchRequest,
+  MarketWatchItemRequest,
   MemoryCreateRequest,
   MemorySetting,
   Message,
   PersonalMemory,
+  PaperOrder,
+  PaperOrderRequest,
+  PortfolioAnalysis,
+  PortfolioAnalysisRequest,
   ProductCapability,
   ProductFeature,
   SelfUpdateStatus,
@@ -40,6 +53,7 @@ import type {
   ToolDescriptor,
   ToolExecution,
   ToolExecutionRequest,
+  TradingJournalRequest,
   Workflow,
   WorkflowCreateRequest,
 } from "../api/contracts";
@@ -66,6 +80,7 @@ import { ChatView, type SafeNotice } from "../features/chat/ChatView";
 import { AgentPanel } from "../features/agents/AgentPanel";
 import { ConversationList } from "../features/conversations/ConversationList";
 import { ConnectorPanel } from "../features/connectors/ConnectorPanel";
+import { FinancePanel } from "../features/finance/FinancePanel";
 import { MemoryPanel } from "../features/memory/MemoryPanel";
 import { MarketingPanel } from "../features/marketing/MarketingPanel";
 import { ModelSelector } from "../features/models/ModelSelector";
@@ -196,6 +211,7 @@ export function App() {
   const [agentsOpen, setAgentsOpen] = useState(false);
   const [connectorsOpen, setConnectorsOpen] = useState(false);
   const [marketingOpen, setMarketingOpen] = useState(false);
+  const [financeOpen, setFinanceOpen] = useState(false);
   const [voicePresence, setVoicePresence] = useState<PresenceState | null>(null);
   const [agentPresence, setAgentPresence] = useState<PresenceState | null>(null);
   const [catalogLayer, setCatalogLayer] = useState<
@@ -240,6 +256,7 @@ export function App() {
     setAgentsOpen(false);
     setConnectorsOpen(false);
     setMarketingOpen(false);
+    setFinanceOpen(false);
     setCatalogLayer(null);
     setAuthenticationStatus("anonymous");
   }, []);
@@ -991,6 +1008,66 @@ export function App() {
     return client.cancelMarketingCampaign(id, signal);
   }, [client]);
 
+  const loadFinanceWorkspaces = useCallback(async (signal?: AbortSignal): Promise<FinanceWorkspace[]> => {
+    if (client === null) throw new ApiError("authentication", "Authentication failed.");
+    return (await client.listFinanceWorkspaces(signal)).items;
+  }, [client]);
+
+  const getFinanceWorkspace = useCallback((id: string, signal?: AbortSignal) => {
+    if (client === null) return Promise.reject(new ApiError("authentication", "Authentication failed."));
+    return client.getFinanceWorkspace(id, signal);
+  }, [client]);
+
+  const createFinanceWorkspace = useCallback((request: FinanceWorkspaceCreateRequest, signal?: AbortSignal) => {
+    if (client === null) return Promise.reject(new ApiError("authentication", "Authentication failed."));
+    return client.createFinanceWorkspace(request, signal);
+  }, [client]);
+
+  const addMarketWatchItem = useCallback((id: string, request: MarketWatchItemRequest, signal?: AbortSignal) => {
+    if (client === null) return Promise.reject(new ApiError("authentication", "Authentication failed."));
+    return client.addMarketWatchItem(id, request, signal);
+  }, [client]);
+
+  const removeMarketWatchItem = useCallback((id: string, itemId: string, signal?: AbortSignal) => {
+    if (client === null) return Promise.reject(new ApiError("authentication", "Authentication failed."));
+    return client.removeMarketWatchItem(id, itemId, signal);
+  }, [client]);
+
+  const runMarketResearch = useCallback((id: string, request: MarketResearchRequest, signal?: AbortSignal): Promise<FinanceArtifact> => {
+    if (client === null) return Promise.reject(new ApiError("authentication", "Authentication failed."));
+    return client.runMarketResearch(id, request, signal);
+  }, [client]);
+
+  const runMarketBacktest = useCallback((id: string, request: BacktestRequest, signal?: AbortSignal): Promise<FinanceArtifact> => {
+    if (client === null) return Promise.reject(new ApiError("authentication", "Authentication failed."));
+    return client.runMarketBacktest(id, request, signal);
+  }, [client]);
+
+  const executePaperOrder = useCallback((id: string, request: PaperOrderRequest, signal?: AbortSignal): Promise<PaperOrder> => {
+    if (client === null) return Promise.reject(new ApiError("authentication", "Authentication failed."));
+    return client.executePaperOrder(id, request, signal);
+  }, [client]);
+
+  const analyzePaperPortfolio = useCallback((id: string, request: PortfolioAnalysisRequest, signal?: AbortSignal): Promise<PortfolioAnalysis> => {
+    if (client === null) return Promise.reject(new ApiError("authentication", "Authentication failed."));
+    return client.analyzePaperPortfolio(id, request, signal);
+  }, [client]);
+
+  const createMarketAlert = useCallback((id: string, request: MarketAlertRequest, signal?: AbortSignal): Promise<MarketAlert> => {
+    if (client === null) return Promise.reject(new ApiError("authentication", "Authentication failed."));
+    return client.createMarketAlert(id, request, signal);
+  }, [client]);
+
+  const evaluateMarketAlerts = useCallback((id: string, quote: MarketQuoteRequest, signal?: AbortSignal) => {
+    if (client === null) return Promise.reject(new ApiError("authentication", "Authentication failed."));
+    return client.evaluateMarketAlerts(id, quote, signal);
+  }, [client]);
+
+  const addTradingJournalEntry = useCallback((id: string, request: TradingJournalRequest, signal?: AbortSignal): Promise<FinanceArtifact> => {
+    if (client === null) return Promise.reject(new ApiError("authentication", "Authentication failed."));
+    return client.addTradingJournalEntry(id, request, signal);
+  }, [client]);
+
   const setExternalAIEnabled = useCallback(
     (enabled: boolean): Promise<ExternalAISettings> => {
       if (client === null) {
@@ -1596,6 +1673,7 @@ export function App() {
       setAgentsOpen(false);
       setConnectorsOpen(false);
       setMarketingOpen(false);
+      setFinanceOpen(false);
       setCatalogLayer(null);
     })
       .then((dispose) => {
@@ -1617,7 +1695,7 @@ export function App() {
         ? "mission_control"
         : memoryOpen
           ? "universal_workspace"
-          : toolsOpen || connectorsOpen || marketingOpen
+          : toolsOpen || connectorsOpen || marketingOpen || financeOpen
             ? "apps_hub"
             : "ai_presence");
 
@@ -1636,6 +1714,7 @@ export function App() {
     setAgentsOpen(false);
     setConnectorsOpen(false);
     setMarketingOpen(false);
+    setFinanceOpen(false);
     setCatalogLayer(null);
   }
 
@@ -1652,6 +1731,11 @@ export function App() {
       setToolsOpen(true);
     } else if (feature.id === "marketing_agent" || feature.backend_capability === "marketing_campaign_service") {
       setMarketingOpen(true);
+    } else if (
+      feature.backend_capability === "market_intelligence_service" ||
+      feature.backend_capability === "market_workspace_service"
+    ) {
+      setFinanceOpen(true);
     } else if (
       feature.backend_capability === "connector_service" ||
       feature.backend_capability === "external_connector"
@@ -1752,6 +1836,7 @@ export function App() {
               setAgentsOpen(false);
               setConnectorsOpen(false);
               setMarketingOpen(false);
+              setFinanceOpen(false);
               setCatalogLayer(null);
             }}
           >
@@ -1770,6 +1855,7 @@ export function App() {
               setAgentsOpen(false);
               setConnectorsOpen(false);
               setMarketingOpen(false);
+              setFinanceOpen(false);
               setCatalogLayer(null);
             }}
           >
@@ -1788,6 +1874,7 @@ export function App() {
               setAgentsOpen(false);
               setConnectorsOpen(false);
               setMarketingOpen(false);
+              setFinanceOpen(false);
               setCatalogLayer(null);
             }}
           >
@@ -1806,6 +1893,7 @@ export function App() {
               setAgentsOpen(false);
               setConnectorsOpen(false);
               setMarketingOpen(false);
+              setFinanceOpen(false);
               setCatalogLayer(null);
             }}
           >
@@ -1824,6 +1912,7 @@ export function App() {
               setSettingsOpen(false);
               setConnectorsOpen(false);
               setMarketingOpen(false);
+              setFinanceOpen(false);
               setCatalogLayer(null);
             }}
           >
@@ -1837,6 +1926,7 @@ export function App() {
             onClick={() => {
               setConnectorsOpen((current) => !current);
               setMarketingOpen(false);
+              setFinanceOpen(false);
               setAgentsOpen(false);
               setMemoryOpen(false);
               setToolsOpen(false);
@@ -1859,6 +1949,19 @@ export function App() {
             }}
           >
             Marketing
+          </button>
+          <button
+            type="button"
+            className="button button-secondary"
+            aria-expanded={financeOpen}
+            aria-controls="personal-finance-panel"
+            onClick={() => {
+              const open = !financeOpen;
+              closeProductPanels();
+              setFinanceOpen(open);
+            }}
+          >
+            Finance
           </button>
           <ModelSelector
             models={models}
@@ -1946,6 +2049,25 @@ export function App() {
               onApprove={approveMarketingCampaign}
               onAnalytics={submitMarketingAnalytics}
               onCancel={cancelMarketingCampaign}
+            />
+          </div>
+        )}
+        {financeOpen && (
+          <div id="personal-finance-panel">
+            <FinancePanel
+              onClose={() => setFinanceOpen(false)}
+              onLoad={loadFinanceWorkspaces}
+              onGet={getFinanceWorkspace}
+              onCreate={createFinanceWorkspace}
+              onAddWatch={addMarketWatchItem}
+              onRemoveWatch={removeMarketWatchItem}
+              onResearch={runMarketResearch}
+              onBacktest={runMarketBacktest}
+              onPaperOrder={executePaperOrder}
+              onPortfolio={analyzePaperPortfolio}
+              onCreateAlert={createMarketAlert}
+              onEvaluateAlerts={evaluateMarketAlerts}
+              onJournal={addTradingJournalEntry}
             />
           </div>
         )}

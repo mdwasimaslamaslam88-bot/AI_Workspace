@@ -30,7 +30,7 @@ def test_feature_implementation_matrix_is_complete_and_prioritized():
         "missing_backend_contracts": 0,
         "missing_coverage_records": 0,
         "broken_registry_wiring": 0,
-        "planned_gaps": 10,
+        "planned_gaps": 5,
         "external_boundaries": 40,
         "runtime_gates": 17,
     }

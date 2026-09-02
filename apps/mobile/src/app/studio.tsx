@@ -1,9 +1,11 @@
 import type {
   FeatureRegistry,
+  FinanceWorkspace,
   Connector,
   ConnectorSettings,
   LocalModel,
   MarketingCampaign,
+  MarketAssetClass,
   MemoryCategory,
   PersonalMemory,
   ToolDescriptor,
@@ -46,6 +48,13 @@ const memoryCategories: MemoryCategory[] = [
   "project_context",
 ];
 
+const marketAssetClasses: MarketAssetClass[] = [
+  "indian_stock",
+  "global_stock",
+  "crypto",
+  "fx",
+];
+
 function safeError(cause: unknown): string {
   if (cause instanceof WorkflowPollingTimeoutError) return cause.message;
   return cause instanceof MobileApiError
@@ -85,6 +94,18 @@ export default function StudioScreen() {
   const [connectorSettings, setConnectorSettings] = useState<ConnectorSettings | null>(null);
   const [connectors, setConnectors] = useState<Connector[]>([]);
   const [campaigns, setCampaigns] = useState<MarketingCampaign[]>([]);
+  const [financeWorkspaces, setFinanceWorkspaces] = useState<FinanceWorkspace[]>([]);
+  const [selectedFinanceId, setSelectedFinanceId] = useState<string | null>(null);
+  const [financeName, setFinanceName] = useState("");
+  const [financeCurrency, setFinanceCurrency] = useState("USD");
+  const [financeCash, setFinanceCash] = useState("");
+  const [marketAssetClass, setMarketAssetClass] = useState<MarketAssetClass>("global_stock");
+  const [marketSymbol, setMarketSymbol] = useState("");
+  const [marketDisplayName, setMarketDisplayName] = useState("");
+  const [marketSource, setMarketSource] = useState("");
+  const [marketFact, setMarketFact] = useState("");
+  const [paperQuantity, setPaperQuantity] = useState("");
+  const [paperPrice, setPaperPrice] = useState("");
   const [campaignName, setCampaignName] = useState("");
   const [campaignObjective, setCampaignObjective] = useState("");
   const [campaignProduct, setCampaignProduct] = useState("");
@@ -124,6 +145,12 @@ export default function StudioScreen() {
     [models],
   );
   const selectedTool = tools.find((tool) => tool.name === toolName) ?? null;
+  const selectedFinance = useMemo(
+    () => financeWorkspaces.find((workspace) => workspace.id === selectedFinanceId)
+      ?? financeWorkspaces[0]
+      ?? null,
+    [financeWorkspaces, selectedFinanceId],
+  );
 
   const updateWorkflow = useCallback((workflow: Workflow) => {
     setWorkflows((current) =>
@@ -189,7 +216,7 @@ export default function StudioScreen() {
     setBusyAction("Refreshing private studio");
     setNotice(null);
     try {
-      const [modelPage, conversationPage, memoryPage, setting, toolPage, executionPage, workflowPage, registry, connectionSettings, connectorPage, campaignPage] =
+      const [modelPage, conversationPage, memoryPage, setting, toolPage, executionPage, workflowPage, registry, connectionSettings, connectorPage, campaignPage, financePage] =
         await Promise.all([
           client.listModels(),
           client.listConversations(),
@@ -202,6 +229,7 @@ export default function StudioScreen() {
           client.getConnectorSettings().catch(() => null),
           client.listConnectors().catch(() => ({ items: [] })),
           client.listMarketingCampaigns().catch(() => ({ items: [] })),
+          client.listFinanceWorkspaces().catch(() => ({ items: [] })),
         ]);
       setModels(modelPage.items);
       setConversationId((current) =>
@@ -223,6 +251,10 @@ export default function StudioScreen() {
       setConnectorSettings(connectionSettings);
       setConnectors(connectorPage.items);
       setCampaigns(campaignPage.items);
+      setFinanceWorkspaces(financePage.items);
+      setSelectedFinanceId((current) => financePage.items.some((workspace) => workspace.id === current)
+        ? current
+        : financePage.items[0]?.id ?? null);
       for (const workflow of workflowPage.items) {
         if (workflow.status === "running") monitorWorkflow(workflow.id);
       }
@@ -490,6 +522,83 @@ export default function StudioScreen() {
     }, true);
   }
 
+  function positiveInteger(value: string): number | null {
+    const parsed = Number(value);
+    return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
+  }
+
+  async function createFinanceWorkspace() {
+    const initialCash = positiveInteger(financeCash);
+    if (financeName.trim().length === 0 || !/^[A-Z]{3}$/.test(financeCurrency) || initialCash === null) return;
+    await perform("Creating paper workspace", async (signal) => {
+      const workspace = await connectedClient.createFinanceWorkspace({
+        name: financeName.trim(),
+        base_currency: financeCurrency,
+        initial_cash_minor: initialCash,
+        max_order_bps: 1_000,
+        max_position_bps: 2_500,
+      }, signal);
+      setFinanceWorkspaces((current) => [workspace, ...current]);
+      setSelectedFinanceId(workspace.id);
+      setFinanceName("");
+      setFinanceCash("");
+    });
+  }
+
+  function replaceFinanceWorkspace(workspace: FinanceWorkspace) {
+    setFinanceWorkspaces((current) => [workspace, ...current.filter((item) => item.id !== workspace.id)]);
+    setSelectedFinanceId(workspace.id);
+  }
+
+  async function addFinanceWatchItem() {
+    if (selectedFinance === null || marketSymbol.trim().length === 0 || marketDisplayName.trim().length === 0) return;
+    await perform("Adding watch item", async (signal) => {
+      replaceFinanceWorkspace(await connectedClient.addMarketWatchItem(selectedFinance.id, {
+        asset_class: marketAssetClass,
+        symbol: marketSymbol.trim().toUpperCase(),
+        display_name: marketDisplayName.trim(),
+      }, signal));
+      setMarketDisplayName("");
+    });
+  }
+
+  async function runFinanceResearch() {
+    if (selectedFinance === null || marketSymbol.trim().length === 0 || marketSource.trim().length === 0 || marketFact.trim().length === 0) return;
+    await perform("Running grounded market research", async (signal) => {
+      await connectedClient.runMarketResearch(selectedFinance.id, {
+        kind: "research",
+        asset_class: marketAssetClass,
+        subject: marketSymbol.trim().toUpperCase(),
+        source_reference: marketSource.trim(),
+        source_facts: [{ source_reference: marketSource.trim(), fact: marketFact.trim() }],
+      }, signal);
+      replaceFinanceWorkspace(await connectedClient.getFinanceWorkspace(selectedFinance.id, signal));
+      setMarketFact("");
+    }, true);
+  }
+
+  async function executePaperOrder() {
+    const quantity = positiveInteger(paperQuantity);
+    const price = positiveInteger(paperPrice);
+    if (selectedFinance === null || quantity === null || price === null || marketSymbol.trim().length === 0 || marketSource.trim().length === 0) return;
+    await perform("Executing confirmed paper order", async (signal) => {
+      await connectedClient.executePaperOrder(selectedFinance.id, {
+        execution_mode: "paper",
+        asset_class: marketAssetClass,
+        symbol: marketSymbol.trim().toUpperCase(),
+        side: "buy",
+        quantity_micros: quantity,
+        price_minor: price,
+        observed_at: new Date().toISOString(),
+        source_reference: marketSource.trim(),
+        owner_confirmed: true,
+      }, signal);
+      replaceFinanceWorkspace(await connectedClient.getFinanceWorkspace(selectedFinance.id, signal));
+      setPaperQuantity("");
+      setPaperPrice("");
+    }, true);
+  }
+
   async function showImage(assetId: string, signal: AbortSignal) {
     const cached = cachePrivateMedia(await connectedClient.downloadAsset(assetId, signal));
     replaceCache(imageCache, cached);
@@ -694,6 +803,45 @@ export default function StudioScreen() {
             </View>}
             {campaign.analytics !== null && <Text selectable style={styles.codeText}>{JSON.stringify(campaign.analytics, null, 2)}</Text>}
           </View>)}
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.eyebrow}>FINANCE INTELLIGENCE</Text>
+          <Text accessibilityRole="header" style={styles.heading}>Grounded paper market lab</Text>
+          <Text style={styles.muted}>Owner-supplied sources only. Orders are simulations; live brokers remain an external dependency.</Text>
+          {financeWorkspaces.length === 0 ? <>
+            <TextInput accessibilityLabel="Finance workspace name" maxLength={120} value={financeName} onChangeText={setFinanceName} placeholder="Paper portfolio name" placeholderTextColor={colors.subtle} style={styles.input} />
+            <TextInput accessibilityLabel="Finance base currency" autoCapitalize="characters" maxLength={3} value={financeCurrency} onChangeText={(value) => setFinanceCurrency(value.toUpperCase())} placeholder="USD" placeholderTextColor={colors.subtle} style={styles.input} />
+            <TextInput accessibilityLabel="Initial paper cash in minor units" keyboardType="number-pad" value={financeCash} onChangeText={setFinanceCash} placeholder="Initial cash, minor units" placeholderTextColor={colors.subtle} style={styles.input} />
+            <Pressable accessibilityRole="button" disabled={busyAction !== null || financeName.trim().length === 0 || positiveInteger(financeCash) === null || !/^[A-Z]{3}$/.test(financeCurrency)} style={[styles.primaryButton, busyAction !== null && styles.disabled]} onPress={() => void createFinanceWorkspace()}><Text style={styles.primaryButtonText}>Create paper workspace</Text></Pressable>
+          </> : <>
+            <ScrollView horizontal contentContainerStyle={styles.chipRow}>
+              {financeWorkspaces.map((workspace) => <Pressable accessibilityRole="button" accessibilityState={{ selected: selectedFinance?.id === workspace.id }} key={workspace.id} style={[styles.chip, selectedFinance?.id === workspace.id && styles.selectedChip]} onPress={() => setSelectedFinanceId(workspace.id)}><Text style={styles.chipText}>{workspace.name}</Text></Pressable>)}
+            </ScrollView>
+            {selectedFinance !== null && <>
+              <View style={styles.result}>
+                <Text style={styles.itemLabel}>Paper mode · live broker external</Text>
+                <Text style={styles.itemText}>{selectedFinance.cash_minor} {selectedFinance.base_currency} minor units</Text>
+                <Text style={styles.detail}>{selectedFinance.positions.length} position(s) · {selectedFinance.orders.length} order(s) · {selectedFinance.artifacts.length} verified artifact(s)</Text>
+              </View>
+              <Text style={styles.itemLabel}>Asset</Text>
+              <ScrollView horizontal contentContainerStyle={styles.chipRow}>
+                {marketAssetClasses.map((assetClass) => <Pressable accessibilityRole="button" accessibilityState={{ selected: marketAssetClass === assetClass }} key={assetClass} style={[styles.chip, marketAssetClass === assetClass && styles.selectedChip]} onPress={() => setMarketAssetClass(assetClass)}><Text style={styles.chipText}>{assetClass.replaceAll("_", " ")}</Text></Pressable>)}
+              </ScrollView>
+              <TextInput accessibilityLabel="Market symbol" autoCapitalize="characters" maxLength={24} value={marketSymbol} onChangeText={(value) => setMarketSymbol(value.toUpperCase())} placeholder="Symbol, e.g. AAPL" placeholderTextColor={colors.subtle} style={styles.input} />
+              <TextInput accessibilityLabel="Market display name" maxLength={120} value={marketDisplayName} onChangeText={setMarketDisplayName} placeholder="Watchlist display name" placeholderTextColor={colors.subtle} style={styles.input} />
+              <Pressable accessibilityRole="button" disabled={busyAction !== null || marketSymbol.trim().length === 0 || marketDisplayName.trim().length === 0} style={styles.secondaryButton} onPress={() => void addFinanceWatchItem()}><Text style={styles.buttonText}>Add to watchlist</Text></Pressable>
+              {selectedFinance.watch_items.map((item) => <Text key={item.id} style={styles.detail}>{item.asset_class.replaceAll("_", " ")} · {item.symbol} · {item.display_name}</Text>)}
+              <TextInput accessibilityLabel="Market source reference" maxLength={512} value={marketSource} onChangeText={setMarketSource} placeholder="Source or dataset reference" placeholderTextColor={colors.subtle} style={styles.input} />
+              <TextInput accessibilityLabel="Grounded market fact" multiline maxLength={2_000} value={marketFact} onChangeText={setMarketFact} placeholder="Fact from that source" placeholderTextColor={colors.subtle} style={styles.textArea} />
+              <Pressable accessibilityRole="button" disabled={busyAction !== null || marketSymbol.trim().length === 0 || marketSource.trim().length === 0 || marketFact.trim().length === 0} style={styles.primaryButton} onPress={() => void runFinanceResearch()}><Text style={styles.primaryButtonText}>Run verified research</Text></Pressable>
+              <TextInput accessibilityLabel="Paper quantity in micro units" keyboardType="number-pad" value={paperQuantity} onChangeText={setPaperQuantity} placeholder="Quantity, micro-units" placeholderTextColor={colors.subtle} style={styles.input} />
+              <TextInput accessibilityLabel="Paper quote in minor units" keyboardType="number-pad" value={paperPrice} onChangeText={setPaperPrice} placeholder="Observed price, minor units" placeholderTextColor={colors.subtle} style={styles.input} />
+              <Text style={styles.warning}>The next action confirms a paper-only buy. It cannot place a broker order.</Text>
+              <Pressable accessibilityRole="button" disabled={busyAction !== null || positiveInteger(paperQuantity) === null || positiveInteger(paperPrice) === null || marketSymbol.trim().length === 0 || marketSource.trim().length === 0} style={styles.secondaryButton} onPress={() => void executePaperOrder()}><Text style={styles.buttonText}>Confirm & submit paper buy</Text></Pressable>
+              {selectedFinance.artifacts.slice(0, 5).map((artifact) => <View key={artifact.id} style={styles.result}><Text style={styles.itemLabel}>{artifact.kind} · verified</Text><Text style={styles.detail}>{artifact.model_id} · {artifact.source_reference}</Text><Text selectable style={styles.itemText}>{artifact.output}</Text></View>)}
+            </>}
+          </>}
         </View>
 
         <View style={styles.card}>

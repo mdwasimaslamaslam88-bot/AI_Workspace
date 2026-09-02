@@ -993,6 +993,47 @@ textarea {
   white-space: pre-wrap;
 }
 
+.finance-panel .workflow-form {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.finance-panel .workflow-form > label {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.finance-panel .workflow-form > button,
+.finance-panel .workflow-form > .notice {
+  grid-column: 1 / -1;
+}
+
+.finance-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 0.8rem;
+  background: var(--panel-soft);
+  padding: 0.8rem;
+}
+
+.finance-summary > span {
+  color: var(--muted);
+}
+
+.finance-panel details pre {
+  max-height: 18rem;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+
+@media (max-width: 720px) {
+  .finance-panel .workflow-form {
+    grid-template-columns: 1fr;
+  }
+}
+
 .mission-activity {
   display: grid;
   gap: 0.25rem;

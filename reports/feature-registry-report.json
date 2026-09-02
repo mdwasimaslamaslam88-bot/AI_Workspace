@@ -2877,255 +2877,291 @@
       "ui_entry_point": "/workspaces/marketing#crm-workflow-planning"
     },
     {
-      "backend_capability": "research_and_analysis_agent",
+      "backend_capability": "market_intelligence_service",
       "category": "Market intelligence",
       "dependencies": [
         "verified_local_model",
-        "configured_data_source"
+        "database",
+        "owner_supplied_market_sources"
       ],
       "description": "Indian stock research exposed through the existing authenticated market intelligence capability.",
       "id": "universal_workspace.indian_stock_research",
       "layer": "universal_workspace",
       "required_permissions": [
         "owner_session",
-        "network_research"
+        "model_inference"
       ],
       "status": "implemented",
       "test_coverage": [
-        "contract:feature_registry",
-        "agent:data_verifier"
+        "backend:test_finance_api",
+        "backend:test_finance_postgres",
+        "web:finance_panel",
+        "mobile:studio"
       ],
       "title": "Indian stock research",
       "ui_entry_point": "/workspaces/finance#indian-stock-research"
     },
     {
-      "backend_capability": "research_and_analysis_agent",
+      "backend_capability": "market_intelligence_service",
       "category": "Market intelligence",
       "dependencies": [
         "verified_local_model",
-        "configured_data_source"
+        "database",
+        "owner_supplied_market_sources"
       ],
       "description": "Global stock research exposed through the existing authenticated market intelligence capability.",
       "id": "universal_workspace.global_stock_research",
       "layer": "universal_workspace",
       "required_permissions": [
         "owner_session",
-        "network_research"
+        "model_inference"
       ],
       "status": "implemented",
       "test_coverage": [
-        "contract:feature_registry",
-        "agent:data_verifier"
+        "backend:test_finance_api",
+        "backend:test_finance_postgres",
+        "web:finance_panel",
+        "mobile:studio"
       ],
       "title": "Global stock research",
       "ui_entry_point": "/workspaces/finance#global-stock-research"
     },
     {
-      "backend_capability": "research_and_analysis_agent",
+      "backend_capability": "market_intelligence_service",
       "category": "Market intelligence",
       "dependencies": [
         "verified_local_model",
-        "configured_data_source"
+        "database",
+        "owner_supplied_market_sources"
       ],
       "description": "Crypto research exposed through the existing authenticated market intelligence capability.",
       "id": "universal_workspace.crypto_research",
       "layer": "universal_workspace",
       "required_permissions": [
         "owner_session",
-        "network_research"
+        "model_inference"
       ],
       "status": "implemented",
       "test_coverage": [
-        "contract:feature_registry",
-        "agent:data_verifier"
+        "backend:test_finance_api",
+        "backend:test_finance_postgres",
+        "web:finance_panel",
+        "mobile:studio"
       ],
       "title": "Crypto research",
       "ui_entry_point": "/workspaces/finance#crypto-research"
     },
     {
-      "backend_capability": "research_and_analysis_agent",
+      "backend_capability": "market_intelligence_service",
       "category": "Market intelligence",
       "dependencies": [
         "verified_local_model",
-        "configured_data_source"
+        "database",
+        "owner_supplied_market_sources"
       ],
       "description": "FX research exposed through the existing authenticated market intelligence capability.",
       "id": "universal_workspace.fx_research",
       "layer": "universal_workspace",
       "required_permissions": [
         "owner_session",
-        "network_research"
+        "model_inference"
       ],
       "status": "implemented",
       "test_coverage": [
-        "contract:feature_registry",
-        "agent:data_verifier"
+        "backend:test_finance_api",
+        "backend:test_finance_postgres",
+        "web:finance_panel",
+        "mobile:studio"
       ],
       "title": "FX research",
       "ui_entry_point": "/workspaces/finance#fx-research"
     },
     {
-      "backend_capability": "research_and_analysis_agent",
+      "backend_capability": "market_intelligence_service",
       "category": "Market intelligence",
       "dependencies": [
         "verified_local_model",
-        "configured_data_source"
+        "database",
+        "owner_supplied_market_sources"
       ],
       "description": "Portfolio analysis exposed through the existing authenticated market intelligence capability.",
       "id": "universal_workspace.portfolio_analysis",
       "layer": "universal_workspace",
       "required_permissions": [
         "owner_session",
-        "network_research"
+        "model_inference"
       ],
       "status": "implemented",
       "test_coverage": [
-        "contract:feature_registry",
-        "agent:data_verifier"
+        "backend:test_finance_api",
+        "backend:test_finance_postgres",
+        "web:finance_panel",
+        "mobile:studio"
       ],
       "title": "Portfolio analysis",
       "ui_entry_point": "/workspaces/finance#portfolio-analysis"
     },
     {
-      "backend_capability": "research_and_analysis_agent",
+      "backend_capability": "market_intelligence_service",
       "category": "Market intelligence",
       "dependencies": [
         "verified_local_model",
-        "configured_data_source"
+        "database",
+        "owner_supplied_market_sources"
       ],
       "description": "Market research exposed through the existing authenticated market intelligence capability.",
       "id": "universal_workspace.market_research",
       "layer": "universal_workspace",
       "required_permissions": [
         "owner_session",
-        "network_research"
+        "model_inference"
       ],
       "status": "implemented",
       "test_coverage": [
-        "contract:feature_registry",
-        "agent:data_verifier"
+        "backend:test_finance_api",
+        "backend:test_finance_postgres",
+        "web:finance_panel",
+        "mobile:studio"
       ],
       "title": "Market research",
       "ui_entry_point": "/workspaces/finance#market-research"
     },
     {
-      "backend_capability": "research_and_analysis_agent",
+      "backend_capability": "market_intelligence_service",
       "category": "Market intelligence",
       "dependencies": [
         "verified_local_model",
-        "configured_data_source"
+        "database",
+        "owner_supplied_market_sources"
       ],
       "description": "Risk analytics exposed through the existing authenticated market intelligence capability.",
       "id": "universal_workspace.risk_analytics",
       "layer": "universal_workspace",
       "required_permissions": [
         "owner_session",
-        "network_research"
+        "model_inference"
       ],
       "status": "implemented",
       "test_coverage": [
-        "contract:feature_registry",
-        "agent:data_verifier"
+        "backend:test_finance_api",
+        "backend:test_finance_postgres",
+        "web:finance_panel",
+        "mobile:studio"
       ],
       "title": "Risk analytics",
       "ui_entry_point": "/workspaces/finance#risk-analytics"
     },
     {
-      "backend_capability": "market_workspace_roadmap",
+      "backend_capability": "market_workspace_service",
       "category": "Market operations",
       "dependencies": [
-        "market_workspace_persistence_and_simulation"
+        "database",
+        "owner_supplied_market_sources"
       ],
-      "description": "Visible market watchlists contract with an explicit implementation boundary; the UI must not present it as executable.",
+      "description": "Market watchlists exposed through the existing authenticated market operations capability.",
       "id": "universal_workspace.watchlists",
       "layer": "universal_workspace",
       "required_permissions": [
         "owner_session"
       ],
-      "status": "planned",
+      "status": "implemented",
       "test_coverage": [
-        "contract:feature_registry",
-        "manual:documented_gap"
+        "backend:test_finance_api",
+        "backend:test_finance_postgres",
+        "web:finance_panel",
+        "mobile:studio"
       ],
       "title": "Market watchlists",
       "ui_entry_point": "/workspaces/finance#watchlists"
     },
     {
-      "backend_capability": "market_workspace_roadmap",
+      "backend_capability": "market_workspace_service",
       "category": "Market operations",
       "dependencies": [
-        "market_workspace_persistence_and_simulation"
+        "database",
+        "owner_supplied_market_sources"
       ],
-      "description": "Visible market alerts contract with an explicit implementation boundary; the UI must not present it as executable.",
+      "description": "Market alerts exposed through the existing authenticated market operations capability.",
       "id": "universal_workspace.alerts",
       "layer": "universal_workspace",
       "required_permissions": [
         "owner_session"
       ],
-      "status": "planned",
+      "status": "implemented",
       "test_coverage": [
-        "contract:feature_registry",
-        "manual:documented_gap"
+        "backend:test_finance_api",
+        "backend:test_finance_postgres",
+        "web:finance_panel",
+        "mobile:studio"
       ],
       "title": "Market alerts",
       "ui_entry_point": "/workspaces/finance#alerts"
     },
     {
-      "backend_capability": "market_workspace_roadmap",
+      "backend_capability": "market_workspace_service",
       "category": "Market operations",
       "dependencies": [
-        "market_workspace_persistence_and_simulation"
+        "database",
+        "owner_supplied_market_sources"
       ],
-      "description": "Visible strategy backtesting contract with an explicit implementation boundary; the UI must not present it as executable.",
+      "description": "Strategy backtesting exposed through the existing authenticated market operations capability.",
       "id": "universal_workspace.strategy_backtesting",
       "layer": "universal_workspace",
       "required_permissions": [
         "owner_session"
       ],
-      "status": "planned",
+      "status": "implemented",
       "test_coverage": [
-        "contract:feature_registry",
-        "manual:documented_gap"
+        "backend:test_finance_api",
+        "backend:test_finance_postgres",
+        "web:finance_panel",
+        "mobile:studio"
       ],
       "title": "Strategy backtesting",
       "ui_entry_point": "/workspaces/finance#strategy-backtesting"
     },
     {
-      "backend_capability": "market_workspace_roadmap",
+      "backend_capability": "market_workspace_service",
       "category": "Market operations",
       "dependencies": [
-        "market_workspace_persistence_and_simulation"
+        "database",
+        "owner_supplied_market_sources"
       ],
-      "description": "Visible paper trading contract with an explicit implementation boundary; the UI must not present it as executable.",
+      "description": "Paper trading exposed through the existing authenticated market operations capability.",
       "id": "universal_workspace.paper_trading",
       "layer": "universal_workspace",
       "required_permissions": [
         "owner_session"
       ],
-      "status": "planned",
+      "status": "implemented",
       "test_coverage": [
-        "contract:feature_registry",
-        "manual:documented_gap"
+        "backend:test_finance_api",
+        "backend:test_finance_postgres",
+        "web:finance_panel",
+        "mobile:studio"
       ],
       "title": "Paper trading",
       "ui_entry_point": "/workspaces/finance#paper-trading"
     },
     {
-      "backend_capability": "market_workspace_roadmap",
+      "backend_capability": "market_workspace_service",
       "category": "Market operations",
       "dependencies": [
-        "market_workspace_persistence_and_simulation"
+        "database",
+        "owner_supplied_market_sources"
       ],
-      "description": "Visible trading journal contract with an explicit implementation boundary; the UI must not present it as executable.",
+      "description": "Trading journal exposed through the existing authenticated market operations capability.",
       "id": "universal_workspace.trading_journal",
       "layer": "universal_workspace",
       "required_permissions": [
         "owner_session"
       ],
-      "status": "planned",
+      "status": "implemented",
       "test_coverage": [
-        "contract:feature_registry",
-        "manual:documented_gap"
+        "backend:test_finance_api",
+        "backend:test_finance_postgres",
+        "web:finance_panel",
+        "mobile:studio"
       ],
       "title": "Trading journal",
       "ui_entry_point": "/workspaces/finance#trading-journal"
@@ -5148,12 +5184,12 @@
     "universal_workspace": 62
   },
   "product": "AI OS",
-  "registry_sha256": "b54d5fcd001943032405e1c5c752acc52501e868a608167e51d61ca20131c574",
+  "registry_sha256": "2290af549cfad90310e6fbbf7c8afd8a7e1bc153dcfe0cefdcb7c7e83c817086",
   "schema_version": 1,
   "statuses": {
     "external_dependency": 40,
-    "implemented": 178,
-    "planned": 10,
+    "implemented": 183,
+    "planned": 5,
     "runtime_dependent": 17
   },
   "total": 245,

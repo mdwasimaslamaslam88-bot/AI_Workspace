@@ -33,6 +33,7 @@ from app.db.session import create_session_factory
 from app.hardware import HardwareCapabilityService, detect_hardware
 from app.hardware.planner import GIBIBYTE
 from app.external_ai import EncryptedProviderVault, ExternalAIService
+from app.finance.verification import verify_grounded_market_output
 from app.maintenance import SelfUpdateManager
 from app.marketing import MarketingCampaignRunner, OrchestratedMarketingAgent
 from app.runtimes.configured_media import (
@@ -407,7 +408,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 )
                 for kind in agent_specialist_kinds
             ),
-            IndependentVerificationEngine(),
+            IndependentVerificationEngine(
+                objective_verifiers=(verify_grounded_market_output,)
+            ),
             max_active=2,
         )
         app.state.agent_run_manager = AgentRunManager(

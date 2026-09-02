@@ -51,6 +51,33 @@ def test_feature_registry_is_complete_and_honest():
             assert feature.backend_capability
 
 
+def test_finance_registry_exposes_local_paper_workflows_without_promoting_brokers():
+    records = {feature.id: feature for feature in FEATURE_REGISTRY}
+    for identifier in (
+        "universal_workspace.indian_stock_research",
+        "universal_workspace.global_stock_research",
+        "universal_workspace.crypto_research",
+        "universal_workspace.fx_research",
+        "universal_workspace.portfolio_analysis",
+        "universal_workspace.risk_analytics",
+        "universal_workspace.watchlists",
+        "universal_workspace.alerts",
+        "universal_workspace.strategy_backtesting",
+        "universal_workspace.paper_trading",
+        "universal_workspace.trading_journal",
+    ):
+        assert records[identifier].status == "implemented"
+        assert "backend:test_finance_api" in records[identifier].test_coverage
+    for identifier in (
+        "apps_hub.broker_integration",
+        "apps_hub.live_order_execution",
+        "apps_hub.order_risk_confirmation",
+        "apps_hub.broker_permission_enforcement",
+    ):
+        assert records[identifier].status == "external_dependency"
+        assert "broker_account" in records[identifier].dependencies
+
+
 def test_feature_registry_requires_authentication():
     session = AsyncMock(spec=AsyncSession)
 

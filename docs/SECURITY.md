@@ -111,6 +111,15 @@ digest, and publishing is a separate direct owner action after the persisted
 metadata. Analytics are validated and computed only after owner lookup, so a
 foreign campaign identity cannot be used as a validation oracle.
 
+Finance research agents likewise receive only model inference and treat every
+owner-supplied market fact as untrusted data. Composite owner foreign keys bind
+the complete finance graph. Prices, quantities, source references, histories,
+fees, and risk limits are bounded in both API and PostgreSQL contracts. The
+public finance API accepts only the literal `paper` execution mode and has no
+broker endpoint. Unconfirmed or policy-exceeding simulations are persisted as
+rejections; source-linked research is persisted only with verifier digest and
+model evidence. Live broker access remains a separate external boundary.
+
 The process retains at most 512 metadata-only containment events for repeated
 authentication failure, rate limiting, oversized bodies and unexpected error
 containment. Authenticated diagnostics return only event kind and timestamp;

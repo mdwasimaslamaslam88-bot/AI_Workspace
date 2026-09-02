@@ -71,76 +71,6 @@
       "ui_state": "disabled_documented_gap"
     },
     {
-      "backend_state": "planned_contract_only",
-      "category": "Market operations",
-      "code": "planned_implementation",
-      "dependencies": [
-        "market_workspace_persistence_and_simulation"
-      ],
-      "id": "universal_workspace.alerts",
-      "layer": "universal_workspace",
-      "locally_actionable": true,
-      "priority": "P1",
-      "status": "planned",
-      "ui_state": "disabled_documented_gap"
-    },
-    {
-      "backend_state": "planned_contract_only",
-      "category": "Market operations",
-      "code": "planned_implementation",
-      "dependencies": [
-        "market_workspace_persistence_and_simulation"
-      ],
-      "id": "universal_workspace.paper_trading",
-      "layer": "universal_workspace",
-      "locally_actionable": true,
-      "priority": "P1",
-      "status": "planned",
-      "ui_state": "disabled_documented_gap"
-    },
-    {
-      "backend_state": "planned_contract_only",
-      "category": "Market operations",
-      "code": "planned_implementation",
-      "dependencies": [
-        "market_workspace_persistence_and_simulation"
-      ],
-      "id": "universal_workspace.strategy_backtesting",
-      "layer": "universal_workspace",
-      "locally_actionable": true,
-      "priority": "P1",
-      "status": "planned",
-      "ui_state": "disabled_documented_gap"
-    },
-    {
-      "backend_state": "planned_contract_only",
-      "category": "Market operations",
-      "code": "planned_implementation",
-      "dependencies": [
-        "market_workspace_persistence_and_simulation"
-      ],
-      "id": "universal_workspace.trading_journal",
-      "layer": "universal_workspace",
-      "locally_actionable": true,
-      "priority": "P1",
-      "status": "planned",
-      "ui_state": "disabled_documented_gap"
-    },
-    {
-      "backend_state": "planned_contract_only",
-      "category": "Market operations",
-      "code": "planned_implementation",
-      "dependencies": [
-        "market_workspace_persistence_and_simulation"
-      ],
-      "id": "universal_workspace.watchlists",
-      "layer": "universal_workspace",
-      "locally_actionable": true,
-      "priority": "P1",
-      "status": "planned",
-      "ui_state": "disabled_documented_gap"
-    },
-    {
       "backend_state": "external_boundary",
       "category": "Realtime communications",
       "code": "external_dependency",
@@ -1003,7 +933,7 @@
     }
   ],
   "product": "AI OS",
-  "registry_sha256": "b54d5fcd001943032405e1c5c752acc52501e868a608167e51d61ca20131c574",
+  "registry_sha256": "2290af549cfad90310e6fbbf7c8afd8a7e1bc153dcfe0cefdcb7c7e83c817086",
   "schema_version": 1,
   "summary": {
     "broken_registry_wiring": 0,
@@ -1011,7 +941,7 @@
     "missing_backend_contracts": 0,
     "missing_coverage_records": 0,
     "missing_ui_paths": 0,
-    "planned_gaps": 10,
+    "planned_gaps": 5,
     "runtime_gates": 17
   }
 }

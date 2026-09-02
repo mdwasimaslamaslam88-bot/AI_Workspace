@@ -16,7 +16,7 @@ from app.agent_os.contracts import (
 
 ObjectiveVerifier = Callable[
     [AgentPlanStep, AgentExecution],
-    Awaitable[VerificationCheck],
+    Awaitable[VerificationCheck | None],
 ]
 
 
@@ -65,19 +65,12 @@ class IndependentVerificationEngine:
         ]
         for artifact in execution.artifacts:
             checks.append(self._verify_artifact(artifact))
-        if step.requires_objective_evidence and not (
-            execution.evidence_codes or self.objective_verifiers
-        ):
-            checks.append(
-                VerificationCheck(
-                    check_id="objective-evidence",
-                    passed=False,
-                    failure=VerificationFailure.EVIDENCE_MISSING,
-                )
-            )
+        objective_checks: list[VerificationCheck] = []
         for index, verifier in enumerate(self.objective_verifiers, start=1):
             try:
                 result = await verifier(step, execution)
+                if result is None:
+                    continue
                 if not isinstance(result, VerificationCheck):
                     raise TypeError("objective verifier returned an invalid check")
             except Exception:
@@ -86,7 +79,18 @@ class IndependentVerificationEngine:
                     passed=False,
                     failure=VerificationFailure.VERIFIER_ERROR,
                 )
-            checks.append(result)
+            objective_checks.append(result)
+        checks.extend(objective_checks)
+        if step.requires_objective_evidence and not (
+            execution.evidence_codes or objective_checks
+        ):
+            checks.append(
+                VerificationCheck(
+                    check_id="objective-evidence",
+                    passed=False,
+                    failure=VerificationFailure.EVIDENCE_MISSING,
+                )
+            )
         return VerificationReport(
             passed=all(check.passed for check in checks),
             checks=tuple(checks),

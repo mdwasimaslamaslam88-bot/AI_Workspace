@@ -15,6 +15,20 @@ from app.models.connector import (
     ConnectorKind,
 )
 from app.models.document import Document, DocumentChunk, DocumentStatus
+from app.models.finance import (
+    FinanceArtifact,
+    FinanceArtifactKind,
+    FinanceWorkspace,
+    MarketAlert,
+    MarketAlertCondition,
+    MarketAlertStatus,
+    MarketAssetClass,
+    MarketWatchItem,
+    PaperOrder,
+    PaperOrderSide,
+    PaperOrderStatus,
+    PaperPosition,
+)
 from app.models.message import Message, MessageRole
 from app.models.message_asset import MessageAsset
 from app.models.message_citation import MessageCitation
@@ -45,6 +59,18 @@ __all__ = [
     "Document",
     "DocumentChunk",
     "DocumentStatus",
+    "FinanceArtifact",
+    "FinanceArtifactKind",
+    "FinanceWorkspace",
+    "MarketAlert",
+    "MarketAlertCondition",
+    "MarketAlertStatus",
+    "MarketAssetClass",
+    "MarketWatchItem",
+    "PaperOrder",
+    "PaperOrderSide",
+    "PaperOrderStatus",
+    "PaperPosition",
     "Message",
     "MessageAsset",
     "MessageCitation",
