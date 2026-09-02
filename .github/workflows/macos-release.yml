@@ -1,0 +1,63 @@
+name: macOS release artifact
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: work-station-macos-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - name: Check out release source
+        uses: actions/checkout@v6
+
+      - name: Configure Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install JavaScript dependencies
+        run: npm ci
+
+      - name: Configure stable Rust
+        shell: bash
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+          printf 'RUSTFLAGS=--remap-path-prefix=%s=workspace --remap-path-prefix=%s=cargo-registry\n' \
+            "$GITHUB_WORKSPACE" "$HOME/.cargo" >>"$GITHUB_ENV"
+
+      - name: Validate shared and web clients
+        run: |
+          npm run typecheck --workspace @work-station/shared
+          npm run test --workspace @work-station/web
+          npm run typecheck --workspace @work-station/web
+          npm run lint --workspace @work-station/web
+          npm run build --workspace @work-station/web
+
+      - name: Validate desktop source
+        run: |
+          npm run typecheck --workspace @work-station/desktop
+          cargo test --locked --manifest-path apps/desktop/src-tauri/Cargo.toml
+
+      - name: Build macOS application and DMG
+        run: npm run build --workspace @work-station/desktop
+
+      - name: Inspect and smoke-test macOS artifacts
+        run: bash ./scripts/validate_macos_artifact.sh release-macos
+
+      - name: Upload verified macOS artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: Work_Station_macOS
+          path: release-macos/
+          if-no-files-found: error
+          retention-days: 14
