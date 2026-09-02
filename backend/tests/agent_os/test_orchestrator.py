@@ -106,7 +106,12 @@ async def test_orchestrator_retries_with_an_alternate_model_after_failed_verific
         IndependentVerificationEngine(),
     )
 
-    result = await orchestrator.run(_request(max_retries=1))
+    lifecycle = []
+
+    async def report(update):
+        lifecycle.append(update)
+
+    result = await orchestrator.run(_request(max_retries=1), lifecycle=report)
 
     assert result.status is AgentRunStatus.COMPLETED
     assert [attempt.model_id for attempt in result.attempts] == [
@@ -119,6 +124,18 @@ async def test_orchestrator_retries_with_an_alternate_model_after_failed_verific
     assert selector.select.await_args_list[1].kwargs["excluded_model_ids"] == {
         MODEL_ONE
     }
+    assert [update.status for update in lifecycle] == [
+        AgentRunStatus.PLANNING,
+        AgentRunStatus.PLANNING,
+        AgentRunStatus.RUNNING,
+        AgentRunStatus.VERIFYING,
+        AgentRunStatus.RETRYING,
+        AgentRunStatus.RUNNING,
+        AgentRunStatus.VERIFYING,
+    ]
+    assert lifecycle[1].plan is not None
+    assert lifecycle[2].model_id == MODEL_ONE
+    assert lifecycle[-1].model_id == MODEL_TWO
 
 
 @pytest.mark.asyncio

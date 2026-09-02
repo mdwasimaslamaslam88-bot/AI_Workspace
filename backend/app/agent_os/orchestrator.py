@@ -9,6 +9,8 @@ from typing import Protocol, runtime_checkable
 from app.agent_os.contracts import (
     AgentAttempt,
     AgentExecution,
+    AgentLifecycleReporter,
+    AgentLifecycleUpdate,
     AgentKind,
     AgentPlan,
     AgentPlanStep,
@@ -325,13 +327,21 @@ class AgentOrchestrator:
     def registered_specialists(self) -> tuple[AgentKind, ...]:
         return tuple(kind for kind in AgentKind if kind in self._specialists)
 
-    async def run(self, request: AgentRunRequest) -> AgentRunResult:
+    async def run(
+        self,
+        request: AgentRunRequest,
+        lifecycle: AgentLifecycleReporter | None = None,
+    ) -> AgentRunResult:
         if not isinstance(request, AgentRunRequest):
             raise TypeError("orchestrator requires an AgentRunRequest")
         try:
             async with asyncio.timeout(request.deadline_seconds):
                 async with self._admission:
-                    return await self._run_bounded(request)
+                    await self._report(
+                        lifecycle,
+                        AgentLifecycleUpdate(status=AgentRunStatus.PLANNING),
+                    )
+                    return await self._run_bounded(request, lifecycle)
         except TimeoutError:
             return AgentRunResult(
                 status=AgentRunStatus.TIMED_OUT,
@@ -343,10 +353,26 @@ class AgentOrchestrator:
         except asyncio.CancelledError:
             raise
 
-    async def _run_bounded(self, request: AgentRunRequest) -> AgentRunResult:
+    @staticmethod
+    async def _report(
+        lifecycle: AgentLifecycleReporter | None,
+        update: AgentLifecycleUpdate,
+    ) -> None:
+        if lifecycle is not None:
+            await lifecycle(update)
+
+    async def _run_bounded(
+        self,
+        request: AgentRunRequest,
+        lifecycle: AgentLifecycleReporter | None,
+    ) -> AgentRunResult:
         try:
             plan = await self.planner.plan(request)
             self.policy.authorize(plan)
+            await self._report(
+                lifecycle,
+                AgentLifecycleUpdate(status=AgentRunStatus.PLANNING, plan=plan),
+            )
         except AgentPermissionDeniedError:
             return AgentRunResult(
                 status=AgentRunStatus.FAILED,
@@ -377,6 +403,17 @@ class AgentOrchestrator:
                         required_context_tokens=request.required_context_tokens,
                         excluded_model_ids=frozenset(excluded),
                     )
+                    await self._report(
+                        lifecycle,
+                        AgentLifecycleUpdate(
+                            status=AgentRunStatus.RUNNING,
+                            plan=plan,
+                            step_id=step.step_id,
+                            attempt=attempt_number,
+                            agent=step.agent,
+                            model_id=model.model_id,
+                        ),
+                    )
                     execution = await specialist.execute(
                         AgentExecutionContext(
                             goal=request.goal,
@@ -384,6 +421,17 @@ class AgentOrchestrator:
                             model=model,
                             attempt=attempt_number,
                         )
+                    )
+                    await self._report(
+                        lifecycle,
+                        AgentLifecycleUpdate(
+                            status=AgentRunStatus.VERIFYING,
+                            plan=plan,
+                            step_id=step.step_id,
+                            attempt=attempt_number,
+                            agent=step.agent,
+                            model_id=model.model_id,
+                        ),
                     )
                     report = await self.verifier.verify(step, execution)
                 except (
@@ -414,6 +462,18 @@ class AgentOrchestrator:
                     )
                     if model is not None:
                         excluded.add(model.model_id)
+                    if attempt_number <= request.max_retries:
+                        await self._report(
+                            lifecycle,
+                            AgentLifecycleUpdate(
+                                status=AgentRunStatus.RETRYING,
+                                plan=plan,
+                                step_id=step.step_id,
+                                attempt=attempt_number,
+                                agent=step.agent,
+                                model_id=(model.model_id if model is not None else None),
+                            ),
+                        )
                     continue
                 attempts.append(
                     AgentAttempt(
@@ -428,6 +488,18 @@ class AgentOrchestrator:
                 if report.passed:
                     verified_execution = execution
                     break
+                if attempt_number <= request.max_retries:
+                    await self._report(
+                        lifecycle,
+                        AgentLifecycleUpdate(
+                            status=AgentRunStatus.RETRYING,
+                            plan=plan,
+                            step_id=step.step_id,
+                            attempt=attempt_number,
+                            agent=step.agent,
+                            model_id=model.model_id,
+                        ),
+                    )
             if verified_execution is None:
                 return AgentRunResult(
                     status=AgentRunStatus.FAILED,

@@ -79,4 +79,15 @@ describe("mobile accessibility contract", () => {
     expect(home).toContain("Requires an owner-configured communication provider");
     expect(home).toMatch(/accessibilityLabel="Call"[\s\S]{0,240}disabled/);
   });
+
+  it("connects text and locally transcribed voice to typed missions", () => {
+    const home = fs.readFileSync(
+      path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../src/app/index.tsx"),
+      "utf8",
+    );
+    expect(home).toContain('accessibilityLabel="Run as mission"');
+    expect(home).toContain("source: promptSource");
+    expect(home).toContain('setPromptSource("voice")');
+    expect(home).toContain('router.push("./agents")');
+  });
 });

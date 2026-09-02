@@ -349,6 +349,7 @@ describe("ChatView", () => {
       expect(blob.type).toBe("audio/webm;codecs=opus");
       return "A private local transcript";
     });
+    const onCreateMission = vi.fn(async () => undefined);
 
     try {
       render(
@@ -356,6 +357,7 @@ describe("ChatView", () => {
           {...baseProps}
           voiceInputAvailable
           onTranscribeVoice={onTranscribeVoice}
+          onCreateMission={onCreateMission}
         />,
       );
       await userEvent.click(screen.getByRole("button", { name: "Record voice" }));
@@ -370,6 +372,11 @@ describe("ChatView", () => {
           "A private local transcript",
         ),
       );
+      await userEvent.click(screen.getByRole("button", { name: "Run as mission" }));
+      expect(onCreateMission).toHaveBeenCalledWith(
+        "A private local transcript",
+        "voice",
+      );
       expect(track.stop).toHaveBeenCalledOnce();
     } finally {
       vi.unstubAllGlobals();
@@ -379,6 +386,25 @@ describe("ChatView", () => {
         Object.defineProperty(navigator, "mediaDevices", originalMediaDevices);
       }
     }
+  });
+
+  it("creates a typed text mission without sending a chat response", async () => {
+    const onCreateMission = vi.fn(async () => undefined);
+    const onGenerate = vi.fn(async () => undefined);
+    render(
+      <ChatView
+        {...baseProps}
+        onCreateMission={onCreateMission}
+        onGenerate={onGenerate}
+      />,
+    );
+
+    await userEvent.type(screen.getByLabelText("Message"), "Research this safely.");
+    await userEvent.click(screen.getByRole("button", { name: "Run as mission" }));
+
+    expect(onCreateMission).toHaveBeenCalledWith("Research this safely.", "text");
+    expect(onGenerate).not.toHaveBeenCalled();
+    expect(await screen.findByText(/Mission created/)).toBeVisible();
   });
 
   it("uploads bounded local audio and places its transcript in the draft", async () => {

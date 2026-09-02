@@ -3,7 +3,9 @@
 from app.agent_os.contracts import (
     AgentArtifact,
     AgentExecution,
+    AgentInputSource,
     AgentKind,
+    AgentLifecycleUpdate,
     AgentPermission,
     AgentPlan,
     AgentPlanStep,
@@ -22,13 +24,15 @@ from app.agent_os.orchestrator import (
     RuleBasedAgentPlanner,
 )
 from app.agent_os.policy import AgentPolicy
-from app.agent_os.runtime import AgentRunManager, AgentRunRecord
+from app.agent_os.runtime import AgentRunEventRecord, AgentRunManager, AgentRunRecord
 from app.agent_os.verification import IndependentVerificationEngine
 
 __all__ = [
     "AgentArtifact",
     "AgentExecution",
+    "AgentInputSource",
     "AgentKind",
+    "AgentLifecycleUpdate",
     "AgentOrchestrator",
     "AgentPermission",
     "AgentPlan",
@@ -37,6 +41,7 @@ __all__ = [
     "AgentRunRequest",
     "AgentRunResult",
     "AgentRunManager",
+    "AgentRunEventRecord",
     "AgentRunRecord",
     "AgentRunStatus",
     "IndependentVerificationEngine",

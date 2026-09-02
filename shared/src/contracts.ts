@@ -699,8 +699,30 @@ export interface AgentAttempt {
   checks: AgentVerificationCheck[];
 }
 
+export type AgentInputSource = "text" | "voice";
+
+export interface AgentPlanStep {
+  step_id: string;
+  agent: AgentKind;
+  task: ModelTask;
+  permissions: AgentPermission[];
+  requires_objective_evidence: boolean;
+}
+
+export interface AgentRunEvent {
+  sequence: number;
+  status: AgentRuntimeStatus;
+  created_at: string;
+  step_id: string | null;
+  attempt: number | null;
+  agent: AgentKind | null;
+  model_id: string | null;
+}
+
 export interface AgentRun {
   id: string;
+  goal: string;
+  source: AgentInputSource;
   task: ModelTask;
   specialist: AgentKind | null;
   status: AgentRuntimeStatus;
@@ -708,6 +730,8 @@ export interface AgentRun {
   updated_at: string;
   output: string | null;
   failure_code: string | null;
+  plan: AgentPlanStep[];
+  events: AgentRunEvent[];
   attempts: AgentAttempt[];
 }
 
@@ -716,6 +740,7 @@ export interface AgentRunPage { items: AgentRun[]; }
 export interface AgentRunCreateRequest {
   goal: string;
   task: ModelTask;
+  source?: AgentInputSource;
   specialist?: AgentKind;
   max_retries?: number;
   deadline_seconds?: number;
@@ -1027,6 +1052,7 @@ const agentRuntimeStatuses = [
   "cancelled",
   "timed_out",
 ] as const;
+const agentInputSources = ["text", "voice"] as const;
 const securityEventKinds = [
   "authentication_failure",
   "rate_limit_containment",
@@ -1614,7 +1640,7 @@ export function parseAgentOSCapabilities(value: unknown): AgentOSCapabilities {
   if (
     maxRetries === null || maxRetries < 0 || maxRetries > 2 ||
     maxDeadline === null || maxDeadline < 1 || maxDeadline > 600 ||
-    activeRuns === null || activeRuns < 0 || activeRuns > 8 ||
+    activeRuns === null || activeRuns < 0 || activeRuns > 100 ||
     maxConcurrency === null || maxConcurrency < 1 || maxConcurrency > 8
   ) return invalidResponse();
   return {
@@ -1629,7 +1655,47 @@ export function parseAgentOSCapabilities(value: unknown): AgentOSCapabilities {
 
 export function parseAgentRun(value: unknown): AgentRun {
   const item = record(value);
-  if (!Array.isArray(item.attempts) || item.attempts.length > 48) return invalidResponse();
+  if (
+    !Array.isArray(item.attempts) || item.attempts.length > 48 ||
+    !Array.isArray(item.plan) || item.plan.length > 16 ||
+    !Array.isArray(item.events) || item.events.length > 128
+  ) return invalidResponse();
+  const plan = item.plan.map((rawStep) => {
+    const step = record(rawStep);
+    if (!Array.isArray(step.permissions) || step.permissions.length > agentPermissions.length) return invalidResponse();
+    const permissions = step.permissions.map((permission) => enumField(permission, agentPermissions));
+    if (new Set(permissions).size !== permissions.length) return invalidResponse();
+    return {
+      step_id: stringField(step.step_id),
+      agent: enumField(step.agent, agentKinds),
+      task: enumField(step.task, modelTasks),
+      permissions,
+      requires_objective_evidence: booleanField(step.requires_objective_evidence),
+    };
+  });
+  const events = item.events.map((rawEvent) => {
+    const event = record(rawEvent);
+    const sequence = integerOrNull(event.sequence);
+    const attempt = event.attempt === null ? null : integerOrNull(event.attempt);
+    const modelId = nullableString(event.model_id);
+    if (
+      sequence === null || sequence < 1 || sequence > 10_000 ||
+      (attempt !== null && (attempt < 1 || attempt > 3)) ||
+      (modelId !== null && !/^[a-z0-9][a-z0-9_-]{0,63}:[a-f0-9]{24}$/.test(modelId))
+    ) return invalidResponse();
+    return {
+      sequence,
+      status: enumField(event.status, agentRuntimeStatuses),
+      created_at: stringField(event.created_at),
+      step_id: nullableString(event.step_id),
+      attempt,
+      agent: event.agent === null ? null : enumField(event.agent, agentKinds),
+      model_id: modelId,
+    };
+  });
+  if (events.some((event, index) => index > 0 && event.sequence <= events[index - 1]!.sequence)) {
+    return invalidResponse();
+  }
   const attempts = item.attempts.map((rawAttempt) => {
     const attempt = record(rawAttempt);
     if (!Array.isArray(attempt.checks) || attempt.checks.length < 1 || attempt.checks.length > 128) return invalidResponse();
@@ -1664,6 +1730,8 @@ export function parseAgentRun(value: unknown): AgentRun {
   });
   return {
     id: stringField(item.id),
+    goal: stringField(item.goal),
+    source: enumField(item.source, agentInputSources),
     task: enumField(item.task, modelTasks),
     specialist: item.specialist === null ? null : enumField(item.specialist, agentKinds),
     status: enumField(item.status, agentRuntimeStatuses),
@@ -1671,8 +1739,29 @@ export function parseAgentRun(value: unknown): AgentRun {
     updated_at: stringField(item.updated_at),
     output: nullableString(item.output),
     failure_code: nullableString(item.failure_code),
+    plan,
+    events,
     attempts,
   };
+}
+
+export function parseAgentRunEvent(value: unknown): AgentRunEvent {
+  const parsed = parseAgentRun({
+    id: "event-parser",
+    goal: "event",
+    source: "text",
+    task: "general_chat",
+    specialist: null,
+    status: "queued",
+    created_at: "event",
+    updated_at: "event",
+    output: null,
+    failure_code: null,
+    plan: [],
+    events: [value],
+    attempts: [],
+  });
+  return parsed.events[0]!;
 }
 
 export function parseAgentRunPage(value: unknown): AgentRunPage {

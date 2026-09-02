@@ -4,6 +4,7 @@ import {
   type AgentOSCapabilities,
   type AgentRun,
   type AgentRunCreateRequest,
+  type AgentRunEvent,
   type AgentRunPage,
   type Asset,
   type ConversationCreateRequest,
@@ -54,6 +55,7 @@ import {
   parseAccessTokenRotation,
   parseAgentOSCapabilities,
   parseAgentRun,
+  parseAgentRunEvent,
   parseAgentRunPage,
   parseImageOperation,
   parseAsset,
@@ -338,6 +340,102 @@ export class ApiClient {
       signal,
       decode: parseAgentRun,
     });
+  }
+
+  async streamAgentRunEvents(
+    runId: string,
+    onEvent: (event: AgentRunEvent) => void,
+    signal: AbortSignal,
+    after = 0,
+  ): Promise<void> {
+    let sequence = after;
+    while (!signal.aborted) {
+      const url = new URL(
+        `api/v1/agent-os/runs/${encodeURIComponent(runId)}/events?after=${sequence}`,
+        `${this.#baseUrl}/`,
+      );
+      let response: Response;
+      try {
+        response = await this.#fetch.call(globalThis, url, {
+          headers: {
+            Accept: "text/event-stream",
+            Authorization: `Bearer ${this.#token}`,
+          },
+          signal,
+        });
+      } catch (error) {
+        if (
+          signal.aborted ||
+          (error instanceof DOMException && error.name === "AbortError")
+        ) return;
+        throw new ApiError("network", "Could not reach the local backend.");
+      }
+      const requestId = response.headers.get("X-Request-ID");
+      if (!response.ok) {
+        const code = await readSafeErrorCode(response);
+        if (response.status === 401) this.#onUnauthorized?.();
+        throw errorForStatus(response.status, requestId, code);
+      }
+      if (
+        !response.headers.get("content-type")?.startsWith("text/event-stream") ||
+        response.body === null
+      ) {
+        throw new ApiError(
+          "unexpected",
+          "The backend returned an invalid mission event stream.",
+          { status: response.status, requestId },
+        );
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let terminal = false;
+      while (!signal.aborted) {
+        const chunk = await reader.read();
+        buffer += decoder.decode(chunk.value, { stream: !chunk.done });
+        const records = buffer.split(/\r?\n\r?\n/);
+        buffer = records.pop() ?? "";
+        for (const record of records) {
+          const data = record
+            .split(/\r?\n/)
+            .filter((line) => line.startsWith("data:"))
+            .map((line) => line.slice(5).trimStart())
+            .join("\n");
+          if (data === "") continue;
+          let event: AgentRunEvent;
+          try {
+            event = parseAgentRunEvent(JSON.parse(data));
+          } catch {
+            throw new ApiError(
+              "unexpected",
+              "The backend returned an invalid mission event.",
+              { status: response.status, requestId },
+            );
+          }
+          if (event.sequence <= sequence) continue;
+          sequence = event.sequence;
+          onEvent(event);
+          terminal = ["completed", "failed", "cancelled", "timed_out"].includes(
+            event.status,
+          );
+        }
+        if (chunk.done || terminal) break;
+      }
+      await reader.cancel().catch(() => undefined);
+      if (terminal || signal.aborted) return;
+      await new Promise<void>((resolve) => {
+        const onAbort = () => {
+          globalThis.clearTimeout(timer);
+          resolve();
+        };
+        const timer = globalThis.setTimeout(() => {
+          signal.removeEventListener("abort", onAbort);
+          resolve();
+        }, 250);
+        signal.addEventListener("abort", onAbort, { once: true });
+      });
+    }
   }
 
   getSystemDiagnostics(signal?: AbortSignal): Promise<SystemDiagnostics> {

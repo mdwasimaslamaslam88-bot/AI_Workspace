@@ -877,6 +877,28 @@ textarea {
   padding: 0.75rem;
 }
 
+.mission-contract-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 0.75rem 0;
+}
+
+.mission-contract-grid > section,
+.mission-activity {
+  border: 1px solid var(--line);
+  border-radius: 0.65rem;
+  background: var(--panel-soft);
+  padding: 0.65rem;
+}
+
+.mission-activity {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0.4rem 0 0.75rem;
+  padding-left: 1.9rem;
+}
+
 .capability-status {
   border: 1px solid var(--line);
   border-radius: 999px;
@@ -1782,6 +1804,10 @@ textarea {
   .session-controls {
     grid-template-columns: 1fr;
     align-items: stretch;
+  }
+
+  .mission-contract-grid {
+    grid-template-columns: 1fr;
   }
 
   .settings-section-heading {

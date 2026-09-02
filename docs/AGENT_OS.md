@@ -21,6 +21,13 @@ verification excludes that model from the next attempt. Exhaustion, timeout,
 cancellation and permission denial are terminal typed states; there is no
 unbounded autonomous loop.
 
+The runtime receives typed lifecycle updates directly from the orchestrator.
+It records the real `queued`, `planning`, `running`, `verifying`, `retrying` and
+terminal transitions in a bounded 128-event owner-scoped history. The plan,
+specialist, admitted public model identifier, attempt number and verification
+state shown by Mission Control come from that history; the clients do not
+invent percentages or intermediate states.
+
 `IndependentVerificationEngine` hashes output and checks declared artifacts as
 regular non-symlink files beneath an optional workspace root. Digest, size and
 path checks are read-only. Objective verifiers are application-owned callbacks
@@ -57,12 +64,24 @@ diagnostic text.
 - `POST /api/v1/agent-os/runs`
 - `GET /api/v1/agent-os/runs`
 - `GET /api/v1/agent-os/runs/{id}`
+- `GET /api/v1/agent-os/runs/{id}/events?after={sequence}` (authenticated SSE)
 - `POST /api/v1/agent-os/runs/{id}/cancel`
 
 All routes require the owner bearer and list/get/cancel are owner-isolated. Web
 and mobile Agents views expose task, optional registered specialist, run state,
-verification attempts and final output. Persistence is explicitly reported as
-`bounded_process_memory`.
+typed plan, live activity, verification attempts and final output. The web
+client consumes authenticated SSE with a bounded reconnect cursor; mobile uses
+the same retained event contract with bounded refresh polling because React
+Native streaming-fetch support varies by runtime. Chat drafts can be submitted
+directly as text missions, and locally transcribed speech retains a typed
+`voice` input source when it becomes a mission. Persistence is explicitly
+reported as `bounded_process_memory`.
+
+Pause, resume, in-flight modification, owner-triggered retry and approval
+checkpoints remain `planned` feature-registry entries. They require a persistent
+mission scheduler. The current public mission endpoint grants only model
+inference, so it has no privileged tool action that would legitimately wait for
+an approval checkpoint.
 
 ## Verification
 

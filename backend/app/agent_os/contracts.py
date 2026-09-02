@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from enum import StrEnum
 import re
@@ -65,6 +66,11 @@ class AgentRunStatus(StrEnum):
     FAILED = "failed"
     CANCELLED = "cancelled"
     TIMED_OUT = "timed_out"
+
+
+class AgentInputSource(StrEnum):
+    TEXT = "text"
+    VOICE = "voice"
 
 
 class VerificationFailure(StrEnum):
@@ -205,6 +211,7 @@ class AgentPlan:
 class AgentRunRequest:
     goal: str
     task: ModelTask
+    source: AgentInputSource = AgentInputSource.TEXT
     specialist: AgentKind | None = None
     permissions: frozenset[AgentPermission] = frozenset(
         {AgentPermission.MODEL_INFERENCE}
@@ -224,6 +231,8 @@ class AgentRunRequest:
             raise ValueError("agent goal is invalid")
         if not isinstance(self.task, ModelTask):
             raise TypeError("agent task must be a ModelTask")
+        if not isinstance(self.source, AgentInputSource):
+            raise TypeError("agent input source must be an AgentInputSource")
         if self.specialist is not None and not isinstance(
             self.specialist, AgentKind
         ):
@@ -253,6 +262,42 @@ class AgentRunRequest:
             raise ValueError("agent context requirement is outside its bound")
         if not isinstance(self.require_objective_evidence, bool):
             raise TypeError("objective evidence requirement must be boolean")
+
+
+@dataclass(frozen=True, slots=True)
+class AgentLifecycleUpdate:
+    status: AgentRunStatus
+    plan: AgentPlan | None = None
+    step_id: str | None = None
+    attempt: int | None = None
+    agent: AgentKind | None = None
+    model_id: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.status not in {
+            AgentRunStatus.PLANNING,
+            AgentRunStatus.RUNNING,
+            AgentRunStatus.VERIFYING,
+            AgentRunStatus.RETRYING,
+        }:
+            raise ValueError("lifecycle update must be a non-terminal execution state")
+        if self.step_id is not None and not _STEP_ID_PATTERN.fullmatch(self.step_id):
+            raise ValueError("lifecycle step identifier is invalid")
+        if self.attempt is not None and (
+            isinstance(self.attempt, bool)
+            or not isinstance(self.attempt, int)
+            or not 1 <= self.attempt <= MAX_AGENT_RETRIES + 1
+        ):
+            raise ValueError("lifecycle attempt is outside its bound")
+        if self.agent is not None and not isinstance(self.agent, AgentKind):
+            raise TypeError("lifecycle agent is invalid")
+        if self.model_id is not None and not _PUBLIC_MODEL_ID_PATTERN.fullmatch(
+            self.model_id
+        ):
+            raise ValueError("lifecycle model identifier is invalid")
+
+
+AgentLifecycleReporter = Callable[[AgentLifecycleUpdate], Awaitable[None]]
 
 
 @dataclass(frozen=True, slots=True)

@@ -104,6 +104,7 @@ interface ChatViewProps extends AttachmentActions {
   onGenerateImage?: (prompt: string) => Promise<void>;
   onEditImage?: (sourceAssetId: string, instruction: string) => Promise<void>;
   onPresenceStateChange?: (state: PresenceState | null) => void;
+  onCreateMission?: (goal: string, source: "text" | "voice") => Promise<void>;
 }
 
 const EMPTY_ATTACHMENT_STATES = new Map<string, MessageAttachment["state"]>();
@@ -686,8 +687,11 @@ export function ChatView({
   onGenerateImage,
   onEditImage,
   onPresenceStateChange,
+  onCreateMission,
 }: ChatViewProps) {
   const [draft, setDraft] = useState("");
+  const [draftSource, setDraftSource] = useState<"text" | "voice">("text");
+  const [missionSubmitting, setMissionSubmitting] = useState(false);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editedMessageContent, setEditedMessageContent] = useState("");
   const [attachmentNotice, setAttachmentNotice] = useState<string | null>(null);
@@ -723,11 +727,16 @@ export function ChatView({
   useEffect(() => {
     if (recording) onPresenceStateChange?.("LISTENING");
     else if (transcribing) onPresenceStateChange?.("THINKING");
-    else if (synthesizingMessageId !== null || imageOperation !== null) {
+    else if (
+      missionSubmitting ||
+      synthesizingMessageId !== null ||
+      imageOperation !== null
+    ) {
       onPresenceStateChange?.("WORKING");
     } else onPresenceStateChange?.(null);
   }, [
     imageOperation,
+    missionSubmitting,
     onPresenceStateChange,
     recording,
     synthesizingMessageId,
@@ -816,7 +825,10 @@ export function ChatView({
       setVoiceNotice(null);
       setTranscribing(true);
       void onTranscribeVoice(audio, controller.signal)
-        .then((transcript) => setDraft(transcript))
+        .then((transcript) => {
+          setDraft(transcript);
+          setDraftSource("voice");
+        })
         .catch(() => {
           if (!controller.signal.aborted) {
             setVoiceNotice("The local audio could not be transcribed.");
@@ -1156,10 +1168,34 @@ export function ChatView({
     const message = draft;
     const attachmentIds = queue.readyAssetIds;
     setDraft("");
+    setDraftSource("text");
     if (attachmentIds.length > 0) {
       await onGenerate(message, attachmentIds);
     } else {
       await onGenerate(message);
+    }
+  }
+
+  async function submitMission() {
+    if (
+      onCreateMission === undefined ||
+      missionSubmitting ||
+      draft === "" ||
+      draft !== draft.trim() ||
+      queue.readyAssetIds.length > 0 ||
+      queue.unresolved
+    ) return;
+    setMissionSubmitting(true);
+    setVoiceNotice(null);
+    try {
+      await onCreateMission(draft, draftSource);
+      setDraft("");
+      setDraftSource("text");
+      setVoiceNotice("Mission created. Live execution is available in Mission Control.");
+    } catch {
+      setVoiceNotice("The mission could not be created.");
+    } finally {
+      setMissionSubmitting(false);
     }
   }
 
@@ -1605,7 +1641,10 @@ export function ChatView({
           maxLength={100000}
           value={draft}
           placeholder="Message your local AI"
-          onChange={(event) => setDraft(event.target.value)}
+          onChange={(event) => {
+            setDraft(event.target.value);
+            setDraftSource("text");
+          }}
           disabled={generating}
         />
         <AttachmentPicker queue={queue} disabled={generating} />
@@ -1685,17 +1724,35 @@ export function ChatView({
               </button>
             </>
           ) : (
-            <button
-              className="button button-primary"
-              disabled={
-                !canGenerate ||
-                !draft.trim() ||
-                queue.unresolved ||
-                visionBlockReason !== null
-              }
-            >
-              Send
-            </button>
+            <>
+              {onCreateMission !== undefined && (
+                <button
+                  type="button"
+                  className="button button-secondary"
+                  disabled={
+                    missionSubmitting ||
+                    !draft ||
+                    draft !== draft.trim() ||
+                    queue.readyAssetIds.length > 0 ||
+                    queue.unresolved
+                  }
+                  onClick={() => void submitMission()}
+                >
+                  {missionSubmitting ? "Creating mission…" : "Run as mission"}
+                </button>
+              )}
+              <button
+                className="button button-primary"
+                disabled={
+                  !canGenerate ||
+                  !draft.trim() ||
+                  queue.unresolved ||
+                  visionBlockReason !== null
+                }
+              >
+                Send
+              </button>
+            </>
           )}
         </div>
       </form>

@@ -102,7 +102,7 @@ export default function AgentsScreen() {
               }
               setBusy(true);
               setNotice(null);
-              void client.createAgentRun({ goal, task, max_retries: 1, deadline_seconds: 180 })
+              void client.createAgentRun({ goal, source: "text", task, max_retries: 1, deadline_seconds: 180 })
                 .then((created) => {
                   setRuns((current) => [created, ...current.filter((run) => run.id !== created.id)]);
                   setGoal("");
@@ -136,6 +136,25 @@ export default function AgentsScreen() {
                 <Text style={styles.runTitle}>{(run.specialist ?? run.task).replaceAll("_", " ")}</Text>
                 <Text style={run.status === "completed" ? styles.ready : styles.status}>{run.status.replaceAll("_", " ")}</Text>
               </View>
+              <Text style={styles.output}>Mission: {run.goal}</Text>
+              <Text style={styles.muted}>Input: {run.source}</Text>
+              <Text style={styles.sectionLabel}>PLAN</Text>
+              {run.plan.length === 0 ? (
+                <Text style={styles.muted}>Planning has not produced a typed step yet.</Text>
+              ) : run.plan.map((step) => (
+                <Text key={step.step_id} style={styles.muted}>
+                  {step.step_id.replaceAll("-", " ")} · {step.agent} · {step.task.replaceAll("_", " ")}
+                </Text>
+              ))}
+              <Text style={styles.sectionLabel}>LIVE ACTIVITY</Text>
+              {run.events.map((event) => (
+                <Text key={event.sequence} style={styles.muted}>
+                  {event.status.replaceAll("_", " ")}
+                  {event.agent === null ? "" : ` · ${event.agent}`}
+                  {event.attempt === null ? "" : ` · attempt ${event.attempt}`}
+                </Text>
+              ))}
+              <Text style={styles.muted}>Tools: none delegated; model inference only.</Text>
               {run.output !== null && <Text style={styles.output}>{run.output}</Text>}
               {run.attempts.map((attempt) => (
                 <Text key={`${attempt.step_id}-${attempt.attempt}`} style={styles.muted}>
@@ -180,6 +199,7 @@ function createStyles(colors: WorkStationColors) {
     row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 10 },
     run: { gap: 8, borderTopColor: colors.line, borderTopWidth: 1, paddingTop: 10 },
     runTitle: { flex: 1, color: colors.text, fontWeight: "800", textTransform: "capitalize" },
+    sectionLabel: { color: colors.accent, fontSize: 11, fontWeight: "900", letterSpacing: 1.1, marginTop: 4 },
     status: { color: colors.muted, textTransform: "capitalize" },
     ready: { color: colors.accent, fontWeight: "800" },
     output: { color: colors.text, lineHeight: 21 },

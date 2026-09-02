@@ -75,6 +75,7 @@ def test_agent_run_api_submits_lists_reads_and_is_owner_scoped():
         json={
             "goal": "Diagnose the reproducible failure.",
             "task": "debugging",
+            "source": "voice",
             "specialist": "debugging",
             "max_retries": 1,
         },
@@ -87,15 +88,30 @@ def test_agent_run_api_submits_lists_reads_and_is_owner_scoped():
         if fetched.json()["status"] == "completed":
             break
     assert fetched.status_code == 200
+    assert fetched.json()["goal"] == "Diagnose the reproducible failure."
+    assert fetched.json()["source"] == "voice"
     assert fetched.json()["output"] == "verified result"
+    assert [event["status"] for event in fetched.json()["events"]] == [
+        "queued",
+        "completed",
+    ]
     listed = client.get("/api/v1/agent-os/runs?limit=10")
     assert [item["id"] for item in listed.json()["items"]] == [run_id]
     submitted = orchestrator.run.await_args.args[0]
     assert submitted.permissions == frozenset({AgentPermission.MODEL_INFERENCE})
+    assert submitted.source.value == "voice"
+
+    stream = client.get(f"/api/v1/agent-os/runs/{run_id}/events?after=0")
+    assert stream.status_code == 200
+    assert stream.headers["content-type"].startswith("text/event-stream")
+    assert "event: mission-status" in stream.text
+    assert '"status":"completed"' in stream.text
 
     owner.id = uuid4()
     hidden = client.get(f"/api/v1/agent-os/runs/{run_id}")
     assert hidden.status_code == 404
+    hidden_stream = client.get(f"/api/v1/agent-os/runs/{run_id}/events")
+    assert hidden_stream.status_code == 404
 
 
 def test_agent_run_api_rejects_unknown_fields_whitespace_and_unbounded_values():

@@ -313,6 +313,8 @@ describe("mobile API client", () => {
     };
     const run = {
       id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      goal: "Diagnose it.",
+      source: "text",
       task: "debugging",
       specialist: "debugging",
       status: "queued",
@@ -320,6 +322,16 @@ describe("mobile API client", () => {
       updated_at: timestamp,
       output: null,
       failure_code: null,
+      plan: [],
+      events: [{
+        sequence: 1,
+        status: "queued",
+        created_at: timestamp,
+        step_id: null,
+        attempt: null,
+        agent: null,
+        model_id: null,
+      }],
       attempts: [],
     };
     const calls: Array<{ path: string; method: string; body: unknown }> = [];

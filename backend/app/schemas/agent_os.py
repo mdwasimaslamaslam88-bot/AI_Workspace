@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.agent_os.contracts import (
     AgentKind,
+    AgentInputSource,
     AgentPermission,
     AgentRunStatus,
     VerificationFailure,
@@ -19,6 +20,7 @@ class AgentRunCreateRequest(BaseModel):
 
     goal: str = Field(min_length=1, max_length=32_000)
     task: ModelTask
+    source: AgentInputSource = AgentInputSource.TEXT
     specialist: AgentKind | None = None
     max_retries: int = Field(default=1, strict=True, ge=0, le=2)
     deadline_seconds: float = Field(default=180.0, gt=0, le=600.0)
@@ -79,10 +81,37 @@ class AgentAttemptResponse(BaseModel):
     checks: list[AgentVerificationCheckResponse] = Field(min_length=1, max_length=128)
 
 
+class AgentPlanStepResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    step_id: str = Field(pattern=r"^[a-z][a-z0-9_-]{0,63}$")
+    agent: AgentKind
+    task: ModelTask
+    permissions: list[AgentPermission] = Field(max_length=15)
+    requires_objective_evidence: bool
+
+
+class AgentRunEventResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    sequence: int = Field(strict=True, ge=1, le=10_000)
+    status: AgentRunStatus
+    created_at: datetime
+    step_id: str | None = Field(default=None, pattern=r"^[a-z][a-z0-9_-]{0,63}$")
+    attempt: int | None = Field(default=None, strict=True, ge=1, le=3)
+    agent: AgentKind | None = None
+    model_id: str | None = Field(
+        default=None,
+        pattern=r"^[a-z0-9][a-z0-9_-]{0,63}:[a-f0-9]{24}$",
+    )
+
+
 class AgentRunResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     id: UUID
+    goal: str = Field(min_length=1, max_length=32_000)
+    source: AgentInputSource
     task: ModelTask
     specialist: AgentKind | None
     status: AgentRunStatus
@@ -93,6 +122,8 @@ class AgentRunResponse(BaseModel):
         default=None,
         pattern=r"^[a-z][a-z0-9_]{0,63}$",
     )
+    plan: list[AgentPlanStepResponse] = Field(default_factory=list, max_length=16)
+    events: list[AgentRunEventResponse] = Field(default_factory=list, max_length=128)
     attempts: list[AgentAttemptResponse] = Field(default_factory=list, max_length=48)
 
 

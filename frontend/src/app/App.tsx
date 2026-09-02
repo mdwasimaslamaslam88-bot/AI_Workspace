@@ -7,6 +7,7 @@ import type {
   AgentOSCapabilities,
   AgentRun,
   AgentRunCreateRequest,
+  AgentRunEvent,
   ConversationCreateRequest,
   ConversationCursor,
   ConversationSummary,
@@ -975,6 +976,35 @@ export function App() {
     [client],
   );
 
+  const streamAgentRunEvents = useCallback(
+    (
+      runId: string,
+      onEvent: (event: AgentRunEvent) => void,
+      signal: AbortSignal,
+      after = 0,
+    ): Promise<void> => {
+      if (client === null) {
+        return Promise.reject(new ApiError("authentication", "Authentication failed."));
+      }
+      return client.streamAgentRunEvents(runId, onEvent, signal, after);
+    },
+    [client],
+  );
+
+  const createMissionFromPrompt = useCallback(
+    async (goal: string, source: "text" | "voice"): Promise<void> => {
+      await createAgentRun({
+        goal,
+        source,
+        task: "general_chat",
+        max_retries: 1,
+        deadline_seconds: 180,
+      });
+      setAgentsOpen(true);
+    },
+    [createAgentRun],
+  );
+
   const decideSelfUpdate = useCallback(
     (decision: "update" | "cancel"): Promise<SelfUpdateStatus> => {
       if (client === null) {
@@ -1704,6 +1734,7 @@ export function App() {
               onLoadRuns={loadAgentRuns}
               onCreate={createAgentRun}
               onCancel={cancelAgentRun}
+              onStreamEvents={streamAgentRunEvents}
               onPresenceStateChange={setAgentPresence}
             />
           </div>
@@ -1799,6 +1830,7 @@ export function App() {
           onSynthesizeVoice={synthesizeVoice}
           onGenerateImage={generateImage}
           onEditImage={editImage}
+          onCreateMission={createMissionFromPrompt}
           onPresenceStateChange={setVoicePresence}
         />
       </section>

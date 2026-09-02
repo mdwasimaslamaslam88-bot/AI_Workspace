@@ -16,6 +16,7 @@ import {
 } from "expo-audio";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
+import { useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -150,6 +151,7 @@ function ConnectScreen() {
 }
 
 export default function ChatScreen() {
+  const router = useRouter();
   const { colors, styles } = useThemedStyles();
   const { state, client } = useWorkStation();
   const [models, setModels] = useState<LocalModel[]>([]);
@@ -166,6 +168,7 @@ export default function ChatScreen() {
   const [loadingMoreMessages, setLoadingMoreMessages] = useState(false);
   const [selectedModel, setSelectedModel] = useState<string | null>(null);
   const [prompt, setPrompt] = useState("");
+  const [promptSource, setPromptSource] = useState<"text" | "voice">("text");
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editedMessageContent, setEditedMessageContent] = useState("");
   const [attachments, setAttachments] = useState<Asset[]>([]);
@@ -453,6 +456,7 @@ export default function ChatScreen() {
         uploaded = await connectedClient.uploadAsset({ uri, name: "voice-prompt.m4a", mimeType: "audio/mp4" });
         const transcript = await connectedClient.transcribe(uploaded.id, voiceModel.model_id);
         setPrompt(transcript.text);
+        setPromptSource("voice");
         markCompleted();
       } catch (cause) {
         setNotice(safeError(cause));
@@ -483,6 +487,7 @@ export default function ChatScreen() {
     setCompleted(false);
     setNotice(null);
     setPrompt("");
+    setPromptSource("text");
     const attachmentIds = attachments.map((asset) => asset.id);
     setAttachments([]);
     let succeeded = false;
@@ -522,6 +527,35 @@ export default function ChatScreen() {
       setGenerating(false);
       setBusy(false);
       if (succeeded) markCompleted();
+    }
+  }
+
+  async function createMission() {
+    if (
+      busy ||
+      prompt === "" ||
+      prompt !== prompt.trim() ||
+      attachments.length > 0
+    ) return;
+    setBusy(true);
+    setCompleted(false);
+    setNotice(null);
+    try {
+      await connectedClient.createAgentRun({
+        goal: prompt,
+        source: promptSource,
+        task: "general_chat",
+        max_retries: 1,
+        deadline_seconds: 180,
+      });
+      setPrompt("");
+      setPromptSource("text");
+      markCompleted();
+      router.push("./agents");
+    } catch (cause) {
+      setNotice(safeError(cause));
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -984,7 +1018,10 @@ export default function ChatScreen() {
             accessibilityLabel="Ask AI Anything"
             multiline
             value={prompt}
-            onChangeText={setPrompt}
+            onChangeText={(value) => {
+              setPrompt(value);
+              setPromptSource("text");
+            }}
             placeholder="Ask AI Anything"
             placeholderTextColor={colors.subtle}
             style={styles.composerInput}
@@ -999,14 +1036,30 @@ export default function ChatScreen() {
               <Text style={styles.buttonText}>Stop</Text>
             </Pressable>
           ) : (
-            <Pressable
-              accessibilityRole="button"
-              disabled={busy || prompt.trim().length === 0 || selectedModel === null}
-              style={[styles.sendButton, (busy || prompt.trim().length === 0 || selectedModel === null) && styles.disabled]}
-              onPress={() => void send()}
-            >
-              <Text style={styles.primaryButtonText}>Send</Text>
-            </Pressable>
+            <View style={styles.composerButtons}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Run as mission"
+                disabled={
+                  busy ||
+                  prompt === "" ||
+                  prompt !== prompt.trim() ||
+                  attachments.length > 0
+                }
+                style={styles.missionButton}
+                onPress={() => void createMission()}
+              >
+                <Text style={styles.buttonText}>Mission</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                disabled={busy || prompt.trim().length === 0 || selectedModel === null}
+                style={[styles.sendButton, (busy || prompt.trim().length === 0 || selectedModel === null) && styles.disabled]}
+                onPress={() => void send()}
+              >
+                <Text style={styles.primaryButtonText}>Send</Text>
+              </Pressable>
+            </View>
           )}
         </View>
       </KeyboardAvoidingView>
@@ -1079,6 +1132,8 @@ function createStyles(colors: WorkStationColors) {
   composerTool: { minHeight: 44, justifyContent: "center" },
   composer: { flexDirection: "row", alignItems: "flex-end", gap: 8, padding: 12, borderTopColor: colors.line, borderTopWidth: 1, backgroundColor: colors.panel },
   composerInput: { flex: 1, minHeight: 48, maxHeight: 130, color: colors.text, backgroundColor: colors.raised, borderColor: colors.line, borderWidth: 1, borderRadius: 14, padding: 12 },
+  composerButtons: { gap: 6 },
+  missionButton: { minWidth: 68, minHeight: 40, justifyContent: "center", alignItems: "center", borderColor: colors.line, borderWidth: 1, borderRadius: 10 },
   sendButton: { minWidth: 68, minHeight: 48, justifyContent: "center", alignItems: "center", backgroundColor: colors.accent, borderRadius: 12 },
   cancelButton: { minWidth: 68, minHeight: 48, justifyContent: "center", alignItems: "center", borderColor: colors.danger, borderWidth: 1, borderRadius: 12 },
   });

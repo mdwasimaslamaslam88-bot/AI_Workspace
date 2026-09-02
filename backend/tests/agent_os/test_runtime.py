@@ -24,8 +24,12 @@ class _Orchestrator:
         self.release = asyncio.Event()
         self.block = False
 
-    async def run(self, _request):
+    async def run(self, _request, *, lifecycle=None):
         self.started.set()
+        if lifecycle is not None:
+            from app.agent_os.contracts import AgentLifecycleUpdate
+
+            await lifecycle(AgentLifecycleUpdate(status=AgentRunStatus.PLANNING))
         if self.block:
             await self.release.wait()
         return self.result
@@ -50,6 +54,11 @@ async def test_agent_run_manager_is_owner_isolated_and_records_completion():
     assert completed.status is AgentRunStatus.COMPLETED
     assert completed.result is not None
     assert completed.result.output == "verified"
+    assert [event.status for event in completed.events] == [
+        AgentRunStatus.QUEUED,
+        AgentRunStatus.PLANNING,
+        AgentRunStatus.COMPLETED,
+    ]
     assert await manager.get_for_owner(other, submitted.id) is None
     assert await manager.list_for_owner(other) == ()
 

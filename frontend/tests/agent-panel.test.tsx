@@ -26,6 +26,8 @@ const capabilities: AgentOSCapabilities = {
 
 const queued: AgentRun = {
   id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+  goal: "Diagnose the failing integration test.",
+  source: "text",
   task: "debugging",
   specialist: "debugging",
   status: "queued",
@@ -33,6 +35,16 @@ const queued: AgentRun = {
   updated_at: "2026-08-31T00:00:00Z",
   output: null,
   failure_code: null,
+  plan: [],
+  events: [{
+    sequence: 1,
+    status: "queued",
+    created_at: "2026-08-31T00:00:00Z",
+    step_id: null,
+    attempt: null,
+    agent: null,
+    model_id: null,
+  }],
   attempts: [],
 };
 
@@ -61,9 +73,14 @@ describe("AgentPanel", () => {
       specialist: "debugging",
       max_retries: 1,
       deadline_seconds: 180,
+      source: "text",
     });
     expect(await screen.findByText(/model-inference permission only/)).toBeVisible();
-    expect(screen.getByText("queued")).toBeVisible();
+    expect(screen.getAllByText("queued")).toHaveLength(2);
+    expect(screen.getByText("Diagnose the failing integration test.")).toBeVisible();
+    expect(screen.getByRole("region", { name: "Live mission activity" })).toHaveTextContent(
+      "queued",
+    );
   });
 
   it("does not expose unregistered specialists", async () => {

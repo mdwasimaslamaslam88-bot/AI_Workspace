@@ -6,6 +6,7 @@ import type {
   AgentOSCapabilities,
   AgentRun,
   AgentRunCreateRequest,
+  AgentRunEvent,
   ModelTask,
 } from "../../api/contracts";
 
@@ -16,6 +17,12 @@ interface AgentPanelProps {
   onLoadRuns: (signal?: AbortSignal) => Promise<AgentRun[]>;
   onCreate: (request: AgentRunCreateRequest) => Promise<AgentRun>;
   onCancel: (runId: string) => Promise<AgentRun>;
+  onStreamEvents?: (
+    runId: string,
+    onEvent: (event: AgentRunEvent) => void,
+    signal: AbortSignal,
+    after?: number,
+  ) => Promise<void>;
   onPresenceStateChange?: (state: PresenceState | null) => void;
 }
 
@@ -42,6 +49,7 @@ export function AgentPanel({
   onLoadRuns,
   onCreate,
   onCancel,
+  onStreamEvents,
   onPresenceStateChange,
 }: AgentPanelProps) {
   const [capabilities, setCapabilities] = useState<AgentOSCapabilities | null>(null);
@@ -78,10 +86,40 @@ export function AgentPanel({
   }, [load]);
 
   useEffect(() => {
-    if (!runs.some((run) => !TERMINAL.has(run.status))) return;
+    if (onStreamEvents !== undefined || !runs.some((run) => !TERMINAL.has(run.status))) return;
     const timer = window.setInterval(() => void load(), 1500);
     return () => window.clearInterval(timer);
-  }, [load, runs]);
+  }, [load, onStreamEvents, runs]);
+
+  const activeRun = runs.find((run) => !TERMINAL.has(run.status));
+  const activeRunId = activeRun?.id;
+  useEffect(() => {
+    if (activeRunId === undefined || onStreamEvents === undefined) return;
+    const stream = new AbortController();
+    void onStreamEvents(
+      activeRunId,
+      (event) => {
+        setRuns((current) => current.map((run) => {
+          if (run.id !== activeRunId) return run;
+          const events = run.events.some((item) => item.sequence === event.sequence)
+            ? run.events
+            : [...run.events, event];
+          return {
+            ...run,
+            status: event.status,
+            updated_at: event.created_at,
+            events,
+          };
+        }));
+        void load();
+      },
+      stream.signal,
+      0,
+    ).catch(() => {
+      if (!stream.signal.aborted) setNotice("Live mission activity disconnected; reconnecting requires Refresh.");
+    });
+    return () => stream.abort();
+  }, [activeRunId, load, onStreamEvents]);
 
   useEffect(() => {
     const latest = runs.find((run) => !TERMINAL.has(run.status)) ?? runs[0];
@@ -108,6 +146,7 @@ export function AgentPanel({
         ...(specialist === "auto" ? {} : { specialist }),
         max_retries: 1,
         deadline_seconds: 180,
+        source: "text",
       });
       setRuns((current) => [created, ...current.filter((run) => run.id !== created.id)]);
       setGoal("");
@@ -186,6 +225,45 @@ export function AgentPanel({
                   {run.status.replaceAll("_", " ")}
                 </span>
               </div>
+              <p><strong>Mission:</strong> {run.goal}</p>
+              <p className="field-help">Input: {run.source}</p>
+              <div className="mission-contract-grid">
+                <section aria-label="Mission plan">
+                  <strong>Plan</strong>
+                  {run.plan.length === 0 ? (
+                    <p className="field-help">Planning has not produced a typed step yet.</p>
+                  ) : (
+                    <ol>
+                      {run.plan.map((step) => (
+                        <li key={step.step_id}>
+                          {step.step_id.replaceAll("-", " ")} · {step.agent} · {step.task.replaceAll("_", " ")}
+                        </li>
+                      ))}
+                    </ol>
+                  )}
+                </section>
+                <section aria-label="Mission tools and permissions">
+                  <strong>Tools & permissions</strong>
+                  <p className="field-help">
+                    {run.plan.length === 0
+                      ? "Awaiting the typed plan."
+                      : run.plan.flatMap((step) => step.permissions).join(", ")}
+                  </p>
+                  <p className="field-help">No tool execution is delegated by this model-inference-only mission.</p>
+                </section>
+              </div>
+              <section aria-label="Live mission activity">
+                <strong>Live activity</strong>
+                <ol className="mission-activity">
+                  {run.events.map((event) => (
+                    <li key={event.sequence}>
+                      {event.status.replaceAll("_", " ")}
+                      {event.agent === null ? "" : ` · ${event.agent}`}
+                      {event.attempt === null ? "" : ` · attempt ${event.attempt}`}
+                    </li>
+                  ))}
+                </ol>
+              </section>
               {run.output !== null && <p className="message-body">{run.output}</p>}
               {run.failure_code !== null && <p className="notice notice-error">{run.failure_code.replaceAll("_", " ")}</p>}
               {run.attempts.map((attempt) => (

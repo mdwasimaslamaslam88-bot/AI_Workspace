@@ -6,7 +6,10 @@ from datetime import datetime, timezone
 from uuid import UUID, uuid4
 
 from app.agent_os.contracts import (
+    AgentInputSource,
     AgentKind,
+    AgentLifecycleUpdate,
+    AgentPlan,
     AgentRunRequest,
     AgentRunResult,
     AgentRunStatus,
@@ -16,16 +19,32 @@ from app.ai.routing import ModelTask
 
 
 MAX_AGENT_RUNS_PER_OWNER = 100
+MAX_AGENT_EVENTS_PER_RUN = 128
+
+
+@dataclass(frozen=True, slots=True)
+class AgentRunEventRecord:
+    sequence: int
+    status: AgentRunStatus
+    created_at: datetime
+    step_id: str | None = None
+    attempt: int | None = None
+    agent: AgentKind | None = None
+    model_id: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
 class AgentRunRecord:
     id: UUID
+    goal: str
+    source: AgentInputSource
     task: ModelTask
     specialist: AgentKind | None
     status: AgentRunStatus
     created_at: datetime
     updated_at: datetime
+    plan: AgentPlan | None = None
+    events: tuple[AgentRunEventRecord, ...] = ()
     result: AgentRunResult | None = None
 
 
@@ -73,11 +92,20 @@ class AgentRunManager:
         now = datetime.now(timezone.utc)
         record = AgentRunRecord(
             id=uuid4(),
+            goal=request.goal,
+            source=request.source,
             task=request.task,
             specialist=request.specialist,
             status=AgentRunStatus.QUEUED,
             created_at=now,
             updated_at=now,
+            events=(
+                AgentRunEventRecord(
+                    sequence=1,
+                    status=AgentRunStatus.QUEUED,
+                    created_at=now,
+                ),
+            ),
         )
         async with self._lock:
             self._prune_terminal_for_owner(owner_id)
@@ -124,14 +152,15 @@ class AgentRunManager:
         owned = self._runs.get(run_id)
         if owned is None:  # pragma: no cover - internal invariant
             return
-        now = datetime.now(timezone.utc)
-        owned.record = replace(
-            owned.record,
-            status=AgentRunStatus.RUNNING,
-            updated_at=now,
-        )
+        async def lifecycle(update: AgentLifecycleUpdate) -> None:
+            async with self._lock:
+                current = self._runs.get(run_id)
+                if current is None:  # pragma: no cover - internal invariant
+                    return
+                self._append_event(current, update)
+
         try:
-            result = await self.orchestrator.run(owned.request)
+            result = await self.orchestrator.run(owned.request, lifecycle=lifecycle)
         except asyncio.CancelledError:
             result = AgentRunResult(
                 status=AgentRunStatus.CANCELLED,
@@ -148,11 +177,57 @@ class AgentRunManager:
                 attempts=(),
                 failure_code="agent_internal_failure",
             )
+        async with self._lock:
+            current = self._runs.get(run_id)
+            if current is None:  # pragma: no cover - internal invariant
+                return
+            now = datetime.now(timezone.utc)
+            event = AgentRunEventRecord(
+                sequence=self._next_event_sequence(current.record),
+                status=result.status,
+                created_at=now,
+            )
+            current.record = replace(
+                current.record,
+                status=result.status,
+                updated_at=now,
+                plan=result.plan or current.record.plan,
+                events=self._bounded_events(current.record.events, event),
+                result=result,
+            )
+
+    @staticmethod
+    def _next_event_sequence(record: AgentRunRecord) -> int:
+        return record.events[-1].sequence + 1 if record.events else 1
+
+    @staticmethod
+    def _bounded_events(
+        events: tuple[AgentRunEventRecord, ...],
+        event: AgentRunEventRecord,
+    ) -> tuple[AgentRunEventRecord, ...]:
+        return (*events, event)[-MAX_AGENT_EVENTS_PER_RUN:]
+
+    def _append_event(
+        self,
+        owned: _OwnedAgentRun,
+        update: AgentLifecycleUpdate,
+    ) -> None:
+        now = datetime.now(timezone.utc)
+        event = AgentRunEventRecord(
+            sequence=self._next_event_sequence(owned.record),
+            status=update.status,
+            created_at=now,
+            step_id=update.step_id,
+            attempt=update.attempt,
+            agent=update.agent,
+            model_id=update.model_id,
+        )
         owned.record = replace(
             owned.record,
-            status=result.status,
-            updated_at=datetime.now(timezone.utc),
-            result=result,
+            status=update.status,
+            updated_at=now,
+            plan=update.plan or owned.record.plan,
+            events=self._bounded_events(owned.record.events, event),
         )
 
     def _discard_task(
