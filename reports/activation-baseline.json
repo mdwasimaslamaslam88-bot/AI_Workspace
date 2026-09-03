@@ -1,0 +1,269 @@
+{
+  "schema_version": 1,
+  "product": "AI OS",
+  "activation_phase": "A",
+  "captured_at": "2026-09-03T12:15:10+05:30",
+  "status": "PASS",
+  "repository": {
+    "branch": "main",
+    "source_commit": "35cb5ea6dde3935c0830608f3f60da558cae2489",
+    "upstream": "origin/main",
+    "ahead": 0,
+    "behind": 0,
+    "working_tree_at_capture": "clean"
+  },
+  "feature_registry": {
+    "report": "reports/feature-registry-report.json",
+    "sha256": "8739c06c478a912b1fd9b6cfa9022a291953e7c6f2e0a7a5fafafb2f6106f7ce",
+    "total": 245,
+    "statuses": {
+      "implemented": 187,
+      "runtime_dependent": 14,
+      "external_dependency": 39,
+      "planned": 5
+    },
+    "validation": {
+      "unique_ids": true,
+      "ui_paths_present": true,
+      "backend_or_boundary_present": true,
+      "test_coverage_present": true
+    }
+  },
+  "hardware": {
+    "gpu": {
+      "vendor": "NVIDIA",
+      "model": "GeForce RTX 3060",
+      "count": 1,
+      "vram_mib": 12288,
+      "compute_capability": "8.6",
+      "driver": "580.173.02"
+    },
+    "cpu": {
+      "model": "AMD Ryzen 7 5700X 8-Core Processor",
+      "logical_cpus": 16
+    },
+    "ram_bytes": 84250804224
+  },
+  "model_state": {
+    "ollama": {
+      "version": "0.32.5",
+      "health": "ready",
+      "installed_models": [
+        "deepcoder:14b-preview-q4_K_M",
+        "gemma4:12b-it-q4_K_M",
+        "ministral-3:14b-instruct-2512-q4_K_M",
+        "nomic-embed-text:latest",
+        "phi4:14b-q4_K_M",
+        "qwen2.5-coder:14b-instruct-q3_K_L",
+        "qwen2.5-coder:7b",
+        "qwen2.5vl:7b",
+        "qwen3.5:9b-q4_K_M",
+        "qwen3:14b-q4_K_M",
+        "qwen3:8b"
+      ]
+    },
+    "production_routes": {
+      "reasoning": "qwen3:8b",
+      "mathematics": "qwen3:8b",
+      "debugging": "qwen3:8b",
+      "expert_analysis": "qwen3:8b",
+      "exact_output": "qwen3:8b",
+      "coding": "qwen2.5-coder:7b",
+      "code_generation": "gemma4:12b-it-q4_K_M",
+      "vision": "qwen2.5vl:7b",
+      "embedding": "nomic-embed-text:latest",
+      "image": "flux2-klein-base-4b-fp8"
+    },
+    "image_runtime": {
+      "reference": "black-forest-labs/FLUX.2-klein-base-4b-fp8@103db268c10d4d3921101b46057671f9ac460da6",
+      "integrity": "PASS",
+      "artifacts": [
+        {
+          "path": "comfyui/models/diffusion_models/flux-2-klein-base-4b-fp8.safetensors",
+          "sha256": "44bab3a86fe98b85d21dd2a4729ebdc3ae51fb8a39f76e457e18c724219e6840"
+        },
+        {
+          "path": "comfyui/models/text_encoders/qwen_3_4b.safetensors",
+          "sha256": "6c671498573ac2f7a5501502ccce8d2b08ea6ca2f661c458e708f36b36edfc5a"
+        },
+        {
+          "path": "comfyui/models/vae/flux2-vae.safetensors",
+          "sha256": "d64f3a68e1cc4f9f4e29b6e0da38a0204fe9a49f2d4053f0ec1fa1ca02f9c4b5"
+        }
+      ]
+    }
+  },
+  "database": {
+    "engine": "PostgreSQL",
+    "pre_activation_revision": "0012_owner_device_sessions",
+    "current_revision": "0017_creative_experiences",
+    "migration_drift": false,
+    "pre_migration_backup": {
+      "path": "/home/md-wasim/AI_Workspace_Data/backups/work-station-20260903T063035Z",
+      "integrity": "PASS",
+      "permissions": "owner-only"
+    }
+  },
+  "service_state": {
+    "backend": {
+      "binding": "127.0.0.1:8000",
+      "systemd": "active",
+      "liveness": "PASS",
+      "readiness": "PASS"
+    },
+    "dependencies": {
+      "postgresql": "ready",
+      "redis": "ready",
+      "ollama": "ready"
+    },
+    "image_worker_after_probe": "stopped_cleanly"
+  },
+  "connector_state": {
+    "framework": "PASS",
+    "real_loopback_e2e": "PASS",
+    "credential_isolation": "PASS",
+    "configured": 0,
+    "active": 0,
+    "healthy": 0,
+    "external_provider_state": "OWNER_ACTION_REQUIRED"
+  },
+  "platform_state": {
+    "artifact_root": "/home/md-wasim/AI_Workspace_Data/releases/step10-candidate",
+    "manifest": "SHA256SUMS",
+    "artifacts": [
+      {
+        "platform": "android",
+        "path": "Work_Station_Android.apk",
+        "sha256": "871b06dbf206e0e5081f2f0af108ae988ae2185c97cd02b6fbf01330102b9cea",
+        "status": "BUILD_PASS_DEVICE_BOUNDARY"
+      },
+      {
+        "platform": "linux_deb",
+        "path": "linux/Work_Station_Linux_amd64.deb",
+        "sha256": "011aa7c4ea04cd5f598c324d91043ec2841e57f504101216ad84ed9e79000eb1",
+        "status": "PASS"
+      },
+      {
+        "platform": "linux_appimage",
+        "path": "linux/Work_Station_Linux_x86_64.AppImage",
+        "sha256": "bc779850e6a73bda0d859e73969f3b2e512d2cf5e15e8d0a7721a79e7076ff0b",
+        "status": "PASS"
+      },
+      {
+        "platform": "macos_zip",
+        "path": "macos/Work_Station_macOS.app.zip",
+        "sha256": "895a9d06f3ce4e3c1bea609cf079dc5feb2d6c07aac02d2aaf88f3a02ae2e8b1",
+        "status": "PASS_WITH_TRUST_BOUNDARY"
+      },
+      {
+        "platform": "macos_dmg",
+        "path": "macos/Work_Station_macOS.dmg",
+        "sha256": "e425655676c22fc9e89067bdb2abaa3101bb0f15fe41bf98eb5b0f63dd9e2876",
+        "status": "PASS_WITH_TRUST_BOUNDARY"
+      },
+      {
+        "platform": "web_pwa",
+        "path": "web/Work_Station_Web_PWA.tar.gz",
+        "sha256": "e5185603d937ee03d3d4e2bdd10ebdc36510c4ee24db8e6f1dbefa70da7a50bb",
+        "status": "PASS"
+      },
+      {
+        "platform": "windows_exe",
+        "path": "windows/Work_Station_Windows.exe",
+        "sha256": "29f1a6d3f0afbd20b9ed6656caed984807e4880f30ad96261066e778137c6488",
+        "status": "PASS_WITH_SIGNING_BOUNDARY"
+      },
+      {
+        "platform": "windows_nsis",
+        "path": "windows/Work_Station_Windows_Setup.exe",
+        "sha256": "e056f5979a3c5fab2178b8f82d6723322cf5af1c30a7f7a8dd5b8ad70e80c1f7",
+        "status": "PASS_WITH_SIGNING_BOUNDARY"
+      }
+    ]
+  },
+  "security_state": {
+    "status": "PASS",
+    "critical_findings": 0,
+    "high_findings": 0,
+    "moderate_findings": 14,
+    "moderate_scope": "Expo transitive build tooling",
+    "tracked_secret_scan": "PASS",
+    "credential_isolation": "PASS",
+    "private_loopback_binding": "PASS"
+  },
+  "external_boundaries": {
+    "feature_count": 39,
+    "report": "reports/EXTERNAL_BOUNDARIES.md",
+    "groups": [
+      "platform_signing_and_device_acceptance",
+      "realtime_communications",
+      "extended_speech_profiles",
+      "connected_productivity",
+      "broker_execution",
+      "protected_experiences",
+      "video_creation",
+      "pronunciation_scoring"
+    ]
+  },
+  "verification": {
+    "backend_regression": {
+      "passed": 2929,
+      "skipped": 48,
+      "failed": 0
+    },
+    "focused_tests": {
+      "passed": 65,
+      "failed": 0
+    },
+    "postgresql_integration": {
+      "passed": 48,
+      "failed": 0
+    },
+    "runtime_sections": {
+      "passed": 12,
+      "failed": 0,
+      "names": [
+        "vision",
+        "rag",
+        "memory",
+        "image",
+        "voice",
+        "agent_os",
+        "connectors",
+        "marketing",
+        "finance",
+        "learning",
+        "creative",
+        "tools_and_workflows"
+      ]
+    },
+    "release_artifacts": {
+      "passed": 8,
+      "failed": 0
+    }
+  },
+  "repairs": [
+    {
+      "classification": "deployment_configuration_drift",
+      "issue": "The user service image route still selected the superseded SDXL checkpoint.",
+      "resolution": "The owner-only service configuration now selects the integrity-verified FLUX.2 Klein Base 4B FP8 route.",
+      "verified": true
+    },
+    {
+      "classification": "deployment_database_drift",
+      "issue": "The live database was at revision 0012 while the validated application requires revision 0017.",
+      "resolution": "A verified pre-migration backup was created, revisions 0013 through 0017 were applied, drift was checked, and the service/runtime suites passed.",
+      "verified": true
+    }
+  ],
+  "preserved_quality_baseline": {
+    "cases": 459,
+    "score": 97.88,
+    "pass": 457,
+    "partial": 1,
+    "fail": 1,
+    "safety_percent": 100,
+    "hallucination_percent": 0,
+    "executable_code": "24/24"
+  }
+}
