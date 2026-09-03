@@ -39,6 +39,7 @@ _READ_METHODS = frozenset({"GET", "HEAD"})
 _WRITE_METHODS = _METHODS - _READ_METHODS
 _SCOPES = frozenset({"read", "write"})
 _CAPABILITY_PATTERN = re.compile(r"^[a-z][a-z0-9_.:-]{0,63}$")
+_EMPTY_BODY_SHA256 = hashlib.sha256(b"").hexdigest()
 
 
 class ConnectorConnectionStatus(StrEnum):
@@ -346,6 +347,15 @@ class ConnectorService:
             )
             self.session.add(connector)
             await self.session.flush()
+            management_actions = [ConnectorAction.CONFIGURE]
+            if auth_kind is not ConnectorAuthKind.NONE:
+                management_actions.append(ConnectorAction.CREDENTIAL_CHANGE)
+            management_actions.append(ConnectorAction.PERMISSION_CHANGE)
+            await self._record_management_audits(
+                connector,
+                tuple(management_actions),
+                policy_sha256=self._policy_hash(connector),
+            )
             await self.session.refresh(connector)
             value = self._view(connector)
             await self.session.commit()
@@ -366,8 +376,26 @@ class ConnectorService:
                 raise ConnectorNotFoundError("connector not found")
             if connector.revoked_at is not None:
                 raise ConnectorConflictError("revoked connectors cannot be modified")
+            previous_policy_hash = self._policy_hash(connector)
+            previous_permissions = self._permission_policy(connector)
+            credential_changed = values.get("credential") is not None
             self._build_connector(owner_id=owner_id, connector=connector, **values)
+            next_policy_hash = self._policy_hash(connector)
+            management_actions = [ConnectorAction.CONFIGURE]
+            if credential_changed:
+                management_actions.append(ConnectorAction.CREDENTIAL_CHANGE)
+            if previous_permissions != self._permission_policy(connector):
+                management_actions.append(ConnectorAction.PERMISSION_CHANGE)
             await self.session.flush()
+            await self._record_management_audits(
+                connector,
+                tuple(management_actions),
+                policy_sha256=(
+                    next_policy_hash
+                    if next_policy_hash != previous_policy_hash
+                    else previous_policy_hash
+                ),
+            )
             await self.session.refresh(connector)
             value = self._view(connector)
             await self.session.commit()
@@ -509,6 +537,10 @@ class ConnectorService:
                 connector.revoked_at = now
                 connector.updated_at = now
             await self.session.flush()
+            await self._record_management_audits(
+                connector, (ConnectorAction.REVOKE,)
+            )
+            await self.session.refresh(connector)
             value = self._view(connector)
             await self.session.commit()
             return value
@@ -530,6 +562,10 @@ class ConnectorService:
             connector.last_health_checked_at = None
             connector.updated_at = datetime.now(timezone.utc)
             await self.session.flush()
+            await self._record_management_audits(
+                connector, (ConnectorAction.DISCONNECT,)
+            )
+            await self.session.refresh(connector)
             value = self._view(connector)
             await self.session.commit()
             return value
@@ -554,7 +590,37 @@ class ConnectorService:
         except BaseException:
             await self.session.rollback()
             raise
-        return await self.health_for_owner(owner_id, connector_id)
+        try:
+            result = await self.health_for_owner(owner_id, connector_id)
+        except ConnectorExecutionError as exc:
+            try:
+                connector = await self.repository.get_for_owner(owner_id, connector_id)
+                if connector is None:  # pragma: no cover - protected by the prior lookup
+                    raise ConnectorNotFoundError("connector not found")
+                reconnect_audit = self._copy_view_audit(
+                    exc.execution, ConnectorAction.RECONNECT, connector=connector
+                )
+                self.session.add(reconnect_audit)
+                await self.session.flush()
+                connector.last_audit_reference = reconnect_audit.id
+                await self.session.flush()
+                await self.session.commit()
+            except BaseException:
+                await self.session.rollback()
+                raise
+            raise
+        try:
+            connector = await self.repository.get_for_owner(owner_id, connector_id)
+            if connector is None:  # pragma: no cover - protected by the prior lookup
+                raise ConnectorNotFoundError("connector not found")
+            await self._record_management_audits(
+                connector, (ConnectorAction.RECONNECT,)
+            )
+            await self.session.commit()
+            return result
+        except BaseException:
+            await self.session.rollback()
+            raise
 
     async def list_executions_for_owner(
         self,
@@ -633,14 +699,31 @@ class ConnectorService:
                 started_at=started_at,
                 started=started,
             )
-            self.session.add(execution)
+            audit_records = []
+            if (
+                action is ConnectorAction.HEALTH
+                and connector.auth_kind is not ConnectorAuthKind.NONE
+            ):
+                audit_records.append(
+                    self._copy_audit(execution, ConnectorAction.AUTHENTICATE)
+                )
+            audit_records.append(execution)
             if action is ConnectorAction.HEALTH:
+                activating = (
+                    connector.enabled
+                    and connector.health_status is not ConnectorHealthStatus.HEALTHY
+                )
                 now = datetime.now(timezone.utc)
                 connector.health_status = ConnectorHealthStatus.HEALTHY
                 connector.last_health_checked_at = now
                 connector.last_successful_test_at = now
+                if activating:
+                    audit_records.append(
+                        self._copy_audit(execution, ConnectorAction.ACTIVATE)
+                    )
+            self.session.add_all(audit_records)
             await self.session.flush()
-            connector.last_audit_reference = execution.id
+            connector.last_audit_reference = audit_records[-1].id
             await self.session.flush()
             view = self._execution_view(execution)
             await self.session.commit()
@@ -661,9 +744,18 @@ class ConnectorService:
                 started_at=started_at,
                 started=started,
             )
-            self.session.add(execution)
+            audit_records = []
+            if (
+                action is ConnectorAction.HEALTH
+                and connector.auth_kind is not ConnectorAuthKind.NONE
+            ):
+                audit_records.append(
+                    self._copy_audit(execution, ConnectorAction.AUTHENTICATE)
+                )
+            audit_records.append(execution)
+            self.session.add_all(audit_records)
             await self.session.flush()
-            connector.last_audit_reference = execution.id
+            connector.last_audit_reference = audit_records[-1].id
             await self.session.flush()
             await self.session.commit()
             raise ConnectorExecutionError(self._execution_view(execution)) from None
@@ -683,12 +775,21 @@ class ConnectorService:
                 started_at=started_at,
                 started=started,
             )
-            self.session.add(execution)
+            audit_records = []
+            if (
+                action is ConnectorAction.HEALTH
+                and connector.auth_kind is not ConnectorAuthKind.NONE
+            ):
+                audit_records.append(
+                    self._copy_audit(execution, ConnectorAction.AUTHENTICATE)
+                )
+            audit_records.append(execution)
+            self.session.add_all(audit_records)
             if action is ConnectorAction.HEALTH:
                 connector.health_status = ConnectorHealthStatus.UNAVAILABLE
                 connector.last_health_checked_at = datetime.now(timezone.utc)
             await self.session.flush()
-            connector.last_audit_reference = execution.id
+            connector.last_audit_reference = audit_records[-1].id
             await self.session.flush()
             await self.session.commit()
             raise ConnectorExecutionError(self._execution_view(execution)) from None
@@ -752,7 +853,17 @@ class ConnectorService:
         *,
         action: ConnectorAction,
     ) -> None:
-        if connector.revoked_at is not None or not connector.enabled:
+        if connector.revoked_at is not None:
+            raise ConnectorPermissionError("connector_disabled")
+        if (
+            not connector.enabled
+            and action not in {ConnectorAction.HEALTH, ConnectorAction.DISCOVER}
+        ):
+            raise ConnectorPermissionError("connector_disabled")
+        if (
+            action is ConnectorAction.EXECUTE
+            and connector.health_status is not ConnectorHealthStatus.HEALTHY
+        ):
             raise ConnectorPermissionError("connector_disabled")
         if method not in _METHODS:
             raise ConnectorPermissionError()
@@ -822,3 +933,113 @@ class ConnectorService:
             completed_at=datetime.now(timezone.utc),
             duration_ms=max(0, round((time.monotonic() - started) * 1000)),
         )
+
+    @staticmethod
+    def _copy_audit(
+        execution: ConnectorExecution, action: ConnectorAction
+    ) -> ConnectorExecution:
+        return ConnectorExecution(
+            connector_id=execution.connector_id,
+            owner_id=execution.owner_id,
+            action=action,
+            method=execution.method,
+            path=execution.path,
+            status=execution.status,
+            attempts=execution.attempts,
+            response_status_code=execution.response_status_code,
+            request_body_sha256=execution.request_body_sha256,
+            response_body_sha256=execution.response_body_sha256,
+            response_bytes=execution.response_bytes,
+            error_code=execution.error_code,
+            started_at=execution.started_at,
+            completed_at=execution.completed_at,
+            duration_ms=execution.duration_ms,
+        )
+
+    @staticmethod
+    def _copy_view_audit(
+        execution: ConnectorExecutionView,
+        action: ConnectorAction,
+        *,
+        connector: Connector,
+    ) -> ConnectorExecution:
+        return ConnectorExecution(
+            connector_id=connector.id,
+            owner_id=connector.owner_id,
+            action=action,
+            method=execution.method,
+            path=execution.path,
+            status=execution.status,
+            attempts=execution.attempts,
+            response_status_code=execution.response_status_code,
+            request_body_sha256=execution.request_body_sha256,
+            response_body_sha256=execution.response_body_sha256,
+            response_bytes=execution.response_bytes,
+            error_code=execution.error_code,
+            started_at=execution.started_at,
+            completed_at=execution.completed_at,
+            duration_ms=execution.duration_ms,
+        )
+
+    @staticmethod
+    def _permission_policy(connector: Connector) -> tuple[str, str, str]:
+        return (
+            connector.scopes_json,
+            connector.path_prefixes_json,
+            connector.capabilities_json,
+        )
+
+    @staticmethod
+    def _policy_hash(connector: Connector) -> str:
+        policy = {
+            "auth_kind": connector.auth_kind.value,
+            "base_url": connector.base_url,
+            "capabilities": _decode_list(connector.capabilities_json),
+            "discovery_path": connector.discovery_path,
+            "enabled": connector.enabled,
+            "health_path": connector.health_path,
+            "kind": connector.kind.value,
+            "max_retries": connector.max_retries,
+            "name": connector.name,
+            "path_prefixes": _decode_list(connector.path_prefixes_json),
+            "provider": connector.provider,
+            "rate_limit_requests_per_minute": connector.rate_limit_requests_per_minute,
+            "scopes": _decode_list(connector.scopes_json),
+            "service": connector.service,
+            "timeout_seconds": connector.timeout_seconds,
+        }
+        raw = json.dumps(policy, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        return hashlib.sha256(raw).hexdigest()
+
+    async def _record_management_audits(
+        self,
+        connector: Connector,
+        actions: tuple[ConnectorAction, ...],
+        *,
+        policy_sha256: str | None = None,
+    ) -> None:
+        now = datetime.now(timezone.utc)
+        records = [
+            ConnectorExecution(
+                connector_id=connector.id,
+                owner_id=connector.owner_id,
+                action=action,
+                method="POST",
+                path=f"/_lifecycle/{action.value}",
+                status=ConnectorExecutionStatus.COMPLETED,
+                attempts=0,
+                response_status_code=204,
+                request_body_sha256=policy_sha256,
+                response_body_sha256=_EMPTY_BODY_SHA256,
+                response_bytes=0,
+                error_code=None,
+                started_at=now,
+                completed_at=now,
+                duration_ms=0,
+            )
+            for action in actions
+        ]
+        self.session.add_all(records)
+        await self.session.flush()
+        connector.last_audit_reference = records[-1].id
+        await self.session.flush()

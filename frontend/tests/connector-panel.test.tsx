@@ -70,7 +70,11 @@ function props() {
       supported_auth_kinds: ["none", "bearer", "api_key", "oauth2_bearer", "oidc_bearer"],
     })),
     onLoadPlatform: vi.fn(async (): Promise<ConnectorPlatform> => ({
-      lifecycle: ["discover", "authenticate", "authorize", "health_check", "capability_discovery", "execute", "verify", "audit", "revoke", "reconnect"],
+      lifecycle: [
+        "discover", "configure", "credential_store", "authenticate", "permission_check",
+        "health_check", "capability_discovery", "activate", "execute", "verify", "audit",
+        "disconnect", "revoke", "reconnect",
+      ],
       capabilities: [
         "rest", "graphql", "webhooks", "oauth2_oidc", "api_keys", "local_apis",
         "websocket", "sse", "sdks", "databases", "browser_automation",
@@ -169,5 +173,29 @@ describe("ConnectorPanel", () => {
     expect(screen.getByText("Rate limit: 30/min · Timeout: 5s · Retries: 1")).toBeVisible();
     expect(screen.getByText("Credential: configured (write-only)")).toBeVisible();
     expect(screen.getByText("Last successful test: not yet verified · Audit: none")).toBeVisible();
+  });
+
+  it("renders metadata-only lifecycle records without claiming provider execution", async () => {
+    const lifecycleAudit: ConnectorExecution = {
+      ...execution,
+      action: "configure",
+      method: "POST",
+      path: "/_lifecycle/configure",
+      attempts: 0,
+      response_status_code: 204,
+      request_body_sha256: "c".repeat(64),
+      response_body_sha256: "e".repeat(64),
+      response_bytes: 0,
+      duration_ms: 0,
+    };
+    render(<ConnectorPanel
+      {...props()}
+      onLoadAudit={vi.fn(async () => [lifecycleAudit])}
+    />);
+
+    expect(await screen.findByText(
+      "configure · POST /_lifecycle/configure · completed · 0 attempt(s) · 0 ms",
+    )).toBeVisible();
+    expect(document.body.textContent).not.toContain(rawSecret);
   });
 });

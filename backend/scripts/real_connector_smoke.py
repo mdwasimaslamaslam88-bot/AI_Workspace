@@ -321,16 +321,22 @@ def main() -> None:
                 headers=owner,
             )
             audits.raise_for_status()
-            if [item["status"] for item in audits.json()["items"]] != [
-                "failed",
-                "completed",
-                "completed",
-                "failed",
-                "completed",
-                "completed",
-                "completed",
-                "completed",
-            ]:
+            audit_items = audits.json()["items"]
+            actions = [item["action"] for item in audit_items]
+            if (
+                len(audit_items) != 17
+                or actions.count("configure") != 1
+                or actions.count("credential_change") != 1
+                or actions.count("permission_change") != 1
+                or actions.count("authenticate") != 2
+                or actions.count("health") != 2
+                or actions.count("activate") != 2
+                or actions.count("discover") != 1
+                or actions.count("execute") != 5
+                or actions.count("disconnect") != 1
+                or actions.count("reconnect") != 1
+                or [item["status"] for item in audit_items].count("failed") != 2
+            ):
                 raise RuntimeError("connector audit history is incomplete")
             if client.get(
                 "/api/v1/connectors/executions", headers=foreign
@@ -346,6 +352,15 @@ def main() -> None:
                 or revoked.json()["credential_configured"]
             ):
                 raise RuntimeError("connector credential revocation failed")
+            revoked_audits = client.get(
+                f"/api/v1/connectors/executions?connector_id={connector_id}",
+                headers=owner,
+            )
+            revoked_audits.raise_for_status()
+            if [
+                item["action"] for item in revoked_audits.json()["items"]
+            ].count("revoke") != 1:
+                raise RuntimeError("connector revocation was not audited")
             after_revoke = client.post(
                 f"/api/v1/connectors/{connector_id}/executions",
                 headers=owner,

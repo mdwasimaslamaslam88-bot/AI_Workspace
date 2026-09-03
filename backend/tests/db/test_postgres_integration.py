@@ -739,6 +739,18 @@ async def test_migration_creates_exact_expected_postgresql_schema(
     assert "discover" in connector_execution_checks[
         "ck_connector_executions_action_allowed"
     ]
+    assert "credential_change" in connector_execution_checks[
+        "ck_connector_executions_action_allowed"
+    ]
+    assert "permission_change" in connector_execution_checks[
+        "ck_connector_executions_action_allowed"
+    ]
+    assert "authenticate" in connector_execution_checks[
+        "ck_connector_executions_action_allowed"
+    ]
+    assert "revoke" in connector_execution_checks[
+        "ck_connector_executions_action_allowed"
+    ]
     assert "connector_circuit_open" in connector_execution_checks[
         "ck_connector_executions_error_code_allowed"
     ]

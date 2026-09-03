@@ -27,6 +27,17 @@ class _PublisherHandler(BaseHTTPRequestHandler):
     payload: dict | None = None
     idempotency_key: str | None = None
 
+    def do_GET(self) -> None:  # noqa: N802
+        if self.path != "/api/health":
+            self.send_error(404)
+            return
+        response = b'{"status":"healthy"}'
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(response)))
+        self.end_headers()
+        self.wfile.write(response)
+
     def do_POST(self) -> None:  # noqa: N802
         length = int(self.headers.get("Content-Length", "0"))
         type(self).payload = json.loads(self.rfile.read(length))
@@ -112,6 +123,15 @@ def main() -> None:
                 )
                 connector_response.raise_for_status()
                 connector_id = connector_response.json()["id"]
+                health_response = client.post(
+                    f"/api/v1/connectors/{connector_id}/health",
+                    headers=owner,
+                )
+                if (
+                    health_response.status_code != 200
+                    or health_response.json()["payload"] != {"status": "healthy"}
+                ):
+                    raise RuntimeError("publisher connector health verification failed")
                 created_response = client.post(
                     "/api/v1/marketing/campaigns",
                     headers=owner,

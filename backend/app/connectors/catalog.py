@@ -20,13 +20,17 @@ class ConnectorPlatformCapability:
 
 CONNECTOR_LIFECYCLE = (
     "discover",
+    "configure",
+    "credential_store",
     "authenticate",
-    "authorize",
+    "permission_check",
     "health_check",
     "capability_discovery",
+    "activate",
     "execute",
     "verify",
     "audit",
+    "disconnect",
     "revoke",
     "reconnect",
 )

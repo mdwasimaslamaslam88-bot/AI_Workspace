@@ -48,9 +48,17 @@ class ConnectorHealthStatus(StrEnum):
 
 
 class ConnectorAction(StrEnum):
+    CONFIGURE = "configure"
+    CREDENTIAL_CHANGE = "credential_change"
+    PERMISSION_CHANGE = "permission_change"
+    AUTHENTICATE = "authenticate"
     DISCOVER = "discover"
     EXECUTE = "execute"
     HEALTH = "health"
+    ACTIVATE = "activate"
+    DISCONNECT = "disconnect"
+    RECONNECT = "reconnect"
+    REVOKE = "revoke"
 
 
 class ConnectorExecutionStatus(StrEnum):
@@ -207,7 +215,10 @@ class ConnectorExecution(Base):
     __tablename__ = "connector_executions"
     __table_args__ = (
         CheckConstraint(
-            "action IN ('discover', 'execute', 'health')", name="action_allowed"
+            "action IN ('configure', 'credential_change', 'permission_change', "
+            "'authenticate', 'discover', 'execute', 'health', 'activate', "
+            "'disconnect', 'reconnect', 'revoke')",
+            name="action_allowed",
         ),
         CheckConstraint(
             "method IN ('GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE')",

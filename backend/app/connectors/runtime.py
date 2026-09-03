@@ -198,6 +198,14 @@ class ConnectorRuntime:
         idempotency_key: str | None,
     ) -> ConnectorRuntimeResult:
         connector_id = str(connector.id)
+        try:
+            self.require_allowed_origin(connector.base_url)
+        except ValueError as exc:
+            raise ConnectorRuntimeError(
+                ConnectorExecutionStatus.FAILED,
+                "connector_permission_denied",
+                attempts=0,
+            ) from exc
         if (
             action is not ConnectorAction.HEALTH
             and await self._circuit_breaker.is_open(connector_id)

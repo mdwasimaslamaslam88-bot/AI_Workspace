@@ -39,13 +39,14 @@ The canonical action flow is:
 
 ```text
 operator allowlists origin
-→ owner registers connector and credential
-→ owner enables explicit scopes and paths
-→ health check
+→ owner configures connector and write-only credential
+→ permission policy is recorded
+→ authenticated health check
+→ activation only after health succeeds
 → bounded JSON action
 → response verification
 → metadata-only audit
-→ revocation when requested
+→ disconnect / verified reconnect / credential-destroying revocation
 ```
 
 The API is under `/api/v1/connectors` and requires the normal owner bearer on
@@ -58,6 +59,11 @@ records.
 - supported methods are `GET`, `HEAD`, `POST`, `PUT`, `PATCH`, and `DELETE`
 - webhooks permit action `POST` only
 - the requested path must remain inside an owner-approved prefix
+- the exact origin is checked again immediately before every network request,
+  so removing an operator allowlist entry blocks an already-persisted connector
+- ordinary actions require a successful health check; disabled connectors may
+  perform only bounded health/discovery preflight, and revoked connectors may
+  perform neither
 - connector paths are canonical: queries, fragments, percent escapes,
   traversal segments, backslashes, and control characters are rejected
 - request JSON is limited to 32 KiB and response JSON to 256 KiB
@@ -68,8 +74,30 @@ records.
 - credentials are XChaCha20-Poly1305 encrypted with a key outside PostgreSQL
 - credentials are write-only, absent from responses, model prompts, and audit
   rows, and are deleted on revocation
+- audits cover configuration, credential changes, permission changes,
+  authentication, discovery, health, activation, execution, disconnect,
+  reconnect, revocation, and failures
 - audits store method, path, timing, status, attempts, sizes, and content hashes;
-  request/response bodies and credentials are not retained
+  request/response bodies and credential material are not retained
+
+## Truthful activation states
+
+The persisted connector state model intentionally uses more conservative names
+than a provider marketing label:
+
+| API state | Activation meaning |
+| --- | --- |
+| no configured runtime | `NOT_CONFIGURED` at the setup layer |
+| `disabled` or `revoked` | `BLOCKED`; no ordinary external action is allowed |
+| `ready` | configuration exists but health has not succeeded |
+| `healthy` | authenticated health succeeded against the exact approved origin; this alone is not proof of a provider write |
+| `unavailable` | `ERROR`; the last health/reconnect attempt failed |
+
+An authenticated connector cannot be persisted without a credential, so an
+incomplete setup remains an `AUTH_REQUIRED` setup condition rather than a
+misleading connector row. `LIVE` is reserved in provider reports for a real,
+authorized provider operation with objective receipt evidence; the generic API
+continues to expose `healthy` until that stronger evidence exists.
 
 The in-process rate limiter is a local deployment guard, not a distributed
 quota service. A multi-instance deployment must place a shared rate-limit gate
@@ -81,8 +109,8 @@ in front of connector execution before relying on a global quota.
 uses a disposable PostgreSQL database, provisions two independent owners, and
 proves encrypted bearer authentication, health, owner isolation, path scopes,
 an idempotent retry after HTTP 503, metadata-only audit history, log redaction,
-credential destruction, and post-revocation denial. The release runtime gate
-executes this smoke test.
+credential destruction, failed-authentication/reconnect evidence, and
+post-revocation denial. The release runtime gate executes this smoke test.
 
 ## External boundaries
 

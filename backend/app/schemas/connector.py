@@ -41,7 +41,7 @@ class ConnectorPlatformCapabilityResponse(BaseModel):
 
 
 class ConnectorPlatformResponse(BaseModel):
-    lifecycle: list[str] = Field(min_length=10, max_length=10)
+    lifecycle: list[str] = Field(min_length=14, max_length=14)
     capabilities: list[ConnectorPlatformCapabilityResponse] = Field(
         min_length=13, max_length=13
     )

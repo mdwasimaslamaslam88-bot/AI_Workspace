@@ -260,13 +260,17 @@ def test_platform_catalog_is_truthful_and_owner_authenticated(connectors_api):
     payload = response.json()
     assert payload["lifecycle"] == [
         "discover",
+        "configure",
+        "credential_store",
         "authenticate",
-        "authorize",
+        "permission_check",
         "health_check",
         "capability_discovery",
+        "activate",
         "execute",
         "verify",
         "audit",
+        "disconnect",
         "revoke",
         "reconnect",
     ]

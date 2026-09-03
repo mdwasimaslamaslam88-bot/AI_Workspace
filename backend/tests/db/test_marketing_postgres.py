@@ -54,6 +54,8 @@ async def test_marketing_campaign_is_owner_scoped_approval_gated_and_grounded(
     requests: list[dict] = []
 
     async def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "GET" and request.url.path == "/v1/health":
+            return httpx.Response(200, json={"status": "healthy"})
         requests.append(
             {
                 "method": request.method,
@@ -96,6 +98,9 @@ async def test_marketing_campaign_is_owner_scoped_approval_gated_and_grounded(
                 timeout_seconds=2,
                 max_retries=0,
                 rate_limit_requests_per_minute=30,
+            )
+            await ConnectorService(session, runtime).health_for_owner(
+                owner_id, connector.id
             )
             campaign = await MarketingCampaignService(
                 session, runtime

@@ -1,5 +1,6 @@
 import app.models  # noqa: F401
 from app.db.base import Base
+from sqlalchemy import CheckConstraint
 from tests.db.test_creative_experiences_migration import _upgrade_through_learning
 from tests.db.test_initial_domain_migration import (
     RecordingOperations,
@@ -28,17 +29,24 @@ def test_connector_activation_revision_follows_creative_experiences():
     assert revision.depends_on is None
 
 
-def test_upgrade_matches_exact_current_connector_orm_schema():
+def test_upgrade_matches_connector_activation_schema_before_lifecycle_extension():
     operations = RecordingOperations()
     _upgrade_through_creative(operations)
     operations.events.clear()
 
     _load_revision(operations, REVISION_FILENAME).upgrade()
 
-    for table_name in ("connectors", "connector_executions"):
-        assert _table_signature(operations.metadata.tables[table_name]) == (
-            _table_signature(Base.metadata.tables[table_name])
-        )
+    assert _table_signature(operations.metadata.tables["connectors"]) == (
+        _table_signature(Base.metadata.tables["connectors"])
+    )
+    execution_checks = {
+        constraint.name: str(constraint.sqltext)
+        for constraint in operations.metadata.tables["connector_executions"].constraints
+        if isinstance(constraint, CheckConstraint)
+    }
+    assert execution_checks["ck_connector_executions_action_allowed"] == (
+        "action IN ('discover', 'execute', 'health')"
+    )
     assert operations.events[:9] == [
         ("add_column", "connectors.provider"),
         ("add_column", "connectors.service"),

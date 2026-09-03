@@ -753,7 +753,18 @@ export interface ConnectorExecutionRequest {
 export interface ConnectorExecution {
   id: UUID;
   connector_id: UUID;
-  action: "discover" | "execute" | "health";
+  action:
+    | "configure"
+    | "credential_change"
+    | "permission_change"
+    | "authenticate"
+    | "discover"
+    | "execute"
+    | "health"
+    | "activate"
+    | "disconnect"
+    | "reconnect"
+    | "revoke";
   method: string;
   path: string;
   status: ConnectorExecutionStatus;
@@ -2338,7 +2349,19 @@ export function parseConnectorExecution(value: unknown): ConnectorExecution {
   return {
     id: stringField(item.id),
     connector_id: stringField(item.connector_id),
-    action: enumField(item.action, ["discover", "execute", "health"] as const),
+    action: enumField(item.action, [
+      "configure",
+      "credential_change",
+      "permission_change",
+      "authenticate",
+      "discover",
+      "execute",
+      "health",
+      "activate",
+      "disconnect",
+      "reconnect",
+      "revoke",
+    ] as const),
     method: enumField(item.method, ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"] as const),
     path: stringField(item.path),
     status,

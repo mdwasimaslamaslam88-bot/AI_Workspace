@@ -251,8 +251,43 @@ async def test_origin_policy_requires_https_except_loopback_and_exact_allowlisti
         await runtime.close()
 
 
+@pytest.mark.asyncio
+async def test_runtime_rechecks_allowlist_before_every_persisted_connector_request(tmp_path):
+    calls = 0
+
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return httpx.Response(200, json={"unexpected": True})
+
+    box = ConnectorCredentialBox(tmp_path / "credentials")
+    connector = _connector(box)
+    runtime = ConnectorRuntime(
+        box,
+        (),
+        httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+    )
+    try:
+        with pytest.raises(ConnectorRuntimeError) as blocked:
+            await runtime.execute(
+                connector,
+                action=ConnectorAction.HEALTH,
+                method="GET",
+                path="/v1/health",
+                json_body=None,
+                idempotency_key=None,
+            )
+    finally:
+        await runtime.close()
+
+    assert blocked.value.code == "connector_permission_denied"
+    assert blocked.value.attempts == 0
+    assert calls == 0
+
+
 def test_connector_policy_rejects_noncanonical_path_scope_bypasses(tmp_path):
     connector = _connector(ConnectorCredentialBox(tmp_path / "credentials"))
+    connector.health_status = ConnectorHealthStatus.HEALTHY
 
     ConnectorService._authorize(
         connector,
@@ -273,6 +308,40 @@ def test_connector_policy_rejects_noncanonical_path_scope_bypasses(tmp_path):
                 path,
                 action=ConnectorAction.EXECUTE,
             )
+
+
+def test_unverified_connector_cannot_execute_but_may_run_bounded_preflight(tmp_path):
+    connector = _connector(ConnectorCredentialBox(tmp_path / "credentials"))
+
+    with pytest.raises(ConnectorPermissionError, match="connector_disabled"):
+        ConnectorService._authorize(
+            connector,
+            "GET",
+            "/v1/status",
+            action=ConnectorAction.EXECUTE,
+        )
+
+    ConnectorService._authorize(
+        connector,
+        "GET",
+        "/v1/health",
+        action=ConnectorAction.HEALTH,
+    )
+    connector.enabled = False
+    ConnectorService._authorize(
+        connector,
+        "GET",
+        "/v1/capabilities",
+        action=ConnectorAction.DISCOVER,
+    )
+    connector.revoked_at = datetime.now(timezone.utc)
+    with pytest.raises(ConnectorPermissionError, match="connector_disabled"):
+        ConnectorService._authorize(
+            connector,
+            "GET",
+            "/v1/health",
+            action=ConnectorAction.HEALTH,
+        )
 
 
 @pytest.mark.asyncio
