@@ -55,7 +55,15 @@ systemd-analyze --user verify \
   "${user_unit_directory}/work-station-tailscaled.service" \
   "${user_unit_directory}/work-station.target"
 
-echo "User services installed but not started."
+echo "User service definitions installed without changing their active state."
 echo "Start with: systemctl --user enable --now work-station.target"
-echo "Backups remain disabled until separately configured and enabled."
-echo "Technology watching remains disabled until self-update storage is reviewed."
+if systemctl --user is-enabled --quiet work-station-backup.timer; then
+  echo "Backup scheduling remains enabled."
+else
+  echo "Backups remain disabled until separately configured and enabled."
+fi
+if systemctl --user is-enabled --quiet work-station-technology-watch.timer; then
+  echo "Technology watching remains enabled."
+else
+  echo "Technology watching remains disabled until self-update storage is reviewed."
+fi

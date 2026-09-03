@@ -517,6 +517,63 @@ class SelfUpdateManager:
         self._write_state(activated)
         return activated
 
+    def reconcile_ready_candidate(self) -> UpdateState:
+        """Fail closed when an unactivated candidate no longer advances production."""
+        current = self.state()
+        if current.status is not UpdateStatus.READY:
+            return current
+        active_commit = self._git(self.repository_root, "rev-parse", "HEAD")
+        candidate_commit = current.candidate_commit
+        if candidate_commit == active_commit:
+            failure_code = "candidate_already_active"
+        elif candidate_commit is None or not _COMMIT.fullmatch(candidate_commit):
+            failure_code = "candidate_state_invalid"
+        else:
+            advances_production = subprocess.run(
+                (
+                    "/usr/bin/git",
+                    "merge-base",
+                    "--is-ancestor",
+                    active_commit,
+                    candidate_commit,
+                ),
+                cwd=self.repository_root,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=60,
+                check=False,
+            )
+            if advances_production.returncode == 0:
+                return current
+            superseded = subprocess.run(
+                (
+                    "/usr/bin/git",
+                    "merge-base",
+                    "--is-ancestor",
+                    candidate_commit,
+                    active_commit,
+                ),
+                cwd=self.repository_root,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                timeout=60,
+                check=False,
+            )
+            failure_code = (
+                "candidate_superseded"
+                if superseded.returncode == 0
+                else "candidate_diverged"
+            )
+        reconciled = replace(
+            current,
+            status=UpdateStatus.FAILED,
+            failure_code=failure_code,
+        )
+        self._write_state(reconciled)
+        return reconciled
+
     def cancel_ready(self) -> UpdateState:
         current = self.state()
         if current.status is not UpdateStatus.READY:

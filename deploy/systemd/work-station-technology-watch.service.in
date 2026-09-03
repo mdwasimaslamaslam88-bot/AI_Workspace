@@ -15,7 +15,6 @@ ProtectSystem=strict
 ProtectHome=read-only
 ReadWritePaths=@REPOSITORY_ROOT@/.git %h/AI_Workspace_Data/self-update
 ProtectKernelTunables=yes
-ProtectKernelModules=yes
 ProtectControlGroups=yes
 RestrictSUIDSGID=yes
 LockPersonality=yes

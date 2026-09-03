@@ -69,6 +69,13 @@ def watch(state_root: Path, remote: str, branch: str) -> str:
         current = _run("/usr/bin/git", "rev-parse", "HEAD")
         candidate_ref = f"{remote}/{branch}"
         candidate = _run("/usr/bin/git", "rev-parse", "--verify", f"{candidate_ref}^{{commit}}")
+        _run(
+            str(REPOSITORY_ROOT / "backend/.venv/bin/python"),
+            str(REPOSITORY_ROOT / "scripts/self_update_tool.py"),
+            "--state-root",
+            str(state_root),
+            "reconcile",
+        )
         if current == candidate:
             return "no_new_candidate"
         ancestor = subprocess.run(

@@ -28,6 +28,7 @@ from app.maintenance import (  # noqa: E402
     REQUIRED_UPDATE_GATES,
     SelfUpdateError,
     SelfUpdateManager,
+    UpdateStatus,
     ValidationGate,
 )
 
@@ -205,13 +206,23 @@ def _mandatory_gates() -> tuple[ValidationGate, ...]:
 
 def _public_state(manager: SelfUpdateManager) -> dict[str, object]:
     state = manager.state()
+    checkpoint_ready = bool(
+        state.checkpoint_id is not None
+        and state.status
+        in {
+            UpdateStatus.READY,
+            UpdateStatus.ACTIVATED,
+            UpdateStatus.ROLLED_BACK,
+            UpdateStatus.CANCELLED,
+        }
+    )
     return {
         "configured": True,
         "status": state.status.value,
         "version": state.version,
         "candidate_commit": state.candidate_commit,
-        "checkpoint_ready": state.checkpoint_id is not None,
-        "rollback_ready": state.checkpoint_id is not None,
+        "checkpoint_ready": checkpoint_ready,
+        "rollback_ready": checkpoint_ready,
         "gates": [
             {"name": gate.name, "passed": gate.passed}
             for gate in state.gate_results
@@ -264,6 +275,7 @@ def _parser() -> argparse.ArgumentParser:
     verify.add_argument("checkpoint")
     activate = commands.add_parser("activate")
     activate.add_argument("--confirm", choices=("UPDATE",), required=True)
+    commands.add_parser("reconcile")
     commands.add_parser("cancel")
     health = commands.add_parser("health")
     health.add_argument(
@@ -288,6 +300,8 @@ def main() -> int:
             manager.verify_checkpoint(arguments.checkpoint)
         elif arguments.command == "activate":
             manager.activate_ready(user_confirmed=arguments.confirm == "UPDATE")
+        elif arguments.command == "reconcile":
+            manager.reconcile_ready_candidate()
         elif arguments.command == "cancel":
             manager.cancel_ready()
         elif arguments.command == "health":

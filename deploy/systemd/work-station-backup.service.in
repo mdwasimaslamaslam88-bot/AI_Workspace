@@ -13,7 +13,6 @@ DevicePolicy=closed
 PrivateTmp=yes
 ProtectSystem=full
 ProtectKernelTunables=yes
-ProtectKernelModules=yes
 ProtectControlGroups=yes
 RestrictSUIDSGID=yes
 LockPersonality=yes

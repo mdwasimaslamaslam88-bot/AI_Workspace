@@ -84,6 +84,20 @@ runs the same complete preparation. Its systemd timer is installed but disabled
 and is not part of `work-station.target`. It never activates a result and the UI
 does not announce a candidate while validation is incomplete.
 
+After verifying that the owner-only self-update root is available, enable the
+daily watcher explicitly:
+
+```bash
+systemctl --user enable --now work-station-technology-watch.timer
+systemctl --user start work-station-technology-watch.service
+```
+
+The second command is an immediate smoke; `no_new_candidate` is a successful
+result when `HEAD` already matches `origin/main`. Every watcher run also
+reconciles update state: a previously ready candidate that is already active,
+superseded by production, or divergent is failed closed and can no longer show
+the owner an activation action.
+
 ## Final decision and actual deployment boundary
 
 Only status `ready` enables the UI buttons `UPDATE` and `CANCEL`. UPDATE

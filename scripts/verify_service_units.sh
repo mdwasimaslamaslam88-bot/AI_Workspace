@@ -38,4 +38,8 @@ if rg -q 'work-station-(backup|technology-watch)' \
   echo "Opt-in backup and technology timers must not be part of work-station.target." >&2
   exit 1
 fi
+if rg -q '^ProtectKernelModules=' "${temporary_units}"; then
+  echo "User services must not request the unavailable kernel-module capability boundary." >&2
+  exit 1
+fi
 echo "systemd user units: valid"

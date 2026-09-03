@@ -34,6 +34,7 @@ ACTIVATION_CONFIRMATION = "WORK_STATION_ALLOW_PRODUCTION_REMOTE_SMOKE"
 PROVISIONING_TOKEN_PATH = Path.home() / ".ai_workspace_provisioning_token"
 DESKTOP_LABEL = "Remote E2E desktop"
 MOBILE_LABEL = "Remote E2E mobile"
+INITIAL_SESSION_LABEL = "Provisioned owner session"
 DESKTOP_WORKFLOW = "Remote E2E desktop to mobile"
 MOBILE_WORKFLOW = "Remote E2E mobile to desktop"
 TERMINAL_WORKFLOW_STATES = {"completed", "failed", "cancelled", "timed_out"}
@@ -230,7 +231,9 @@ async def _remove_test_owner(database_url: str, owner_id: UUID) -> None:
             )
             if (
                 recent != 1
-                or not set(labels).issubset({DESKTOP_LABEL, MOBILE_LABEL})
+                or not set(labels).issubset(
+                    {INITIAL_SESSION_LABEL, DESKTOP_LABEL, MOBILE_LABEL}
+                )
                 or len(labels) > 2
                 or not set(names).issubset({DESKTOP_WORKFLOW, MOBILE_WORKFLOW})
                 or len(names) > 2
@@ -366,6 +369,78 @@ def _run_remote_flow(
                 and identity is not None
                 and UUID(identity["id"]) == state["owner_id"],
                 "remote desktop authentication did not pass",
+            )
+            status_code, diagnostics, _headers = client.call(
+                "GET", "/api/v1/diagnostics", token=desktop_token
+            )
+            services = {
+                item.get("id"): item.get("status")
+                for item in diagnostics.get("services", [])
+            } if isinstance(diagnostics, dict) else {}
+            _require(
+                status_code == 200 and diagnostics is not None,
+                "authenticated production diagnostics request failed",
+            )
+            _require(
+                diagnostics.get("mode") == "remote",
+                "production diagnostics did not report private remote mode",
+            )
+            for service_name in (
+                "backend",
+                "database",
+                "ollama",
+                "storage",
+                "remote_gateway",
+                "gpu",
+            ):
+                _require(
+                    services.get(service_name) == "ready",
+                    f"production diagnostic unavailable: {service_name}",
+                )
+            _require(
+                isinstance(diagnostics.get("agents"), dict),
+                "agent monitoring diagnostic is unavailable",
+            )
+            _require(
+                bool(diagnostics.get("models")) and bool(diagnostics.get("routes")),
+                "model monitoring diagnostic is unavailable",
+            )
+            _require(
+                diagnostics.get("hardware", {}).get("gpu_count", 0) >= 1
+                and diagnostics.get("hardware", {}).get("runtime_validated") is True,
+                "hardware monitoring diagnostic is unavailable",
+            )
+            _require(
+                diagnostics.get("self_update", {}).get("configured") is True,
+                "self-update monitoring diagnostic is unavailable",
+            )
+            serialized_diagnostics = json.dumps(
+                diagnostics, sort_keys=True, separators=(",", ":")
+            ).lower()
+            _require(
+                "/home/" not in serialized_diagnostics
+                and "authorization" not in serialized_diagnostics
+                and "access_token" not in serialized_diagnostics,
+                "production diagnostics exposed private material",
+            )
+            status_code, connector_settings, headers = client.call(
+                "GET", "/api/v1/connectors/settings", token=desktop_token
+            )
+            _require(
+                status_code == 200
+                and connector_settings is not None
+                and connector_settings.get("configured") is True
+                and "no-store" in headers.get("cache-control", ""),
+                "connector monitor configuration did not pass",
+            )
+            status_code, connectors, _headers = client.call(
+                "GET", "/api/v1/connectors", token=desktop_token
+            )
+            _require(
+                status_code == 200
+                and connectors is not None
+                and connectors.get("items") == [],
+                "temporary owner connector isolation did not pass",
             )
             status_code, renamed, _headers = client.call(
                 "PATCH",
@@ -562,6 +637,8 @@ async def _main() -> None:
     print("DESKTOP_TO_MOBILE_WORKFLOW_CONTINUATION=passed")
     print("MOBILE_TO_DESKTOP_WORKFLOW_CONTINUATION=passed")
     print("REMOTE_DEVICE_REVOCATION_AND_LOGOUT=passed")
+    print("PRODUCTION_MONITORING_DIAGNOSTICS=passed")
+    print("CONNECTOR_MONITOR_OWNER_ISOLATION=passed")
     print("REMOTE_SMOKE_PRODUCTION_CLEANUP=passed")
 
 

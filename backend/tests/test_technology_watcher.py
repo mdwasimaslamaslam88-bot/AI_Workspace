@@ -26,8 +26,13 @@ def test_watcher_does_not_validate_or_notify_when_remote_commit_is_unchanged(tmp
     monkeypatch.setattr(watcher, "_run", run)
 
     assert watcher.watch(state_root, "origin", "main") == "no_new_candidate"
-    assert len(calls) == 3
-    assert all("self_update_tool.py" not in " ".join(call[0]) for call in calls)
+    assert len(calls) == 4
+    update_calls = [
+        call for call in calls if "self_update_tool.py" in " ".join(call[0])
+    ]
+    assert len(update_calls) == 1
+    assert update_calls[0][0][-1] == "reconcile"
+    assert all("prepare" not in call[0] for call in update_calls)
 
 
 def test_watcher_rejects_untrusted_remote_or_traversing_branch_before_fetch(tmp_path):

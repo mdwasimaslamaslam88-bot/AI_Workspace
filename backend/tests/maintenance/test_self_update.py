@@ -175,6 +175,47 @@ def test_ready_activation_requires_owner_and_failed_health_rolls_back(tmp_path: 
     assert manager.current_link.resolve(strict=True) == first_release
 
 
+def test_reconcile_fails_closed_for_a_superseded_ready_candidate(tmp_path: Path):
+    repository = _repository(tmp_path)
+    manager = SelfUpdateManager(
+        repository,
+        _state_root(tmp_path),
+        gate_runner=_passing_runner,
+    )
+    ready = manager.prepare(candidate_ref="HEAD", version="1.0.0", gates=_gates())
+    assert ready.status is UpdateStatus.READY
+
+    (repository / "application.txt").write_text("version two\n", encoding="utf-8")
+    _git(repository, "add", "application.txt")
+    _git(repository, "commit", "-m", "version two")
+
+    reconciled = manager.reconcile_ready_candidate()
+
+    assert reconciled.status is UpdateStatus.FAILED
+    assert reconciled.failure_code == "candidate_superseded"
+    with pytest.raises(SelfUpdateError, match="no validated update"):
+        manager.activate_ready(user_confirmed=True)
+
+
+def test_reconcile_preserves_a_ready_candidate_that_advances_production(tmp_path: Path):
+    repository = _repository(tmp_path)
+    current = _git(repository, "rev-parse", "HEAD")
+    (repository / "application.txt").write_text("version two\n", encoding="utf-8")
+    _git(repository, "add", "application.txt")
+    _git(repository, "commit", "-m", "version two")
+    candidate = _git(repository, "rev-parse", "HEAD")
+    _git(repository, "checkout", "--detach", current)
+    manager = SelfUpdateManager(
+        repository,
+        _state_root(tmp_path),
+        gate_runner=_passing_runner,
+    )
+    ready = manager.prepare(candidate_ref=candidate, version="2.0.0", gates=_gates())
+
+    assert manager.reconcile_ready_candidate() == ready
+    assert manager.state().status is UpdateStatus.READY
+
+
 def test_update_state_root_refuses_group_or_world_access(tmp_path: Path):
     repository = _repository(tmp_path)
     state_root = tmp_path / "unsafe-state"
