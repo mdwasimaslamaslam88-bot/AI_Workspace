@@ -161,4 +161,13 @@ describe("ConnectorPanel", () => {
     await waitFor(() => expect(actions.onDisconnect).toHaveBeenCalledWith(connector.id));
     expect(document.body.textContent).not.toContain(rawSecret);
   });
+
+  it("shows provider activation health, limits, and write-only credential state", async () => {
+    render(<ConnectorPanel {...props()} />);
+
+    expect(await screen.findByText("Health: ready · Last health check: not yet checked")).toBeVisible();
+    expect(screen.getByText("Rate limit: 30/min · Timeout: 5s · Retries: 1")).toBeVisible();
+    expect(screen.getByText("Credential: configured (write-only)")).toBeVisible();
+    expect(screen.getByText("Last successful test: not yet verified · Audit: none")).toBeVisible();
+  });
 });

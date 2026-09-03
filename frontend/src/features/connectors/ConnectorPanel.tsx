@@ -371,6 +371,8 @@ export function ConnectorPanel({
             <p className="field-help">{connector.provider} · {connector.service} · {connector.kind.replaceAll("_", " ")} · {connector.base_url}</p>
             <p className="field-help">Capabilities: {connector.capabilities.join(", ")}</p>
             <p className="field-help">Scopes: {connector.scopes.join(", ")} · Paths: {connector.path_prefixes.join(", ")}</p>
+            <p className="field-help">Health: {connector.connection_status.replaceAll("_", " ")} · Last health check: {connector.last_health_checked_at ?? "not yet checked"}</p>
+            <p className="field-help">Rate limit: {connector.rate_limit_requests_per_minute}/min · Timeout: {connector.timeout_seconds}s · Retries: {connector.max_retries}</p>
             <p className="field-help">Credential: {connector.credential_configured ? "configured (write-only)" : "none"}</p>
             <p className="field-help">Last successful test: {connector.last_successful_test_at ?? "not yet verified"} · Audit: {connector.audit_reference ?? "none"}</p>
             {connector.revoked_at === null && <div className="button-row">
