@@ -13,6 +13,7 @@ class CommunicationProviderError(RuntimeError):
 class CommunicationReceipt:
     request_id: UUID
     state: str = "accepted_by_provider"
+    connector_execution_id: UUID | None = None
 
     def __post_init__(self) -> None:
         if self.state != "accepted_by_provider":

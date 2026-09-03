@@ -21,6 +21,7 @@ function Navigation() {
         }}
       >
         <Tabs.Screen name="index" options={{ title: "Home", headerTitle: "AI Presence" }} />
+        <Tabs.Screen name="calls" options={{ title: "Calls", headerTitle: "Communications" }} />
         <Tabs.Screen name="agents" options={{ title: "Missions", headerTitle: "Mission Control" }} />
         <Tabs.Screen name="studio" options={{ title: "Workspaces", headerTitle: "Universal Workspace" }} />
         <Tabs.Screen name="settings" options={{ title: "Command", headerTitle: "AI Command Center" }} />

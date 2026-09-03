@@ -21,7 +21,10 @@ planned controls. No item below is reported as locally live without its system.
 
 - Realtime communications (7): phone call, configured callback, video,
   screen share, live camera stream, provider-grade interruption and natural
-  turn-taking require an authorized WebRTC/telephony provider.
+  turn-taking require an authorized WebRTC/telephony provider. Phone and
+  callback requests now have owner-scoped desktop/web and Android activation
+  paths through the encrypted connector gateway, but no carrier connector is
+  configured in production and no external call is claimed.
 - Extended speech profiles (3): verified female and multilingual/mixed-language
   models must be installed and admitted before these profiles can be enabled.
 - Connected productivity (18): email, calendar, meetings, CRM, social,

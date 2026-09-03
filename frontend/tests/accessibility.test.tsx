@@ -1,5 +1,5 @@
 import axe from "axe-core";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { FeatureRegistry, IndexedDocument, ProductFeature } from "../src/api/contracts";
@@ -54,11 +54,18 @@ const indexedDocument: IndexedDocument = {
 };
 
 describe("critical surface accessibility", () => {
-  it("exposes the communication boundary without a fake call action", async () => {
+  it("opens communication setup without claiming that a call started", async () => {
+    const onOpenCommunications = vi.fn();
     const { container } = render(
-      <PresenceHeader state="WAITING" modelName="Local model" onAsk={vi.fn()} />,
+      <PresenceHeader
+        state="WAITING"
+        modelName="Local model"
+        onAsk={vi.fn()}
+        onOpenCommunications={onOpenCommunications}
+      />,
     );
-    expect(screen.getByRole("button", { name: "Call" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Calls" }));
+    expect(onOpenCommunications).toHaveBeenCalledOnce();
     expect(screen.getByText(/owner-configured communication provider/)).toBeInTheDocument();
     await expectNoStructuralViolations(container);
   });

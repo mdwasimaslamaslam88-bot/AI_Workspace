@@ -70,14 +70,22 @@ describe("mobile accessibility contract", () => {
     }
   });
 
-  it("keeps external calls disabled until a provider is configured", () => {
+  it("routes calls to a fail-closed provider-management surface", () => {
     const home = fs.readFileSync(
       path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../src/app/index.tsx"),
       "utf8",
     );
+    const calls = fs.readFileSync(
+      path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../src/app/calls.tsx"),
+      "utf8",
+    );
     expect(home).toContain('accessibilityLabel="Call"');
     expect(home).toContain("Requires an owner-configured communication provider");
-    expect(home).toMatch(/accessibilityLabel="Call"[\s\S]{0,240}disabled/);
+    expect(home).toContain('router.push("/calls")');
+    expect(calls).toContain("No healthy communication connector");
+    expect(calls).toContain("owner_approved: true");
+    expect(calls).toContain("Provider acceptance receipt verified");
+    expect(calls).toContain("disabled={!canSubmit}");
   });
 
   it("connects text and locally transcribed voice to typed missions", () => {

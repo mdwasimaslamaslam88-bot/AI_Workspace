@@ -19,6 +19,9 @@ import type {
   ConnectorPlatform,
   ConnectorSettings,
   ConnectorWriteRequest,
+  CommunicationAccepted,
+  CommunicationCapabilities,
+  CommunicationRequest,
   CreativeCapabilities,
   CreativeExperience,
   CreativeExperienceCreateRequest,
@@ -125,6 +128,11 @@ const AgentPanel = lazy(() =>
 const ConnectorPanel = lazy(() =>
   import("../features/connectors/ConnectorPanel").then((module) => ({
     default: module.ConnectorPanel,
+  })),
+);
+const CommunicationPanel = lazy(() =>
+  import("../features/communications/CommunicationPanel").then((module) => ({
+    default: module.CommunicationPanel,
   })),
 );
 const CreativePanel = lazy(() =>
@@ -266,6 +274,7 @@ export function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [agentsOpen, setAgentsOpen] = useState(false);
   const [connectorsOpen, setConnectorsOpen] = useState(false);
+  const [communicationsOpen, setCommunicationsOpen] = useState(false);
   const [marketingOpen, setMarketingOpen] = useState(false);
   const [financeOpen, setFinanceOpen] = useState(false);
   const [learningOpen, setLearningOpen] = useState(false);
@@ -313,6 +322,7 @@ export function App() {
     setSettingsOpen(false);
     setAgentsOpen(false);
     setConnectorsOpen(false);
+    setCommunicationsOpen(false);
     setMarketingOpen(false);
     setFinanceOpen(false);
     setLearningOpen(false);
@@ -980,6 +990,36 @@ export function App() {
         throw new ApiError("authentication", "Authentication failed.");
       }
       return (await client.listConnectors(signal)).items;
+    },
+    [client],
+  );
+
+  const loadCommunicationCapabilities = useCallback(
+    (signal?: AbortSignal): Promise<CommunicationCapabilities> => {
+      if (client === null) {
+        return Promise.reject(new ApiError("authentication", "Authentication failed."));
+      }
+      return client.getCommunicationCapabilities(signal);
+    },
+    [client],
+  );
+
+  const startPhoneCall = useCallback(
+    (request: CommunicationRequest, signal?: AbortSignal): Promise<CommunicationAccepted> => {
+      if (client === null) {
+        return Promise.reject(new ApiError("authentication", "Authentication failed."));
+      }
+      return client.startPhoneCall(request, signal);
+    },
+    [client],
+  );
+
+  const scheduleCallback = useCallback(
+    (request: CommunicationRequest, signal?: AbortSignal): Promise<CommunicationAccepted> => {
+      if (client === null) {
+        return Promise.reject(new ApiError("authentication", "Authentication failed."));
+      }
+      return client.scheduleCallback(request, signal);
     },
     [client],
   );
@@ -1847,6 +1887,7 @@ export function App() {
       setWorkflowsOpen(target === "workflows");
       setAgentsOpen(false);
       setConnectorsOpen(false);
+      setCommunicationsOpen(false);
       setMarketingOpen(false);
       setFinanceOpen(false);
       setLearningOpen(false);
@@ -1876,7 +1917,7 @@ export function App() {
             ? "universal_workspace"
             : creativeOpen
               ? "universal_workspace"
-            : toolsOpen || connectorsOpen || marketingOpen || financeOpen
+            : toolsOpen || connectorsOpen || communicationsOpen || marketingOpen || financeOpen
               ? "apps_hub"
             : "ai_presence");
 
@@ -1894,6 +1935,7 @@ export function App() {
     setMemoryOpen(false);
     setAgentsOpen(false);
     setConnectorsOpen(false);
+    setCommunicationsOpen(false);
     setMarketingOpen(false);
     setFinanceOpen(false);
     setLearningOpen(false);
@@ -1923,6 +1965,10 @@ export function App() {
       setLearningOpen(true);
     } else if (feature.backend_capability === "creative_experience_service") {
       setCreativeOpen(true);
+    } else if (
+      feature.backend_capability === "external_realtime_connector"
+    ) {
+      setCommunicationsOpen(true);
     } else if (
       feature.backend_capability === "connector_service" ||
       feature.backend_capability === "external_connector"
@@ -2022,6 +2068,7 @@ export function App() {
               setMemoryOpen(false);
               setAgentsOpen(false);
               setConnectorsOpen(false);
+              setCommunicationsOpen(false);
               setMarketingOpen(false);
               setFinanceOpen(false);
               setLearningOpen(false);
@@ -2043,6 +2090,7 @@ export function App() {
               setSettingsOpen(false);
               setAgentsOpen(false);
               setConnectorsOpen(false);
+              setCommunicationsOpen(false);
               setMarketingOpen(false);
               setFinanceOpen(false);
               setLearningOpen(false);
@@ -2064,6 +2112,7 @@ export function App() {
               setSettingsOpen(false);
               setAgentsOpen(false);
               setConnectorsOpen(false);
+              setCommunicationsOpen(false);
               setMarketingOpen(false);
               setFinanceOpen(false);
               setLearningOpen(false);
@@ -2085,6 +2134,7 @@ export function App() {
               setSettingsOpen(false);
               setAgentsOpen(false);
               setConnectorsOpen(false);
+              setCommunicationsOpen(false);
               setMarketingOpen(false);
               setFinanceOpen(false);
               setLearningOpen(false);
@@ -2106,6 +2156,7 @@ export function App() {
               setWorkflowsOpen(false);
               setSettingsOpen(false);
               setConnectorsOpen(false);
+              setCommunicationsOpen(false);
               setMarketingOpen(false);
               setFinanceOpen(false);
               setLearningOpen(false);
@@ -2122,6 +2173,7 @@ export function App() {
             aria-controls="personal-connectors-panel"
             onClick={() => {
               setConnectorsOpen((current) => !current);
+              setCommunicationsOpen(false);
               setMarketingOpen(false);
               setFinanceOpen(false);
               setLearningOpen(false);
@@ -2206,6 +2258,10 @@ export function App() {
             closeProductPanels();
             window.setTimeout(() => document.getElementById("chat-prompt")?.focus(), 0);
           }}
+          onOpenCommunications={() => {
+            closeProductPanels();
+            setCommunicationsOpen(true);
+          }}
         />
         <Suspense fallback={<p className="muted" role="status">Loading workspace modules…</p>}>
         {settingsOpen && (
@@ -2264,6 +2320,21 @@ export function App() {
               onReconnect={reconnectConnector}
               onExecute={executeConnector}
               onRevoke={revokeConnector}
+            />
+          </div>
+        )}
+        {communicationsOpen && (
+          <div id="personal-communications-panel">
+            <CommunicationPanel
+              onClose={() => setCommunicationsOpen(false)}
+              onConfigure={() => {
+                setCommunicationsOpen(false);
+                setConnectorsOpen(true);
+              }}
+              onLoadCapabilities={loadCommunicationCapabilities}
+              onLoadConnectors={loadConnectors}
+              onStartPhoneCall={startPhoneCall}
+              onScheduleCallback={scheduleCallback}
             />
           </div>
         )}

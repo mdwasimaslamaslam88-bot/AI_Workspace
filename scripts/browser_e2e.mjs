@@ -217,6 +217,35 @@ try {
   );
   await page.getByRole("button", { name: "Close", exact: true }).click();
 
+  const communicationCapabilitiesResponse = page.waitForResponse((response) => {
+    const responseUrl = new URL(response.url());
+    return (
+      response.request().method() === "GET" &&
+      responseUrl.origin === apiOrigin &&
+      responseUrl.pathname === "/api/v1/communications/capabilities"
+    );
+  });
+  await page.getByRole("button", { name: "Calls", exact: true }).click();
+  assert.equal(
+    (await communicationCapabilitiesResponse).status(),
+    200,
+    "Authenticated communication capability loading failed.",
+  );
+  await page.getByRole("heading", { name: "Calls & callbacks" }).waitFor();
+  await page
+    .getByText("No health-verified communication provider is configured.")
+    .waitFor();
+  assert.equal(
+    await page.getByRole("button", { name: "Place verified call" }).isDisabled(),
+    true,
+    "An unconfigured phone provider was presented as executable.",
+  );
+  await page
+    .getByRole("button", { name: "Configure communication gateway" })
+    .click();
+  await page.getByRole("heading", { name: "Connected apps" }).waitFor();
+  await page.getByRole("button", { name: "Close", exact: true }).click();
+
   await page.getByRole("button", { name: "New conversation" }).click();
   await page.getByRole("heading", { name: "Start with a prompt" }).waitFor();
   await page.getByLabel("Title (optional)").fill("Browser release smoke");
@@ -322,7 +351,7 @@ try {
   );
   await context.close();
   console.log(
-    "browser/PWA E2E: install, connect, feature registry, current user, conversation, chat, cache isolation, and logout passed",
+    "browser/PWA E2E: install, connect, feature registry, communication boundary, current user, conversation, chat, cache isolation, and logout passed",
   );
 } finally {
   accessToken = "";

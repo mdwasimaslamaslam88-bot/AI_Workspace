@@ -62,6 +62,7 @@ def test_unconfigured_communication_boundary_is_explicit_and_fail_closed():
         "status": "external_dependency",
         "configured": False,
         "dependencies": ["telephony_provider", "owner_configuration"],
+        "connector_ids": [],
     }
     assert call.status_code == 503
     assert "+14155550123" not in call.text
@@ -89,7 +90,11 @@ def test_provider_adapter_receives_only_owner_approved_bounded_contract():
         )
 
     assert response.status_code == 202
-    assert response.json()["state"] == "accepted_by_provider"
+    assert response.json() == {
+        "request_id": response.json()["request_id"],
+        "state": "accepted_by_provider",
+        "connector_execution_id": None,
+    }
     provider.start_phone_call.assert_awaited_once()
     call = provider.start_phone_call.await_args.kwargs
     assert call["owner_id"] == user.id

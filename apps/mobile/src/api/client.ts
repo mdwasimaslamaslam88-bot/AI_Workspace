@@ -24,6 +24,9 @@ import {
   type ConnectorPlatform,
   type ConnectorSettings,
   type ConnectorWriteRequest,
+  type CommunicationAccepted,
+  type CommunicationCapabilities,
+  type CommunicationRequest,
   type CreativeCapabilities,
   type CreativeExperience,
   type CreativeExperienceCreateRequest,
@@ -104,6 +107,8 @@ import {
   parseConnectorPage,
   parseConnectorPlatform,
   parseConnectorSettings,
+  parseCommunicationAccepted,
+  parseCommunicationCapabilities,
   parseCreativeCapabilities,
   parseCreativeExperience,
   parseCreativeExperiencePage,
@@ -359,6 +364,36 @@ export class MobileApiClient {
 
   listConnectors(signal?: AbortSignal): Promise<ConnectorPage> {
     return this.#request("api/v1/connectors", parseConnectorPage, { signal });
+  }
+
+  getCommunicationCapabilities(signal?: AbortSignal): Promise<CommunicationCapabilities> {
+    return this.#request(
+      "api/v1/communications/capabilities",
+      parseCommunicationCapabilities,
+      { signal },
+    );
+  }
+
+  startPhoneCall(
+    request: CommunicationRequest,
+    signal?: AbortSignal,
+  ): Promise<CommunicationAccepted> {
+    return this.#request(
+      "api/v1/communications/phone-calls",
+      parseCommunicationAccepted,
+      { method: "POST", body: request, signal },
+    );
+  }
+
+  scheduleCallback(
+    request: CommunicationRequest,
+    signal?: AbortSignal,
+  ): Promise<CommunicationAccepted> {
+    return this.#request(
+      "api/v1/communications/callbacks",
+      parseCommunicationAccepted,
+      { method: "POST", body: request, signal },
+    );
   }
 
   createConnector(request: ConnectorWriteRequest, signal?: AbortSignal): Promise<Connector> {

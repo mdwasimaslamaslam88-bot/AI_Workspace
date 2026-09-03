@@ -998,11 +998,10 @@ export default function ChatScreen() {
             accessibilityRole="button"
             accessibilityLabel="Call"
             accessibilityHint="Requires an owner-configured communication provider"
-            accessibilityState={{ disabled: true }}
-            disabled
-            style={[styles.composerTool, styles.disabled]}
+            style={styles.composerTool}
+            onPress={() => router.push("/calls")}
           >
-            <Text style={styles.muted}>Call</Text>
+            <Text style={styles.link}>Call</Text>
           </Pressable>
           <Pressable accessibilityRole="button" style={styles.composerTool} onPress={() => void chooseDocument()}><Text style={styles.link}>File</Text></Pressable>
           <Pressable accessibilityRole="button" style={styles.composerTool} onPress={() => void chooseImage(false)}><Text style={styles.link}>Photo</Text></Pressable>

@@ -4,9 +4,10 @@ interface PresenceHeaderProps {
   state: PresenceState;
   modelName: string | null;
   onAsk: () => void;
+  onOpenCommunications: () => void;
 }
 
-export function PresenceHeader({ state, modelName, onAsk }: PresenceHeaderProps) {
+export function PresenceHeader({ state, modelName, onAsk, onOpenCommunications }: PresenceHeaderProps) {
   const stateClass = state.toLowerCase().replace(" ", "-");
   return (
     <section className="presence-header" aria-labelledby="presence-title">
@@ -34,9 +35,9 @@ export function PresenceHeader({ state, modelName, onAsk }: PresenceHeaderProps)
             type="button"
             className="button button-secondary"
             aria-describedby="realtime-communication-boundary"
-            disabled
+            onClick={onOpenCommunications}
           >
-            Call
+            Calls
           </button>
         </span>
         <span id="configured-callback" />

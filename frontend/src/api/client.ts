@@ -26,6 +26,9 @@ import {
   type ConnectorPlatform,
   type ConnectorSettings,
   type ConnectorWriteRequest,
+  type CommunicationAccepted,
+  type CommunicationCapabilities,
+  type CommunicationRequest,
   type CreativeCapabilities,
   type CreativeExperience,
   type CreativeExperienceCreateRequest,
@@ -111,6 +114,8 @@ import {
   parseConnectorPage,
   parseConnectorPlatform,
   parseConnectorSettings,
+  parseCommunicationAccepted,
+  parseCommunicationCapabilities,
   parseCreativeCapabilities,
   parseCreativeExperience,
   parseCreativeExperiencePage,
@@ -630,6 +635,39 @@ export class ApiClient {
     return this.#request(`api/v1/connectors/executions${suffix}`, {
       signal: options.signal,
       decode: parseConnectorExecutionPage,
+    });
+  }
+
+  getCommunicationCapabilities(
+    signal?: AbortSignal,
+  ): Promise<CommunicationCapabilities> {
+    return this.#request("api/v1/communications/capabilities", {
+      signal,
+      decode: parseCommunicationCapabilities,
+    });
+  }
+
+  startPhoneCall(
+    request: CommunicationRequest,
+    signal?: AbortSignal,
+  ): Promise<CommunicationAccepted> {
+    return this.#request("api/v1/communications/phone-calls", {
+      method: "POST",
+      body: request,
+      signal,
+      decode: parseCommunicationAccepted,
+    });
+  }
+
+  scheduleCallback(
+    request: CommunicationRequest,
+    signal?: AbortSignal,
+  ): Promise<CommunicationAccepted> {
+    return this.#request("api/v1/communications/callbacks", {
+      method: "POST",
+      body: request,
+      signal,
+      decode: parseCommunicationAccepted,
     });
   }
 

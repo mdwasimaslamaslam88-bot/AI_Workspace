@@ -122,6 +122,34 @@ export interface VoiceSynthesis {
   created: boolean;
 }
 
+export interface CommunicationCapability {
+  status: "external_dependency";
+  configured: boolean;
+  dependencies: string[];
+  connector_ids: UUID[];
+}
+
+export interface CommunicationCapabilities {
+  schema_version: 1;
+  phone_call: CommunicationCapability;
+  callback: CommunicationCapability;
+  video: CommunicationCapability;
+  screen_share: CommunicationCapability;
+}
+
+export interface CommunicationRequest {
+  destination: string;
+  purpose: string;
+  owner_approved: true;
+  connector_id?: UUID;
+}
+
+export interface CommunicationAccepted {
+  request_id: UUID;
+  state: "accepted_by_provider";
+  connector_execution_id: UUID | null;
+}
+
 export interface ImageGenerationRequest {
   conversation_id: UUID;
   model_id: string;
@@ -3104,6 +3132,54 @@ export function parseVoiceSynthesis(value: unknown): VoiceSynthesis {
   return {
     asset: parseAsset(item.asset),
     created: booleanField(item.created),
+  };
+}
+
+function parseCommunicationCapability(value: unknown): CommunicationCapability {
+  const item = record(value);
+  if (
+    item.status !== "external_dependency" ||
+    !Array.isArray(item.dependencies) ||
+    item.dependencies.length < 1 ||
+    item.dependencies.length > 4 ||
+    !Array.isArray(item.connector_ids) ||
+    item.connector_ids.length > 32
+  ) return invalidResponse();
+  const dependencies = item.dependencies.map(stringField);
+  const connectorIds = item.connector_ids.map(stringField);
+  if (
+    new Set(dependencies).size !== dependencies.length ||
+    new Set(connectorIds).size !== connectorIds.length
+  ) return invalidResponse();
+  return {
+    status: "external_dependency",
+    configured: booleanField(item.configured),
+    dependencies,
+    connector_ids: connectorIds,
+  };
+}
+
+export function parseCommunicationCapabilities(
+  value: unknown,
+): CommunicationCapabilities {
+  const item = record(value);
+  if (item.schema_version !== 1) return invalidResponse();
+  return {
+    schema_version: 1,
+    phone_call: parseCommunicationCapability(item.phone_call),
+    callback: parseCommunicationCapability(item.callback),
+    video: parseCommunicationCapability(item.video),
+    screen_share: parseCommunicationCapability(item.screen_share),
+  };
+}
+
+export function parseCommunicationAccepted(value: unknown): CommunicationAccepted {
+  const item = record(value);
+  if (item.state !== "accepted_by_provider") return invalidResponse();
+  return {
+    request_id: stringField(item.request_id),
+    state: "accepted_by_provider",
+    connector_execution_id: nullableString(item.connector_execution_id),
   };
 }
 

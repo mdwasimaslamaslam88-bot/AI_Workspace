@@ -1,12 +1,21 @@
 from __future__ import annotations
 
 from typing import Annotated
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import get_current_user
-from app.communications import CommunicationProviderError
+from app.communications import (
+    CALLBACK_CAPABILITY,
+    PHONE_CALL_CAPABILITY,
+    CommunicationProviderError,
+    ConnectorBackedCommunicationProvider,
+    connector_supports_communication,
+)
+from app.connectors import ConnectorRuntime, ConnectorService
+from app.db.dependencies import get_db_session
 from app.models.user import User
 from app.schemas.communications import (
     CommunicationAcceptedResponse,
@@ -23,29 +32,62 @@ def _provider(request: Request):
     return getattr(request.app.state, "realtime_communication_provider", None)
 
 
-def _external_capability(configured: bool, *dependencies: str) -> CommunicationCapability:
+def _external_capability(
+    configured: bool,
+    *dependencies: str,
+    connector_ids: tuple[UUID, ...] = (),
+) -> CommunicationCapability:
     return CommunicationCapability(
         configured=configured,
         dependencies=list(dependencies),
+        connector_ids=list(connector_ids),
     )
+
+
+def _connector_service(
+    request: Request,
+    session: AsyncSession,
+) -> ConnectorService | None:
+    runtime = getattr(request.app.state, "connector_runtime", None)
+    if not isinstance(runtime, ConnectorRuntime):
+        return None
+    return ConnectorService(session, runtime)
 
 
 @router.get("/capabilities", response_model=CommunicationCapabilitiesResponse)
 async def communication_capabilities(
     request: Request,
-    _current_user: Annotated[User, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> CommunicationCapabilitiesResponse:
-    configured = _provider(request) is not None
+    provider_configured = _provider(request) is not None
+    phone_connector_ids: tuple[UUID, ...] = ()
+    callback_connector_ids: tuple[UUID, ...] = ()
+    service = _connector_service(request, session)
+    if service is not None:
+        connectors = await service.list_for_owner(current_user.id)
+        phone_connector_ids = tuple(
+            connector.id
+            for connector in connectors
+            if connector_supports_communication(connector, PHONE_CALL_CAPABILITY)
+        )
+        callback_connector_ids = tuple(
+            connector.id
+            for connector in connectors
+            if connector_supports_communication(connector, CALLBACK_CAPABILITY)
+        )
     return CommunicationCapabilitiesResponse(
         phone_call=_external_capability(
-            configured,
+            provider_configured or bool(phone_connector_ids),
             "telephony_provider",
             "owner_configuration",
+            connector_ids=phone_connector_ids,
         ),
         callback=_external_capability(
-            configured,
+            provider_configured or bool(callback_connector_ids),
             "telephony_provider",
             "owner_configuration",
+            connector_ids=callback_connector_ids,
         ),
         video=_external_capability(False, "webrtc_provider", "owner_configuration"),
         screen_share=_external_capability(
@@ -62,8 +104,16 @@ async def _submit(
     body: CommunicationRequest,
     request: Request,
     current_user: User,
+    session: AsyncSession,
 ) -> CommunicationAcceptedResponse:
     provider = _provider(request)
+    if provider is None and body.connector_id is not None:
+        service = _connector_service(request, session)
+        if service is not None:
+            provider = ConnectorBackedCommunicationProvider(
+                service,
+                body.connector_id,
+            )
     if provider is None:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -95,6 +145,7 @@ async def _submit(
     return CommunicationAcceptedResponse(
         request_id=request_id,
         state="accepted_by_provider",
+        connector_execution_id=receipt.connector_execution_id,
     )
 
 
@@ -107,12 +158,14 @@ async def start_phone_call(
     body: CommunicationRequest,
     request: Request,
     current_user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> CommunicationAcceptedResponse:
     return await _submit(
         operation="phone_call",
         body=body,
         request=request,
         current_user=current_user,
+        session=session,
     )
 
 
@@ -125,10 +178,12 @@ async def schedule_callback(
     body: CommunicationRequest,
     request: Request,
     current_user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> CommunicationAcceptedResponse:
     return await _submit(
         operation="callback",
         body=body,
         request=request,
         current_user=current_user,
+        session=session,
     )

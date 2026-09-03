@@ -46,7 +46,14 @@ class _ConnectedAppHandler(BaseHTTPRequestHandler):
         elif self.path == "/api/capabilities":
             self._reply(
                 200,
-                {"capabilities": ["records.read", "records.synchronize"]},
+                {
+                    "capabilities": [
+                        "records.read",
+                        "records.synchronize",
+                        "phone_call",
+                        "callback",
+                    ]
+                },
             )
         else:
             self._reply(404, {"error": "not_found"})
@@ -54,6 +61,23 @@ class _ConnectedAppHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:  # noqa: N802
         if not self._authorized():
             self._reply(401, {"error": "unauthorized"})
+            return
+        if self.path in {
+            "/communications/phone-calls",
+            "/communications/callbacks",
+        }:
+            length = int(self.headers.get("Content-Length", "0"))
+            payload = json.loads(self.rfile.read(length))
+            if self.headers.get("Idempotency-Key") != payload.get("request_id"):
+                self._reply(409, {"error": "idempotency_mismatch"})
+                return
+            self._reply(
+                200,
+                {
+                    "request_id": payload.get("request_id"),
+                    "state": "accepted_by_provider",
+                },
+            )
             return
         if self.path != "/api/actions":
             self._reply(404, {"error": "not_found"})
@@ -136,8 +160,8 @@ def main() -> None:
                     "auth_kind": "bearer",
                     "credential": _CREDENTIAL,
                     "scopes": ["read", "write"],
-                    "capabilities": ["records.read"],
-                    "path_prefixes": ["/api/"],
+                    "capabilities": ["records.read", "phone_call", "callback"],
+                    "path_prefixes": ["/api/", "/communications/"],
                     "health_path": "/api/health",
                     "discovery_path": "/api/capabilities",
                     "enabled": True,
@@ -172,7 +196,14 @@ def main() -> None:
             if (
                 discovery.status_code != 200
                 or discovery.json()["payload"]
-                != {"capabilities": ["records.read", "records.synchronize"]}
+                != {
+                    "capabilities": [
+                        "records.read",
+                        "records.synchronize",
+                        "phone_call",
+                        "callback",
+                    ]
+                }
             ):
                 raise RuntimeError("real connector capability discovery failed")
             discovered_connector = client.get(
@@ -180,12 +211,57 @@ def main() -> None:
             ).json()
             if (
                 discovered_connector["capabilities"]
-                != ["records.read", "records.synchronize"]
+                != ["callback", "phone_call", "records.read", "records.synchronize"]
                 or discovered_connector["last_successful_test_at"] is None
                 or discovered_connector["audit_reference"]
                 != discovery.json()["execution"]["id"]
             ):
                 raise RuntimeError("connector registry evidence was not persisted")
+
+            communication_capabilities = client.get(
+                "/api/v1/communications/capabilities",
+                headers=owner,
+            )
+            if (
+                communication_capabilities.status_code != 200
+                or communication_capabilities.json()["phone_call"]["connector_ids"]
+                != [connector_id]
+                or communication_capabilities.json()["callback"]["connector_ids"]
+                != [connector_id]
+            ):
+                raise RuntimeError("verified communication connector was not admitted")
+
+            call = client.post(
+                "/api/v1/communications/phone-calls",
+                headers=owner,
+                json={
+                    "destination": "+14155550123",
+                    "purpose": "Loopback provider receipt verification",
+                    "owner_approved": True,
+                    "connector_id": connector_id,
+                },
+            )
+            callback = client.post(
+                "/api/v1/communications/callbacks",
+                headers=owner,
+                json={
+                    "destination": "+14155550123",
+                    "purpose": "Loopback callback receipt verification",
+                    "owner_approved": True,
+                    "connector_id": connector_id,
+                },
+            )
+            if (
+                call.status_code != 202
+                or callback.status_code != 202
+                or call.json()["state"] != "accepted_by_provider"
+                or callback.json()["state"] != "accepted_by_provider"
+                or call.json()["connector_execution_id"] is None
+                or callback.json()["connector_execution_id"] is None
+                or call.json()["connector_execution_id"]
+                == callback.json()["connector_execution_id"]
+            ):
+                raise RuntimeError("communication provider receipt was not verified")
 
             disconnected = client.post(
                 f"/api/v1/connectors/{connector_id}/disconnect", headers=owner
@@ -252,6 +328,8 @@ def main() -> None:
                 "failed",
                 "completed",
                 "completed",
+                "completed",
+                "completed",
             ]:
                 raise RuntimeError("connector audit history is incomplete")
             if client.get(
@@ -291,6 +369,8 @@ def main() -> None:
     print("CONNECTOR_SCOPE_OWNER_AUDIT_RETRY=passed")
     print("CONNECTOR_DISCOVER_DISCONNECT_RECONNECT=passed")
     print("CONNECTOR_REVOCATION=passed")
+    print("REAL_COMMUNICATION_CONNECTOR_GATEWAY=passed")
+    print("COMMUNICATION_PROVIDER_RECEIPT_VERIFICATION=passed")
 
 
 if __name__ == "__main__":
