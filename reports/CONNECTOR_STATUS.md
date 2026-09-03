@@ -1,11 +1,11 @@
 # Connector Status
 
-Evidence was refreshed on 2026-09-03 during Phase B of global activation.
+Evidence was refreshed on 2026-09-03 during Phases B and D of global activation.
 This report distinguishes connector-platform readiness from real provider
 authorization. No external provider is reported connected without owner
 credentials and a successful provider response.
 
-## Phase B result
+## Phase B / Phase D result
 
 | Area | Evidence | Status |
 | --- | --- | --- |
@@ -18,12 +18,16 @@ credentials and a successful provider response.
 | Owner lifecycle | Disconnect preserves the encrypted credential while denying execution; reconnect requires a fresh successful health probe; revoke destroys credential material | LOCAL PASS |
 | Loopback E2E | Real local HTTP service exercised discovery, health, transient retry, action, permission denial, disconnect/reconnect, owner isolation, audit and revocation | RUNTIME PASS |
 | Production schema | Backup verified; PostgreSQL migrated through `0018_connector_activation`; Alembic reports no drift | PRODUCTION PASS |
-| External providers | No configured connector or provider credential was present during activation | OWNER ACTION REQUIRED |
+| Production activation | Live backend uses an owner-only connector vault; root mode `0700`, generated key mode `0600`, and readiness passed after restart | PRODUCTION PASS |
+| Production egress policy | Zero approved origins; registration/execution remains fail-closed until the owner selects an exact legitimate provider origin | LOCAL PASS |
+| External providers | Zero registered, active, or healthy production connectors and no provider credential was present during activation | OWNER ACTION REQUIRED |
 
-The pre-migration last-known-good checkpoint is outside Git at
-`/home/md-wasim/AI_Workspace_Data/backups/work-station-20260903T072416Z`.
+The latest pre-activation last-known-good checkpoint is outside Git at
+`/home/md-wasim/AI_Workspace_Data/backups/work-station-20260903T080540Z`.
 Its dump, asset archive, manifest and checksum set passed independent integrity
-validation with owner-only permissions.
+validation with owner-only permissions. The protected backend configuration
+also has an owner-only rollback copy under
+`/home/md-wasim/AI_Workspace_Data/activation-checkpoints/`.
 
 ## Protocol coverage
 
@@ -49,10 +53,11 @@ advertised as native or live.
 
 ## Verification summary
 
-- Backend regression: 2,938 passed; 48 intentional environment/runtime skips.
+- Backend regression: 2,944 passed; 48 intentional environment/runtime skips.
 - PostgreSQL integration: 48 passed; migrations `0001` through `0018`; no drift.
-- Web: 192 passed; typecheck, lint and production build passed.
-- Mobile: 61 passed; shared and mobile typechecks and mobile lint passed.
+- Web: 194 passed; typecheck, lint, production build and compiled-PWA E2E passed.
+- Mobile: 62 passed; shared and mobile typechecks, lint, Android/iOS exports and
+  all Expo Doctor checks passed.
 - Focused connector/migration tests: 25 passed.
 - Runtime: the complete real local runtime matrix passed, including the
   strengthened connector smoke and all downstream marketing, finance,
@@ -60,10 +65,12 @@ advertised as native or live.
 
 ## Real-provider boundary
 
-Configured external connector count is zero. Consequently, provider read/write
-tests, token refresh against an internet provider and provider revocation are
-`EXTERNAL BLOCKED`, not failures of the local connector platform. Activation
-requires the owner to choose a provider, complete its legitimate authentication
-or OAuth consent flow, select the minimum scopes, and run the built-in health,
-discovery and action verification. MFA, OTP, billing and provider approval are
-never bypassed.
+Configured external connector count is zero. The real loopback provider E2E
+passed discovery, authenticated test read, idempotent test write, response
+verification, metadata-only audit, disconnect, reconnect and revocation. It is
+local protocol evidence, not a third-party-provider claim. Internet-provider
+read/write tests, token refresh and provider revocation are `EXTERNAL BLOCKED`,
+not failures of the local connector platform. Activation requires the owner to
+choose an exact provider origin, complete legitimate authentication or OAuth
+consent, select minimum scopes, and run the built-in health, discovery and
+action verification. MFA, OTP, billing and provider approval are never bypassed.
