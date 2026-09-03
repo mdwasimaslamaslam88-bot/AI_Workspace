@@ -125,6 +125,20 @@ All eight current-source product artifacts have SHA-256 values in
    keystore/store account and iOS provisioning.
 9. Persistent mission checkpoints: the five planned controls need the internal
    persistent mission scheduler before activation.
+10. Universal external-app adapters: each REST/GraphQL/webhook/OAuth/SDK,
+    database, browser-automation or desktop-automation target still needs an
+    exact reviewed provider adapter, origin/path/scope policy, owner credential
+    and sandbox/approval policy. The loopback protocol test is not a live app.
+11. External AI fallback: the separate provider vault is ready but globally
+    disabled with zero providers; legitimate owner keys, budgets, quota policy
+    and explicit provider activation are required.
+12. Age-gated adult experiences: jurisdiction, adult-age verification and
+    consent-enforcement services/policies are not configured, so these paths
+    remain disabled. No minor, non-consensual or illegal content boundary is
+    relaxed.
+13. Operations: new remote devices require owner tailnet enrollment and trust;
+    automatic off-workstation backups require an owner-selected encrypted
+    destination. Public Funnel exposure remains disabled.
 
 No external authentication, MFA, OTP, billing, broker control, signing key or
 physical-device boundary was bypassed.
