@@ -92,3 +92,30 @@ The production PWA automatically uses that same HTTPS origin for `/api/v1`.
 
 PostgreSQL 5432, Ollama 11434, ComfyUI 8188, Vite 3000, and audio worker ports
 must remain unavailable outside the workstation.
+
+## Production validation
+
+The private gateway can be checked without changing production data:
+
+```bash
+./scripts/check_remote_gateway.sh
+```
+
+The authenticated desktop-to-mobile and mobile-to-desktop mission-continuation
+smoke creates a temporary owner and two temporary workflows, then verifies
+session revocation and removes that exact data. It is deliberately guarded
+because it touches the production API and database:
+
+```bash
+WORK_STATION_ALLOW_PRODUCTION_REMOTE_SMOKE=YES \
+  backend/.venv/bin/python scripts/remote_device_e2e.py
+```
+
+The smoke refuses an unsafe provisioning-token file, validates the uniform
+credential-free authentication denial, and confirms that production database
+row counts return to their starting values. It never prints tokens, owner IDs,
+or the private tailnet hostname.
+
+This test proves the private HTTPS/API/session/mission contract through the
+active tailnet. It does not claim a physical Android/iOS device run or push
+notification delivery; those remain separate device/provider gates.
