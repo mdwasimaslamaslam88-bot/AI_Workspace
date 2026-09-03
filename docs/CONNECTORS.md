@@ -28,10 +28,14 @@ Connections UI and runtime status, but cannot register an egress target.
 The protected Connections surface in the web/desktop Apps Hub exposes the
 runtime's operator-approved origins. An owner can register a connector with an
 exact origin, `read`/`write` scopes, allowed path prefixes, health path,
-timeout, bounded retry count, and per-process request rate. New connections
-default to disabled. The registry retains at most 32 connector identities per
-owner; owner-row serialization prevents concurrent creates from exceeding that
-bound. Mobile provides monitoring, health, audit, and revocation;
+timeout, bounded retry count, and per-process request rate. OAuth refresh may
+select a separate exact token origin from that same operator allowlist; this is
+required by providers whose identity and resource APIs use different origins.
+The token origin and path remain inside the encrypted credential envelope and
+are never returned after save. New connections default to disabled. The
+registry retains at most 32 connector identities per owner; owner-row
+serialization prevents concurrent creates from exceeding that bound. Mobile
+provides monitoring, health, audit, and revocation;
 credential registration and rotation intentionally remain on the protected
 web/desktop surface.
 
@@ -71,6 +75,9 @@ records.
 - retries apply only to reads or requests carrying an explicit idempotency key
 - redirects and environment-derived HTTP proxies are disabled
 - bearer, OAuth bearer, and fixed `X-API-Key` authentication are supported
+- a separate OAuth token origin is exact-allowlisted at configuration and
+  revalidated immediately before every refresh; legacy same-origin envelopes
+  remain readable
 - credentials are XChaCha20-Poly1305 encrypted with a key outside PostgreSQL
 - credentials are write-only, absent from responses, model prompts, and audit
   rows, and are deleted on revocation
@@ -114,10 +121,12 @@ post-revocation denial. The release runtime gate executes this smoke test.
 
 ## External boundaries
 
-OAuth authorization-code exchange, consent screens, token refresh, provider
-SDK semantics, provider-specific GraphQL schemas, email/calendar/CRM/social
-accounts, and desktop/browser automation each require their legitimate service,
-credentials, scopes, and (where applicable) an owner approval. The generic
-connector runtime does not bypass MFA, OTP, billing, platform policy, or provider
-authorization. A registry entry remains `external_dependency` until its real
-provider workflow is configured and objectively verified.
+OAuth authorization-code exchange and consent screens, provider SDK semantics,
+provider-specific GraphQL schemas, email/calendar/CRM/social accounts, and
+desktop/browser automation each require their legitimate service, credentials,
+scopes, and (where applicable) an owner approval. Refreshing an already issued
+OAuth token is supported, including a separately allowlisted token origin; AI OS
+does not manufacture the initial grant. The generic connector runtime does not
+bypass MFA, OTP, billing, platform policy, or provider authorization. A registry
+entry remains `external_dependency` until its real provider workflow is
+configured and objectively verified.

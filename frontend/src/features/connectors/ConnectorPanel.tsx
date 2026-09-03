@@ -74,6 +74,7 @@ export function ConnectorPanel({
   const [refreshToken, setRefreshToken] = useState("");
   const [oauthClientId, setOauthClientId] = useState("");
   const [oauthClientSecret, setOauthClientSecret] = useState("");
+  const [oauthTokenOrigin, setOauthTokenOrigin] = useState("");
   const [oauthTokenPath, setOauthTokenPath] = useState("");
   const [oauthExpiresAt, setOauthExpiresAt] = useState("");
   const [writeScope, setWriteScope] = useState(false);
@@ -102,6 +103,7 @@ export function ConnectorPanel({
       setConnectors(nextConnectors);
       setAudit(nextAudit);
       setOrigin((current) => current || nextSettings.allowed_origins[0] || "");
+      setOauthTokenOrigin((current) => current || nextSettings.allowed_origins[0] || "");
       setSelectedId((current) =>
         nextConnectors.some((connector) => connector.id === current)
           ? current
@@ -134,7 +136,7 @@ export function ConnectorPanel({
       oauthExpiresAt,
     ];
     const refreshRequested = refreshValues.some((value) => value !== "");
-    const refreshComplete = refreshValues.every((value) => value !== "");
+    const refreshComplete = refreshValues.every((value) => value !== "") && oauthTokenOrigin !== "";
     const capabilityValues = capabilities.split(",").map((value) => value.trim()).filter(Boolean);
     if (
       busy || settings?.configured !== true || !name.trim() || !origin ||
@@ -159,6 +161,7 @@ export function ConnectorPanel({
             refresh_token: refreshToken,
             client_id: oauthClientId,
             client_secret: oauthClientSecret,
+            token_origin: oauthTokenOrigin,
             token_path: oauthTokenPath,
             expires_at: new Date(oauthExpiresAt).toISOString(),
           },
@@ -179,6 +182,7 @@ export function ConnectorPanel({
       setRefreshToken("");
       setOauthClientId("");
       setOauthClientSecret("");
+      setOauthTokenOrigin(settings.allowed_origins[0] || "");
       setOauthTokenPath("");
       setOauthExpiresAt("");
       setName("");
@@ -349,6 +353,9 @@ export function ConnectorPanel({
             <label>Refresh token<input type="password" autoComplete="off" value={refreshToken} minLength={16} maxLength={2048} onChange={(event) => setRefreshToken(event.target.value)} /></label>
             <label>Client ID<input autoComplete="off" value={oauthClientId} maxLength={256} onChange={(event) => setOauthClientId(event.target.value)} /></label>
             <label>Client secret<input type="password" autoComplete="off" value={oauthClientSecret} minLength={16} maxLength={2048} onChange={(event) => setOauthClientSecret(event.target.value)} /></label>
+            <label>Token origin<select value={oauthTokenOrigin} onChange={(event) => setOauthTokenOrigin(event.target.value)}>
+              {settings.allowed_origins.map((item) => <option key={item}>{item}</option>)}
+            </select></label>
             <label>Token path<input value={oauthTokenPath} maxLength={512} placeholder="/oauth/token" onChange={(event) => setOauthTokenPath(event.target.value)} /></label>
             <label>Access-token expiry<input type="datetime-local" value={oauthExpiresAt} onChange={(event) => setOauthExpiresAt(event.target.value)} /></label>
           </details>}

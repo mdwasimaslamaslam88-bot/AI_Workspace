@@ -83,9 +83,8 @@ export default function CallsScreen() {
     ? connectorId
     : eligible[0]?.id ?? "";
 
-  const directProvider = capability?.configured === true && capability.connector_ids.length === 0;
   const canSubmit = Boolean(
-    !busy && capability?.configured && (directProvider || selectedConnectorId) &&
+    !busy && capability?.configured && selectedConnectorId &&
     /^\+[1-9][0-9]{7,14}$/.test(destination) &&
     purpose.trim().length > 0 && purpose.trim().length <= 240 && approved,
   );
@@ -96,7 +95,7 @@ export default function CallsScreen() {
       destination,
       purpose: purpose.trim(),
       owner_approved: true,
-      ...(selectedConnectorId ? { connector_id: selectedConnectorId } : {}),
+      connector_id: selectedConnectorId,
     };
     setBusy(true);
     setNotice(null);
@@ -107,9 +106,7 @@ export default function CallsScreen() {
         : await client.scheduleCallback(request);
       setReceipt(accepted);
       setApproved(false);
-      setNotice(accepted.connector_execution_id === null
-        ? "Provider acceptance receipt verified."
-        : "Provider acceptance receipt verified and connector execution audited.");
+      setNotice("Provider acceptance receipt verified and connector execution audited.");
     } catch (cause) {
       setNotice(safeError(cause));
     } finally {
@@ -154,8 +151,7 @@ export default function CallsScreen() {
               </Pressable>
             ))}
           </View>
-          {!directProvider && (
-            <View style={styles.section}>
+          <View style={styles.section}>
               <Text style={styles.label}>Verified gateway</Text>
               {eligible.length === 0 ? (
                 <Text style={styles.warning}>
@@ -176,8 +172,7 @@ export default function CallsScreen() {
                   <Text style={styles.muted}>{connector.provider} · {connector.connection_status}</Text>
                 </Pressable>
               ))}
-            </View>
-          )}
+          </View>
           <TextInput
             accessibilityLabel="Call destination in E.164 format"
             keyboardType="phone-pad"
@@ -223,7 +218,7 @@ export default function CallsScreen() {
             <View style={styles.receipt}>
               <Text style={styles.label}>Provider state: {receipt.state.replaceAll("_", " ")}</Text>
               <Text selectable style={styles.code}>Request: {receipt.request_id}</Text>
-              <Text selectable style={styles.code}>Audit: {receipt.connector_execution_id ?? "provider adapter"}</Text>
+              <Text selectable style={styles.code}>Audit: {receipt.connector_execution_id}</Text>
             </View>
           )}
         </View>

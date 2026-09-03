@@ -52,4 +52,22 @@ describe("mobile communication API", () => {
       connector_execution_id: executionId,
     });
   });
+
+  it("rejects provider acceptance without an audited connector execution", async () => {
+    const client = new MobileApiClient("mobile-session", {
+      baseUrl: "https://work-station.example.ts.net",
+      fetchImplementation: vi.fn(async () => new Response(JSON.stringify({
+        request_id: "22222222-2222-4222-8222-222222222222",
+        state: "accepted_by_provider",
+        connector_execution_id: null,
+      }), { status: 202 })),
+    });
+
+    await expect(client.startPhoneCall({
+      destination: "+14155550123",
+      purpose: "Owner-approved appointment call",
+      owner_approved: true,
+      connector_id: "11111111-1111-4111-8111-111111111111",
+    })).rejects.toThrow("The backend returned an invalid response.");
+  });
 });

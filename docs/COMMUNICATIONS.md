@@ -11,9 +11,9 @@ Phone-call and callback requests use a typed provider-neutral contract:
 owner session
 → explicit owner approval
 → bounded E.164 destination and purpose
-→ configured provider adapter or health-verified owner connector
+→ health-verified owner connector
 → provider acceptance receipt
-→ connector audit evidence where the connector route is used
+→ mandatory connector audit evidence
 ```
 
 The production connector route uses the existing encrypted, owner-scoped
@@ -24,7 +24,9 @@ use the fixed paths `/communications/phone-calls` and
 `/communications/callbacks`; the connector's exact origin and path allowlist
 must authorize those paths. The provider must return the matching `request_id`
 and the exact state `accepted_by_provider`. A mismatched or malformed receipt
-fails closed and the UI does not claim success.
+fails closed and the UI does not claim success. The request must include the
+eligible connector ID, and a success response must include its concrete
+connector execution ID. An unaudited global provider hook is not admitted.
 
 The desktop/web Calls panel and the Android Calls route expose provider state,
 explicit owner approval, eligible gateway selection, failure state, and the
@@ -32,10 +34,15 @@ verified request/audit receipt. Provider credentials remain write-only in the
 Connections management surface.
 
 Without a legitimate configured provider, both submission endpoints fail
-closed with HTTP 503. Video and live screen share remain disabled until a
-separately verified WebRTC provider is configured. Account login, provider
-credentials, MFA/OTP, billing, phone-number ownership, consent, and destination
-legality remain external owner/provider responsibilities.
+closed. Missing connector selection is a validation failure; an unavailable
+connector runtime or provider is HTTP 503. Video and live screen share remain
+disabled until a separately verified WebRTC provider is configured. Inbound
+call webhooks, full call-state streaming, interruption transport, and a spoken
+task result require a reviewed provider-specific adapter with signed webhook or
+stream verification. Those paths are not inferred from an outbound acceptance
+receipt. Account login, provider credentials, MFA/OTP, billing, phone-number
+ownership, consent, and destination legality remain external owner/provider
+responsibilities.
 
 Destination and purpose values are not written to application logs or returned
 in validation errors. Unit tests and the loopback connector E2E prove the local

@@ -481,10 +481,14 @@ class ConnectorService:
                     raise ValueError("OAuth credentials require an OAuth auth kind")
                 if oauth2.token_path is not None:
                     token_path = _validate_path(oauth2.token_path)
-                    if not _path_allowed(token_path, validated_prefixes):
+                    if oauth2.token_origin is None and not _path_allowed(
+                        token_path, validated_prefixes
+                    ):
                         raise ValueError(
                             "OAuth token path exceeds its allowed path prefixes"
                         )
+                    if oauth2.token_origin is not None:
+                        self.runtime.require_allowed_origin(oauth2.token_origin)
             ciphertext = self.runtime.credential_box.encrypt(credential)
         elif connector is not None and connector.auth_kind is auth_kind:
             ciphertext = connector.credential_ciphertext

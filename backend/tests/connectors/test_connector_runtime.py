@@ -346,12 +346,12 @@ def test_unverified_connector_cannot_execute_but_may_run_bounded_preflight(tmp_p
 
 @pytest.mark.asyncio
 async def test_oauth_access_token_refresh_is_bounded_encrypted_and_used_once(tmp_path):
-    seen: list[tuple[str, str | None, bytes]] = []
+    seen: list[tuple[str, str, str | None, bytes]] = []
 
     async def handler(request: httpx.Request) -> httpx.Response:
         raw = await request.aread()
-        seen.append((request.url.path, request.headers.get("authorization"), raw))
-        if request.url.path == "/v1/oauth/token":
+        seen.append((request.url.host, request.url.path, request.headers.get("authorization"), raw))
+        if request.url.path == "/oauth/token":
             return httpx.Response(
                 200,
                 json={
@@ -371,14 +371,15 @@ async def test_oauth_access_token_refresh_is_bounded_encrypted_and_used_once(tmp
                 refresh_token="refresh-token-0000000000",
                 client_id="owner-client",
                 client_secret="client-secret-0000000000",
-                token_path="/v1/oauth/token",
+                token_origin="https://identity.example.test",
+                token_path="/oauth/token",
                 expires_at=datetime.now(timezone.utc) - timedelta(minutes=1),
             )
         )
     )
     runtime = ConnectorRuntime(
         box,
-        ("https://api.example.test",),
+        ("https://api.example.test", "https://identity.example.test"),
         httpx.AsyncClient(transport=httpx.MockTransport(handler)),
     )
     try:
@@ -394,15 +395,67 @@ async def test_oauth_access_token_refresh_is_bounded_encrypted_and_used_once(tmp
         await runtime.close()
 
     assert result.payload == {"authenticated": True}
-    assert [item[0] for item in seen] == ["/v1/oauth/token", "/v1/status"]
-    assert seen[0][1] is None
-    assert seen[1][1] == "Bearer fresh-access-token-000000"
-    assert b"refresh-token-0000000000" in seen[0][2]
+    assert [(item[0], item[1]) for item in seen] == [
+        ("identity.example.test", "/oauth/token"),
+        ("api.example.test", "/v1/status"),
+    ]
+    assert seen[0][2] is None
+    assert seen[1][2] == "Bearer fresh-access-token-000000"
+    assert b"refresh-token-0000000000" in seen[0][3]
     persisted = decode_oauth2_credential(box.decrypt(connector.credential_ciphertext))
     assert persisted is not None
     assert persisted.access_token == "fresh-access-token-000000"
     assert persisted.refresh_token == "refresh-token-0000000000"
     assert persisted.expires_at is not None
+    assert persisted.token_origin == "https://identity.example.test"
+
+
+@pytest.mark.asyncio
+async def test_oauth_refresh_revalidates_separate_token_origin_before_network(tmp_path):
+    calls = 0
+
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return httpx.Response(200, json={"unexpected": True})
+
+    box = ConnectorCredentialBox(tmp_path / "oauth-denied-runtime")
+    connector = _connector(box, max_retries=0)
+    connector.auth_kind = ConnectorAuthKind.OAUTH2_BEARER
+    connector.credential_ciphertext = box.encrypt(
+        encode_oauth2_credential(
+            OAuth2Credential(
+                access_token="expired-access-token-0000",
+                refresh_token="refresh-token-0000000000",
+                client_id="owner-client",
+                client_secret="client-secret-0000000000",
+                token_origin="https://identity.example.test",
+                token_path="/oauth/token",
+                expires_at=datetime.now(timezone.utc) - timedelta(minutes=1),
+            )
+        )
+    )
+    runtime = ConnectorRuntime(
+        box,
+        ("https://api.example.test",),
+        httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+    )
+    try:
+        with pytest.raises(ConnectorRuntimeError) as denied:
+            await runtime.execute(
+                connector,
+                action=ConnectorAction.EXECUTE,
+                method="GET",
+                path="/v1/status",
+                json_body=None,
+                idempotency_key=None,
+            )
+    finally:
+        await runtime.close()
+
+    assert denied.value.code == "connector_permission_denied"
+    assert denied.value.attempts == 0
+    assert calls == 0
 
 
 @pytest.mark.asyncio

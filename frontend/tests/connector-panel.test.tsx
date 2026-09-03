@@ -15,6 +15,7 @@ import { rawSecret } from "./fixtures";
 
 
 const timestamp = "2026-09-02T00:00:00Z";
+const tokenOrigin = "https://identity.example.test";
 const connector: Connector = {
   id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
   name: "Private API",
@@ -65,7 +66,7 @@ function props() {
     onClose: vi.fn(),
     onLoadSettings: vi.fn(async (): Promise<ConnectorSettings> => ({
       configured: true,
-      allowed_origins: [connector.base_url],
+      allowed_origins: [connector.base_url, tokenOrigin],
       supported_kinds: ["rest", "graphql", "webhook", "local_api"],
       supported_auth_kinds: ["none", "bearer", "api_key", "oauth2_bearer", "oidc_bearer"],
     })),
@@ -126,6 +127,39 @@ describe("ConnectorPanel", () => {
     });
     expect(screen.getByLabelText("Credential")).toHaveValue("");
     expect(document.body.textContent).not.toContain(rawSecret);
+  });
+
+  it("keeps a separate OAuth token origin allowlisted and credentials write-only", async () => {
+    const actions = props();
+    render(<ConnectorPanel {...actions} />);
+    await screen.findByRole("option", { name: tokenOrigin });
+
+    await userEvent.type(screen.getByLabelText("Name"), "Calendar provider");
+    await userEvent.selectOptions(screen.getByLabelText("Authentication"), "oauth2_bearer");
+    await userEvent.type(screen.getByLabelText("Credential"), rawSecret);
+    await userEvent.type(screen.getByLabelText("Refresh token"), "refresh-token-0000000000");
+    await userEvent.type(screen.getByLabelText("Client ID"), "owner-client");
+    await userEvent.type(screen.getByLabelText("Client secret"), "client-secret-0000000000");
+    await userEvent.selectOptions(screen.getByLabelText("Token origin"), tokenOrigin);
+    await userEvent.type(screen.getByLabelText("Token path"), "/oauth/token");
+    fireEvent.change(screen.getByLabelText("Access-token expiry"), {
+      target: { value: "2026-09-03T12:00" },
+    });
+    await userEvent.click(screen.getByRole("button", { name: "Register connection" }));
+
+    await waitFor(() => expect(actions.onCreate).toHaveBeenCalled());
+    expect(actions.onCreate.mock.calls[0]![0]).toMatchObject({
+      base_url: connector.base_url,
+      auth_kind: "oauth2_bearer",
+      oauth2_credential: {
+        access_token: rawSecret,
+        token_origin: tokenOrigin,
+        token_path: "/oauth/token",
+      },
+    });
+    expect(document.body.textContent).not.toContain(rawSecret);
+    expect(document.body.textContent).not.toContain("refresh-token-0000000000");
+    expect(document.body.textContent).not.toContain("client-secret-0000000000");
   });
 
   it("executes the exact scoped request and renders real returned payload", async () => {

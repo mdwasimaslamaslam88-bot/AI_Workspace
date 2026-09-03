@@ -166,6 +166,7 @@ def test_oauth_refresh_secrets_are_write_only_and_encoded_for_encryption(connect
             "oauth2_credential": {
                 **secrets,
                 "client_id": "owner-client",
+                "token_origin": "https://identity.example.test",
                 "token_path": "/v1/oauth/token",
                 "expires_at": "2026-09-03T12:00:00Z",
             },
@@ -185,6 +186,7 @@ def test_oauth_refresh_secrets_are_write_only_and_encoded_for_encryption(connect
     oauth2 = decode_oauth2_credential(encoded)
     assert oauth2 is not None
     assert oauth2.access_token == secrets["access_token"]
+    assert oauth2.token_origin == "https://identity.example.test"
     assert service.create_for_owner.await_args.kwargs["capabilities"] == (
         "calendar.read",
         "calendar.write",

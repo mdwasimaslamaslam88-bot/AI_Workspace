@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "product": "AI OS / WORK STATION",
+  "step": 2,
+  "evidence_date": "2026-09-04",
+  "baseline_commit": "4bd5d88eb92d1744084e3b53a24bd28d62efe39a",
+  "result": "PARTIAL",
+  "step_3_started": false,
+  "production_inventory": {
+    "approved_external_origins": 0,
+    "configured_provider_connectors": 0,
+    "enabled_provider_connectors": 0,
+    "healthy_provider_connectors": 0,
+    "credentialed_provider_connectors": 0
+  },
+  "providers": [
+    {
+      "family": "telephony",
+      "local_state": "RUNTIME_READY",
+      "external_state": "EXTERNAL_BLOCKED",
+      "live_verified": false,
+      "local_evidence": [
+        "owner-scoped health-verified connector required",
+        "explicit owner approval and E.164 validation",
+        "provider acceptance receipt verification",
+        "mandatory connector execution audit ID",
+        "disconnect, reconnect, retry, revocation, and owner-isolation tests",
+        "real loopback communication gateway runtime smoke"
+      ],
+      "not_executed": [
+        "real inbound carrier call",
+        "real outbound carrier call",
+        "real callback",
+        "signed inbound webhook or realtime carrier stream"
+      ],
+      "owner_action": "Configure an approved carrier API and webhook origin, legitimate account credentials, provisioned number, required billing/MFA/provider approvals, minimum scopes, signed provider adapter, consent policy, and an explicitly authorized E.164 test destination."
+    },
+    {
+      "family": "email",
+      "local_state": "RUNTIME_READY",
+      "external_state": "EXTERNAL_BLOCKED",
+      "live_verified": false,
+      "local_evidence": [
+        "encrypted write-only API-key/bearer/OAuth credential contract",
+        "separate exact allowlisted OAuth token origin",
+        "health, permission, retry, audit, revoke, and reconnect lifecycle",
+        "fail-closed production egress"
+      ],
+      "not_executed": [
+        "real mailbox read",
+        "real compose/send/reply",
+        "real attachment transfer",
+        "provider receipt verification"
+      ],
+      "owner_action": "Choose an email provider, allowlist its exact API and token origins, register a legitimate OAuth client or API key, complete consent/MFA, select minimum mailbox scopes, identify the owner mailbox, and approve a bounded test destination."
+    },
+    {
+      "family": "calendar_meetings",
+      "local_state": "RUNTIME_READY",
+      "external_state": "EXTERNAL_BLOCKED",
+      "live_verified": false,
+      "local_evidence": [
+        "encrypted write-only API-key/bearer/OAuth credential contract",
+        "separate exact allowlisted OAuth token origin",
+        "health, permission, retry, audit, revoke, and reconnect lifecycle",
+        "fail-closed production egress"
+      ],
+      "not_executed": [
+        "real event create/read/update/cancel",
+        "real meeting link creation",
+        "real reminder or callback",
+        "provider-side event verification"
+      ],
+      "owner_action": "Choose a calendar/meeting provider, allowlist its exact API and token origins, register a legitimate OAuth client or API key, complete consent/MFA, select minimum calendar scopes, identify the owner calendar, and approve a reversible test event."
+    }
+  ],
+  "verification": {
+    "backend": {"passed": 2958, "skipped": 50},
+    "web": {"passed": 197},
+    "mobile": {"passed": 63},
+    "postgresql_integration": {"passed": 50, "migration_head": "0019", "drift": false},
+    "browser_pwa_e2e": "PASS",
+    "desktop_binary_appimage_deb": "PASS",
+    "local_runtime_e2e": "PASS",
+    "security": "PASS",
+    "critical_or_high_security_findings": 0,
+    "known_dependency_findings": "14 moderate transitive Expo build-tool advisories; available remediation is breaking-only"
+  }
+}

@@ -15,7 +15,7 @@ _MAGIC = b"WSCON1\x00"
 _ADDITIONAL_DATA = b"work-station-connector-credential-v1"
 _MAX_PLAINTEXT_CHARACTERS = 4_096
 _MAX_CIPHERTEXT_CHARACTERS = 8_192
-_OAUTH2_VERSION = 1
+_OAUTH2_VERSION = 2
 
 
 class ConnectorCredentialError(RuntimeError):
@@ -30,6 +30,7 @@ class OAuth2Credential:
     client_secret: str | None
     token_path: str | None
     expires_at: datetime | None
+    token_origin: str | None = None
 
 
 def _validate_secret(value: str | None, *, required: bool) -> str | None:
@@ -60,6 +61,12 @@ def encode_oauth2_credential(value: OAuth2Credential) -> str:
         or value.token_path != value.token_path.strip()
     ):
         raise ValueError("OAuth token path is invalid")
+    if value.token_origin is not None and (
+        not 8 <= len(value.token_origin) <= 2_048
+        or value.token_origin != value.token_origin.strip()
+        or any(ord(character) <= 0x20 for character in value.token_origin)
+    ):
+        raise ValueError("OAuth token origin is invalid")
     if value.expires_at is not None:
         if value.expires_at.tzinfo is None:
             raise ValueError("OAuth expiry must be timezone-aware")
@@ -71,12 +78,17 @@ def encode_oauth2_credential(value: OAuth2Credential) -> str:
         field is None for field in refresh_fields
     ):
         raise ValueError("OAuth refresh configuration must be complete")
+    if value.token_origin is not None and any(
+        field is None for field in refresh_fields
+    ):
+        raise ValueError("OAuth token origin requires refresh configuration")
     payload = {
         "access_token": access_token,
         "client_id": value.client_id,
         "client_secret": client_secret,
         "expires_at": expires_at,
         "refresh_token": refresh_token,
+        "token_origin": value.token_origin,
         "token_path": value.token_path,
         "version": _OAUTH2_VERSION,
     }
@@ -93,7 +105,7 @@ def decode_oauth2_credential(value: str) -> OAuth2Credential | None:
         payload = json.loads(value)
     except (json.JSONDecodeError, RecursionError) as exc:
         raise ConnectorCredentialError("OAuth credential envelope is invalid") from exc
-    expected = {
+    expected_v1 = {
         "access_token",
         "client_id",
         "client_secret",
@@ -102,16 +114,26 @@ def decode_oauth2_credential(value: str) -> OAuth2Credential | None:
         "token_path",
         "version",
     }
-    if not isinstance(payload, dict) or set(payload) != expected:
+    expected_v2 = expected_v1 | {"token_origin"}
+    payload_fields = frozenset(payload) if isinstance(payload, dict) else frozenset()
+    if (
+        not isinstance(payload, dict)
+        or payload.get("version") not in {1, _OAUTH2_VERSION}
+        or payload_fields not in {frozenset(expected_v1), frozenset(expected_v2)}
+        or (payload["version"] == 1 and payload_fields != frozenset(expected_v1))
+        or (
+            payload["version"] == _OAUTH2_VERSION
+            and payload_fields != frozenset(expected_v2)
+        )
+    ):
         raise ConnectorCredentialError("OAuth credential envelope is invalid")
     try:
-        if payload["version"] != _OAUTH2_VERSION:
-            raise ValueError
         access_token = _validate_secret(payload["access_token"], required=True)
         refresh_token = _validate_secret(payload["refresh_token"], required=False)
         client_secret = _validate_secret(payload["client_secret"], required=False)
         client_id = payload["client_id"]
         token_path = payload["token_path"]
+        token_origin = payload.get("token_origin")
         if client_id is not None and (
             not isinstance(client_id, str)
             or not 1 <= len(client_id) <= 256
@@ -123,6 +145,13 @@ def decode_oauth2_credential(value: str) -> OAuth2Credential | None:
             not isinstance(token_path, str)
             or not 1 <= len(token_path) <= 512
             or token_path != token_path.strip()
+        ):
+            raise ValueError
+        if token_origin is not None and (
+            not isinstance(token_origin, str)
+            or not 8 <= len(token_origin) <= 2_048
+            or token_origin != token_origin.strip()
+            or any(ord(character) <= 0x20 for character in token_origin)
         ):
             raise ValueError
         expires_at = (
@@ -137,6 +166,10 @@ def decode_oauth2_credential(value: str) -> OAuth2Credential | None:
             field is None for field in refresh_fields
         ):
             raise ValueError
+        if token_origin is not None and any(
+            field is None for field in refresh_fields
+        ):
+            raise ValueError
     except (TypeError, ValueError) as exc:
         raise ConnectorCredentialError("OAuth credential envelope is invalid") from exc
     assert access_token is not None
@@ -147,6 +180,7 @@ def decode_oauth2_credential(value: str) -> OAuth2Credential | None:
         client_secret=client_secret,
         token_path=token_path,
         expires_at=expires_at,
+        token_origin=token_origin,
     )
 
 

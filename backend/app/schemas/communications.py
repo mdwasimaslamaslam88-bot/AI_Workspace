@@ -29,7 +29,7 @@ class CommunicationRequest(BaseModel):
     destination: str = Field(pattern=r"^\+[1-9][0-9]{7,14}$")
     purpose: str = Field(min_length=1, max_length=240, pattern=r"\S")
     owner_approved: Literal[True]
-    connector_id: UUID | None = None
+    connector_id: UUID
 
 
 class CommunicationAcceptedResponse(BaseModel):
@@ -37,4 +37,4 @@ class CommunicationAcceptedResponse(BaseModel):
 
     request_id: UUID
     state: Literal["accepted_by_provider"]
-    connector_execution_id: UUID | None = None
+    connector_execution_id: UUID

@@ -1,6 +1,6 @@
 # Connector Status
 
-Evidence was refreshed on 2026-09-03 during Phases B and D of global activation.
+Evidence was refreshed on 2026-09-04 during Step 2 provider activation.
 This report distinguishes connector-platform readiness from real provider
 authorization. No external provider is reported connected without owner
 credentials and a successful provider response.
@@ -11,7 +11,7 @@ credentials and a successful provider response.
 | --- | --- | --- |
 | Lifecycle | Discover, configure, credential store, authenticate, permission check, health, capability discovery, activate, execute, verify, audit, disconnect, revoke and reconnect contracts | LOCAL PASS |
 | Credential isolation | API-key, bearer and OAuth2/OIDC envelopes encrypted at rest; secrets remain write-only and are excluded from responses and logs | LOCAL PASS |
-| OAuth2/OIDC refresh | Expiry-aware refresh through the connector's exact allowlisted origin and approved path; refresh/access/client secrets remain encrypted | LOCAL PASS |
+| OAuth2/OIDC refresh | Expiry-aware refresh through a separately configurable exact allowlisted token origin and approved path; the origin is revalidated immediately before every refresh, legacy same-origin envelopes remain readable, and refresh/access/client secrets remain encrypted | LOCAL PASS |
 | Egress control | Exact-origin and path-prefix allowlists, redirect denial, environment-proxy isolation and bounded JSON request/response sizes | LOCAL PASS |
 | Reliability | Bounded timeout, retry, per-owner rate limit and three-failure circuit breaker with health-probe recovery | LOCAL PASS |
 | Evidence | Configuration, credential/permission changes, authentication, activation, disconnect, reconnect, revocation and failures have owner-scoped metadata-only records; last successful health time and latest audit reference are persisted | LOCAL PASS |
@@ -53,12 +53,14 @@ advertised as native or live.
 
 ## Verification summary
 
-- Backend regression: 2,955 passed; 50 intentional environment/runtime skips.
+- Backend regression: 2,958 passed; 50 intentional environment/runtime skips.
 - PostgreSQL integration: 50 passed; migrations `0001` through `0019`; no drift.
-- Web: 196 passed; typecheck, lint, production build and compiled-PWA E2E passed.
-- Mobile: 62 passed; shared and mobile typechecks, lint, Android/iOS exports and
+- Web: 197 passed; typecheck, lint, production build and compiled-PWA E2E passed.
+- Mobile: 63 passed; shared and mobile typechecks, lint, Android/iOS exports and
   all Expo Doctor checks passed.
-- Focused provider/configuration/security backend suite: 693 passed.
+- Focused Step 2 provider/security backend suite: 34 passed after the final
+  OAuth multi-origin change; the complete backend regression above is the
+  authoritative aggregate.
 - Focused provider-center web suite: 8 passed.
 - Runtime: the complete real local runtime matrix passed, including the
   strengthened connector smoke and all downstream marketing, finance,

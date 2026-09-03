@@ -141,13 +141,13 @@ export interface CommunicationRequest {
   destination: string;
   purpose: string;
   owner_approved: true;
-  connector_id?: UUID;
+  connector_id: UUID;
 }
 
 export interface CommunicationAccepted {
   request_id: UUID;
   state: "accepted_by_provider";
-  connector_execution_id: UUID | null;
+  connector_execution_id: UUID;
 }
 
 export interface ImageGenerationRequest {
@@ -729,6 +729,7 @@ export interface ConnectorWriteRequest {
     refresh_token?: string;
     client_id?: string;
     client_secret?: string;
+    token_origin?: string;
     token_path?: string;
     expires_at?: Timestamp;
   };
@@ -3202,7 +3203,7 @@ export function parseCommunicationAccepted(value: unknown): CommunicationAccepte
   return {
     request_id: stringField(item.request_id),
     state: "accepted_by_provider",
-    connector_execution_id: nullableString(item.connector_execution_id),
+    connector_execution_id: stringField(item.connector_execution_id),
   };
 }
 

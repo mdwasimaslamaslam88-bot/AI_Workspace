@@ -8,6 +8,7 @@ from app.communications import (
     CALLBACK_PATH,
     PHONE_CALL_PATH,
     CommunicationProviderError,
+    CommunicationReceipt,
     ConnectorBackedCommunicationProvider,
 )
 from app.connectors.service import ConnectorConnectionStatus
@@ -119,4 +120,12 @@ async def test_connector_provider_rejects_unverified_provider_receipts(payload: 
             request_id=request_id,
             destination="+14155550123",
             purpose="Owner-approved verification call",
+        )
+
+
+def test_communication_receipt_requires_audited_connector_execution():
+    with pytest.raises(ValueError):
+        CommunicationReceipt(  # type: ignore[arg-type]
+            request_id=uuid4(),
+            connector_execution_id=None,
         )

@@ -1,3 +1,4 @@
+import json
 import os
 from datetime import datetime, timezone
 
@@ -48,6 +49,7 @@ def test_oauth_refresh_envelope_is_strict_and_remains_inside_encryption(tmp_path
         refresh_token="refresh-token-0000000000",
         client_id="owner-client",
         client_secret="client-secret-0000000000",
+        token_origin="https://identity.example.test",
         token_path="/oauth/token",
         expires_at=expiry,
     )
@@ -63,3 +65,29 @@ def test_oauth_refresh_envelope_is_strict_and_remains_inside_encryption(tmp_path
 
     with pytest.raises(ConnectorCredentialError, match="envelope"):
         decode_oauth2_credential('{"version":1}')
+
+    legacy = json.dumps({
+        "access_token": "legacy-access-token-000000",
+        "client_id": "owner-client",
+        "client_secret": "client-secret-0000000000",
+        "expires_at": expiry.isoformat(),
+        "refresh_token": "refresh-token-0000000000",
+        "token_path": "/oauth/token",
+        "version": 1,
+    })
+    decoded_legacy = decode_oauth2_credential(legacy)
+    assert decoded_legacy is not None
+    assert decoded_legacy.token_origin is None
+
+    with pytest.raises(ValueError, match="requires refresh"):
+        encode_oauth2_credential(
+            OAuth2Credential(
+                access_token="access-token-000000000000",
+                refresh_token=None,
+                client_id=None,
+                client_secret=None,
+                token_path=None,
+                expires_at=None,
+                token_origin="https://identity.example.test",
+            )
+        )

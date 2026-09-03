@@ -83,10 +83,9 @@ export function CommunicationPanel({
     setReceipt(null);
   }, [eligibleConnectors]);
 
-  const directProvider = capability?.configured === true && capability.connector_ids.length === 0;
   const canSubmit = Boolean(
     !loading && !busy && capability?.configured &&
-    (directProvider || connectorId) &&
+    connectorId &&
     /^\+[1-9][0-9]{7,14}$/.test(destination) &&
     purpose.trim().length > 0 && purpose.trim().length <= 240 && approved,
   );
@@ -102,18 +101,14 @@ export function CommunicationPanel({
       destination,
       purpose: purpose.trim(),
       owner_approved: true,
-      ...(connectorId ? { connector_id: connectorId } : {}),
+      connector_id: connectorId,
     };
     try {
       const accepted = operation === "phone_call"
         ? await onStartPhoneCall(request, controller.signal)
         : await onScheduleCallback(request, controller.signal);
       setReceipt(accepted);
-      setNotice(
-        accepted.connector_execution_id === null
-          ? "The configured provider returned a matching acceptance receipt."
-          : "The provider returned a matching acceptance receipt and the connector execution was audited.",
-      );
+      setNotice("The provider returned a matching acceptance receipt and the connector execution was audited.");
       setApproved(false);
     } catch {
       setNotice("The provider did not return a verified acceptance receipt. No success was claimed.");
@@ -144,7 +139,7 @@ export function CommunicationPanel({
               <option value="callback">Schedule callback</option>
             </select>
           </label>
-          {!directProvider && <label>
+          <label>
             Verified communication connector
             <select value={connectorId} onChange={(event) => setConnectorId(event.target.value)}>
               <option value="">No healthy eligible connector</option>
@@ -154,7 +149,7 @@ export function CommunicationPanel({
                 </option>
               ))}
             </select>
-          </label>}
+          </label>
           <label>
             Destination (E.164)
             <input
@@ -202,7 +197,7 @@ export function CommunicationPanel({
         <dl className="connector-result">
           <div><dt>Provider state</dt><dd>{receipt.state.replaceAll("_", " ")}</dd></div>
           <div><dt>Request</dt><dd><code>{receipt.request_id}</code></dd></div>
-          <div><dt>Audit execution</dt><dd><code>{receipt.connector_execution_id ?? "provider adapter"}</code></dd></div>
+          <div><dt>Audit execution</dt><dd><code>{receipt.connector_execution_id}</code></dd></div>
         </dl>
       )}
       <p className="field-help">

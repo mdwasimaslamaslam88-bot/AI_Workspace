@@ -58,6 +58,7 @@ class OAuth2CredentialRequest(BaseModel):
     client_secret: SecretStr | None = Field(
         default=None, min_length=16, max_length=2_048
     )
+    token_origin: str | None = Field(default=None, min_length=8, max_length=2_048)
     token_path: str | None = Field(default=None, min_length=1, max_length=512)
     expires_at: datetime | None = None
 
@@ -73,6 +74,8 @@ class OAuth2CredentialRequest(BaseModel):
             value is None for value in values
         ):
             raise ValueError("OAuth refresh configuration must be complete")
+        if self.token_origin is not None and any(value is None for value in values):
+            raise ValueError("OAuth token origin requires refresh configuration")
         if self.expires_at is not None and self.expires_at.tzinfo is None:
             raise ValueError("OAuth expiry must be timezone-aware")
         return self

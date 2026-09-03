@@ -12,11 +12,15 @@ class CommunicationProviderError(RuntimeError):
 @dataclass(frozen=True, slots=True)
 class CommunicationReceipt:
     request_id: UUID
+    connector_execution_id: UUID
     state: str = "accepted_by_provider"
-    connector_execution_id: UUID | None = None
 
     def __post_init__(self) -> None:
-        if self.state != "accepted_by_provider":
+        if (
+            self.state != "accepted_by_provider"
+            or not isinstance(self.request_id, UUID)
+            or not isinstance(self.connector_execution_id, UUID)
+        ):
             raise ValueError("communication receipt state is invalid")
 
 

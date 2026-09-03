@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 from uuid import uuid4
 
@@ -7,8 +8,9 @@ from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import get_current_user
+from app.api.v1 import communications as communications_api
 from app.api.v1.communications import router
-from app.communications import CommunicationReceipt
+from app.connectors.service import ConnectorConnectionStatus
 from app.db.dependencies import get_db_session
 from app.exceptions.handlers import register_exception_handlers
 from app.models.user import User
@@ -54,6 +56,7 @@ def test_unconfigured_communication_boundary_is_explicit_and_fail_closed():
                 "destination": "+14155550123",
                 "purpose": "Owner-approved appointment call",
                 "owner_approved": True,
+                "connector_id": str(uuid4()),
             },
         )
 
@@ -68,39 +71,73 @@ def test_unconfigured_communication_boundary_is_explicit_and_fail_closed():
     assert "+14155550123" not in call.text
 
 
-def test_provider_adapter_receives_only_owner_approved_bounded_contract():
+def test_global_provider_hook_cannot_bypass_owner_connector_and_audit():
     user = _user()
     application = _application(user)
     provider = AsyncMock()
-
-    async def accept_request(**request):
-        return CommunicationReceipt(request_id=request["request_id"])
-
-    provider.start_phone_call.side_effect = accept_request
     application.state.realtime_communication_provider = provider
 
     with TestClient(application, raise_server_exceptions=False) as client:
+        capabilities = client.get("/api/v1/communications/capabilities")
         response = client.post(
             "/api/v1/communications/phone-calls",
             json={
                 "destination": "+14155550123",
                 "purpose": "Owner-approved appointment call",
                 "owner_approved": True,
+                "connector_id": str(uuid4()),
+            },
+        )
+
+    assert capabilities.status_code == 200
+    assert capabilities.json()["phone_call"]["configured"] is False
+    assert response.status_code == 503
+    assert "+14155550123" not in response.text
+    provider.start_phone_call.assert_not_awaited()
+
+
+def test_owner_connector_receipt_is_required_and_returned(monkeypatch):
+    user = _user()
+    connector_id = uuid4()
+    execution_id = uuid4()
+    service = AsyncMock()
+    service.get_for_owner.return_value = SimpleNamespace(
+        connection_status=ConnectorConnectionStatus.HEALTHY,
+        scopes=("read", "write"),
+        capabilities=("phone_call",),
+    )
+
+    async def execute_for_owner(*args, **kwargs):
+        return SimpleNamespace(
+            payload={
+                "request_id": kwargs["json_body"]["request_id"],
+                "state": "accepted_by_provider",
+            },
+            execution=SimpleNamespace(id=execution_id),
+        )
+
+    service.execute_for_owner.side_effect = execute_for_owner
+    monkeypatch.setattr(
+        communications_api,
+        "_connector_service",
+        lambda _request, _session: service,
+    )
+
+    with TestClient(_application(user), raise_server_exceptions=False) as client:
+        response = client.post(
+            "/api/v1/communications/phone-calls",
+            json={
+                "destination": "+14155550123",
+                "purpose": "Owner-approved appointment call",
+                "owner_approved": True,
+                "connector_id": str(connector_id),
             },
         )
 
     assert response.status_code == 202
-    assert response.json() == {
-        "request_id": response.json()["request_id"],
-        "state": "accepted_by_provider",
-        "connector_execution_id": None,
-    }
-    provider.start_phone_call.assert_awaited_once()
-    call = provider.start_phone_call.await_args.kwargs
-    assert call["owner_id"] == user.id
-    assert call["destination"] == "+14155550123"
-    assert call["purpose"] == "Owner-approved appointment call"
-    assert str(call["request_id"]) == response.json()["request_id"]
+    assert response.json()["connector_execution_id"] == str(execution_id)
+    service.get_for_owner.assert_awaited_once_with(user.id, connector_id)
+    assert service.execute_for_owner.await_args.args == (user.id, connector_id)
 
 
 def test_communication_request_requires_owner_approval_and_e164_destination():
@@ -112,6 +149,7 @@ def test_communication_request_requires_owner_approval_and_e164_destination():
                 "destination": "555-0123",
                 "purpose": "Callback",
                 "owner_approved": False,
+                "connector_id": str(uuid4()),
             },
         )
 

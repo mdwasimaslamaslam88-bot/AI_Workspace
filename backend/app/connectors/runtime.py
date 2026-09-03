@@ -427,6 +427,16 @@ class ConnectorRuntime:
         assert credential.client_id is not None
         assert credential.client_secret is not None
         assert credential.token_path is not None
+        try:
+            token_origin = self.require_allowed_origin(
+                credential.token_origin or connector.base_url
+            )
+        except ValueError as exc:
+            raise ConnectorRuntimeError(
+                ConnectorExecutionStatus.FAILED,
+                "connector_permission_denied",
+                attempts=0,
+            ) from exc
         content = urlencode(
             {
                 "client_id": credential.client_id,
@@ -453,7 +463,7 @@ class ConnectorRuntime:
             async with asyncio.timeout(connector.timeout_seconds):
                 async with self.client.stream(
                     "POST",
-                    connector.base_url + credential.token_path,
+                    token_origin + credential.token_path,
                     headers={
                         "Accept": "application/json",
                         "Content-Type": "application/x-www-form-urlencoded",
@@ -511,6 +521,7 @@ class ConnectorRuntime:
                 client_secret=credential.client_secret,
                 token_path=credential.token_path,
                 expires_at=datetime.now(timezone.utc) + timedelta(seconds=expires_in),
+                token_origin=credential.token_origin,
             )
             connector.credential_ciphertext = self.credential_box.encrypt(
                 encode_oauth2_credential(refreshed)

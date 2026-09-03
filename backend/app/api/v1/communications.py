@@ -28,10 +28,6 @@ from app.schemas.communications import (
 router = APIRouter(prefix="/communications", tags=["Communications"])
 
 
-def _provider(request: Request):
-    return getattr(request.app.state, "realtime_communication_provider", None)
-
-
 def _external_capability(
     configured: bool,
     *dependencies: str,
@@ -60,7 +56,6 @@ async def communication_capabilities(
     current_user: Annotated[User, Depends(get_current_user)],
     session: Annotated[AsyncSession, Depends(get_db_session)],
 ) -> CommunicationCapabilitiesResponse:
-    provider_configured = _provider(request) is not None
     phone_connector_ids: tuple[UUID, ...] = ()
     callback_connector_ids: tuple[UUID, ...] = ()
     service = _connector_service(request, session)
@@ -78,13 +73,13 @@ async def communication_capabilities(
         )
     return CommunicationCapabilitiesResponse(
         phone_call=_external_capability(
-            provider_configured or bool(phone_connector_ids),
+            bool(phone_connector_ids),
             "telephony_provider",
             "owner_configuration",
             connector_ids=phone_connector_ids,
         ),
         callback=_external_capability(
-            provider_configured or bool(callback_connector_ids),
+            bool(callback_connector_ids),
             "telephony_provider",
             "owner_configuration",
             connector_ids=callback_connector_ids,
@@ -106,19 +101,13 @@ async def _submit(
     current_user: User,
     session: AsyncSession,
 ) -> CommunicationAcceptedResponse:
-    provider = _provider(request)
-    if provider is None and body.connector_id is not None:
-        service = _connector_service(request, session)
-        if service is not None:
-            provider = ConnectorBackedCommunicationProvider(
-                service,
-                body.connector_id,
-            )
-    if provider is None:
+    service = _connector_service(request, session)
+    if service is None:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="An owner-configured communication provider is required",
         )
+    provider = ConnectorBackedCommunicationProvider(service, body.connector_id)
     request_id = uuid4()
     try:
         if operation == "phone_call":

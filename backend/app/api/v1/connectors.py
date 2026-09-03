@@ -86,6 +86,7 @@ def _write_arguments(payload: ConnectorWriteRequest) -> dict:
                     if oauth2.client_secret is not None
                     else None
                 ),
+                token_origin=oauth2.token_origin,
                 token_path=oauth2.token_path,
                 expires_at=oauth2.expires_at,
             )
