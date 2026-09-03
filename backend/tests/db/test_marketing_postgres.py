@@ -64,7 +64,17 @@ async def test_marketing_campaign_is_owner_scoped_approval_gated_and_grounded(
                 "body": json.loads(request.content),
             }
         )
-        return httpx.Response(202, json={"accepted": True})
+        body = json.loads(request.content)
+        if body["name"] == "Unverified receipt":
+            return httpx.Response(202, json={"accepted": True})
+        return httpx.Response(
+            201,
+            json={
+                "campaign_id": body["campaign_id"],
+                "provider_reference": "provider-post-123",
+                "state": "published",
+            },
+        )
 
     runtime = ConnectorRuntime(
         ConnectorCredentialBox(tmp_path / "marketing-connector-secrets"),
@@ -98,6 +108,7 @@ async def test_marketing_campaign_is_owner_scoped_approval_gated_and_grounded(
                 timeout_seconds=2,
                 max_retries=0,
                 rate_limit_requests_per_minute=30,
+                capabilities=("campaign.publish",),
             )
             await ConnectorService(session, runtime).health_for_owner(
                 owner_id, connector.id
@@ -159,7 +170,9 @@ async def test_marketing_campaign_is_owner_scoped_approval_gated_and_grounded(
             stage for stage in published.stages if stage.kind is MarketingStageKind.PUBLISH
         )
         assert publish_stage.connector_execution_id is not None
-        assert '{"accepted":true}' not in (publish_stage.output or "")
+        assert "provider-post-123" not in (publish_stage.output or "")
+        assert '"provider_state":"published"' in (publish_stage.output or "")
+        assert "provider_reference_sha256" in (publish_stage.output or "")
         assert "response_body_sha256" in (publish_stage.output or "")
 
         with pytest.raises(MarketingCampaignNotFoundError):
@@ -187,6 +200,43 @@ async def test_marketing_campaign_is_owner_scoped_approval_gated_and_grounded(
         assert completed.analytics is not None
         assert completed.analytics["ctr_percent"] == "2.50"
         assert completed.analytics["return_on_ad_spend"] == "3.00"
+
+        async with factory() as session:
+            unverified = await MarketingCampaignService(
+                session, runtime
+            ).create_for_owner(
+                owner_id,
+                name="Unverified receipt",
+                objective="Prove a transport success cannot claim publication.",
+                product="AI OS",
+                audience="Owners",
+                channels=("social",),
+                source_facts=(
+                    MarketingSourceFact("brief.md#L2", "This is a test artifact."),
+                ),
+                publisher_connector_id=connector.id,
+                publish_path="/v1/campaigns",
+            )
+        await runner.start_for_owner(owner_id, unverified.id)
+        await active_tasks[unverified.id]
+        with pytest.raises(
+            MarketingCampaignConflictError, match="receipt was not verified"
+        ):
+            await runner.approve_and_publish(owner_id, unverified.id)
+        async with factory() as session:
+            rejected = await MarketingCampaignService(session).get_for_owner(
+                owner_id, unverified.id
+            )
+        assert rejected is not None
+        assert rejected.status is MarketingCampaignStatus.FAILED
+        assert rejected.published_at is None
+        rejected_publish = next(
+            stage
+            for stage in rejected.stages
+            if stage.kind is MarketingStageKind.PUBLISH
+        )
+        assert rejected_publish.status is MarketingStageStatus.FAILED
+        assert rejected_publish.connector_execution_id is not None
     finally:
         await runner.shutdown()
         await runtime.close()

@@ -1,6 +1,6 @@
 # Connector Status
 
-Evidence was refreshed on 2026-09-04 during Step 2 provider activation.
+Evidence was refreshed on 2026-09-04 during Step 3 provider activation.
 This report distinguishes connector-platform readiness from real provider
 authorization. No external provider is reported connected without owner
 credentials and a successful provider response.
@@ -20,6 +20,8 @@ credentials and a successful provider response.
 | Production schema | Disposable PostgreSQL migrated through `0019_connector_lifecycle_audit`; Alembic reports no drift | TEST PASS |
 | Production activation | Live backend uses an owner-only connector vault; root mode `0700`, generated key mode `0600`, and readiness passed after restart | PRODUCTION PASS |
 | Production egress policy | Zero approved origins; registration/execution remains fail-closed, and every request rechecks the current allowlist before opening the network | LOCAL PASS |
+| Domain capability gate | The current connector row, state, scope, exact path, and required domain capability are revalidated together immediately before each request | LOCAL PASS |
+| CRM/social/CMS loopback | Identity, CRM record operations, reversible social/CMS drafts, audit IDs, owner isolation and post-revocation denial passed over real local HTTP | RUNTIME PASS |
 | External providers | Zero registered, active, or healthy production connectors and no provider credential was present during activation | OWNER ACTION REQUIRED |
 
 The latest pre-activation last-known-good checkpoint is outside Git at
@@ -53,18 +55,18 @@ advertised as native or live.
 
 ## Verification summary
 
-- Backend regression: 2,958 passed; 50 intentional environment/runtime skips.
+- Backend regression: 2,960 passed; 50 intentional environment/runtime skips.
 - PostgreSQL integration: 50 passed; migrations `0001` through `0019`; no drift.
-- Web: 197 passed; typecheck, lint, production build and compiled-PWA E2E passed.
+- Web: 198 passed; typecheck, lint, production build and compiled-PWA E2E passed.
 - Mobile: 63 passed; shared and mobile typechecks, lint, Android/iOS exports and
   all Expo Doctor checks passed.
-- Focused Step 2 provider/security backend suite: 34 passed after the final
-  OAuth multi-origin change; the complete backend regression above is the
-  authoritative aggregate.
-- Focused provider-center web suite: 8 passed.
+- Focused Step 3 connector/marketing/security backend suite: 44 passed; the
+  complete backend regression above is the authoritative aggregate.
+- Focused provider/marketing web suite: 15 passed.
 - Runtime: the complete real local runtime matrix passed, including the
-  strengthened connector smoke and all downstream marketing, finance,
-  learning, creative, tool and workflow regressions.
+  strengthened connector smoke, CRM/social/CMS provider protocols, semantic
+  marketing receipt verification, and all downstream finance, learning,
+  creative, tool and workflow regressions.
 
 ## Real-provider boundary
 

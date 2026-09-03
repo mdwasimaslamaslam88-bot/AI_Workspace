@@ -51,6 +51,7 @@ def _connector(
         max_retries=max_retries,
         rate_limit_requests_per_minute=rate_limit,
         health_status=ConnectorHealthStatus.UNKNOWN,
+        capabilities_json='["records.read"]',
         created_at=now,
         updated_at=now,
     )
@@ -308,6 +309,27 @@ def test_connector_policy_rejects_noncanonical_path_scope_bypasses(tmp_path):
                 path,
                 action=ConnectorAction.EXECUTE,
             )
+
+
+def test_connector_policy_revalidates_required_capability(tmp_path):
+    connector = _connector(ConnectorCredentialBox(tmp_path / "credentials"))
+    connector.health_status = ConnectorHealthStatus.HEALTHY
+
+    ConnectorService._authorize(
+        connector,
+        "GET",
+        "/v1/status",
+        action=ConnectorAction.EXECUTE,
+        required_capability="records.read",
+    )
+    with pytest.raises(ConnectorPermissionError, match="connector_permission_denied"):
+        ConnectorService._authorize(
+            connector,
+            "POST",
+            "/v1/actions",
+            action=ConnectorAction.EXECUTE,
+            required_capability="campaign.publish",
+        )
 
 
 def test_unverified_connector_cannot_execute_but_may_run_bounded_preflight(tmp_path):

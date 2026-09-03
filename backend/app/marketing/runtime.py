@@ -19,9 +19,11 @@ from app.marketing.service import (
     MarketingCampaignNotFoundError,
     MarketingCampaignService,
     MarketingCampaignView,
+    MARKETING_PUBLISH_CAPABILITY,
     campaign_view,
     canonical_json,
     output_digest,
+    verified_publish_receipt,
 )
 from app.models.marketing import (
     MarketingCampaignStatus,
@@ -355,6 +357,7 @@ class MarketingCampaignRunner:
                         "creative_brief": creative,
                     },
                     idempotency_key=f"marketing-{snapshot.id}",
+                    required_capability=MARKETING_PUBLISH_CAPABILITY,
                 )
         except ConnectorExecutionError as exc:
             await self._fail_publish(
@@ -370,12 +373,22 @@ class MarketingCampaignRunner:
             )
             raise MarketingCampaignConflictError("publisher action failed") from None
 
+        try:
+            receipt = verified_publish_receipt(result.payload, snapshot.id)
+        except (TypeError, ValueError):
+            await self._fail_publish(
+                owner_id, campaign_id, result.execution.id, "publish_failed"
+            )
+            raise MarketingCampaignConflictError(
+                "publisher receipt was not verified"
+            ) from None
+
         evidence = canonical_json(
             {
                 "connector_execution_id": str(result.execution.id),
+                **receipt,
                 "response_body_sha256": result.execution.response_body_sha256,
                 "response_status_code": result.execution.response_status_code,
-                "transport_state": "accepted",
             },
             8_192,
         )

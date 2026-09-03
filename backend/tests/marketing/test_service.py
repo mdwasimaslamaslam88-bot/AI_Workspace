@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from uuid import uuid4
 
 import pytest
 
@@ -9,6 +10,7 @@ from app.marketing.service import (
     MarketingSourceFact,
     _source_payload,
     canonical_json,
+    verified_publish_receipt,
 )
 
 
@@ -76,3 +78,40 @@ def test_source_facts_are_exact_bounded_unique_data():
         )
     with pytest.raises(MarketingCampaignInputError):
         canonical_json({"value": float("nan")}, 100)
+
+
+def test_publish_receipt_requires_exact_provider_confirmation():
+    campaign_id = uuid4()
+    verified = verified_publish_receipt(
+        {
+            "campaign_id": str(campaign_id),
+            "provider_reference": "provider-post-123",
+            "state": "published",
+        },
+        campaign_id,
+    )
+    assert verified["provider_state"] == "published"
+    assert len(verified["provider_reference_sha256"]) == 64
+    assert "provider-post-123" not in str(verified)
+
+    for payload in (
+        {"accepted": True},
+        {
+            "campaign_id": str(campaign_id),
+            "provider_reference": "provider-post-123",
+            "state": "accepted",
+        },
+        {
+            "campaign_id": str(uuid4()),
+            "provider_reference": "provider-post-123",
+            "state": "published",
+        },
+        {
+            "campaign_id": str(campaign_id),
+            "provider_reference": "provider-post-123",
+            "state": "published",
+            "unverified": True,
+        },
+    ):
+        with pytest.raises(MarketingCampaignInputError, match="receipt"):
+            verified_publish_receipt(payload, campaign_id)

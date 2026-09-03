@@ -100,6 +100,7 @@ class ConnectorBackedCommunicationProvider:
                     "purpose": purpose,
                 },
                 idempotency_key=str(request_id),
+                required_capability=capability,
             )
         except CommunicationProviderError:
             raise

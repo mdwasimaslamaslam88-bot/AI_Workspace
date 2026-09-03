@@ -71,6 +71,7 @@ async def test_connector_provider_executes_bounded_owner_scoped_contract(
             "purpose": "Owner-approved verification call",
         },
         idempotency_key=str(request_id),
+        required_capability=capability,
     )
 
 

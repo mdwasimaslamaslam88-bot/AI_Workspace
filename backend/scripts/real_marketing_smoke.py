@@ -42,8 +42,15 @@ class _PublisherHandler(BaseHTTPRequestHandler):
         length = int(self.headers.get("Content-Length", "0"))
         type(self).payload = json.loads(self.rfile.read(length))
         type(self).idempotency_key = self.headers.get("Idempotency-Key")
-        response = b'{"accepted":true}'
-        self.send_response(202)
+        response = json.dumps(
+            {
+                "campaign_id": type(self).payload["campaign_id"],
+                "provider_reference": "local-provider-post-1",
+                "state": "published",
+            },
+            separators=(",", ":"),
+        ).encode("utf-8")
+        self.send_response(201)
         self.send_header("Content-Type", "application/json")
         self.send_header("Content-Length", str(len(response)))
         self.end_headers()
@@ -113,6 +120,7 @@ def main() -> None:
                         "base_url": origin,
                         "auth_kind": "none",
                         "scopes": ["read", "write"],
+                        "capabilities": ["campaign.publish"],
                         "path_prefixes": ["/api/"],
                         "health_path": "/api/health",
                         "enabled": True,
@@ -195,6 +203,17 @@ def main() -> None:
                 )
                 if approved.status_code != 200 or approved.json()["status"] != "awaiting_analytics":
                     raise RuntimeError("approved campaign was not published")
+                publish_stage = next(
+                    stage for stage in approved.json()["stages"]
+                    if stage["kind"] == "publish"
+                )
+                if (
+                    publish_stage["connector_execution_id"] is None
+                    or "provider_reference_sha256" not in publish_stage["output"]
+                    or '"provider_state":"published"' not in publish_stage["output"]
+                    or "local-provider-post-1" in publish_stage["output"]
+                ):
+                    raise RuntimeError("provider publication receipt was not verified")
                 if (
                     _PublisherHandler.payload is None
                     or _PublisherHandler.payload.get("campaign_id") != campaign_id

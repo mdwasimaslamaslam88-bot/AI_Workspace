@@ -58,12 +58,12 @@ const connector: Connector = {
   credential_configured: false,
   scopes: ["read", "write"],
   permissions: ["read", "write"],
-  capabilities: ["publish"],
+  capabilities: ["campaign.publish"],
   path_prefixes: ["/v1/"],
   health_path: "/v1/health",
   discovery_path: null,
   enabled: true,
-  connection_status: "ready",
+  connection_status: "healthy",
   timeout_seconds: 2,
   max_retries: 0,
   rate_limit_requests_per_minute: 30,
@@ -75,11 +75,11 @@ const connector: Connector = {
   revoked_at: null,
 };
 
-function props(campaigns: MarketingCampaign[] = []) {
+function props(campaigns: MarketingCampaign[] = [], availableConnectors = [connector]) {
   return {
     onClose: vi.fn(),
     onLoad: vi.fn(async () => campaigns),
-    onLoadConnectors: vi.fn(async () => [connector]),
+    onLoadConnectors: vi.fn(async () => availableConnectors),
     onCreate: vi.fn(async () => record()),
     onGet: vi.fn(async () => record("needs_approval")),
     onStart: vi.fn(async () => record("pending")),
@@ -126,6 +126,17 @@ describe("MarketingPanel", () => {
       record().id, expect.any(AbortSignal),
     ));
     expect(await screen.findByText("awaiting analytics")).toBeVisible();
+  });
+
+  it("does not offer unhealthy or capability-mismatched connectors for publishing", async () => {
+    const actions = props([], [
+      { ...connector, id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd", connection_status: "ready" },
+      { ...connector, id: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee", capabilities: ["crm.contacts.write"] },
+    ]);
+    render(<MarketingPanel {...actions} />);
+
+    await screen.findByText("No campaigns yet.");
+    expect(screen.queryByRole("option", { name: "Publisher" })).not.toBeInTheDocument();
   });
 
   it("does not render private backend errors", async () => {

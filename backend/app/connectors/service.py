@@ -658,6 +658,7 @@ class ConnectorService:
         json_body: Any | None,
         idempotency_key: str | None,
         action: ConnectorAction = ConnectorAction.EXECUTE,
+        required_capability: str | None = None,
     ) -> ConnectorExecutionResult:
         started_at = datetime.now(timezone.utc)
         started = time.monotonic()
@@ -667,7 +668,13 @@ class ConnectorService:
             raise ConnectorNotFoundError("connector not found")
         method = method.upper()
         try:
-            self._authorize(connector, method, path, action=action)
+            self._authorize(
+                connector,
+                method,
+                path,
+                action=action,
+                required_capability=required_capability,
+            )
             result = await self.runtime.execute(
                 connector,
                 action=action,
@@ -856,6 +863,7 @@ class ConnectorService:
         path: str,
         *,
         action: ConnectorAction,
+        required_capability: str | None = None,
     ) -> None:
         if connector.revoked_at is not None:
             raise ConnectorPermissionError("connector_disabled")
@@ -882,6 +890,12 @@ class ConnectorService:
         required_scope = "read" if method in _READ_METHODS else "write"
         if required_scope not in scopes:
             raise ConnectorPermissionError()
+        if required_capability is not None:
+            if _CAPABILITY_PATTERN.fullmatch(required_capability) is None:
+                raise ConnectorPermissionError()
+            capabilities = frozenset(_decode_list(connector.capabilities_json))
+            if required_capability not in capabilities:
+                raise ConnectorPermissionError()
         if connector.kind is ConnectorKind.WEBHOOK and (
             action is ConnectorAction.EXECUTE and method != "POST"
         ):

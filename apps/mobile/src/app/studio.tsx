@@ -1,3 +1,4 @@
+import { isMarketingPublisherConnector } from "@work-station/shared";
 import type {
   CreativeCapabilities,
   CreativeExperience,
@@ -944,7 +945,7 @@ export default function StudioScreen() {
           <Text style={styles.itemLabel}>Publisher (optional)</Text>
           <ScrollView horizontal contentContainerStyle={styles.chipRow}>
             <Pressable accessibilityRole="button" accessibilityState={{ selected: campaignPublisherId === null }} style={[styles.chip, campaignPublisherId === null && styles.selectedChip]} onPress={() => setCampaignPublisherId(null)}><Text style={styles.chipText}>Draft only</Text></Pressable>
-            {connectors.filter((connector) => connector.enabled && connector.revoked_at === null && connector.scopes.includes("write")).map((connector) => <Pressable accessibilityRole="button" accessibilityState={{ selected: campaignPublisherId === connector.id }} key={connector.id} style={[styles.chip, campaignPublisherId === connector.id && styles.selectedChip]} onPress={() => setCampaignPublisherId(connector.id)}><Text style={styles.chipText}>{connector.name}</Text></Pressable>)}
+            {connectors.filter(isMarketingPublisherConnector).map((connector) => <Pressable accessibilityRole="button" accessibilityState={{ selected: campaignPublisherId === connector.id }} key={connector.id} style={[styles.chip, campaignPublisherId === connector.id && styles.selectedChip]} onPress={() => setCampaignPublisherId(connector.id)}><Text style={styles.chipText}>{connector.name}</Text></Pressable>)}
           </ScrollView>
           {campaignPublisherId !== null && <TextInput accessibilityLabel="Campaign publish path" maxLength={512} value={campaignPublishPath} onChangeText={setCampaignPublishPath} placeholder="/v1/campaigns" placeholderTextColor={colors.subtle} style={styles.input} />}
           <Pressable accessibilityRole="button" disabled={busyAction !== null || [campaignName, campaignObjective, campaignProduct, campaignAudience, campaignSourceReference, campaignSourceFact].some((value) => value.trim().length === 0) || (campaignPublisherId !== null && campaignPublishPath.trim().length === 0)} style={[styles.primaryButton, busyAction !== null && styles.disabled]} onPress={() => void createCampaign()}><Text style={styles.primaryButtonText}>Create grounded campaign</Text></Pressable>
@@ -961,7 +962,7 @@ export default function StudioScreen() {
               <Text style={styles.itemLabel}>Source analytics</Text>
               <TextInput accessibilityLabel="Analytics source" maxLength={512} value={analyticsSource} onChangeText={setAnalyticsSource} placeholder="provider export reference" placeholderTextColor={colors.subtle} style={styles.input} />
               {["Impressions", "Clicks", "Conversions", "Spend minor units", "Revenue minor units"].map((label, index) => <TextInput accessibilityLabel={label} key={label} keyboardType="number-pad" value={analyticsValues[index]} onChangeText={(value) => setAnalyticsValues((current) => current.map((item, position) => position === index ? value : item))} placeholder={label} placeholderTextColor={colors.subtle} style={styles.input} />)}
-              <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={() => void submitCampaignAnalytics(campaign.id)}><Text style={styles.primaryButtonText}>Verify analytics</Text></Pressable>
+              <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={() => void submitCampaignAnalytics(campaign.id)}><Text style={styles.primaryButtonText}>Submit source analytics</Text></Pressable>
             </View>}
             {campaign.analytics !== null && <Text selectable style={styles.codeText}>{JSON.stringify(campaign.analytics, null, 2)}</Text>}
           </View>)}

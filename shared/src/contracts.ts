@@ -881,6 +881,14 @@ export interface MarketingCampaign {
 
 export interface MarketingCampaignPage { items: MarketingCampaign[]; }
 
+export const MARKETING_PUBLISH_CAPABILITY = "campaign.publish";
+
+export function isMarketingPublisherConnector(connector: Connector): boolean {
+  return connector.revoked_at === null && connector.enabled &&
+    connector.connection_status === "healthy" && connector.scopes.includes("write") &&
+    connector.capabilities.includes(MARKETING_PUBLISH_CAPABILITY);
+}
+
 export type MarketAssetClass = "indian_stock" | "global_stock" | "crypto" | "fx";
 export type FinanceArtifactKind = "research" | "strategy" | "backtest" | "portfolio" | "risk" | "journal";
 export type PaperOrderSide = "buy" | "sell";

@@ -68,6 +68,9 @@ records.
 - ordinary actions require a successful health check; disabled connectors may
   perform only bounded health/discovery preflight, and revoked connectors may
   perform neither
+- domain actions may require an exact discovered capability in addition to the
+  generic read/write scope; the current connector row and capability are
+  revalidated in the same execution fetch immediately before network access
 - connector paths are canonical: queries, fragments, percent escapes,
   traversal segments, backslashes, and control characters are rejected
 - request JSON is limited to 32 KiB and response JSON to 256 KiB
@@ -118,6 +121,21 @@ proves encrypted bearer authentication, health, owner isolation, path scopes,
 an idempotent retry after HTTP 503, metadata-only audit history, log redaction,
 credential destruction, failed-authentication/reconnect evidence, and
 post-revocation denial. The release runtime gate executes this smoke test.
+
+`backend/scripts/real_business_provider_smoke.py` adds provider-protocol
+coverage for CRM account/contact/note/task/deal operations, social and CMS
+identity plus reversible draft create/read/update/unpublish, marketing
+analytics readback, owner isolation, concrete execution-audit IDs, and
+post-revocation denial. These are real loopback HTTP interactions against a
+disposable database. They demonstrate runtime readiness, not a live
+third-party account.
+
+The marketing publisher contract additionally requires the exact
+`campaign.publish` capability. A successful HTTP status is insufficient: the
+bounded provider response must carry the matching campaign ID, exact
+`published` state, and provider reference. Only its digest is retained in
+campaign evidence. Missing or malformed semantic evidence fails closed and
+does not set `published_at`.
 
 ## External boundaries
 

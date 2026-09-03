@@ -1,5 +1,6 @@
 import { type FormEvent, useCallback, useEffect, useRef, useState } from "react";
 
+import { isMarketingPublisherConnector } from "../../api/contracts";
 import type {
   Connector,
   MarketingAnalyticsRequest,
@@ -100,9 +101,7 @@ export function MarketingPanel({
       .then(([items, availableConnectors]) => {
         if (controller.signal.aborted) return;
         setCampaigns(items);
-        setConnectors(availableConnectors.filter(
-          (connector) => connector.revoked_at === null && connector.enabled && connector.scopes.includes("write"),
-        ));
+        setConnectors(availableConnectors.filter(isMarketingPublisherConnector));
         for (const campaign of items.filter((item) => POLLING.has(item.status))) {
           beginPolling(campaign.id);
         }
@@ -197,7 +196,7 @@ export function MarketingPanel({
         <div><p className="eyebrow">Business workspace</p><h2 id="marketing-panel-title">Verified campaigns</h2></div>
         <button type="button" className="button button-quiet" onClick={onClose}>Close</button>
       </header>
-      <p className="field-help">Research, strategy, content, and creative use verified local agents. Publishing requires an owner-approved, write-scoped connector; analytics use only submitted source data.</p>
+      <p className="field-help">Research, strategy, content, and creative use verified local agents. Publishing requires an owner-approved, healthy connector advertising campaign.publish; analytics use only submitted source data.</p>
       <form className="workflow-form" onSubmit={(event) => void create(event)}>
         <label>Campaign name<input maxLength={120} value={name} onChange={(event) => setName(event.target.value)} /></label>
         <label>Objective<textarea maxLength={2_000} rows={2} value={objective} onChange={(event) => setObjective(event.target.value)} /></label>
@@ -226,7 +225,7 @@ export function MarketingPanel({
               {campaign.status === "needs_approval" && <button type="button" className="button button-primary" disabled={busy || campaign.publisher_connector_id === null} onClick={() => void approve(campaign.id)}>{campaign.publisher_connector_id === null ? "Publisher required" : "Approve & publish"}</button>}
               {CANCELLABLE.has(campaign.status) && <button type="button" className="button button-quiet" disabled={busy} onClick={() => void perform((signal) => onCancel(campaign.id, signal))}>Cancel</button>}
             </div>
-            {campaign.status === "awaiting_analytics" && <form className="marketing-analytics" onSubmit={(event) => void analytics(campaign.id, event)}><label>Analytics source<input name="source_reference" required maxLength={512} /></label>{["impressions", "clicks", "conversions", "spend_minor", "revenue_minor"].map((field) => <label key={field}>{field.replaceAll("_", " ")}<input name={field} type="number" min="0" step="1" required /></label>)}<button className="button button-primary" disabled={busy}>Verify analytics</button></form>}
+            {campaign.status === "awaiting_analytics" && <form className="marketing-analytics" onSubmit={(event) => void analytics(campaign.id, event)}><label>Analytics source<input name="source_reference" required maxLength={512} /></label>{["impressions", "clicks", "conversions", "spend_minor", "revenue_minor"].map((field) => <label key={field}>{field.replaceAll("_", " ")}<input name={field} type="number" min="0" step="1" required /></label>)}<button className="button button-primary" disabled={busy}>Submit source analytics</button></form>}
             {campaign.analytics !== null && <details><summary>Grounded analytics</summary><pre>{JSON.stringify(campaign.analytics, null, 2)}</pre></details>}
           </li>;
         })}

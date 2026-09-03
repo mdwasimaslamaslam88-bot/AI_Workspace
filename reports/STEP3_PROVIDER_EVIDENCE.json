@@ -1,0 +1,108 @@
+{
+  "schema_version": 1,
+  "product": "AI OS / WORK STATION",
+  "step": 3,
+  "evidence_date": "2026-09-04",
+  "baseline_commit": "7957595d0d8a99297dcf5d68a7a1e42232d39f0d",
+  "result": "PARTIAL",
+  "step_4_started": false,
+  "production_inventory": {
+    "approved_external_origins": 0,
+    "configured_provider_connectors": 0,
+    "enabled_provider_connectors": 0,
+    "healthy_provider_connectors": 0,
+    "credentialed_provider_connectors": 0,
+    "verified_external_live_providers": 0
+  },
+  "providers": [
+    {
+      "family": "crm",
+      "local_state": "RUNTIME_READY",
+      "external_state": "EXTERNAL_BLOCKED",
+      "live_verified": false,
+      "local_evidence": [
+        "loopback account identity",
+        "contact create, read, and update",
+        "note, task, and deal create",
+        "encrypted authentication, owner isolation, audit IDs, and result verification",
+        "credential-destroying revocation and post-revocation denial"
+      ],
+      "not_executed": [
+        "third-party CRM identity or search",
+        "third-party contact, note, task, pipeline, or deal write",
+        "third-party webhook ingestion"
+      ],
+      "owner_action": "Choose an owner-controlled CRM sandbox/test account, allowlist exact API/token origins, register legitimate OAuth/API credentials, complete consent/MFA/provider approval, grant minimum scopes and paths, and approve a disposable test record."
+    },
+    {
+      "family": "social_cms",
+      "local_state": "RUNTIME_READY",
+      "external_state": "EXTERNAL_BLOCKED",
+      "live_verified": false,
+      "local_evidence": [
+        "loopback social account and CMS site identity",
+        "reversible draft create, read, update, and unpublish",
+        "exact origin/path/scope gates and discovered capability inventory",
+        "health, audit ID, idempotency, owner isolation, and revocation",
+        "web/mobile selection rejects unhealthy and non-publisher connectors"
+      ],
+      "not_executed": [
+        "third-party social or CMS read/write",
+        "third-party schedule or publish",
+        "third-party media upload",
+        "third-party analytics readback"
+      ],
+      "owner_action": "Choose an owner/test destination, allowlist exact API/token origins, complete legitimate authorization/app review, configure minimum scopes/paths/capabilities, and explicitly approve reversible test content and destination."
+    },
+    {
+      "family": "marketing",
+      "local_state": "RUNTIME_READY",
+      "external_state": "EXTERNAL_BLOCKED",
+      "live_verified": false,
+      "local_evidence": [
+        "complete local research-to-optimization workflow",
+        "explicit owner approval before publish",
+        "exact campaign.publish capability at selection and execution",
+        "semantic provider receipt verification with matching campaign ID",
+        "unverified HTTP-success receipt fails closed with no published_at",
+        "source-referenced deterministic analytics"
+      ],
+      "not_executed": [
+        "third-party campaign draft or template write",
+        "third-party audience read",
+        "third-party publish or analytics retrieval",
+        "paid campaign or advertising spend"
+      ],
+      "owner_action": "Configure an owner-authorized sandbox/test provider, exact origins, encrypted credentials, minimum scopes/paths, campaign.publish, and a verified receipt adapter; explicitly approve content/destination. Paid activation additionally requires separate owner authorization and spend limits."
+    }
+  ],
+  "security": {
+    "egress_default": "deny_all",
+    "external_origins_approved": 0,
+    "capability_revalidated_at_execution": true,
+    "redirects_allowed": false,
+    "credentials_encrypted_and_write_only": true,
+    "raw_provider_reference_persisted": false,
+    "critical_or_high_findings": 0,
+    "unrelated_app_credentials_imported": false,
+    "known_dependency_findings": "14 moderate transitive Expo build-tool advisories; available remediation is breaking-only"
+  },
+  "verification": {
+    "focused_backend": { "passed": 44 },
+    "backend": { "passed": 2960, "skipped": 50 },
+    "focused_web": { "passed": 15 },
+    "web": { "passed": 198 },
+    "mobile": { "passed": 63 },
+    "postgresql_integration": {
+      "passed": 50,
+      "migration_head": "0019",
+      "drift": false
+    },
+    "browser_pwa_e2e": "PASS",
+    "desktop_binary_appimage_deb": "PASS",
+    "local_business_provider_protocols": "PASS",
+    "local_marketing_runtime": "PASS",
+    "complete_local_runtime_e2e": "PASS",
+    "security": "PASS"
+  }
+}

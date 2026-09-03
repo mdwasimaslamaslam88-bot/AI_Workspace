@@ -27,6 +27,7 @@ from app.repositories.marketing import MarketingCampaignRepository
 
 MARKETING_CHANNELS = frozenset({"email", "social", "search", "web"})
 MARKETING_STAGE_ORDER = tuple(MarketingStageKind)
+MARKETING_PUBLISH_CAPABILITY = "campaign.publish"
 
 
 class MarketingCampaignNotFoundError(RuntimeError):
@@ -116,6 +117,28 @@ def canonical_json(value: Any, maximum: int) -> str:
 
 def output_digest(output: str) -> str:
     return hashlib.sha256(output.encode("utf-8")).hexdigest()
+
+
+def verified_publish_receipt(payload: Any, campaign_id: UUID) -> dict[str, str]:
+    expected_fields = {"campaign_id", "provider_reference", "state"}
+    if not isinstance(payload, dict) or set(payload) != expected_fields:
+        raise MarketingCampaignInputError("publisher receipt is invalid")
+    provider_reference = payload.get("provider_reference")
+    if (
+        payload.get("campaign_id") != str(campaign_id)
+        or payload.get("state") != "published"
+        or not isinstance(provider_reference, str)
+        or provider_reference != provider_reference.strip()
+        or not 1 <= len(provider_reference) <= 512
+        or any(ord(character) < 0x20 for character in provider_reference)
+    ):
+        raise MarketingCampaignInputError("publisher receipt is invalid")
+    return {
+        "provider_reference_sha256": hashlib.sha256(
+            provider_reference.encode("utf-8")
+        ).hexdigest(),
+        "provider_state": "published",
+    }
 
 
 def _exact_text(value: str, maximum: int, field: str) -> str:
@@ -274,6 +297,7 @@ class MarketingCampaignService:
                         "POST",
                         publish_path or "",
                         action=ConnectorAction.EXECUTE,
+                        required_capability=MARKETING_PUBLISH_CAPABILITY,
                     )
                 except ConnectorPermissionError as exc:
                     raise MarketingCampaignInputError(
