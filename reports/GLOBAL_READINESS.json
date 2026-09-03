@@ -1,0 +1,233 @@
+{
+  "schema_version": 1,
+  "product": "AI OS / WORK STATION",
+  "generated_at": "2026-09-03T15:00:50+05:30",
+  "status": "PASS_WITH_EXTERNAL_BOUNDARIES",
+  "application_source_commit": "a82b5b5039e8123da754e1a700b4a0f9db4a8473",
+  "phase_statuses": {
+    "A_baseline_lock": "PASS",
+    "B_global_connector_platform": "PASS",
+    "C_global_communications": "PASS_WITH_PROVIDER_BOUNDARIES",
+    "D_universal_app_connection": "PASS_WITH_PROVIDER_BOUNDARIES",
+    "E_business_and_marketing": "PASS_WITH_PROVIDER_BOUNDARIES",
+    "F_finance_and_trading": "PASS_WITH_BROKER_BOUNDARY",
+    "G_learning_creative_entertainment": "PASS_WITH_RUNTIME_BOUNDARIES",
+    "H_device_and_remote_ecosystem": "PASS_WITH_PHYSICAL_DEVICE_BOUNDARIES",
+    "I_autonomy_and_self_healing": "PASS_WITH_OWNER_APPROVAL_BOUNDARIES",
+    "J_global_production_readiness": "PASS_WITH_EXTERNAL_BOUNDARIES"
+  },
+  "dashboard": {
+    "total_capabilities": 245,
+    "implemented": 187,
+    "live_local": 187,
+    "runtime_ready": 14,
+    "external_connected": 0,
+    "blocked": 44,
+    "owner_action": 39,
+    "failed": 0,
+    "verified": 201,
+    "counting_notes": {
+      "live_local": "Registry entries classified implemented and verified through product/regression paths; this is not an external-provider claim.",
+      "runtime_ready": "Registry entries whose admitted local runtimes and storage dependencies are ready on this workstation; physical microphone/camera evidence is still device-specific.",
+      "blocked": "The 39 external_dependency entries plus five planned and visibly disabled entries.",
+      "owner_action": "Overlaps blocked: all 39 external_dependency entries need legitimate owner/provider authorization or an owner-selected external system.",
+      "verified": "The 187 implemented plus 14 current-workstation runtime-ready entries; it does not include external or planned entries."
+    }
+  },
+  "feature_registry": {
+    "path": "reports/feature-registry-report.json",
+    "sha256": "8739c06c478a912b1fd9b6cfa9022a291953e7c6f2e0a7a5fafafb2f6106f7ce",
+    "unique_ids": true,
+    "ui_paths_present": true,
+    "backend_or_boundary_present": true,
+    "test_coverage_present": true
+  },
+  "platforms": {
+    "ubuntu": {
+      "status": "DEVICE_PASS",
+      "artifacts": [
+        {
+          "path": "/home/md-wasim/AI_Workspace_Data/releases/phase11-a82b5b5/linux/Work_Station_Ubuntu.AppImage",
+          "sha256": "bd681fdba5f57298b1fc861b4555d56452a9caeae5e8b7f8a7894dc8470230bc"
+        },
+        {
+          "path": "/home/md-wasim/AI_Workspace_Data/releases/phase11-a82b5b5/linux/Work_Station_Ubuntu.deb",
+          "sha256": "4cd5d6f66b394f967f2a76950378eb8a993f273de421527caadf769897d96a3c"
+        }
+      ]
+    },
+    "windows": {
+      "status": "NATIVE_CI_PASS_UNSIGNED",
+      "workflow_run": 33735245448,
+      "artifacts": [
+        {
+          "path": "/home/md-wasim/AI_Workspace_Data/releases/phase11-a82b5b5/windows/Work_Station_Windows.exe",
+          "sha256": "1685ee2ce43cbf4e332aa6fb6232bba7bd9c6e29b64e828f273755478ae2d5ee"
+        },
+        {
+          "path": "/home/md-wasim/AI_Workspace_Data/releases/phase11-a82b5b5/windows/Work_Station_Windows_Setup.exe",
+          "sha256": "917eab934a72f6c26dc98717ebd6bc512f1e7eb18101efed2d9b5e41f1e69bd3"
+        }
+      ],
+      "boundary": "A trusted publisher certificate is required for signed public distribution."
+    },
+    "macos": {
+      "status": "NATIVE_CI_PASS_AD_HOC_SIGNED",
+      "workflow_run": 33735249778,
+      "artifacts": [
+        {
+          "path": "/home/md-wasim/AI_Workspace_Data/releases/phase11-a82b5b5/macos/Work_Station_macOS.app.zip",
+          "sha256": "29031a5ec3e2432b6ab57f0c860933d668e8a9e80a7ebc7c746c471d7ebce0b5"
+        },
+        {
+          "path": "/home/md-wasim/AI_Workspace_Data/releases/phase11-a82b5b5/macos/Work_Station_macOS.dmg",
+          "sha256": "7daa1b3feb5a929cee1ca4638b10dd13fcd8443e99588827990e1df5a3924f26"
+        }
+      ],
+      "boundary": "Developer ID signing, notarization and stapling require owner Apple credentials."
+    },
+    "android": {
+      "status": "EMULATOR_DEVICE_PASS_ARM64_PHYSICAL_BOUNDARY",
+      "release_artifact": {
+        "path": "/home/md-wasim/AI_Workspace_Data/releases/phase11-a82b5b5/Work_Station_Android.apk",
+        "abi": "arm64-v8a",
+        "sha256": "558980dda3c1b6532eb55540e99c5d6f82251075132a4e5cdd8eba16d972d10c"
+      },
+      "emulator_evidence": {
+        "platform": "Android 16 / API 36",
+        "abi": "x86_64",
+        "package": "com.workstation.personalai",
+        "activity": "com.workstation.personalai.MainActivity",
+        "artifact_sha256": "2c34ad62391c2ff34462efe7fd12897707c7c760bcad4d5d841d71a1d2c84bd4",
+        "install": "PASS",
+        "launch": "PASS",
+        "mission_control_navigation": "PASS"
+      },
+      "boundary": "The ARM64 release APK still requires owner testing on a physical ARM device and an owner release keystore/store account for public distribution."
+    },
+    "web_pwa": {
+      "status": "RUNTIME_PASS",
+      "artifact": {
+        "path": "/home/md-wasim/AI_Workspace_Data/releases/phase11-a82b5b5/web/Work_Station_Web_PWA.tar.gz",
+        "sha256": "255ed62eaec24f71f830fc661626e7f9df093144def400cb6999b03ea060905a"
+      }
+    },
+    "ios": {
+      "status": "STATIC_PASS_EXTERNAL_BLOCKED",
+      "boundary": "A native package and device run require Apple hardware, provisioning, signing credentials and a physical device."
+    }
+  },
+  "connectors": {
+    "framework": "PASS",
+    "encrypted_credentials": "PASS",
+    "loopback_e2e": "RUNTIME_PASS",
+    "configured_external": 0,
+    "healthy_external": 0,
+    "real_provider_pass": 0,
+    "production_egress": "DENY_ALL_UNTIL_OWNER_ALLOWLISTS_EXACT_ORIGIN"
+  },
+  "communications": {
+    "text": "LOCAL_PASS",
+    "speech_to_text": "RUNTIME_PASS",
+    "text_to_speech": "RUNTIME_PASS",
+    "voice_to_mission": "LOCAL_RUNTIME_PASS",
+    "telephony": "EXTERNAL_BLOCKED",
+    "video_calling": "EXTERNAL_BLOCKED",
+    "email_calendar_meetings": "EXTERNAL_BLOCKED"
+  },
+  "business": {
+    "local_marketing_pipeline": "RUNTIME_PASS",
+    "approval_and_loopback_publish_receipt": "RUNTIME_PASS",
+    "external_campaign_publish": "EXTERNAL_BLOCKED"
+  },
+  "finance": {
+    "grounded_research": "RUNTIME_PASS",
+    "backtest": "RUNTIME_PASS",
+    "paper_trading": "RUNTIME_PASS",
+    "live_market_feed": "EXTERNAL_BLOCKED",
+    "live_broker_order": "EXTERNAL_BLOCKED"
+  },
+  "learning_creative": {
+    "teacher_and_progress": "RUNTIME_PASS",
+    "image_generation_and_editing": "RUNTIME_PASS",
+    "voice": "RUNTIME_PASS",
+    "interactive_story": "RUNTIME_PASS",
+    "video_animation_generative_audio": "RUNTIME_BLOCKED",
+    "pronunciation_scoring": "RUNTIME_EXTERNAL_BLOCKED"
+  },
+  "remote_and_recovery": {
+    "private_tailnet_tls": "RUNTIME_PASS",
+    "remote_authenticated_session": "RUNTIME_PASS",
+    "desktop_mobile_continuation": "RUNTIME_PASS",
+    "device_revocation_and_logout": "RUNTIME_PASS",
+    "backend_crash_recovery": "RUNTIME_PASS",
+    "remote_daemon_recovery": "RUNTIME_PASS",
+    "backup_integrity_and_restore": "RUNTIME_PASS",
+    "self_update_candidate": "NO_CURRENT_CANDIDATE",
+    "daily_backup_timer": "OWNER_ACTION_REQUIRED"
+  },
+  "verification": {
+    "complete_release_gate": "PASS",
+    "backend": {
+      "passed": 2950,
+      "skipped": 48,
+      "failed": 0
+    },
+    "web": {
+      "passed": 194,
+      "test_files": 36
+    },
+    "mobile": {
+      "passed": 62,
+      "test_files": 19
+    },
+    "desktop_rust": {
+      "passed": 2,
+      "failed": 0
+    },
+    "postgresql": {
+      "passed": 48,
+      "migration_head": "0018_connector_activation",
+      "schema_drift": false
+    },
+    "runtime_matrix": "PASS",
+    "browser_pwa": "PASS",
+    "android_emulator": "PASS",
+    "native_windows": "PASS",
+    "native_macos": "PASS",
+    "artifact_integrity_and_secret_scan": "PASS"
+  },
+  "security": {
+    "status": "PASS_WITH_RECORDED_MODERATE_BUILD_TOOL_RISK",
+    "critical_findings": 0,
+    "high_findings": 0,
+    "moderate_findings": 14,
+    "moderate_scope": "Expo transitive build tooling",
+    "tracked_secret_scan": "PASS",
+    "artifact_secret_scan": "PASS",
+    "credential_isolation": "PASS",
+    "backend_binding": "127.0.0.1:8000",
+    "remote_transport": "PRIVATE_TAILSCALE_TLS",
+    "public_funnel": "DISABLED"
+  },
+  "preserved_quality": {
+    "cases": 459,
+    "score": 97.88,
+    "pass": 457,
+    "partial": 1,
+    "fail": 1,
+    "safety_percent": 100,
+    "hallucination_count": 0,
+    "executable_code": "24/24",
+    "summary_sha256": "436e6fe8a4da50dda368de3c94ce3f0ad1d47e863c7bdee46bd3b47fe4dbfe0e",
+    "results_sha256": "0f66871f34ab18ea37d56381fe93a70b77a223d95607644aba5ab9f6fdb47913"
+  },
+  "release": {
+    "root": "/home/md-wasim/AI_Workspace_Data/releases/phase11-a82b5b5",
+    "checksums": "/home/md-wasim/AI_Workspace_Data/releases/phase11-a82b5b5/checksums.sha256",
+    "manifest": "/home/md-wasim/AI_Workspace_Data/releases/phase11-a82b5b5/release-manifest.json",
+    "manifest_sha256": "bf8ccc12cb27e036b095fe48eac5362d01420f5a308951e59be1efd3fa054574",
+    "artifact_count": 8,
+    "integrity": "PASS"
+  }
+}

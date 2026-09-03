@@ -53,7 +53,7 @@ advertised as native or live.
 
 ## Verification summary
 
-- Backend regression: 2,944 passed; 48 intentional environment/runtime skips.
+- Backend regression: 2,950 passed; 48 intentional environment/runtime skips.
 - PostgreSQL integration: 48 passed; migrations `0001` through `0018`; no drift.
 - Web: 194 passed; typecheck, lint, production build and compiled-PWA E2E passed.
 - Mobile: 62 passed; shared and mobile typechecks, lint, Android/iOS exports and

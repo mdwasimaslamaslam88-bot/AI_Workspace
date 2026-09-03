@@ -12,8 +12,9 @@ planned controls. No item below is reported as locally live without its system.
   account and private signing credentials. The current arm64 app is ad-hoc
   signed and strict-valid, but not Apple-trusted.
 - Android Play Store publication requires the owner's release keystore and
-  store account. The current APK uses the standard debug certificate. No
-  emulator or physical device was attached for install/runtime acceptance.
+  store account. The current APK uses the standard debug certificate. An
+  Android 16/API 36 x86_64 emulator install/launch passed, but the ARM64 release
+  still requires physical-device acceptance.
 - Native iOS packaging/device acceptance requires Apple hardware, signing,
   provisioning and a device/account; only the static Expo iOS export was run.
 
