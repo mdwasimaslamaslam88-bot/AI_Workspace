@@ -7,12 +7,15 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.models.finance import (
+    BrokerOrderStatus,
     FinanceArtifactKind,
     MarketAlertCondition,
     MarketAlertStatus,
     MarketAssetClass,
     PaperOrderSide,
     PaperOrderStatus,
+    TradingExecutionMode,
+    TradingSafetyAction,
 )
 
 
@@ -96,6 +99,10 @@ class BacktestRequest(BaseModel):
     slow_window: int = Field(strict=True, ge=3, le=200)
     initial_cash_minor: int = Field(strict=True, ge=1, le=10**15)
     fee_bps: int = Field(default=0, strict=True, ge=0, le=1_000)
+    slippage_bps: int = Field(default=0, strict=True, ge=0, le=1_000)
+    position_size_bps: int = Field(default=10_000, strict=True, ge=1, le=10_000)
+    stop_loss_bps: int | None = Field(default=None, strict=True, ge=1, le=10_000)
+    take_profit_bps: int | None = Field(default=None, strict=True, ge=1, le=100_000)
 
     @model_validator(mode="after")
     def windows_and_bars_are_valid(self):
@@ -275,7 +282,9 @@ class FinanceWorkspaceResponse(BaseModel):
     alerts: list[MarketAlertResponse]
     artifacts: list[FinanceArtifactResponse]
     execution_mode: Literal["paper"] = "paper"
-    live_broker_status: Literal["external_dependency"] = "external_dependency"
+    live_broker_status: Literal[
+        "external_dependency", "configured_disabled", "live_enabled"
+    ] = "external_dependency"
 
 
 class FinanceWorkspacePageResponse(BaseModel):
@@ -289,3 +298,150 @@ class PortfolioAnalysisResponse(BaseModel):
 
 class MarketAlertEvaluationResponse(BaseModel):
     items: list[MarketAlertResponse] = Field(max_length=100)
+
+
+class MarketDataQuoteRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    connector_id: UUID
+    path: str = Field(min_length=1, max_length=512)
+    max_age_seconds: int = Field(default=60, strict=True, ge=1, le=3_600)
+
+
+class NormalizedMarketQuoteResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    instrument_id: str
+    asset_class: MarketAssetClass
+    symbol: str
+    exchange: str
+    currency: str
+    observed_at: datetime
+    timezone: str
+    last_price_minor: int
+    bid_minor: int | None
+    ask_minor: int | None
+    open_minor: int | None
+    high_minor: int | None
+    low_minor: int | None
+    close_minor: int | None
+    volume: int | None
+    provider: str
+    source_reference: str
+    freshness_seconds: int
+    data_quality: Literal["fresh"]
+    connector_execution_id: UUID
+
+
+class TradingSafetyPolicyConfigureRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    broker_connector_id: UUID
+    account_path: str = Field(min_length=1, max_length=512)
+    order_path: str = Field(min_length=1, max_length=512)
+    order_status_prefix: str = Field(min_length=1, max_length=512)
+    max_order_value_minor: int = Field(strict=True, ge=1, le=10**15)
+    max_position_value_minor: int = Field(strict=True, ge=1, le=10**15)
+    daily_loss_limit_minor: int = Field(strict=True, ge=1, le=10**15)
+    per_symbol_exposure_limit_minor: int = Field(strict=True, ge=1, le=10**15)
+    total_exposure_limit_minor: int = Field(strict=True, ge=1, le=10**15)
+    max_open_orders: int = Field(strict=True, ge=1, le=1_000)
+    allowed_instruments: list[str] = Field(min_length=1, max_length=256)
+    allowed_venues: list[str] = Field(min_length=1, max_length=64)
+    owner_confirmation: Literal["AUTHORIZE BROKER CONFIGURATION"]
+
+    @field_validator("allowed_instruments", "allowed_venues")
+    @classmethod
+    def policy_lists_are_unique(cls, values: list[str]) -> list[str]:
+        if len(set(values)) != len(values):
+            raise ValueError("trading policy values must be unique")
+        return values
+
+
+class TradingSafetyToggleRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    enabled: bool = Field(strict=True)
+    owner_confirmation: str = Field(min_length=1, max_length=64)
+
+
+class TradingSafetyPolicyResponse(BaseModel):
+    workspace_id: UUID
+    execution_mode: TradingExecutionMode
+    broker_connector_id: UUID | None
+    broker_account_verified: bool
+    live_trading_enabled: bool
+    kill_switch_active: bool
+    owner_authorized_at: datetime | None
+    session_valid_until: datetime | None
+    max_order_value_minor: int
+    max_position_value_minor: int
+    daily_loss_limit_minor: int
+    per_symbol_exposure_limit_minor: int
+    total_exposure_limit_minor: int
+    max_open_orders: int
+    allowed_instruments: list[str]
+    allowed_venues: list[str]
+    updated_at: datetime
+
+
+class LiveBrokerOrderRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    execution_mode: Literal["live"]
+    asset_class: MarketAssetClass
+    symbol: str = Field(pattern=_SYMBOL_PATTERN)
+    venue: str = Field(pattern=r"^[A-Z0-9][A-Z0-9._:-]{0,31}$")
+    currency: str = Field(pattern=r"^[A-Z]{3}$")
+    side: PaperOrderSide
+    quantity_micros: int = Field(strict=True, ge=1, le=10**15)
+    limit_price_minor: int = Field(strict=True, ge=1, le=10**15)
+    client_order_key: str = Field(
+        min_length=16,
+        max_length=128,
+        pattern=r"^[A-Za-z0-9][A-Za-z0-9._:-]{15,127}$",
+    )
+    market_data_connector_id: UUID
+    quote_path: str = Field(min_length=1, max_length=512)
+    max_quote_age_seconds: int = Field(default=60, strict=True, ge=1, le=3_600)
+
+
+class BrokerOrderRecordResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    workspace_id: UUID
+    broker_connector_id: UUID
+    asset_class: MarketAssetClass
+    symbol: str
+    venue: str
+    currency: str
+    side: PaperOrderSide
+    quantity_micros: int
+    limit_price_minor: int
+    notional_minor: int
+    filled_quantity_micros: int
+    client_order_key_sha256: str
+    request_sha256: str
+    provider_order_sha256: str
+    status: BrokerOrderStatus
+    submit_execution_id: UUID
+    status_execution_id: UUID
+    created_at: datetime
+    verified_at: datetime
+
+
+class TradingSafetyEventResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    workspace_id: UUID
+    action: TradingSafetyAction
+    policy_sha256: str
+    connector_execution_id: UUID | None
+    created_at: datetime
+
+
+class TradingSafetyAuditResponse(BaseModel):
+    events: list[TradingSafetyEventResponse] = Field(max_length=250)
+    broker_orders: list[BrokerOrderRecordResponse] = Field(max_length=250)

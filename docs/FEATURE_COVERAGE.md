@@ -3,7 +3,7 @@
 This report is generated from the authenticated product registry. It distinguishes working capabilities from runtime gates, external services, and documented implementation gaps; it is not a claim that external or planned features execute locally.
 
 - Registered capabilities: **245**
-- Registry SHA-256: `8739c06c478a912b1fd9b6cfa9022a291953e7c6f2e0a7a5fafafb2f6106f7ce`
+- Registry SHA-256: `7478ef10ca0613e4b2dca6d7fa70c3ac44482bf96b2445aeb5a9ac2723ce1a07`
 - Implemented: **187**
 - Runtime-dependent: **14**
 - External dependency: **39**

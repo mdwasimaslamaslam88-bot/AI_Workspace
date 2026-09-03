@@ -2920,7 +2920,7 @@
       "dependencies": [
         "verified_local_model",
         "database",
-        "owner_supplied_market_sources"
+        "owner_supplied_market_sources_or_authorized_provider"
       ],
       "description": "Indian stock research exposed through the existing authenticated market intelligence capability.",
       "id": "universal_workspace.indian_stock_research",
@@ -2933,6 +2933,7 @@
       "test_coverage": [
         "backend:test_finance_api",
         "backend:test_finance_postgres",
+        "backend:test_market_data",
         "web:finance_panel",
         "mobile:studio"
       ],
@@ -2945,7 +2946,7 @@
       "dependencies": [
         "verified_local_model",
         "database",
-        "owner_supplied_market_sources"
+        "owner_supplied_market_sources_or_authorized_provider"
       ],
       "description": "Global stock research exposed through the existing authenticated market intelligence capability.",
       "id": "universal_workspace.global_stock_research",
@@ -2958,6 +2959,7 @@
       "test_coverage": [
         "backend:test_finance_api",
         "backend:test_finance_postgres",
+        "backend:test_market_data",
         "web:finance_panel",
         "mobile:studio"
       ],
@@ -2970,7 +2972,7 @@
       "dependencies": [
         "verified_local_model",
         "database",
-        "owner_supplied_market_sources"
+        "owner_supplied_market_sources_or_authorized_provider"
       ],
       "description": "Crypto research exposed through the existing authenticated market intelligence capability.",
       "id": "universal_workspace.crypto_research",
@@ -2983,6 +2985,7 @@
       "test_coverage": [
         "backend:test_finance_api",
         "backend:test_finance_postgres",
+        "backend:test_market_data",
         "web:finance_panel",
         "mobile:studio"
       ],
@@ -2995,7 +2998,7 @@
       "dependencies": [
         "verified_local_model",
         "database",
-        "owner_supplied_market_sources"
+        "owner_supplied_market_sources_or_authorized_provider"
       ],
       "description": "FX research exposed through the existing authenticated market intelligence capability.",
       "id": "universal_workspace.fx_research",
@@ -3008,6 +3011,7 @@
       "test_coverage": [
         "backend:test_finance_api",
         "backend:test_finance_postgres",
+        "backend:test_market_data",
         "web:finance_panel",
         "mobile:studio"
       ],
@@ -3020,7 +3024,7 @@
       "dependencies": [
         "verified_local_model",
         "database",
-        "owner_supplied_market_sources"
+        "owner_supplied_market_sources_or_authorized_provider"
       ],
       "description": "Portfolio analysis exposed through the existing authenticated market intelligence capability.",
       "id": "universal_workspace.portfolio_analysis",
@@ -3033,6 +3037,7 @@
       "test_coverage": [
         "backend:test_finance_api",
         "backend:test_finance_postgres",
+        "backend:test_market_data",
         "web:finance_panel",
         "mobile:studio"
       ],
@@ -3045,7 +3050,7 @@
       "dependencies": [
         "verified_local_model",
         "database",
-        "owner_supplied_market_sources"
+        "owner_supplied_market_sources_or_authorized_provider"
       ],
       "description": "Market research exposed through the existing authenticated market intelligence capability.",
       "id": "universal_workspace.market_research",
@@ -3058,6 +3063,7 @@
       "test_coverage": [
         "backend:test_finance_api",
         "backend:test_finance_postgres",
+        "backend:test_market_data",
         "web:finance_panel",
         "mobile:studio"
       ],
@@ -3070,7 +3076,7 @@
       "dependencies": [
         "verified_local_model",
         "database",
-        "owner_supplied_market_sources"
+        "owner_supplied_market_sources_or_authorized_provider"
       ],
       "description": "Risk analytics exposed through the existing authenticated market intelligence capability.",
       "id": "universal_workspace.risk_analytics",
@@ -3083,6 +3089,7 @@
       "test_coverage": [
         "backend:test_finance_api",
         "backend:test_finance_postgres",
+        "backend:test_market_data",
         "web:finance_panel",
         "mobile:studio"
       ],
@@ -3106,6 +3113,7 @@
       "test_coverage": [
         "backend:test_finance_api",
         "backend:test_finance_postgres",
+        "backend:test_trading_safety",
         "web:finance_panel",
         "mobile:studio"
       ],
@@ -3129,6 +3137,7 @@
       "test_coverage": [
         "backend:test_finance_api",
         "backend:test_finance_postgres",
+        "backend:test_trading_safety",
         "web:finance_panel",
         "mobile:studio"
       ],
@@ -3152,6 +3161,7 @@
       "test_coverage": [
         "backend:test_finance_api",
         "backend:test_finance_postgres",
+        "backend:test_trading_safety",
         "web:finance_panel",
         "mobile:studio"
       ],
@@ -3175,6 +3185,7 @@
       "test_coverage": [
         "backend:test_finance_api",
         "backend:test_finance_postgres",
+        "backend:test_trading_safety",
         "web:finance_panel",
         "mobile:studio"
       ],
@@ -3198,6 +3209,7 @@
       "test_coverage": [
         "backend:test_finance_api",
         "backend:test_finance_postgres",
+        "backend:test_trading_safety",
         "web:finance_panel",
         "mobile:studio"
       ],
@@ -5046,7 +5058,9 @@
       ],
       "status": "external_dependency",
       "test_coverage": [
-        "contract:feature_registry",
+        "backend:test_trading_safety",
+        "backend:test_finance_postgres",
+        "web:finance_panel",
         "manual:external_boundary"
       ],
       "title": "Broker API integration",
@@ -5069,7 +5083,9 @@
       ],
       "status": "external_dependency",
       "test_coverage": [
-        "contract:feature_registry",
+        "backend:test_trading_safety",
+        "backend:test_finance_postgres",
+        "web:finance_panel",
         "manual:external_boundary"
       ],
       "title": "Live order execution",
@@ -5092,7 +5108,9 @@
       ],
       "status": "external_dependency",
       "test_coverage": [
-        "contract:feature_registry",
+        "backend:test_trading_safety",
+        "backend:test_finance_postgres",
+        "web:finance_panel",
         "manual:external_boundary"
       ],
       "title": "Order risk confirmation",
@@ -5115,7 +5133,9 @@
       ],
       "status": "external_dependency",
       "test_coverage": [
-        "contract:feature_registry",
+        "backend:test_trading_safety",
+        "backend:test_finance_postgres",
+        "web:finance_panel",
         "manual:external_boundary"
       ],
       "title": "Broker permission enforcement",
@@ -5222,7 +5242,7 @@
     "universal_workspace": 62
   },
   "product": "AI OS",
-  "registry_sha256": "8739c06c478a912b1fd9b6cfa9022a291953e7c6f2e0a7a5fafafb2f6106f7ce",
+  "registry_sha256": "7478ef10ca0613e4b2dca6d7fa70c3ac44482bf96b2445aeb5a9ac2723ce1a07",
   "schema_version": 1,
   "statuses": {
     "external_dependency": 39,

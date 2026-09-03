@@ -1,0 +1,103 @@
+{
+  "schema_version": 1,
+  "step": 4,
+  "generated_at": "2026-09-04T03:44:49+05:30",
+  "baseline_commit": "581029734e4bdce9cfeec127a5036b876f450421",
+  "status": "PARTIAL",
+  "states": {
+    "market_data_foundation": "RUNTIME_READY",
+    "indian_equities": "EXTERNAL_BLOCKED",
+    "global_equities": "EXTERNAL_BLOCKED",
+    "crypto": "EXTERNAL_BLOCKED",
+    "fx": "EXTERNAL_BLOCKED",
+    "research_analytics": "LOCAL_PASS",
+    "backtesting": "LOCAL_PASS",
+    "paper_trading": "LOCAL_PASS",
+    "broker_gateway": "RUNTIME_READY",
+    "broker_sandbox": "EXTERNAL_BLOCKED",
+    "live_trading": "OWNER_ACTION"
+  },
+  "production_inventory": {
+    "approved_external_origins": [],
+    "configured_market_data_connectors": 0,
+    "configured_broker_connectors": 0,
+    "enabled_connectors": 0,
+    "healthy_connectors": 0,
+    "credentialed_connectors": 0,
+    "sandbox_or_paper_providers": 0,
+    "verified_external_live_providers": 0
+  },
+  "local_evidence": {
+    "normalized_assets": [
+      "indian_stock",
+      "global_stock",
+      "crypto",
+      "fx"
+    ],
+    "market_data_contract": "provider-attributed, timezone-aware, bounded and freshness-enforced",
+    "broker_protocol": "disposable PostgreSQL plus exact-origin HTTP mock transport",
+    "broker_order_evidence": "matching acknowledgement plus independent status readback",
+    "provider_order_states": "verified full fill, partial/open fill and cancelled readback are represented without treating HTTP 2xx as execution proof",
+    "idempotency": "same client order intent returns one persisted broker record without a second request; concurrent identical first-use requests produce one provider submission",
+    "paper_isolation": "default PAPER mode cannot invoke market-data or broker connectors and supports immediate full-fill-or-reject market simulation only",
+    "kill_switch": "blocks before account, quote or order network access",
+    "generic_bypass": "broker writes denied without the finance gateway capability assertion",
+    "external_live_claim": false
+  },
+  "verification": {
+    "focused_backend": {
+      "passed": 43,
+      "failed": 0
+    },
+    "focused_web": {
+      "passed": 7,
+      "failed": 0
+    },
+    "focused_mobile": {
+      "passed": 2,
+      "failed": 0
+    },
+    "backend_regression": {
+      "passed": 2993,
+      "intentional_skips": 51,
+      "failed": 0
+    },
+    "web_regression": {
+      "passed": 200,
+      "failed": 0
+    },
+    "mobile_regression": {
+      "passed": 64,
+      "failed": 0
+    },
+    "postgresql_integration": {
+      "passed": 51,
+      "failed": 0,
+      "migration_head": "0020_trading_safety",
+      "schema_drift": false
+    },
+    "browser_pwa_e2e": "PASS",
+    "runtime_e2e": "PASS",
+    "native_android_package": "PASS",
+    "desktop_package_and_launch": "PASS",
+    "security": {
+      "status": "PASS",
+      "critical": 0,
+      "high": 0,
+      "moderate": 14,
+      "moderate_scope": "transitive Expo build tooling"
+    },
+    "release_gate": "PASS"
+  },
+  "external_requirements": [
+    "owner-selected licensed market-data provider and account",
+    "owner-selected broker sandbox or live account and API approval",
+    "exact provider origins and paths added to the production egress allowlist",
+    "encrypted OAuth/API credential configuration with minimum scopes",
+    "broker KYC/account permissions and valid MFA/OTP/session",
+    "owner risk limits, allowed instruments/venues and explicit live authorization",
+    "provider-side bounded smoke evidence; no real-money order is authorized by this report"
+  ],
+  "failures": [],
+  "real_money_orders_placed": 0
+}

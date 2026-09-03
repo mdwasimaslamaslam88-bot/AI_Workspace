@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
-import type { FinanceWorkspace, PaperOrder } from "../src/api/contracts";
+import type { FinanceWorkspace, PaperOrder, TradingSafetyPolicy } from "../src/api/contracts";
 import { FinancePanel } from "../src/features/finance/FinancePanel";
 import { rawSecret } from "./fixtures";
 
@@ -30,6 +30,28 @@ function paperOrder(): PaperOrder {
   };
 }
 
+function tradingPolicy(): TradingSafetyPolicy {
+  return {
+    workspace_id: workspaceId,
+    execution_mode: "live",
+    broker_connector_id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+    broker_account_verified: true,
+    live_trading_enabled: false,
+    kill_switch_active: true,
+    owner_authorized_at: timestamp,
+    session_valid_until: "2026-09-03T01:00:00Z",
+    max_order_value_minor: 10_000,
+    max_position_value_minor: 20_000,
+    daily_loss_limit_minor: 5_000,
+    per_symbol_exposure_limit_minor: 20_000,
+    total_exposure_limit_minor: 50_000,
+    max_open_orders: 3,
+    allowed_instruments: ["AAPL"],
+    allowed_venues: ["NASDAQ"],
+    updated_at: timestamp,
+  };
+}
+
 function props(values: FinanceWorkspace[] = [workspace()]) {
   return {
     onClose: vi.fn(), onLoad: vi.fn(async () => values),
@@ -43,6 +65,11 @@ function props(values: FinanceWorkspace[] = [workspace()]) {
     onCreateAlert: vi.fn(async () => { throw new Error("unused"); }),
     onEvaluateAlerts: vi.fn(async () => ({ items: [] })),
     onJournal: vi.fn(async () => { throw new Error("unused"); }),
+    onGetTradingPolicy: vi.fn(async () => tradingPolicy()),
+    onConfigureTradingPolicy: vi.fn(async () => { throw new Error("unused"); }),
+    onSetLiveTrading: vi.fn(async () => { throw new Error("unused"); }),
+    onKillSwitch: vi.fn(async () => tradingPolicy()),
+    onGetTradingAudit: vi.fn(async () => ({ events: [], broker_orders: [] })),
   };
 }
 
@@ -103,5 +130,25 @@ describe("FinancePanel", () => {
     await userEvent.click(screen.getByRole("button", { name: "Create paper workspace" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("rejected or its evidence could not be verified");
     expect(document.body.textContent).not.toContain(rawSecret);
+  });
+
+  it("shows the fail-closed broker policy and owner audit controls", async () => {
+    const actions = props();
+    render(<FinancePanel {...actions} />);
+
+    await screen.findByText(/Mode: live · Kill switch: ACTIVE · Account: verified/);
+    await userEvent.click(screen.getByText("Broker safety wall and audit"));
+    expect(screen.getByText(/Safety events: 0 · Verified broker orders: 0/)).toBeVisible();
+    expect(screen.getByRole("button", { name: "Activate emergency kill switch" })).toBeDisabled();
+    expect(screen.getByLabelText("Type AUTHORIZE BROKER CONFIGURATION")).toHaveAttribute(
+      "pattern",
+      "AUTHORIZE BROKER CONFIGURATION",
+    );
+
+    const confirmation = screen.getByLabelText("Type AUTHORIZE BROKER CONFIGURATION");
+    fireEvent.change(confirmation, { target: { value: "yes" } });
+    fireEvent.submit(confirmation.closest("form") as HTMLFormElement);
+    expect(await screen.findByRole("alert")).toHaveTextContent("exact broker configuration confirmation");
+    expect(actions.onConfigureTradingPolicy).not.toHaveBeenCalled();
   });
 });

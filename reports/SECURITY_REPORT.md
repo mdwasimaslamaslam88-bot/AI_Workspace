@@ -1,4 +1,4 @@
-# Phase 11 Final Security Report
+# Current Final Security Report
 
 ## Mandatory gate: PASS
 
@@ -15,7 +15,7 @@ The production and release gates passed:
   and workflows;
 - denial of unregistered shell, code and unrestricted-network tools;
 - desktop CSP and Android cleartext-network policy checks;
-- PostgreSQL constraints/migrations through `0018_connector_activation` with
+- PostgreSQL constraints/migrations through `0020_trading_safety` with
   no schema drift;
 - private loopback backend and authenticated private Tailscale TLS gateway;
 - public Tailscale Funnel and unrestricted remote target guards;
@@ -29,6 +29,15 @@ The production and release gates passed:
 Production egress remains deny-all until an owner registers an exact legitimate
 provider origin and scopes. External connector count is zero. Local API
 documentation is disabled in the active remote production mode.
+
+Step 4 additionally verified that generic connector paths cannot issue broker
+mutations, paper mode cannot route to a provider, every live order requires a
+persisted owner risk policy and explicit live state, and the emergency kill
+switch blocks before network access. Order acknowledgement and independent
+status/fill readback are linked to concrete connector execution audits;
+concurrent duplicate submissions produce one provider request. The local
+protocol checks used exact-origin loopback endpoints only. No live provider,
+account balance, order or fill is claimed, and no real-money order was attempted.
 
 ## Dependency findings
 

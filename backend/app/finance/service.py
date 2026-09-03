@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from decimal import Decimal, ROUND_HALF_UP
 import hashlib
 import json
+import math
 import re
 import time
 from typing import Any
@@ -152,11 +153,19 @@ class BacktestingAgent:
         slow_window: int,
         initial_cash_minor: int,
         fee_bps: int,
+        slippage_bps: int = 0,
+        position_size_bps: int = 10_000,
+        stop_loss_bps: int | None = None,
+        take_profit_bps: int | None = None,
     ) -> dict[str, Any]:
         if (
             not 2 <= fast_window < slow_window <= 200
             or not slow_window <= len(bars) <= 512
             or not 0 <= fee_bps <= 1_000
+            or not 0 <= slippage_bps <= 1_000
+            or not 1 <= position_size_bps <= 10_000
+            or (stop_loss_bps is not None and not 1 <= stop_loss_bps <= 10_000)
+            or (take_profit_bps is not None and not 1 <= take_profit_bps <= 100_000)
         ):
             raise FinanceInputError("backtest configuration is invalid")
         initial_cash_minor = _positive_integer(initial_cash_minor, "initial cash")
@@ -177,66 +186,150 @@ class BacktestingAgent:
         peak = initial_cash_minor
         maximum_drawdown_bps = 0
         trades: list[dict[str, Any]] = []
+        closed_trade_pnl: list[int] = []
+        equity_curve: list[int] = []
+        entry_total = 0
+        entry_reference_price = 0
+        total_fees = 0
+        exposed_bars = 0
         for index, bar in enumerate(bars):
             if index + 1 >= slow_window:
                 fast_sum = sum(prices[index + 1 - fast_window : index + 1])
                 slow_sum = sum(prices[index + 1 - slow_window : index + 1])
                 bullish = fast_sum * slow_window > slow_sum * fast_window
+                stop_triggered = (
+                    quantity > 0
+                    and stop_loss_bps is not None
+                    and bar.close_minor * 10_000
+                    <= entry_reference_price * (10_000 - stop_loss_bps)
+                )
+                take_profit_triggered = (
+                    quantity > 0
+                    and take_profit_bps is not None
+                    and bar.close_minor * 10_000
+                    >= entry_reference_price * (10_000 + take_profit_bps)
+                )
                 if bullish and quantity == 0:
+                    execution_price = (
+                        bar.close_minor * (10_000 + slippage_bps) + 9_999
+                    ) // 10_000
+                    budget = cash * position_size_bps // 10_000
                     quantity = (
-                        cash * _QUANTITY_SCALE * 10_000
-                    ) // (bar.close_minor * (10_000 + fee_bps))
+                        budget * _QUANTITY_SCALE * 10_000
+                    ) // (execution_price * (10_000 + fee_bps))
                     if quantity > 0:
-                        notional = _notional(quantity, bar.close_minor)
+                        notional = _notional(quantity, execution_price)
                         fee = (notional * fee_bps + 9_999) // 10_000
                         if notional + fee <= cash:
                             cash -= notional + fee
+                            entry_total = notional + fee
+                            entry_reference_price = bar.close_minor
+                            total_fees += fee
                             trades.append(
                                 {
                                     "observed_at": bar.observed_at.isoformat(),
                                     "side": "buy",
                                     "quantity_micros": quantity,
-                                    "price_minor": bar.close_minor,
+                                    "price_minor": execution_price,
                                     "fee_minor": fee,
+                                    "reason": "moving_average_entry",
                                 }
                             )
                         else:  # pragma: no cover - integer bound backstop
                             quantity = 0
-                elif not bullish and quantity > 0:
-                    notional = _notional(quantity, bar.close_minor)
+                elif quantity > 0 and (
+                    not bullish or stop_triggered or take_profit_triggered
+                ):
+                    execution_price = max(
+                        1, bar.close_minor * (10_000 - slippage_bps) // 10_000
+                    )
+                    notional = _notional(quantity, execution_price)
                     fee = (notional * fee_bps + 9_999) // 10_000
-                    cash += max(0, notional - fee)
+                    proceeds = max(0, notional - fee)
+                    cash += proceeds
+                    total_fees += fee
+                    closed_trade_pnl.append(proceeds - entry_total)
                     trades.append(
                         {
                             "observed_at": bar.observed_at.isoformat(),
                             "side": "sell",
                             "quantity_micros": quantity,
-                            "price_minor": bar.close_minor,
+                            "price_minor": execution_price,
                             "fee_minor": fee,
+                            "reason": (
+                                "stop_loss"
+                                if stop_triggered
+                                else "take_profit"
+                                if take_profit_triggered
+                                else "moving_average_exit"
+                            ),
                         }
                     )
                     quantity = 0
+                    entry_total = 0
+                    entry_reference_price = 0
+            if quantity > 0:
+                exposed_bars += 1
             equity = cash + (
                 0 if quantity == 0 else _notional(quantity, bar.close_minor)
             )
             peak = max(peak, equity)
             drawdown = 0 if peak == 0 else ((peak - equity) * 10_000) // peak
             maximum_drawdown_bps = max(maximum_drawdown_bps, drawdown)
+            equity_curve.append(equity)
 
         final_price = bars[-1].close_minor
         final_equity = cash + (0 if quantity == 0 else _notional(quantity, final_price))
+        period_returns = [
+            (right - left) / left
+            for left, right in zip(equity_curve, equity_curve[1:], strict=False)
+            if left > 0
+        ]
+        sharpe_like = 0.0
+        if len(period_returns) > 1:
+            mean = sum(period_returns) / len(period_returns)
+            variance = sum((value - mean) ** 2 for value in period_returns) / len(period_returns)
+            if variance > 0:
+                sharpe_like = mean / math.sqrt(variance) * math.sqrt(len(period_returns))
+        duration_seconds = max(
+            1,
+            int((bars[-1].observed_at - bars[0].observed_at).total_seconds()),
+        )
+        years = duration_seconds / (365.25 * 24 * 60 * 60)
+        try:
+            annualized = math.exp(math.log(final_equity / initial_cash_minor) / years) - 1
+            cagr_bps: int | None = (
+                round(annualized * 10_000) if math.isfinite(annualized) else None
+            )
+        except (OverflowError, ValueError):
+            cagr_bps = None
+        completed_trades = len(closed_trade_pnl)
         return {
-            "engine": "deterministic_moving_average_v1",
-            "assumption": "signals and fills use each supplied bar close",
+            "engine": "deterministic_moving_average_v2",
+            "assumption": "signals use supplied closes; fills apply configured fees and deterministic slippage",
             "bars": len(bars),
             "fast_window": fast_window,
             "slow_window": slow_window,
             "fee_bps": fee_bps,
+            "slippage_bps": slippage_bps,
+            "position_size_bps": position_size_bps,
+            "stop_loss_bps": stop_loss_bps,
+            "take_profit_bps": take_profit_bps,
             "initial_cash_minor": initial_cash_minor,
             "final_equity_minor": final_equity,
             "return_bps": ((final_equity - initial_cash_minor) * 10_000)
             // initial_cash_minor,
             "maximum_drawdown_bps": maximum_drawdown_bps,
+            "cagr_bps": cagr_bps,
+            "sharpe_like": round(sharpe_like, 6),
+            "win_rate_bps": (
+                0
+                if completed_trades == 0
+                else sum(value > 0 for value in closed_trade_pnl) * 10_000 // completed_trades
+            ),
+            "completed_trades": completed_trades,
+            "exposure_bps": exposed_bars * 10_000 // len(bars),
+            "total_fees_minor": total_fees,
             "open_quantity_micros": quantity,
             "trades": trades,
             "profit_guarantee": False,
@@ -522,6 +615,10 @@ class FinanceService:
         slow_window: int,
         initial_cash_minor: int,
         fee_bps: int,
+        slippage_bps: int = 0,
+        position_size_bps: int = 10_000,
+        stop_loss_bps: int | None = None,
+        take_profit_bps: int | None = None,
     ) -> FinanceArtifact:
         symbol = _symbol(symbol)
         source_reference = _text(source_reference, 512, "backtest source")
@@ -532,6 +629,10 @@ class FinanceService:
             slow_window=slow_window,
             initial_cash_minor=initial_cash_minor,
             fee_bps=fee_bps,
+            slippage_bps=slippage_bps,
+            position_size_bps=position_size_bps,
+            stop_loss_bps=stop_loss_bps,
+            take_profit_bps=take_profit_bps,
         )
         input_json = canonical_json(
             {
@@ -542,6 +643,10 @@ class FinanceService:
                 ],
                 "fast_window": fast_window,
                 "fee_bps": fee_bps,
+                "slippage_bps": slippage_bps,
+                "position_size_bps": position_size_bps,
+                "stop_loss_bps": stop_loss_bps,
+                "take_profit_bps": take_profit_bps,
                 "initial_cash_minor": initial_cash_minor,
                 "slow_window": slow_window,
                 "source_reference": source_reference,
@@ -558,7 +663,7 @@ class FinanceService:
             input_sha256=digest(input_json),
             output=output,
             output_sha256=digest(output),
-            model_id="deterministic/backtesting-agent-v1",
+            model_id="deterministic/backtesting-agent-v2",
             duration_ms=max(0, int((time.monotonic() - started) * 1_000)),
         )
 

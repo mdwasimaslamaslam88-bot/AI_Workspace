@@ -6,6 +6,7 @@ from uuid import UUID, uuid4
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     CheckConstraint,
     DateTime,
     Enum,
@@ -56,6 +57,25 @@ class PaperOrderSide(StrEnum):
 class PaperOrderStatus(StrEnum):
     EXECUTED = "executed"
     REJECTED = "rejected"
+
+
+class TradingExecutionMode(StrEnum):
+    PAPER = "paper"
+    LIVE = "live"
+
+
+class BrokerOrderStatus(StrEnum):
+    SUBMITTED = "submitted"
+    VERIFIED_OPEN = "verified_open"
+    VERIFIED_FILLED = "verified_filled"
+    VERIFIED_CANCELLED = "verified_cancelled"
+
+
+class TradingSafetyAction(StrEnum):
+    CONFIGURED = "configured"
+    LIVE_ENABLED = "live_enabled"
+    LIVE_DISABLED = "live_disabled"
+    KILL_SWITCH_ACTIVATED = "kill_switch_activated"
 
 
 class MarketAlertCondition(StrEnum):
@@ -155,6 +175,19 @@ class FinanceWorkspace(Base):
         cascade="all, delete-orphan",
         lazy="selectin",
         order_by="FinanceArtifact.created_at.desc()",
+    )
+    trading_policy: Mapped[TradingSafetyPolicy | None] = relationship(
+        cascade="all, delete-orphan", lazy="selectin", uselist=False
+    )
+    broker_orders: Mapped[list[BrokerOrderRecord]] = relationship(
+        cascade="all, delete-orphan",
+        lazy="selectin",
+        order_by="BrokerOrderRecord.created_at.desc()",
+    )
+    trading_safety_events: Mapped[list[TradingSafetyEvent]] = relationship(
+        cascade="all, delete-orphan",
+        lazy="selectin",
+        order_by="TradingSafetyEvent.created_at.desc()",
     )
 
 
@@ -456,10 +489,260 @@ class FinanceArtifact(Base):
     )
 
 
+class TradingSafetyPolicy(Base):
+    """Persisted owner policy; safe defaults can never place a live order."""
+
+    __tablename__ = "trading_safety_policies"
+    __table_args__ = (
+        CheckConstraint("execution_mode IN ('paper', 'live')", name="execution_mode_allowed"),
+        CheckConstraint(
+            "max_order_value_minor BETWEEN 1 AND 1000000000000000",
+            name="max_order_value_bounded",
+        ),
+        CheckConstraint(
+            "max_position_value_minor BETWEEN 1 AND 1000000000000000",
+            name="max_position_value_bounded",
+        ),
+        CheckConstraint(
+            "daily_loss_limit_minor BETWEEN 1 AND 1000000000000000",
+            name="daily_loss_limit_bounded",
+        ),
+        CheckConstraint(
+            "per_symbol_exposure_limit_minor BETWEEN 1 AND 1000000000000000",
+            name="per_symbol_exposure_limit_bounded",
+        ),
+        CheckConstraint(
+            "total_exposure_limit_minor BETWEEN 1 AND 1000000000000000",
+            name="total_exposure_limit_bounded",
+        ),
+        CheckConstraint("max_open_orders BETWEEN 1 AND 1000", name="max_open_orders_bounded"),
+        CheckConstraint(
+            "char_length(allowed_instruments_json) BETWEEN 2 AND 4096",
+            name="allowed_instruments_json_bounded",
+        ),
+        CheckConstraint(
+            "char_length(allowed_venues_json) BETWEEN 2 AND 4096",
+            name="allowed_venues_json_bounded",
+        ),
+        CheckConstraint(
+            "broker_account_sha256 IS NULL OR broker_account_sha256 ~ '^[0-9a-f]{64}$'",
+            name="broker_account_sha256_valid",
+        ),
+        CheckConstraint(
+            "(execution_mode = 'paper') OR "
+            "(account_path IS NOT NULL AND order_path IS NOT NULL AND "
+            "order_status_prefix IS NOT NULL)",
+            name="live_paths_configured",
+        ),
+        CheckConstraint(
+            "(execution_mode = 'paper' AND live_trading_enabled = false) OR "
+            "(execution_mode = 'live' AND broker_connector_id IS NOT NULL AND "
+            "broker_account_sha256 IS NOT NULL AND owner_authorized_at IS NOT NULL AND "
+            "session_valid_until IS NOT NULL)",
+            name="live_configuration_complete",
+        ),
+        CheckConstraint(
+            "live_trading_enabled = false OR "
+            "(execution_mode = 'live' AND kill_switch_active = false)",
+            name="live_enablement_consistent",
+        ),
+        ForeignKeyConstraint(
+            ("workspace_id", "owner_id"),
+            ("finance_workspaces.id", "finance_workspaces.owner_id"),
+            name="fk_trading_policy_workspace_owner",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ("broker_connector_id", "owner_id"),
+            ("connectors.id", "connectors.owner_id"),
+            name="fk_trading_policy_connector_owner",
+            ondelete="RESTRICT",
+        ),
+    )
+
+    workspace_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True)
+    owner_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    execution_mode: Mapped[TradingExecutionMode] = mapped_column(
+        _enum(TradingExecutionMode, "trading_execution_mode"),
+        nullable=False,
+        default=TradingExecutionMode.PAPER,
+    )
+    broker_connector_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True))
+    broker_account_sha256: Mapped[str | None] = mapped_column(String(64))
+    account_path: Mapped[str | None] = mapped_column(String(512))
+    order_path: Mapped[str | None] = mapped_column(String(512))
+    order_status_prefix: Mapped[str | None] = mapped_column(String(512))
+    live_trading_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    kill_switch_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    owner_authorized_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    session_valid_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    max_order_value_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    max_position_value_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    daily_loss_limit_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    per_symbol_exposure_limit_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    total_exposure_limit_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    max_open_orders: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    allowed_instruments_json: Mapped[str] = mapped_column(Text, nullable=False, default="[]")
+    allowed_venues_json: Mapped[str] = mapped_column(Text, nullable=False, default="[]")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class BrokerOrderRecord(Base):
+    """Secret-free evidence for one intended live order and its verification."""
+
+    __tablename__ = "broker_order_records"
+    __table_args__ = (
+        CheckConstraint(
+            "asset_class IN ('indian_stock', 'global_stock', 'crypto', 'fx')",
+            name="asset_class_allowed",
+        ),
+        CheckConstraint("side IN ('buy', 'sell')", name="side_allowed"),
+        CheckConstraint(
+            "status IN ('submitted', 'verified_open', 'verified_filled', 'verified_cancelled')",
+            name="status_allowed",
+        ),
+        CheckConstraint(
+            "symbol ~ '^[A-Z0-9][A-Z0-9._:/-]{0,23}$'", name="symbol_valid"
+        ),
+        CheckConstraint("currency ~ '^[A-Z]{3}$'", name="currency_valid"),
+        CheckConstraint(
+            "quantity_micros BETWEEN 1 AND 1000000000000000", name="quantity_bounded"
+        ),
+        CheckConstraint(
+            "limit_price_minor BETWEEN 1 AND 1000000000000000", name="price_bounded"
+        ),
+        CheckConstraint(
+            "notional_minor BETWEEN 1 AND 1000000000000000", name="notional_bounded"
+        ),
+        CheckConstraint(
+            "filled_quantity_micros BETWEEN 0 AND quantity_micros",
+            name="filled_quantity_bounded",
+        ),
+        CheckConstraint(
+            "status != 'verified_filled' OR filled_quantity_micros = quantity_micros",
+            name="filled_status_consistent",
+        ),
+        CheckConstraint(
+            "client_order_key_sha256 ~ '^[0-9a-f]{64}$'", name="client_key_sha256_valid"
+        ),
+        CheckConstraint("request_sha256 ~ '^[0-9a-f]{64}$'", name="request_sha256_valid"),
+        CheckConstraint(
+            "provider_order_sha256 ~ '^[0-9a-f]{64}$'", name="provider_order_sha256_valid"
+        ),
+        UniqueConstraint(
+            "workspace_id", "client_order_key_sha256", name="uq_broker_order_idempotency"
+        ),
+        ForeignKeyConstraint(
+            ("workspace_id", "owner_id"),
+            ("finance_workspaces.id", "finance_workspaces.owner_id"),
+            name="fk_broker_order_workspace_owner",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ("broker_connector_id", "owner_id"),
+            ("connectors.id", "connectors.owner_id"),
+            name="fk_broker_order_connector_owner",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ("submit_execution_id",),
+            ("connector_executions.id",),
+            name="fk_broker_order_submit_execution",
+            ondelete="RESTRICT",
+        ),
+        ForeignKeyConstraint(
+            ("status_execution_id",),
+            ("connector_executions.id",),
+            name="fk_broker_order_status_execution",
+            ondelete="RESTRICT",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    workspace_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    owner_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    broker_connector_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    asset_class: Mapped[MarketAssetClass] = mapped_column(
+        _enum(MarketAssetClass, "broker_order_asset_class"), nullable=False
+    )
+    symbol: Mapped[str] = mapped_column(String(24), nullable=False)
+    venue: Mapped[str] = mapped_column(String(32), nullable=False)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False)
+    side: Mapped[PaperOrderSide] = mapped_column(
+        _enum(PaperOrderSide, "broker_order_side", length=8), nullable=False
+    )
+    quantity_micros: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    limit_price_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    notional_minor: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    filled_quantity_micros: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    client_order_key_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    request_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    provider_order_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[BrokerOrderStatus] = mapped_column(
+        _enum(BrokerOrderStatus, "broker_order_status"), nullable=False
+    )
+    submit_execution_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    status_execution_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    verified_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class TradingSafetyEvent(Base):
+    __tablename__ = "trading_safety_events"
+    __table_args__ = (
+        CheckConstraint(
+            "action IN ('configured', 'live_enabled', 'live_disabled', 'kill_switch_activated')",
+            name="action_allowed",
+        ),
+        CheckConstraint("policy_sha256 ~ '^[0-9a-f]{64}$'", name="policy_sha256_valid"),
+        ForeignKeyConstraint(
+            ("workspace_id", "owner_id"),
+            ("finance_workspaces.id", "finance_workspaces.owner_id"),
+            name="fk_trading_safety_event_workspace_owner",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ("connector_execution_id",),
+            ("connector_executions.id",),
+            name="fk_trading_safety_event_connector_execution",
+            ondelete="RESTRICT",
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
+    workspace_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    owner_id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), nullable=False)
+    action: Mapped[TradingSafetyAction] = mapped_column(
+        _enum(TradingSafetyAction, "trading_safety_action"), nullable=False
+    )
+    policy_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    connector_execution_id: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
 Index(
     "ix_finance_workspaces_owner_created_at",
     FinanceWorkspace.owner_id,
     FinanceWorkspace.created_at.desc(),
+)
+Index(
+    "ix_trading_safety_events_workspace_created_at",
+    TradingSafetyEvent.workspace_id,
+    TradingSafetyEvent.created_at.desc(),
+)
+Index(
+    "ix_broker_order_records_workspace_created_at",
+    BrokerOrderRecord.workspace_id,
+    BrokerOrderRecord.created_at.desc(),
 )
 Index(
     "ix_paper_orders_workspace_created_at",

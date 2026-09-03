@@ -79,6 +79,42 @@ function alert() {
   };
 }
 
+function tradingPolicy() {
+  return {
+    workspace_id: workspaceId, execution_mode: "live", broker_connector_id: itemId,
+    broker_account_verified: true, live_trading_enabled: false, kill_switch_active: true,
+    owner_authorized_at: timestamp, session_valid_until: "2026-09-03T01:00:00Z",
+    max_order_value_minor: 10_000, max_position_value_minor: 20_000,
+    daily_loss_limit_minor: 5_000, per_symbol_exposure_limit_minor: 20_000,
+    total_exposure_limit_minor: 50_000, max_open_orders: 3,
+    allowed_instruments: ["AAPL"], allowed_venues: ["NASDAQ"], updated_at: timestamp,
+  };
+}
+
+function normalizedQuote() {
+  return {
+    instrument_id: "global_stock:NASDAQ:AAPL", asset_class: "global_stock", symbol: "AAPL",
+    exchange: "NASDAQ", currency: "USD", observed_at: timestamp, timezone: "UTC",
+    last_price_minor: 10_000, bid_minor: 9_999, ask_minor: 10_001,
+    open_minor: null, high_minor: null, low_minor: null, close_minor: null, volume: 100,
+    provider: "owner-feed", source_reference: `connector-execution:${itemId}`,
+    freshness_seconds: 1, data_quality: "fresh", connector_execution_id: itemId,
+  };
+}
+
+function brokerOrder() {
+  return {
+    id: "ffffffff-ffff-4fff-8fff-ffffffffffff", workspace_id: workspaceId,
+    broker_connector_id: itemId, asset_class: "global_stock", symbol: "AAPL",
+    venue: "NASDAQ", currency: "USD", side: "buy", quantity_micros: 1_000_000,
+    limit_price_minor: 10_000, notional_minor: 10_000, filled_quantity_micros: 500_000,
+    client_order_key_sha256: "c".repeat(64), request_sha256: "d".repeat(64),
+    provider_order_sha256: "e".repeat(64), status: "verified_open",
+    submit_execution_id: itemId, status_execution_id: itemId,
+    created_at: timestamp, verified_at: timestamp,
+  };
+}
+
 describe("finance API client", () => {
   it("uses only owner-scoped paper endpoints and preserves source evidence", async () => {
     const responses = [
@@ -135,5 +171,49 @@ describe("finance API client", () => {
       fetchImplementation: vi.fn(async () => jsonResponse({ ...workspace(), execution_mode: "live", live_broker_status: "ready" })) as typeof fetch,
     });
     await expect(client.getFinanceWorkspace(workspaceId)).rejects.toMatchObject({ kind: "unexpected" });
+  });
+
+  it("uses dedicated fail-closed market and broker safety endpoints", async () => {
+    const responses = [
+      normalizedQuote(), tradingPolicy(), tradingPolicy(), tradingPolicy(), tradingPolicy(),
+      { events: [], broker_orders: [brokerOrder()] }, brokerOrder(),
+    ];
+    const fetchImplementation = vi.fn(async () => jsonResponse(responses.shift()));
+    const client = new ApiClient(token, { fetchImplementation: fetchImplementation as typeof fetch });
+    const policyRequest = {
+      broker_connector_id: itemId, account_path: "/broker/account", order_path: "/broker/orders",
+      order_status_prefix: "/broker/orders/status/", max_order_value_minor: 10_000,
+      max_position_value_minor: 20_000, daily_loss_limit_minor: 5_000,
+      per_symbol_exposure_limit_minor: 20_000, total_exposure_limit_minor: 50_000,
+      max_open_orders: 3, allowed_instruments: ["AAPL"], allowed_venues: ["NASDAQ"],
+      owner_confirmation: "AUTHORIZE BROKER CONFIGURATION" as const,
+    };
+    const liveOrder = {
+      execution_mode: "live" as const, asset_class: "global_stock" as const, symbol: "AAPL",
+      venue: "NASDAQ", currency: "USD", side: "buy" as const, quantity_micros: 1_000_000,
+      limit_price_minor: 10_000, client_order_key: "owner-order-00000001",
+      market_data_connector_id: itemId, quote_path: "/quotes/AAPL", max_quote_age_seconds: 30,
+    };
+
+    await client.resolveMarketDataQuote({ connector_id: itemId, path: "/quotes/AAPL", max_age_seconds: 30 });
+    await client.getTradingSafetyPolicy(workspaceId);
+    await client.configureTradingSafetyPolicy(workspaceId, policyRequest);
+    await client.setLiveTrading(workspaceId, { enabled: true, owner_confirmation: "ENABLE LIVE TRADING" });
+    await client.activateTradingKillSwitch(workspaceId);
+    await client.getTradingSafetyAudit(workspaceId);
+    await client.placeVerifiedBrokerOrder(workspaceId, liveOrder);
+
+    const calls = fetchImplementation.mock.calls as unknown as Array<[URL | RequestInfo, RequestInit?]>;
+    expect(calls.map((call) => `${call[1]?.method ?? "GET"} ${new URL(call[0].toString()).pathname}`)).toEqual([
+      "POST /api/v1/finance/market-data/quotes/resolve",
+      `GET /api/v1/finance/workspaces/${workspaceId}/trading-safety`,
+      `PUT /api/v1/finance/workspaces/${workspaceId}/trading-safety`,
+      `POST /api/v1/finance/workspaces/${workspaceId}/trading-safety/live`,
+      `POST /api/v1/finance/workspaces/${workspaceId}/trading-safety/kill-switch`,
+      `GET /api/v1/finance/workspaces/${workspaceId}/trading-safety/audit`,
+      `POST /api/v1/finance/workspaces/${workspaceId}/broker-orders`,
+    ]);
+    expect(JSON.parse(String(calls[2]?.[1]?.body))).toEqual(policyRequest);
+    expect(JSON.parse(String(calls[6]?.[1]?.body))).toEqual(liveOrder);
   });
 });

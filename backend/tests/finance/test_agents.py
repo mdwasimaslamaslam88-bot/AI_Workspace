@@ -178,12 +178,42 @@ def test_backtesting_agent_is_deterministic_and_disclaims_profit():
         fee_bps=10,
     )
 
-    assert result["engine"] == "deterministic_moving_average_v1"
+    assert result["engine"] == "deterministic_moving_average_v2"
     assert result["final_equity_minor"] == 89_820
     assert result["return_bps"] == -1_018
     assert result["maximum_drawdown_bps"] == 1_826
+    assert result["completed_trades"] == 1
+    assert result["win_rate_bps"] == 0
+    assert result["total_fees_minor"] == 190
+    assert result["cagr_bps"] is not None
+    assert isinstance(result["sharpe_like"], float)
     assert [trade["side"] for trade in result["trades"]] == ["buy", "sell"]
     assert result["profit_guarantee"] is False
+
+
+def test_backtesting_agent_applies_position_slippage_and_exit_controls():
+    started = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    bars = tuple(
+        MarketBar(started + timedelta(days=index), price)
+        for index, price in enumerate((100, 100, 100, 110, 120, 130))
+    )
+
+    result = BacktestingAgent.run(
+        bars,
+        fast_window=2,
+        slow_window=3,
+        initial_cash_minor=100_000,
+        fee_bps=10,
+        slippage_bps=20,
+        position_size_bps=5_000,
+        take_profit_bps=500,
+    )
+
+    assert result["position_size_bps"] == 5_000
+    assert result["slippage_bps"] == 20
+    assert result["take_profit_bps"] == 500
+    assert result["exposure_bps"] < 10_000
+    assert any(trade["reason"] == "take_profit" for trade in result["trades"])
 
 
 def test_backtesting_agent_rejects_reordered_or_ungrounded_bars():

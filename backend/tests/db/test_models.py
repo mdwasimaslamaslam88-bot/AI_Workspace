@@ -21,6 +21,7 @@ import app.models  # noqa: F401  # Populate the model registry.
 from app.db.base import Base
 from app.models import (
     Asset,
+    BrokerOrderRecord,
     Connector,
     ConnectorExecution,
     Conversation,
@@ -48,6 +49,8 @@ from app.models import (
     PaperOrder,
     PaperPosition,
     ToolExecution,
+    TradingSafetyEvent,
+    TradingSafetyPolicy,
     User,
     UserSession,
     Workflow,
@@ -85,6 +88,9 @@ EXPECTED_TABLES = {
     "paper_orders",
     "market_alerts",
     "finance_artifacts",
+    "trading_safety_policies",
+    "broker_order_records",
+    "trading_safety_events",
     "learning_programs",
     "learning_lessons",
     "learning_activities",
@@ -153,6 +159,9 @@ def test_model_registry_contains_only_the_approved_domain_tables():
     assert PaperOrder.__table__ is Base.metadata.tables["paper_orders"]
     assert MarketAlert.__table__ is Base.metadata.tables["market_alerts"]
     assert FinanceArtifact.__table__ is Base.metadata.tables["finance_artifacts"]
+    assert TradingSafetyPolicy.__table__ is Base.metadata.tables["trading_safety_policies"]
+    assert BrokerOrderRecord.__table__ is Base.metadata.tables["broker_order_records"]
+    assert TradingSafetyEvent.__table__ is Base.metadata.tables["trading_safety_events"]
     assert LearningProgram.__table__ is Base.metadata.tables["learning_programs"]
     assert LearningLesson.__table__ is Base.metadata.tables["learning_lessons"]
     assert LearningActivity.__table__ is Base.metadata.tables["learning_activities"]

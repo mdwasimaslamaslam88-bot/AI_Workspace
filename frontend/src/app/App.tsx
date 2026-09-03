@@ -71,6 +71,10 @@ import type {
   ToolExecution,
   ToolExecutionRequest,
   TradingJournalRequest,
+  TradingSafetyAudit,
+  TradingSafetyPolicy,
+  TradingSafetyPolicyConfigureRequest,
+  TradingSafetyToggleRequest,
   Workflow,
   WorkflowCreateRequest,
 } from "../api/contracts";
@@ -1206,6 +1210,31 @@ export function App() {
   const addTradingJournalEntry = useCallback((id: string, request: TradingJournalRequest, signal?: AbortSignal): Promise<FinanceArtifact> => {
     if (client === null) return Promise.reject(new ApiError("authentication", "Authentication failed."));
     return client.addTradingJournalEntry(id, request, signal);
+  }, [client]);
+
+  const getTradingSafetyPolicy = useCallback((id: string, signal?: AbortSignal): Promise<TradingSafetyPolicy> => {
+    if (client === null) return Promise.reject(new ApiError("authentication", "Authentication failed."));
+    return client.getTradingSafetyPolicy(id, signal);
+  }, [client]);
+
+  const configureTradingSafetyPolicy = useCallback((id: string, request: TradingSafetyPolicyConfigureRequest, signal?: AbortSignal): Promise<TradingSafetyPolicy> => {
+    if (client === null) return Promise.reject(new ApiError("authentication", "Authentication failed."));
+    return client.configureTradingSafetyPolicy(id, request, signal);
+  }, [client]);
+
+  const setLiveTrading = useCallback((id: string, request: TradingSafetyToggleRequest, signal?: AbortSignal): Promise<TradingSafetyPolicy> => {
+    if (client === null) return Promise.reject(new ApiError("authentication", "Authentication failed."));
+    return client.setLiveTrading(id, request, signal);
+  }, [client]);
+
+  const activateTradingKillSwitch = useCallback((id: string, signal?: AbortSignal): Promise<TradingSafetyPolicy> => {
+    if (client === null) return Promise.reject(new ApiError("authentication", "Authentication failed."));
+    return client.activateTradingKillSwitch(id, signal);
+  }, [client]);
+
+  const getTradingSafetyAudit = useCallback((id: string, signal?: AbortSignal): Promise<TradingSafetyAudit> => {
+    if (client === null) return Promise.reject(new ApiError("authentication", "Authentication failed."));
+    return client.getTradingSafetyAudit(id, signal);
   }, [client]);
 
   const loadLearningCapabilities = useCallback((signal?: AbortSignal): Promise<LearningCapabilities> => {
@@ -2369,6 +2398,11 @@ export function App() {
               onCreateAlert={createMarketAlert}
               onEvaluateAlerts={evaluateMarketAlerts}
               onJournal={addTradingJournalEntry}
+              onGetTradingPolicy={getTradingSafetyPolicy}
+              onConfigureTradingPolicy={configureTradingSafetyPolicy}
+              onSetLiveTrading={setLiveTrading}
+              onKillSwitch={activateTradingKillSwitch}
+              onGetTradingAudit={getTradingSafetyAudit}
             />
           </div>
         )}

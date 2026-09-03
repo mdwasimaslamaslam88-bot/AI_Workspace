@@ -872,7 +872,7 @@
     }
   ],
   "product": "AI OS",
-  "registry_sha256": "8739c06c478a912b1fd9b6cfa9022a291953e7c6f2e0a7a5fafafb2f6106f7ce",
+  "registry_sha256": "7478ef10ca0613e4b2dca6d7fa70c3ac44482bf96b2445aeb5a9ac2723ce1a07",
   "schema_version": 1,
   "summary": {
     "broken_registry_wiring": 0,

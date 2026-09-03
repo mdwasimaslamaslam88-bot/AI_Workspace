@@ -16,6 +16,10 @@ import type {
   PortfolioAnalysis,
   PortfolioAnalysisRequest,
   TradingJournalRequest,
+  TradingSafetyAudit,
+  TradingSafetyPolicy,
+  TradingSafetyPolicyConfigureRequest,
+  TradingSafetyToggleRequest,
 } from "../../api/contracts";
 
 
@@ -33,6 +37,11 @@ interface FinancePanelProps {
   onCreateAlert: (id: string, request: MarketAlertRequest, signal?: AbortSignal) => Promise<MarketAlert>;
   onEvaluateAlerts: (id: string, quote: MarketQuoteRequest, signal?: AbortSignal) => Promise<{ items: MarketAlert[] }>;
   onJournal: (id: string, request: TradingJournalRequest, signal?: AbortSignal) => Promise<FinanceArtifact>;
+  onGetTradingPolicy: (id: string, signal?: AbortSignal) => Promise<TradingSafetyPolicy>;
+  onConfigureTradingPolicy: (id: string, request: TradingSafetyPolicyConfigureRequest, signal?: AbortSignal) => Promise<TradingSafetyPolicy>;
+  onSetLiveTrading: (id: string, request: TradingSafetyToggleRequest, signal?: AbortSignal) => Promise<TradingSafetyPolicy>;
+  onKillSwitch: (id: string, signal?: AbortSignal) => Promise<TradingSafetyPolicy>;
+  onGetTradingAudit: (id: string, signal?: AbortSignal) => Promise<TradingSafetyAudit>;
 }
 
 const ASSET_CLASSES: MarketAssetClass[] = ["indian_stock", "global_stock", "crypto", "fx"];
@@ -85,12 +94,16 @@ function parseQuotes(value: string): MarketQuoteRequest[] {
 export function FinancePanel({
   onClose, onLoad, onGet, onCreate, onAddWatch, onRemoveWatch, onResearch,
   onBacktest, onPaperOrder, onPortfolio, onCreateAlert, onEvaluateAlerts, onJournal,
+  onGetTradingPolicy, onConfigureTradingPolicy, onSetLiveTrading, onKillSwitch,
+  onGetTradingAudit,
 }: FinancePanelProps) {
   const [workspaces, setWorkspaces] = useState<FinanceWorkspace[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [tradingPolicy, setTradingPolicy] = useState<TradingSafetyPolicy | null>(null);
+  const [tradingAudit, setTradingAudit] = useState<TradingSafetyAudit>({ events: [], broker_orders: [] });
   const selected = useMemo(
     () => workspaces.find((workspace) => workspace.id === selectedId) ?? workspaces[0] ?? null,
     [selectedId, workspaces],
@@ -109,6 +122,25 @@ export function FinancePanel({
     });
     return () => controller.abort();
   }, [onLoad]);
+
+  useEffect(() => {
+    if (selected === null) {
+      setTradingPolicy(null);
+      setTradingAudit({ events: [], broker_orders: [] });
+      return;
+    }
+    const controller = new AbortController();
+    void Promise.all([
+      onGetTradingPolicy(selected.id, controller.signal).catch(() => null),
+      onGetTradingAudit(selected.id, controller.signal).catch(() => ({ events: [], broker_orders: [] })),
+    ]).then(([policy, audit]) => {
+      if (!controller.signal.aborted) {
+        setTradingPolicy(policy);
+        setTradingAudit(audit);
+      }
+    });
+    return () => controller.abort();
+  }, [onGetTradingAudit, onGetTradingPolicy, selected]);
 
   async function perform<T>(operation: (signal: AbortSignal) => Promise<T>): Promise<T | undefined> {
     if (busy) return;
@@ -154,6 +186,15 @@ export function FinancePanel({
     if (value !== undefined) await refresh(selected.id);
   }
 
+  async function refreshTradingSafety(id: string) {
+    const [policy, audit] = await Promise.all([
+      onGetTradingPolicy(id),
+      onGetTradingAudit(id),
+    ]);
+    setTradingPolicy(policy);
+    setTradingAudit(audit);
+  }
+
   return <aside className="workflow-panel finance-panel" aria-labelledby="finance-panel-title">
     <header className="workflow-panel-header">
       <div><p className="eyebrow">Finance intelligence</p><h2 id="finance-panel-title">Grounded paper market lab</h2></div>
@@ -175,8 +216,75 @@ export function FinancePanel({
     {loading ? <p role="status">Loading finance workspaces…</p> : workspaces.length > 0 && <label>Active workspace<select value={selected?.id ?? ""} onChange={(event) => setSelectedId(event.target.value)}>{workspaces.map((workspace) => <option key={workspace.id} value={workspace.id}>{workspace.name}</option>)}</select></label>}
     {selected !== null && <>
       <section className="finance-summary" aria-label="Paper portfolio status">
-        <strong>{selected.name}</strong><span>Cash {selected.cash_minor} {selected.base_currency} minor units</span><span>Paper mode</span><span>Live broker: external dependency</span>
+        <strong>{selected.name}</strong><span>Cash {selected.cash_minor} {selected.base_currency} minor units</span><span>Paper mode</span><span>Live broker: {tradingPolicy?.live_trading_enabled === true ? "explicitly enabled" : "blocked"}</span>
       </section>
+      <details><summary>Broker safety wall and audit</summary>
+        <p className="notice">Live trading is fail-closed. A healthy owner connector, verified account/MFA session, explicit limits, fresh attributed quote, exact confirmation, inactive kill switch, idempotency key, provider acknowledgement, and status readback are all mandatory.</p>
+        <p role="status">Mode: {tradingPolicy?.execution_mode ?? "paper"} · Kill switch: {tradingPolicy?.kill_switch_active !== false ? "ACTIVE" : "inactive"} · Account: {tradingPolicy?.broker_account_verified === true ? "verified" : "not configured"}</p>
+        <form className="workflow-form" onSubmit={(event) => {
+          event.preventDefault(); const values = new FormData(event.currentTarget);
+          const split = (name: string) => String(values.get(name) ?? "").split(",").map((value) => value.trim()).filter(Boolean);
+          const ownerConfirmation = String(values.get("configuration_confirmation") ?? "").trim();
+          if (ownerConfirmation !== "AUTHORIZE BROKER CONFIGURATION") {
+            setNotice("The exact broker configuration confirmation is required.");
+            return;
+          }
+          void perform((signal) => onConfigureTradingPolicy(selected.id, {
+            broker_connector_id: String(values.get("broker_connector_id") ?? "").trim(),
+            account_path: String(values.get("account_path") ?? "").trim(),
+            order_path: String(values.get("order_path") ?? "").trim(),
+            order_status_prefix: String(values.get("order_status_prefix") ?? "").trim(),
+            max_order_value_minor: positiveInteger(values.get("max_order_value_minor")),
+            max_position_value_minor: positiveInteger(values.get("max_position_value_minor")),
+            daily_loss_limit_minor: positiveInteger(values.get("daily_loss_limit_minor")),
+            per_symbol_exposure_limit_minor: positiveInteger(values.get("per_symbol_exposure_limit_minor")),
+            total_exposure_limit_minor: positiveInteger(values.get("total_exposure_limit_minor")),
+            max_open_orders: positiveInteger(values.get("max_open_orders")),
+            allowed_instruments: split("allowed_instruments"),
+            allowed_venues: split("allowed_venues"),
+            owner_confirmation: ownerConfirmation,
+          }, signal)).then((value) => {
+            if (value !== undefined) void refreshTradingSafety(selected.id);
+          });
+        }}>
+          <label>Owner broker connector ID<input name="broker_connector_id" required /></label>
+          <label>Verified account path<input name="account_path" required placeholder="/broker/account" /></label>
+          <label>Order path<input name="order_path" required placeholder="/broker/orders" /></label>
+          <label>Order-status prefix<input name="order_status_prefix" required placeholder="/broker/orders/status/" /></label>
+          <label>Max order value, minor units<input name="max_order_value_minor" type="number" min="1" required /></label>
+          <label>Max position value<input name="max_position_value_minor" type="number" min="1" required /></label>
+          <label>Daily loss limit<input name="daily_loss_limit_minor" type="number" min="1" required /></label>
+          <label>Per-symbol exposure limit<input name="per_symbol_exposure_limit_minor" type="number" min="1" required /></label>
+          <label>Total exposure limit<input name="total_exposure_limit_minor" type="number" min="1" required /></label>
+          <label>Max open orders<input name="max_open_orders" type="number" min="1" max="1000" required /></label>
+          <label>Allowed instruments, comma-separated<input name="allowed_instruments" required placeholder="ACME" /></label>
+          <label>Allowed venues, comma-separated<input name="allowed_venues" required placeholder="NASDAQ" /></label>
+          <label>Type AUTHORIZE BROKER CONFIGURATION<input name="configuration_confirmation" required pattern="AUTHORIZE BROKER CONFIGURATION" /></label>
+          <button disabled={busy} className="button button-primary">Verify and save disabled policy</button>
+        </form>
+        {tradingPolicy !== null && <>
+          <form className="workflow-form" onSubmit={(event) => {
+            event.preventDefault(); const values = new FormData(event.currentTarget);
+            const enabled = !tradingPolicy.live_trading_enabled;
+            void perform((signal) => onSetLiveTrading(selected.id, {
+              enabled,
+              owner_confirmation: String(values.get("owner_confirmation") ?? "").trim(),
+            }, signal)).then((value) => {
+              if (value !== undefined) void refreshTradingSafety(selected.id);
+            });
+          }}>
+            <label>{tradingPolicy.live_trading_enabled ? "Type DISABLE LIVE TRADING" : "Type ENABLE LIVE TRADING"}<input name="owner_confirmation" required /></label>
+            <button disabled={busy} className="button button-primary">{tradingPolicy.live_trading_enabled ? "Disable live trading" : "Enable live trading after re-verification"}</button>
+          </form>
+          <button type="button" disabled={busy || tradingPolicy.kill_switch_active} className="button button-quiet" onClick={() => {
+            void perform((signal) => onKillSwitch(selected.id, signal)).then((value) => {
+              if (value !== undefined) void refreshTradingSafety(selected.id);
+            });
+          }}>Activate emergency kill switch</button>
+        </>}
+        <p>Safety events: {tradingAudit.events.length} · Verified broker orders: {tradingAudit.broker_orders.length}</p>
+        <ol>{tradingAudit.events.map((event) => <li key={event.id}>{event.action} · policy {event.policy_sha256.slice(0, 12)}…</li>)}</ol>
+      </details>
       <details><summary>Watchlist ({selected.watch_items.length})</summary>
         <form className="workflow-form" onSubmit={(event) => {
           event.preventDefault(); const values = new FormData(event.currentTarget);
@@ -212,8 +320,12 @@ export function FinancePanel({
             slow_window: positiveInteger(values.get("slow_window")),
             initial_cash_minor: positiveInteger(values.get("initial_cash_minor")),
             fee_bps: Number(values.get("fee_bps")),
+            slippage_bps: Number(values.get("slippage_bps")),
+            position_size_bps: positiveInteger(values.get("position_size_bps")),
+            stop_loss_bps: values.get("stop_loss_bps") ? positiveInteger(values.get("stop_loss_bps")) : null,
+            take_profit_bps: values.get("take_profit_bps") ? positiveInteger(values.get("take_profit_bps")) : null,
           }, signal));
-        }}><AssetClassSelect /><label>Symbol<input name="symbol" required /></label><label>History source<input name="source_reference" required /></label><label>Bars: ISO timestamp,close_minor<textarea name="bars" required rows={5} /></label><label>Fast window<input name="fast_window" type="number" min="2" defaultValue="2" required /></label><label>Slow window<input name="slow_window" type="number" min="3" defaultValue="3" required /></label><label>Initial cash<input name="initial_cash_minor" type="number" min="1" required /></label><label>Fee bps<input name="fee_bps" type="number" min="0" max="1000" defaultValue="0" required /></label><button disabled={busy} className="button button-primary">Run sourced backtest</button></form>
+        }}><AssetClassSelect /><label>Symbol<input name="symbol" required /></label><label>History source<input name="source_reference" required /></label><label>Bars: ISO timestamp,close_minor<textarea name="bars" required rows={5} /></label><label>Fast window<input name="fast_window" type="number" min="2" defaultValue="2" required /></label><label>Slow window<input name="slow_window" type="number" min="3" defaultValue="3" required /></label><label>Initial cash<input name="initial_cash_minor" type="number" min="1" required /></label><label>Fee bps<input name="fee_bps" type="number" min="0" max="1000" defaultValue="0" required /></label><label>Slippage bps<input name="slippage_bps" type="number" min="0" max="1000" defaultValue="0" required /></label><label>Position size bps<input name="position_size_bps" type="number" min="1" max="10000" defaultValue="10000" required /></label><label>Stop loss bps (optional)<input name="stop_loss_bps" type="number" min="1" max="10000" /></label><label>Take profit bps (optional)<input name="take_profit_bps" type="number" min="1" max="100000" /></label><button disabled={busy} className="button button-primary">Run sourced backtest</button></form>
       </details>
       <details><summary>Paper Trading Agent</summary>
         <form className="workflow-form" onSubmit={(event) => {

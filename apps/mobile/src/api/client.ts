@@ -37,6 +37,7 @@ import {
   type ExternalProviderUpsertRequest,
   type FeatureRegistry,
   type BacktestRequest,
+  type BrokerOrderRecord,
   type FinanceArtifact,
   type FinanceWorkspace,
   type FinanceWorkspaceCreateRequest,
@@ -63,6 +64,7 @@ import {
   type MarketAlertEvaluation,
   type MarketAlertRequest,
   type MarketQuoteRequest,
+  type MarketDataQuoteRequest,
   type MarketResearchRequest,
   type MarketWatchItemRequest,
   type MemoryCreateRequest,
@@ -72,6 +74,8 @@ import {
   type PersonalMemory,
   type PaperOrder,
   type PaperOrderRequest,
+  type LiveBrokerOrderRequest,
+  type NormalizedMarketQuote,
   type PortfolioAnalysis,
   type PortfolioAnalysisRequest,
   type ProductCapabilityPage,
@@ -82,6 +86,10 @@ import {
   type ToolExecutionPage,
   type ToolExecutionRequest,
   type TradingJournalRequest,
+  type TradingSafetyAudit,
+  type TradingSafetyPolicy,
+  type TradingSafetyPolicyConfigureRequest,
+  type TradingSafetyToggleRequest,
   type UserSession,
   type UserSessionCreateRequest,
   type UserSessionPage,
@@ -118,6 +126,7 @@ import {
   parseFinanceArtifact,
   parseFinanceWorkspace,
   parseFinanceWorkspacePage,
+  parseBrokerOrderRecord,
   parseGenerationResponse,
   parseImageOperation,
   parseLearningAttempt,
@@ -130,12 +139,15 @@ import {
   parseMarketingCampaignPage,
   parseMarketAlert,
   parseMarketAlertEvaluation,
+  parseNormalizedMarketQuote,
   parseMemorySetting,
   parseMessagePage,
   parseModelPage,
   parsePersonalMemory,
   parsePaperOrder,
   parsePortfolioAnalysis,
+  parseTradingSafetyAudit,
+  parseTradingSafetyPolicy,
   parseProductCapabilityPage,
   parseSelfUpdateStatus,
   parseSystemDiagnostics,
@@ -659,6 +671,77 @@ export class MobileApiClient {
     return this.#request(
       `api/v1/finance/workspaces/${encodeURIComponent(workspaceId)}/journal`,
       parseFinanceArtifact,
+      { method: "POST", body: request, signal },
+    );
+  }
+
+  resolveMarketDataQuote(
+    request: MarketDataQuoteRequest,
+    signal?: AbortSignal,
+  ): Promise<NormalizedMarketQuote> {
+    return this.#request(
+      "api/v1/finance/market-data/quotes/resolve",
+      parseNormalizedMarketQuote,
+      { method: "POST", body: request, signal },
+    );
+  }
+
+  getTradingSafetyPolicy(workspaceId: string, signal?: AbortSignal): Promise<TradingSafetyPolicy> {
+    return this.#request(
+      `api/v1/finance/workspaces/${encodeURIComponent(workspaceId)}/trading-safety`,
+      parseTradingSafetyPolicy,
+      { signal },
+    );
+  }
+
+  configureTradingSafetyPolicy(
+    workspaceId: string,
+    request: TradingSafetyPolicyConfigureRequest,
+    signal?: AbortSignal,
+  ): Promise<TradingSafetyPolicy> {
+    return this.#request(
+      `api/v1/finance/workspaces/${encodeURIComponent(workspaceId)}/trading-safety`,
+      parseTradingSafetyPolicy,
+      { method: "PUT", body: request, signal },
+    );
+  }
+
+  setLiveTrading(
+    workspaceId: string,
+    request: TradingSafetyToggleRequest,
+    signal?: AbortSignal,
+  ): Promise<TradingSafetyPolicy> {
+    return this.#request(
+      `api/v1/finance/workspaces/${encodeURIComponent(workspaceId)}/trading-safety/live`,
+      parseTradingSafetyPolicy,
+      { method: "POST", body: request, signal },
+    );
+  }
+
+  activateTradingKillSwitch(workspaceId: string, signal?: AbortSignal): Promise<TradingSafetyPolicy> {
+    return this.#request(
+      `api/v1/finance/workspaces/${encodeURIComponent(workspaceId)}/trading-safety/kill-switch`,
+      parseTradingSafetyPolicy,
+      { method: "POST", signal },
+    );
+  }
+
+  getTradingSafetyAudit(workspaceId: string, signal?: AbortSignal): Promise<TradingSafetyAudit> {
+    return this.#request(
+      `api/v1/finance/workspaces/${encodeURIComponent(workspaceId)}/trading-safety/audit`,
+      parseTradingSafetyAudit,
+      { signal },
+    );
+  }
+
+  placeVerifiedBrokerOrder(
+    workspaceId: string,
+    request: LiveBrokerOrderRequest,
+    signal?: AbortSignal,
+  ): Promise<BrokerOrderRecord> {
+    return this.#request(
+      `api/v1/finance/workspaces/${encodeURIComponent(workspaceId)}/broker-orders`,
+      parseBrokerOrderRecord,
       { method: "POST", body: request, signal },
     );
   }

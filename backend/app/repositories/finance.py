@@ -6,6 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 
 from app.models.finance import (
+    BrokerOrderRecord,
     FinanceArtifact,
     FinanceWorkspace,
     MarketAlert,
@@ -14,6 +15,8 @@ from app.models.finance import (
     MarketWatchItem,
     PaperOrder,
     PaperPosition,
+    TradingSafetyPolicy,
+    TradingSafetyEvent,
 )
 from app.models.user import User
 from app.repositories.base import BaseRepository
@@ -25,6 +28,9 @@ _WORKSPACE_LOADS = (
     selectinload(FinanceWorkspace.orders),
     selectinload(FinanceWorkspace.alerts),
     selectinload(FinanceWorkspace.artifacts),
+    selectinload(FinanceWorkspace.trading_policy),
+    selectinload(FinanceWorkspace.broker_orders),
+    selectinload(FinanceWorkspace.trading_safety_events),
 )
 
 
@@ -155,3 +161,33 @@ class FinanceRepository(BaseRepository):
             .where(FinanceArtifact.workspace_id == workspace_id)
         )
         return int(result.scalar_one())
+
+    async def get_trading_policy(
+        self, owner_id: UUID, workspace_id: UUID, *, for_update: bool = False
+    ) -> TradingSafetyPolicy | None:
+        statement = select(TradingSafetyPolicy).where(
+            TradingSafetyPolicy.workspace_id == workspace_id,
+            TradingSafetyPolicy.owner_id == owner_id,
+        )
+        if for_update:
+            statement = statement.with_for_update(of=TradingSafetyPolicy)
+        result = await self.session.execute(statement)
+        return result.scalar_one_or_none()
+
+    async def get_broker_order_by_client_hash(
+        self,
+        owner_id: UUID,
+        workspace_id: UUID,
+        client_order_key_sha256: str,
+        *,
+        for_update: bool = False,
+    ) -> BrokerOrderRecord | None:
+        statement = select(BrokerOrderRecord).where(
+            BrokerOrderRecord.owner_id == owner_id,
+            BrokerOrderRecord.workspace_id == workspace_id,
+            BrokerOrderRecord.client_order_key_sha256 == client_order_key_sha256,
+        )
+        if for_update:
+            statement = statement.with_for_update(of=BrokerOrderRecord)
+        result = await self.session.execute(statement)
+        return result.scalar_one_or_none()

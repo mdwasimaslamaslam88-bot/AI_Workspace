@@ -249,3 +249,56 @@ def test_market_agent_failure_is_safe_and_fixed(finance_api):
     assert response.status_code == 502
     assert response.json() == {"detail": "Verified local market research failed"}
     assert "PRIVATE_MODEL_SENTINEL" not in response.text
+
+
+def test_external_market_and_broker_routes_fail_closed_without_runtime(finance_api):
+    client, _user, _service = finance_api
+    workspace_id = uuid4()
+    connector_id = uuid4()
+
+    quote = client.post(
+        "/api/v1/finance/market-data/quotes/resolve",
+        json={"connector_id": str(connector_id), "path": "/quotes/ACME"},
+    )
+    assert quote.status_code == 409
+    assert quote.json() == {"detail": "Finance provider runtime is not configured"}
+
+    configuration = client.put(
+        f"/api/v1/finance/workspaces/{workspace_id}/trading-safety",
+        json={
+            "broker_connector_id": str(connector_id),
+            "account_path": "/broker/account",
+            "order_path": "/broker/orders",
+            "order_status_prefix": "/broker/orders/status/",
+            "max_order_value_minor": 10_000,
+            "max_position_value_minor": 20_000,
+            "daily_loss_limit_minor": 5_000,
+            "per_symbol_exposure_limit_minor": 20_000,
+            "total_exposure_limit_minor": 50_000,
+            "max_open_orders": 3,
+            "allowed_instruments": ["ACME"],
+            "allowed_venues": ["NASDAQ"],
+            "owner_confirmation": "AUTHORIZE BROKER CONFIGURATION",
+        },
+    )
+    assert configuration.status_code == 409
+    assert configuration.json() == {"detail": "Broker provider runtime is not configured"}
+
+    live_order = client.post(
+        f"/api/v1/finance/workspaces/{workspace_id}/broker-orders",
+        json={
+            "execution_mode": "live",
+            "asset_class": "global_stock",
+            "symbol": "ACME",
+            "venue": "NASDAQ",
+            "currency": "USD",
+            "side": "buy",
+            "quantity_micros": 1_000_000,
+            "limit_price_minor": 10_000,
+            "client_order_key": "owner-order-00000001",
+            "market_data_connector_id": str(connector_id),
+            "quote_path": "/quotes/ACME",
+        },
+    )
+    assert live_order.status_code == 409
+    assert live_order.json() == {"detail": "Broker provider runtime is not configured"}

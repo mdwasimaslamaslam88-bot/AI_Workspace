@@ -414,10 +414,15 @@ _GROUPS = (
         "market_intelligence_service",
         "implemented",
         ("owner_session", "model_inference"),
-        ("verified_local_model", "database", "owner_supplied_market_sources"),
+        (
+            "verified_local_model",
+            "database",
+            "owner_supplied_market_sources_or_authorized_provider",
+        ),
         (
             "backend:test_finance_api",
             "backend:test_finance_postgres",
+            "backend:test_market_data",
             "web:finance_panel",
             "mobile:studio",
         ),
@@ -442,6 +447,7 @@ _GROUPS = (
         (
             "backend:test_finance_api",
             "backend:test_finance_postgres",
+            "backend:test_trading_safety",
             "web:finance_panel",
             "mobile:studio",
         ),
@@ -641,7 +647,12 @@ _GROUPS = (
         "external_dependency",
         ("owner_session", "broker_trade_scope"),
         ("broker_account", "broker_api", "owner_risk_confirmation"),
-        ("contract:feature_registry", "manual:external_boundary"),
+        (
+            "backend:test_trading_safety",
+            "backend:test_finance_postgres",
+            "web:finance_panel",
+            "manual:external_boundary",
+        ),
         _features(
             ("broker_integration", "Broker API integration"),
             ("live_order_execution", "Live order execution"),

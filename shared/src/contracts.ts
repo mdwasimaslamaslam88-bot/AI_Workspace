@@ -895,6 +895,9 @@ export type PaperOrderSide = "buy" | "sell";
 export type PaperOrderStatus = "executed" | "rejected";
 export type MarketAlertCondition = "at_or_above" | "at_or_below";
 export type MarketAlertStatus = "active" | "triggered" | "cancelled";
+export type TradingExecutionMode = "paper" | "live";
+export type BrokerOrderStatus = "submitted" | "verified_open" | "verified_filled" | "verified_cancelled";
+export type TradingSafetyAction = "configured" | "live_enabled" | "live_disabled" | "kill_switch_activated";
 
 export interface FinanceWorkspaceCreateRequest {
   name: string;
@@ -929,6 +932,10 @@ export interface BacktestRequest {
   slow_window: number;
   initial_cash_minor: number;
   fee_bps: number;
+  slippage_bps?: number;
+  position_size_bps?: number;
+  stop_loss_bps?: number | null;
+  take_profit_bps?: number | null;
 }
 
 export interface PaperOrderRequest {
@@ -949,6 +956,128 @@ export interface MarketQuoteRequest {
   price_minor: number;
   observed_at: Timestamp;
   source_reference: string;
+}
+
+export interface MarketDataQuoteRequest {
+  connector_id: UUID;
+  path: string;
+  max_age_seconds?: number;
+}
+
+export interface NormalizedMarketQuote {
+  instrument_id: string;
+  asset_class: MarketAssetClass;
+  symbol: string;
+  exchange: string;
+  currency: string;
+  observed_at: Timestamp;
+  timezone: string;
+  last_price_minor: number;
+  bid_minor: number | null;
+  ask_minor: number | null;
+  open_minor: number | null;
+  high_minor: number | null;
+  low_minor: number | null;
+  close_minor: number | null;
+  volume: number | null;
+  provider: string;
+  source_reference: string;
+  freshness_seconds: number;
+  data_quality: "fresh";
+  connector_execution_id: UUID;
+}
+
+export interface TradingSafetyPolicyConfigureRequest {
+  broker_connector_id: UUID;
+  account_path: string;
+  order_path: string;
+  order_status_prefix: string;
+  max_order_value_minor: number;
+  max_position_value_minor: number;
+  daily_loss_limit_minor: number;
+  per_symbol_exposure_limit_minor: number;
+  total_exposure_limit_minor: number;
+  max_open_orders: number;
+  allowed_instruments: string[];
+  allowed_venues: string[];
+  owner_confirmation: "AUTHORIZE BROKER CONFIGURATION";
+}
+
+export interface TradingSafetyToggleRequest {
+  enabled: boolean;
+  owner_confirmation: string;
+}
+
+export interface TradingSafetyPolicy {
+  workspace_id: UUID;
+  execution_mode: TradingExecutionMode;
+  broker_connector_id: UUID | null;
+  broker_account_verified: boolean;
+  live_trading_enabled: boolean;
+  kill_switch_active: boolean;
+  owner_authorized_at: Timestamp | null;
+  session_valid_until: Timestamp | null;
+  max_order_value_minor: number;
+  max_position_value_minor: number;
+  daily_loss_limit_minor: number;
+  per_symbol_exposure_limit_minor: number;
+  total_exposure_limit_minor: number;
+  max_open_orders: number;
+  allowed_instruments: string[];
+  allowed_venues: string[];
+  updated_at: Timestamp;
+}
+
+export interface LiveBrokerOrderRequest {
+  execution_mode: "live";
+  asset_class: MarketAssetClass;
+  symbol: string;
+  venue: string;
+  currency: string;
+  side: PaperOrderSide;
+  quantity_micros: number;
+  limit_price_minor: number;
+  client_order_key: string;
+  market_data_connector_id: UUID;
+  quote_path: string;
+  max_quote_age_seconds?: number;
+}
+
+export interface BrokerOrderRecord {
+  id: UUID;
+  workspace_id: UUID;
+  broker_connector_id: UUID;
+  asset_class: MarketAssetClass;
+  symbol: string;
+  venue: string;
+  currency: string;
+  side: PaperOrderSide;
+  quantity_micros: number;
+  limit_price_minor: number;
+  notional_minor: number;
+  filled_quantity_micros: number;
+  client_order_key_sha256: string;
+  request_sha256: string;
+  provider_order_sha256: string;
+  status: BrokerOrderStatus;
+  submit_execution_id: UUID;
+  status_execution_id: UUID;
+  created_at: Timestamp;
+  verified_at: Timestamp;
+}
+
+export interface TradingSafetyEvent {
+  id: UUID;
+  workspace_id: UUID;
+  action: TradingSafetyAction;
+  policy_sha256: string;
+  connector_execution_id: UUID | null;
+  created_at: Timestamp;
+}
+
+export interface TradingSafetyAudit {
+  events: TradingSafetyEvent[];
+  broker_orders: BrokerOrderRecord[];
 }
 
 export interface PortfolioAnalysisRequest {
@@ -1046,7 +1175,7 @@ export interface FinanceWorkspace {
   alerts: MarketAlert[];
   artifacts: FinanceArtifact[];
   execution_mode: "paper";
-  live_broker_status: "external_dependency";
+  live_broker_status: "external_dependency" | "configured_disabled" | "live_enabled";
 }
 
 export interface FinanceWorkspacePage { items: FinanceWorkspace[]; }
@@ -1685,6 +1814,8 @@ const paperOrderSides = ["buy", "sell"] as const;
 const paperOrderStatuses = ["executed", "rejected"] as const;
 const marketAlertConditions = ["at_or_above", "at_or_below"] as const;
 const marketAlertStatuses = ["active", "triggered", "cancelled"] as const;
+const brokerOrderStatuses = ["submitted", "verified_open", "verified_filled", "verified_cancelled"] as const;
+const tradingSafetyActions = ["configured", "live_enabled", "live_disabled", "kill_switch_activated"] as const;
 const learningProgramStatuses = ["active", "completed", "archived"] as const;
 const learningLessonStatuses = ["planned", "ready", "completed"] as const;
 const learningActivityKinds = ["exercise", "quiz", "conversation", "revision"] as const;
@@ -2601,7 +2732,7 @@ export function parseFinanceArtifact(value: unknown): FinanceArtifact {
 export function parseFinanceWorkspace(value: unknown): FinanceWorkspace {
   const item = record(value);
   if (
-    item.execution_mode !== "paper" || item.live_broker_status !== "external_dependency" ||
+    item.execution_mode !== "paper" ||
     !Array.isArray(item.watch_items) || item.watch_items.length > 100 ||
     !Array.isArray(item.positions) || item.positions.length > 100 ||
     !Array.isArray(item.orders) || item.orders.length > 1_000 ||
@@ -2628,7 +2759,10 @@ export function parseFinanceWorkspace(value: unknown): FinanceWorkspace {
     alerts: item.alerts.map(parseMarketAlert),
     artifacts: item.artifacts.map(parseFinanceArtifact),
     execution_mode: "paper",
-    live_broker_status: "external_dependency",
+    live_broker_status: enumField(
+      item.live_broker_status,
+      ["external_dependency", "configured_disabled", "live_enabled"] as const,
+    ),
   };
 }
 
@@ -2647,6 +2781,134 @@ export function parseMarketAlertEvaluation(value: unknown): MarketAlertEvaluatio
   const item = record(value);
   if (!Array.isArray(item.items) || item.items.length > 100) return invalidResponse();
   return { items: item.items.map(parseMarketAlert) };
+}
+
+function optionalBoundedInteger(value: unknown): number | null {
+  return value === null ? null : boundedInteger(value, 0, 1_000_000_000_000_000);
+}
+
+export function parseNormalizedMarketQuote(value: unknown): NormalizedMarketQuote {
+  const item = record(value);
+  const symbol = stringField(item.symbol);
+  const exchange = stringField(item.exchange);
+  const currency = stringField(item.currency);
+  if (
+    item.data_quality !== "fresh" || !/^[A-Z0-9][A-Z0-9._:/-]{0,23}$/.test(symbol) ||
+    !/^[A-Z0-9][A-Z0-9._:-]{0,31}$/.test(exchange) || !/^[A-Z]{3}$/.test(currency)
+  ) return invalidResponse();
+  return {
+    instrument_id: stringField(item.instrument_id),
+    asset_class: enumField(item.asset_class, marketAssetClasses),
+    symbol,
+    exchange,
+    currency,
+    observed_at: stringField(item.observed_at),
+    timezone: stringField(item.timezone),
+    last_price_minor: boundedInteger(item.last_price_minor, 1, 1_000_000_000_000_000),
+    bid_minor: optionalBoundedInteger(item.bid_minor),
+    ask_minor: optionalBoundedInteger(item.ask_minor),
+    open_minor: optionalBoundedInteger(item.open_minor),
+    high_minor: optionalBoundedInteger(item.high_minor),
+    low_minor: optionalBoundedInteger(item.low_minor),
+    close_minor: optionalBoundedInteger(item.close_minor),
+    volume: optionalBoundedInteger(item.volume),
+    provider: stringField(item.provider),
+    source_reference: stringField(item.source_reference),
+    freshness_seconds: boundedInteger(item.freshness_seconds, 0, 3_600),
+    data_quality: "fresh",
+    connector_execution_id: stringField(item.connector_execution_id),
+  };
+}
+
+export function parseTradingSafetyPolicy(value: unknown): TradingSafetyPolicy {
+  const item = record(value);
+  if (!Array.isArray(item.allowed_instruments) || !Array.isArray(item.allowed_venues)) {
+    return invalidResponse();
+  }
+  const instruments = item.allowed_instruments.map(stringField);
+  const venues = item.allowed_venues.map(stringField);
+  if (
+    instruments.length < 1 || instruments.length > 256 || new Set(instruments).size !== instruments.length ||
+    venues.length < 1 || venues.length > 64 || new Set(venues).size !== venues.length
+  ) return invalidResponse();
+  return {
+    workspace_id: stringField(item.workspace_id),
+    execution_mode: enumField(item.execution_mode, ["paper", "live"] as const),
+    broker_connector_id: nullableString(item.broker_connector_id),
+    broker_account_verified: booleanField(item.broker_account_verified),
+    live_trading_enabled: booleanField(item.live_trading_enabled),
+    kill_switch_active: booleanField(item.kill_switch_active),
+    owner_authorized_at: nullableString(item.owner_authorized_at),
+    session_valid_until: nullableString(item.session_valid_until),
+    max_order_value_minor: boundedInteger(item.max_order_value_minor, 1, 1_000_000_000_000_000),
+    max_position_value_minor: boundedInteger(item.max_position_value_minor, 1, 1_000_000_000_000_000),
+    daily_loss_limit_minor: boundedInteger(item.daily_loss_limit_minor, 1, 1_000_000_000_000_000),
+    per_symbol_exposure_limit_minor: boundedInteger(item.per_symbol_exposure_limit_minor, 1, 1_000_000_000_000_000),
+    total_exposure_limit_minor: boundedInteger(item.total_exposure_limit_minor, 1, 1_000_000_000_000_000),
+    max_open_orders: boundedInteger(item.max_open_orders, 1, 1_000),
+    allowed_instruments: instruments,
+    allowed_venues: venues,
+    updated_at: stringField(item.updated_at),
+  };
+}
+
+export function parseBrokerOrderRecord(value: unknown): BrokerOrderRecord {
+  const item = record(value);
+  const hashes = [item.client_order_key_sha256, item.request_sha256, item.provider_order_sha256]
+    .map(stringField);
+  if (hashes.some((hash) => !/^[a-f0-9]{64}$/.test(hash))) return invalidResponse();
+  const quantity = boundedInteger(item.quantity_micros, 1, 1_000_000_000_000_000);
+  const filled = boundedInteger(item.filled_quantity_micros, 0, quantity);
+  const status = enumField(item.status, brokerOrderStatuses);
+  if (status === "verified_filled" && filled !== quantity) return invalidResponse();
+  return {
+    id: stringField(item.id),
+    workspace_id: stringField(item.workspace_id),
+    broker_connector_id: stringField(item.broker_connector_id),
+    asset_class: enumField(item.asset_class, marketAssetClasses),
+    symbol: stringField(item.symbol),
+    venue: stringField(item.venue),
+    currency: stringField(item.currency),
+    side: enumField(item.side, paperOrderSides),
+    quantity_micros: quantity,
+    limit_price_minor: boundedInteger(item.limit_price_minor, 1, 1_000_000_000_000_000),
+    notional_minor: boundedInteger(item.notional_minor, 1, 1_000_000_000_000_000),
+    filled_quantity_micros: filled,
+    client_order_key_sha256: hashes[0],
+    request_sha256: hashes[1],
+    provider_order_sha256: hashes[2],
+    status,
+    submit_execution_id: stringField(item.submit_execution_id),
+    status_execution_id: stringField(item.status_execution_id),
+    created_at: stringField(item.created_at),
+    verified_at: stringField(item.verified_at),
+  };
+}
+
+function parseTradingSafetyEvent(value: unknown): TradingSafetyEvent {
+  const item = record(value);
+  const policyHash = stringField(item.policy_sha256);
+  if (!/^[a-f0-9]{64}$/.test(policyHash)) return invalidResponse();
+  return {
+    id: stringField(item.id),
+    workspace_id: stringField(item.workspace_id),
+    action: enumField(item.action, tradingSafetyActions),
+    policy_sha256: policyHash,
+    connector_execution_id: nullableString(item.connector_execution_id),
+    created_at: stringField(item.created_at),
+  };
+}
+
+export function parseTradingSafetyAudit(value: unknown): TradingSafetyAudit {
+  const item = record(value);
+  if (
+    !Array.isArray(item.events) || item.events.length > 250 ||
+    !Array.isArray(item.broker_orders) || item.broker_orders.length > 250
+  ) return invalidResponse();
+  return {
+    events: item.events.map(parseTradingSafetyEvent),
+    broker_orders: item.broker_orders.map(parseBrokerOrderRecord),
+  };
 }
 
 export function parseLearningAttempt(value: unknown): LearningAttempt {

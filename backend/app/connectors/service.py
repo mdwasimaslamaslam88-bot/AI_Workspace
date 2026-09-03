@@ -40,6 +40,9 @@ _WRITE_METHODS = _METHODS - _READ_METHODS
 _SCOPES = frozenset({"read", "write"})
 _CAPABILITY_PATTERN = re.compile(r"^[a-z][a-z0-9_.:-]{0,63}$")
 _EMPTY_BODY_SHA256 = hashlib.sha256(b"").hexdigest()
+_HIGH_IMPACT_BROKER_CAPABILITIES = frozenset(
+    {"broker.order.submit", "broker.order.modify", "broker.order.cancel"}
+)
 
 
 class ConnectorConnectionStatus(StrEnum):
@@ -890,10 +893,24 @@ class ConnectorService:
         required_scope = "read" if method in _READ_METHODS else "write"
         if required_scope not in scopes:
             raise ConnectorPermissionError()
+        capabilities = frozenset(_decode_list(connector.capabilities_json))
+        if (
+            method in _WRITE_METHODS
+            and (
+                capabilities & _HIGH_IMPACT_BROKER_CAPABILITIES
+                or (
+                    isinstance(connector.service, str)
+                    and connector.service.lower() in {"broker", "trading"}
+                )
+            )
+            and required_capability not in _HIGH_IMPACT_BROKER_CAPABILITIES
+        ):
+            # Broker mutations are reserved for the finance safety gateway.
+            # The generic connector endpoint intentionally cannot invoke them.
+            raise ConnectorPermissionError()
         if required_capability is not None:
             if _CAPABILITY_PATTERN.fullmatch(required_capability) is None:
                 raise ConnectorPermissionError()
-            capabilities = frozenset(_decode_list(connector.capabilities_json))
             if required_capability not in capabilities:
                 raise ConnectorPermissionError()
         if connector.kind is ConnectorKind.WEBHOOK and (

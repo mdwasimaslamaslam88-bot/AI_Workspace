@@ -1,6 +1,6 @@
 # Connector Status
 
-Evidence was refreshed on 2026-09-04 during Step 3 provider activation.
+Evidence was refreshed on 2026-09-04 during Step 4 finance activation.
 This report distinguishes connector-platform readiness from real provider
 authorization. No external provider is reported connected without owner
 credentials and a successful provider response.
@@ -17,11 +17,13 @@ credentials and a successful provider response.
 | Evidence | Configuration, credential/permission changes, authentication, activation, disconnect, reconnect, revocation and failures have owner-scoped metadata-only records; last successful health time and latest audit reference are persisted | LOCAL PASS |
 | Owner lifecycle | Ordinary execution requires verified health; disconnect preserves the encrypted credential while denying execution; reconnect requires a fresh successful health probe and records success/failure; revoke destroys credential material | LOCAL PASS |
 | Loopback E2E | Real local HTTP service exercised discovery, health, transient retry, action, permission denial, disconnect/reconnect, owner isolation, audit and revocation | RUNTIME PASS |
-| Production schema | Disposable PostgreSQL migrated through `0019_connector_lifecycle_audit`; Alembic reports no drift | TEST PASS |
+| Production schema | Disposable PostgreSQL migrated through `0020_trading_safety`; Alembic reports no drift | TEST PASS |
 | Production activation | Live backend uses an owner-only connector vault; root mode `0700`, generated key mode `0600`, and readiness passed after restart | PRODUCTION PASS |
 | Production egress policy | Zero approved origins; registration/execution remains fail-closed, and every request rechecks the current allowlist before opening the network | LOCAL PASS |
 | Domain capability gate | The current connector row, state, scope, exact path, and required domain capability are revalidated together immediately before each request | LOCAL PASS |
 | CRM/social/CMS loopback | Identity, CRM record operations, reversible social/CMS drafts, audit IDs, owner isolation and post-revocation denial passed over real local HTTP | RUNTIME PASS |
+| Market/broker loopback | Provider-attributed fresh quote, account/session preflight, order acknowledgement, independent status readback, partial/full fill evidence, concurrent idempotency, kill switch and audit persistence passed over exact-origin local HTTP plus PostgreSQL | RUNTIME PASS |
+| Generic broker-write denial | High-impact broker mutations are reserved for the finance safety gateway; service-name and capability alternate routes fail closed | LOCAL PASS |
 | External providers | Zero registered, active, or healthy production connectors and no provider credential was present during activation | OWNER ACTION REQUIRED |
 
 The latest pre-activation last-known-good checkpoint is outside Git at
@@ -55,18 +57,19 @@ advertised as native or live.
 
 ## Verification summary
 
-- Backend regression: 2,960 passed; 50 intentional environment/runtime skips.
-- PostgreSQL integration: 50 passed; migrations `0001` through `0019`; no drift.
-- Web: 198 passed; typecheck, lint, production build and compiled-PWA E2E passed.
-- Mobile: 63 passed; shared and mobile typechecks, lint, Android/iOS exports and
+- Backend regression: 2,993 passed; 51 intentional environment/runtime skips.
+- PostgreSQL integration: 51 passed; migrations `0001` through `0020`; no drift.
+- Web: 200 passed; typecheck, lint, production build and compiled-PWA E2E passed.
+- Mobile: 64 passed; shared and mobile typechecks, lint, Android/iOS exports and
   all Expo Doctor checks passed.
-- Focused Step 3 connector/marketing/security backend suite: 44 passed; the
-  complete backend regression above is the authoritative aggregate.
-- Focused provider/marketing web suite: 15 passed.
+- Focused Step 4 finance/backend safety suite: 43 passed; the complete backend
+  regression above is the authoritative aggregate.
+- Focused Step 4 finance web/mobile suites: 7 and 2 passed respectively.
 - Runtime: the complete real local runtime matrix passed, including the
   strengthened connector smoke, CRM/social/CMS provider protocols, semantic
   marketing receipt verification, and all downstream finance, learning,
-  creative, tool and workflow regressions.
+  creative, tool and workflow regressions. Native Android packaging and desktop
+  production/AppImage launch smoke also passed.
 
 ## Real-provider boundary
 
