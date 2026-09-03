@@ -3,16 +3,23 @@ from __future__ import annotations
 import asyncio
 from collections import defaultdict, deque
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 import hashlib
 import ipaddress
 import json
 import time
 from typing import Any
-from urllib.parse import urlsplit
+from urllib.parse import urlencode, urlsplit
 
 import httpx
 
-from app.connectors.credentials import ConnectorCredentialBox, ConnectorCredentialError
+from app.connectors.credentials import (
+    ConnectorCredentialBox,
+    ConnectorCredentialError,
+    OAuth2Credential,
+    decode_oauth2_credential,
+    encode_oauth2_credential,
+)
 from app.models.connector import (
     Connector,
     ConnectorAction,
@@ -24,6 +31,8 @@ from app.models.connector import (
 MAX_CONNECTOR_REQUEST_BYTES = 32_768
 MAX_CONNECTOR_RESPONSE_BYTES = 262_144
 RETRYABLE_STATUS_CODES = frozenset({429, 502, 503, 504})
+_CIRCUIT_FAILURE_THRESHOLD = 3
+_CIRCUIT_COOLDOWN_SECONDS = 30.0
 
 
 def _reject_non_finite_json(_value: str) -> None:
@@ -109,6 +118,39 @@ class _ConnectorRateLimiter:
             return True
 
 
+class _ConnectorCircuitBreaker:
+    def __init__(self) -> None:
+        self._failures: dict[str, int] = defaultdict(int)
+        self._opened_until: dict[str, float] = {}
+        self._lock = asyncio.Lock()
+
+    async def is_open(self, connector_id: str) -> bool:
+        now = time.monotonic()
+        async with self._lock:
+            opened_until = self._opened_until.get(connector_id)
+            if opened_until is None:
+                return False
+            if opened_until <= now:
+                self._opened_until.pop(connector_id, None)
+                self._failures[connector_id] = 0
+                return False
+            return True
+
+    async def record_failure(self, connector_id: str) -> None:
+        async with self._lock:
+            failures = self._failures[connector_id] + 1
+            self._failures[connector_id] = failures
+            if failures >= _CIRCUIT_FAILURE_THRESHOLD:
+                self._opened_until[connector_id] = (
+                    time.monotonic() + _CIRCUIT_COOLDOWN_SECONDS
+                )
+
+    async def record_success(self, connector_id: str) -> None:
+        async with self._lock:
+            self._failures.pop(connector_id, None)
+            self._opened_until.pop(connector_id, None)
+
+
 class ConnectorRuntime:
     """Allowlisted JSON-over-HTTP executor with fixed authentication surfaces."""
 
@@ -125,6 +167,7 @@ class ConnectorRuntime:
         self.allowed_origins = frozenset(normalized)
         self.client = client
         self._rate_limiter = _ConnectorRateLimiter()
+        self._circuit_breaker = _ConnectorCircuitBreaker()
 
     @staticmethod
     def create_client() -> httpx.AsyncClient:
@@ -145,6 +188,53 @@ class ConnectorRuntime:
         return normalized
 
     async def execute(
+        self,
+        connector: Connector,
+        *,
+        action: ConnectorAction,
+        method: str,
+        path: str,
+        json_body: Any | None,
+        idempotency_key: str | None,
+    ) -> ConnectorRuntimeResult:
+        connector_id = str(connector.id)
+        if (
+            action is not ConnectorAction.HEALTH
+            and await self._circuit_breaker.is_open(connector_id)
+        ):
+            raise ConnectorRuntimeError(
+                ConnectorExecutionStatus.FAILED,
+                "connector_circuit_open",
+                attempts=0,
+            )
+        try:
+            result = await self._execute_request(
+                connector,
+                action=action,
+                method=method,
+                path=path,
+                json_body=json_body,
+                idempotency_key=idempotency_key,
+            )
+        except ConnectorRuntimeError as exc:
+            if (
+                exc.code
+                in {
+                    "connector_timed_out",
+                    "connector_unavailable",
+                    "connector_response_invalid",
+                }
+                or (
+                    exc.code == "connector_http_error"
+                    and exc.response_status_code in RETRYABLE_STATUS_CODES
+                )
+            ):
+                await self._circuit_breaker.record_failure(connector_id)
+            raise
+        await self._circuit_breaker.record_success(connector_id)
+        return result
+
+    async def _execute_request(
         self,
         connector: Connector,
         *,
@@ -176,22 +266,7 @@ class ConnectorRuntime:
             headers["Content-Type"] = "application/json"
         if idempotency_key is not None:
             headers["Idempotency-Key"] = idempotency_key
-        if connector.credential_ciphertext is not None:
-            try:
-                credential = self.credential_box.decrypt(connector.credential_ciphertext)
-            except ConnectorCredentialError as exc:
-                raise ConnectorRuntimeError(
-                    ConnectorExecutionStatus.FAILED,
-                    "connector_unavailable",
-                    attempts=0,
-                ) from exc
-            if connector.auth_kind in {
-                ConnectorAuthKind.BEARER,
-                ConnectorAuthKind.OAUTH2_BEARER,
-            }:
-                headers["Authorization"] = f"Bearer {credential}"
-            elif connector.auth_kind is ConnectorAuthKind.API_KEY:
-                headers["X-API-Key"] = credential
+        headers.update(await self._authentication_headers(connector))
 
         retry_safe = method in {"GET", "HEAD"} or idempotency_key is not None
         maximum_attempts = 1 + (connector.max_retries if retry_safe else 0)
@@ -287,6 +362,166 @@ class ConnectorRuntime:
                     response_status_code=last_status,
                 ) from exc
         raise RuntimeError("connector retry loop did not terminate")  # pragma: no cover
+
+    async def _authentication_headers(self, connector: Connector) -> dict[str, str]:
+        if connector.credential_ciphertext is None:
+            return {}
+        try:
+            credential = self.credential_box.decrypt(connector.credential_ciphertext)
+            oauth2 = decode_oauth2_credential(credential)
+        except ConnectorCredentialError as exc:
+            raise ConnectorRuntimeError(
+                ConnectorExecutionStatus.FAILED,
+                "connector_unavailable",
+                attempts=0,
+            ) from exc
+        if connector.auth_kind in {
+            ConnectorAuthKind.OAUTH2_BEARER,
+            ConnectorAuthKind.OIDC_BEARER,
+        }:
+            if oauth2 is not None:
+                expires_at = oauth2.expires_at
+                if (
+                    expires_at is not None
+                    and expires_at.astimezone(timezone.utc)
+                    <= datetime.now(timezone.utc) + timedelta(seconds=30)
+                ):
+                    oauth2 = await self._refresh_oauth2(connector, oauth2)
+                credential = oauth2.access_token
+            return {"Authorization": f"Bearer {credential}"}
+        if oauth2 is not None:
+            raise ConnectorRuntimeError(
+                ConnectorExecutionStatus.FAILED,
+                "connector_unavailable",
+                attempts=0,
+            )
+        if connector.auth_kind is ConnectorAuthKind.BEARER:
+            return {"Authorization": f"Bearer {credential}"}
+        if connector.auth_kind is ConnectorAuthKind.API_KEY:
+            return {"X-API-Key": credential}
+        return {}
+
+    async def _refresh_oauth2(
+        self, connector: Connector, credential: OAuth2Credential
+    ) -> OAuth2Credential:
+        if None in {
+            credential.refresh_token,
+            credential.client_id,
+            credential.client_secret,
+            credential.token_path,
+        }:
+            raise ConnectorRuntimeError(
+                ConnectorExecutionStatus.FAILED,
+                "connector_unavailable",
+                attempts=0,
+            )
+        assert credential.refresh_token is not None
+        assert credential.client_id is not None
+        assert credential.client_secret is not None
+        assert credential.token_path is not None
+        content = urlencode(
+            {
+                "client_id": credential.client_id,
+                "client_secret": credential.client_secret,
+                "grant_type": "refresh_token",
+                "refresh_token": credential.refresh_token,
+            }
+        ).encode("ascii")
+        if len(content) > MAX_CONNECTOR_REQUEST_BYTES:
+            raise ConnectorRuntimeError(
+                ConnectorExecutionStatus.FAILED,
+                "connector_unavailable",
+                attempts=0,
+            )
+        if not await self._rate_limiter.acquire(
+            str(connector.id), connector.rate_limit_requests_per_minute
+        ):
+            raise ConnectorRuntimeError(
+                ConnectorExecutionStatus.RATE_LIMITED,
+                "connector_rate_limited",
+                attempts=0,
+            )
+        try:
+            async with asyncio.timeout(connector.timeout_seconds):
+                async with self.client.stream(
+                    "POST",
+                    connector.base_url + credential.token_path,
+                    headers={
+                        "Accept": "application/json",
+                        "Content-Type": "application/x-www-form-urlencoded",
+                        "User-Agent": "AI-OS-Connector/1",
+                    },
+                    content=content,
+                ) as response:
+                    raw = bytearray()
+                    async for chunk in response.aiter_bytes():
+                        raw.extend(chunk)
+                        if len(raw) > MAX_CONNECTOR_RESPONSE_BYTES:
+                            raise ValueError("OAuth response exceeded its bound")
+        except TimeoutError as exc:
+            raise ConnectorRuntimeError(
+                ConnectorExecutionStatus.TIMED_OUT,
+                "connector_timed_out",
+                attempts=1,
+            ) from exc
+        except httpx.HTTPError as exc:
+            raise ConnectorRuntimeError(
+                ConnectorExecutionStatus.FAILED,
+                "connector_unavailable",
+                attempts=1,
+            ) from exc
+        except ValueError as exc:
+            raise ConnectorRuntimeError(
+                ConnectorExecutionStatus.FAILED,
+                "connector_response_invalid",
+                attempts=1,
+            ) from exc
+        if not 200 <= response.status_code <= 299:
+            raise ConnectorRuntimeError(
+                ConnectorExecutionStatus.FAILED,
+                "connector_http_error",
+                attempts=1,
+                response_status_code=response.status_code,
+            )
+        try:
+            payload = json.loads(bytes(raw), parse_constant=_reject_non_finite_json)
+            access_token = payload["access_token"]
+            expires_in = payload["expires_in"]
+            if (
+                not isinstance(payload, dict)
+                or not isinstance(access_token, str)
+                or isinstance(expires_in, bool)
+                or not isinstance(expires_in, int)
+                or not 30 <= expires_in <= 86_400
+            ):
+                raise ValueError
+            refresh_token = payload.get("refresh_token", credential.refresh_token)
+            refreshed = OAuth2Credential(
+                access_token=access_token,
+                refresh_token=refresh_token,
+                client_id=credential.client_id,
+                client_secret=credential.client_secret,
+                token_path=credential.token_path,
+                expires_at=datetime.now(timezone.utc) + timedelta(seconds=expires_in),
+            )
+            connector.credential_ciphertext = self.credential_box.encrypt(
+                encode_oauth2_credential(refreshed)
+            )
+        except (
+            ConnectorCredentialError,
+            KeyError,
+            TypeError,
+            ValueError,
+            json.JSONDecodeError,
+            RecursionError,
+        ) as exc:
+            raise ConnectorRuntimeError(
+                ConnectorExecutionStatus.FAILED,
+                "connector_response_invalid",
+                attempts=1,
+                response_status_code=response.status_code,
+            ) from exc
+        return refreshed
 
     @staticmethod
     def _retry_delay(response: httpx.Response, attempt: int) -> float:

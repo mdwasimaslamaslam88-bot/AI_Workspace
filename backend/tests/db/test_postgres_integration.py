@@ -700,7 +700,9 @@ async def test_migration_creates_exact_expected_postgresql_schema(
     assert set(connector_checks) == {
         "ck_connectors_auth_kind_allowed",
         "ck_connectors_base_url_bounded",
+        "ck_connectors_capabilities_json_bounded",
         "ck_connectors_credential_state_consistent",
+        "ck_connectors_discovery_path_bounded",
         "ck_connectors_health_path_bounded",
         "ck_connectors_health_state_consistent",
         "ck_connectors_health_status_allowed",
@@ -708,11 +710,15 @@ async def test_migration_creates_exact_expected_postgresql_schema(
         "ck_connectors_max_retries_bounded",
         "ck_connectors_name_bounded_nonblank",
         "ck_connectors_path_prefixes_json_bounded",
+        "ck_connectors_provider_bounded_nonblank",
         "ck_connectors_rate_limit_bounded",
         "ck_connectors_revocation_state_consistent",
         "ck_connectors_scopes_json_bounded",
+        "ck_connectors_service_bounded_nonblank",
         "ck_connectors_timeout_seconds_bounded",
     }
+    assert "graphql" in connector_checks["ck_connectors_kind_allowed"]
+    assert "oidc_bearer" in connector_checks["ck_connectors_auth_kind_allowed"]
     connector_execution_checks = _checks_by_name(
         snapshot["connector_execution_checks"]
     )
@@ -730,6 +736,12 @@ async def test_migration_creates_exact_expected_postgresql_schema(
         "ck_connector_executions_status_allowed",
         "ck_connector_executions_terminal_state_consistent",
     }
+    assert "discover" in connector_execution_checks[
+        "ck_connector_executions_action_allowed"
+    ]
+    assert "connector_circuit_open" in connector_execution_checks[
+        "ck_connector_executions_error_code_allowed"
+    ]
     assert {
         item["name"]
         for item in snapshot["connector_indexes"]
@@ -764,6 +776,9 @@ async def test_migration_creates_exact_expected_postgresql_schema(
         "id",
         "owner_id",
         "name",
+        "provider",
+        "service",
+        "capabilities_json",
         "kind",
         "base_url",
         "auth_kind",
@@ -771,12 +786,15 @@ async def test_migration_creates_exact_expected_postgresql_schema(
         "scopes_json",
         "path_prefixes_json",
         "health_path",
+        "discovery_path",
         "enabled",
         "timeout_seconds",
         "max_retries",
         "rate_limit_requests_per_minute",
         "health_status",
         "last_health_checked_at",
+        "last_successful_test_at",
+        "last_audit_reference",
         "created_at",
         "updated_at",
         "revoked_at",

@@ -21,6 +21,7 @@ import {
   type ConnectorExecutionRequest,
   type ConnectorExecutionResult,
   type ConnectorPage,
+  type ConnectorPlatform,
   type ConnectorSettings,
   type ConnectorWriteRequest,
   type CreativeCapabilities,
@@ -101,6 +102,7 @@ import {
   parseConnectorExecutionPage,
   parseConnectorExecutionResult,
   parseConnectorPage,
+  parseConnectorPlatform,
   parseConnectorSettings,
   parseCreativeCapabilities,
   parseCreativeExperience,
@@ -351,6 +353,10 @@ export class MobileApiClient {
     return this.#request("api/v1/connectors/settings", parseConnectorSettings, { signal });
   }
 
+  getConnectorPlatform(signal?: AbortSignal): Promise<ConnectorPlatform> {
+    return this.#request("api/v1/connectors/platform", parseConnectorPlatform, { signal });
+  }
+
   listConnectors(signal?: AbortSignal): Promise<ConnectorPage> {
     return this.#request("api/v1/connectors", parseConnectorPage, { signal });
   }
@@ -375,6 +381,36 @@ export class MobileApiClient {
   ): Promise<ConnectorExecutionResult> {
     return this.#request(
       `api/v1/connectors/${encodeURIComponent(connectorId)}/health`,
+      parseConnectorExecutionResult,
+      { method: "POST", signal },
+    );
+  }
+
+  discoverConnector(
+    connectorId: string,
+    signal?: AbortSignal,
+  ): Promise<ConnectorExecutionResult> {
+    return this.#request(
+      `api/v1/connectors/${encodeURIComponent(connectorId)}/discover`,
+      parseConnectorExecutionResult,
+      { method: "POST", signal },
+    );
+  }
+
+  disconnectConnector(connectorId: string, signal?: AbortSignal): Promise<Connector> {
+    return this.#request(
+      `api/v1/connectors/${encodeURIComponent(connectorId)}/disconnect`,
+      parseConnector,
+      { method: "POST", signal },
+    );
+  }
+
+  reconnectConnector(
+    connectorId: string,
+    signal?: AbortSignal,
+  ): Promise<ConnectorExecutionResult> {
+    return this.#request(
+      `api/v1/connectors/${encodeURIComponent(connectorId)}/reconnect`,
       parseConnectorExecutionResult,
       { method: "POST", signal },
     );

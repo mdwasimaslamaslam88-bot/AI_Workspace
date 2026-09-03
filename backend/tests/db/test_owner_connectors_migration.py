@@ -1,10 +1,8 @@
 import app.models  # noqa: F401
-from app.db.base import Base
 from tests.db.test_initial_domain_migration import (
     RecordingOperations,
     _load_revision,
     _revision_path,
-    _table_signature,
 )
 
 
@@ -40,7 +38,7 @@ def test_owner_connectors_revision_follows_device_sessions():
     assert revision.depends_on is None
 
 
-def test_upgrade_matches_exact_connector_orm_schema():
+def test_upgrade_creates_the_complete_legacy_connector_schema():
     operations = RecordingOperations()
     _upgrade_predecessors(operations)
     operations.events.clear()
@@ -55,10 +53,45 @@ def test_upgrade_matches_exact_connector_orm_schema():
         ("create_index", "ix_connector_executions_owner_started_at"),
         ("create_index", "ix_connector_executions_connector_started_at"),
     ]
-    for table_name in ("connectors", "connector_executions"):
-        assert _table_signature(operations.metadata.tables[table_name]) == (
-            _table_signature(Base.metadata.tables[table_name])
-        )
+    assert tuple(operations.metadata.tables["connectors"].columns.keys()) == (
+        "id",
+        "owner_id",
+        "name",
+        "kind",
+        "base_url",
+        "auth_kind",
+        "credential_ciphertext",
+        "scopes_json",
+        "path_prefixes_json",
+        "health_path",
+        "enabled",
+        "timeout_seconds",
+        "max_retries",
+        "rate_limit_requests_per_minute",
+        "health_status",
+        "last_health_checked_at",
+        "created_at",
+        "updated_at",
+        "revoked_at",
+    )
+    assert tuple(operations.metadata.tables["connector_executions"].columns.keys()) == (
+        "id",
+        "connector_id",
+        "owner_id",
+        "action",
+        "method",
+        "path",
+        "status",
+        "attempts",
+        "response_status_code",
+        "request_body_sha256",
+        "response_body_sha256",
+        "response_bytes",
+        "error_code",
+        "started_at",
+        "completed_at",
+        "duration_ms",
+    )
 
 
 def test_downgrade_removes_connector_relations_in_dependency_order():

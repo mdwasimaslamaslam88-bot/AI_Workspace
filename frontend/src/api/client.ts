@@ -23,6 +23,7 @@ import {
   type ConnectorExecutionRequest,
   type ConnectorExecutionResult,
   type ConnectorPage,
+  type ConnectorPlatform,
   type ConnectorSettings,
   type ConnectorWriteRequest,
   type CreativeCapabilities,
@@ -108,6 +109,7 @@ import {
   parseConnectorExecutionPage,
   parseConnectorExecutionResult,
   parseConnectorPage,
+  parseConnectorPlatform,
   parseConnectorSettings,
   parseCreativeCapabilities,
   parseCreativeExperience,
@@ -523,6 +525,13 @@ export class ApiClient {
     });
   }
 
+  getConnectorPlatform(signal?: AbortSignal): Promise<ConnectorPlatform> {
+    return this.#request("api/v1/connectors/platform", {
+      signal,
+      decode: parseConnectorPlatform,
+    });
+  }
+
   listConnectors(signal?: AbortSignal): Promise<ConnectorPage> {
     return this.#request("api/v1/connectors", {
       signal,
@@ -569,6 +578,33 @@ export class ApiClient {
   ): Promise<ConnectorExecutionResult> {
     return this.#request(
       `api/v1/connectors/${encodeURIComponent(connectorId)}/health`,
+      { method: "POST", signal, decode: parseConnectorExecutionResult },
+    );
+  }
+
+  discoverConnector(
+    connectorId: string,
+    signal?: AbortSignal,
+  ): Promise<ConnectorExecutionResult> {
+    return this.#request(
+      `api/v1/connectors/${encodeURIComponent(connectorId)}/discover`,
+      { method: "POST", signal, decode: parseConnectorExecutionResult },
+    );
+  }
+
+  disconnectConnector(connectorId: string, signal?: AbortSignal): Promise<Connector> {
+    return this.#request(
+      `api/v1/connectors/${encodeURIComponent(connectorId)}/disconnect`,
+      { method: "POST", signal, decode: parseConnector },
+    );
+  }
+
+  reconnectConnector(
+    connectorId: string,
+    signal?: AbortSignal,
+  ): Promise<ConnectorExecutionResult> {
+    return this.#request(
+      `api/v1/connectors/${encodeURIComponent(connectorId)}/reconnect`,
       { method: "POST", signal, decode: parseConnectorExecutionResult },
     );
   }

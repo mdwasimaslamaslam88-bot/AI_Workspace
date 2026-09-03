@@ -5,12 +5,17 @@ from datetime import datetime, timezone
 from enum import StrEnum
 import hashlib
 import json
+import re
 import time
 from typing import Any
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.connectors.credentials import (
+    ConnectorCredentialError,
+    decode_oauth2_credential,
+)
 from app.connectors.runtime import (
     ConnectorRuntime,
     ConnectorRuntimeError,
@@ -33,6 +38,7 @@ _METHODS = frozenset({"GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"})
 _READ_METHODS = frozenset({"GET", "HEAD"})
 _WRITE_METHODS = _METHODS - _READ_METHODS
 _SCOPES = frozenset({"read", "write"})
+_CAPABILITY_PATTERN = re.compile(r"^[a-z][a-z0-9_.:-]{0,63}$")
 
 
 class ConnectorConnectionStatus(StrEnum):
@@ -85,6 +91,13 @@ class ConnectorView:
     created_at: datetime
     updated_at: datetime
     revoked_at: datetime | None
+    provider: str = "custom"
+    service: str = "api"
+    capabilities: tuple[str, ...] = ("read",)
+    permissions: tuple[str, ...] = ("read",)
+    discovery_path: str | None = None
+    last_successful_test_at: datetime | None = None
+    audit_reference: UUID | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -133,6 +146,32 @@ def _validate_scopes(scopes: tuple[str, ...]) -> tuple[str, ...]:
     ):
         raise ValueError("connector scopes are invalid")
     return tuple(sorted(scopes))
+
+
+def _validate_label(value: str, label: str) -> str:
+    if (
+        not isinstance(value, str)
+        or value != value.strip()
+        or not 1 <= len(value) <= 120
+        or any(ord(character) < 0x20 for character in value)
+    ):
+        raise ValueError(f"connector {label} is invalid")
+    return value
+
+
+def _validate_capabilities(capabilities: tuple[str, ...]) -> tuple[str, ...]:
+    if (
+        not isinstance(capabilities, tuple)
+        or not 1 <= len(capabilities) <= 32
+        or len(set(capabilities)) != len(capabilities)
+        or any(
+            not isinstance(capability, str)
+            or _CAPABILITY_PATTERN.fullmatch(capability) is None
+            for capability in capabilities
+        )
+    ):
+        raise ValueError("connector capabilities are invalid")
+    return tuple(sorted(capabilities))
 
 
 def _validate_path(path: str, *, prefix: bool = False) -> str:
@@ -205,6 +244,13 @@ class ConnectorService:
             created_at=connector.created_at,
             updated_at=connector.updated_at,
             revoked_at=connector.revoked_at,
+            provider=connector.provider,
+            service=connector.service,
+            capabilities=_decode_list(connector.capabilities_json),
+            permissions=_decode_list(connector.scopes_json),
+            discovery_path=connector.discovery_path,
+            last_successful_test_at=connector.last_successful_test_at,
+            audit_reference=connector.last_audit_reference,
         )
 
     @staticmethod
@@ -265,6 +311,10 @@ class ConnectorService:
         timeout_seconds: int,
         max_retries: int,
         rate_limit_requests_per_minute: int,
+        provider: str = "custom",
+        service: str = "api",
+        capabilities: tuple[str, ...] = ("read",),
+        discovery_path: str | None = None,
     ) -> ConnectorView:
         try:
             connector_count = await self.repository.lock_owner_and_count_connectors(
@@ -289,6 +339,10 @@ class ConnectorService:
                 timeout_seconds=timeout_seconds,
                 max_retries=max_retries,
                 rate_limit_requests_per_minute=rate_limit_requests_per_minute,
+                provider=provider,
+                service=service,
+                capabilities=capabilities,
+                discovery_path=discovery_path,
             )
             self.session.add(connector)
             await self.session.flush()
@@ -339,15 +393,21 @@ class ConnectorService:
         timeout_seconds: int,
         max_retries: int,
         rate_limit_requests_per_minute: int,
+        provider: str = "custom",
+        service: str = "api",
+        capabilities: tuple[str, ...] = ("read",),
+        discovery_path: str | None = None,
     ) -> Connector:
-        if not isinstance(name, str) or name != name.strip() or not 1 <= len(name) <= 120:
-            raise ValueError("connector name is invalid")
+        _validate_label(name, "name")
+        validated_provider = _validate_label(provider, "provider")
+        validated_service = _validate_label(service, "service")
         if not isinstance(kind, ConnectorKind) or not isinstance(auth_kind, ConnectorAuthKind):
             raise TypeError("connector kind is invalid")
         origin = self.runtime.require_allowed_origin(base_url)
         if kind is ConnectorKind.LOCAL_API and not is_loopback_origin(origin):
             raise ValueError("local API connectors require an exact loopback origin")
         validated_scopes = _validate_scopes(scopes)
+        validated_capabilities = _validate_capabilities(capabilities)
         if "read" not in validated_scopes:
             raise ValueError("connector health checks require read scope")
         if kind is ConnectorKind.WEBHOOK and "write" not in validated_scopes:
@@ -356,6 +416,13 @@ class ConnectorService:
         validated_health_path = _validate_path(health_path)
         if not _path_allowed(validated_health_path, validated_prefixes):
             raise ValueError("connector health path exceeds its allowed path prefixes")
+        validated_discovery_path = (
+            _validate_path(discovery_path) if discovery_path is not None else None
+        )
+        if validated_discovery_path is not None and not _path_allowed(
+            validated_discovery_path, validated_prefixes
+        ):
+            raise ValueError("connector discovery path exceeds its allowed path prefixes")
         if any(isinstance(item, bool) for item in (
             timeout_seconds, max_retries, rate_limit_requests_per_minute
         )) or not (
@@ -374,6 +441,22 @@ class ConnectorService:
                 raise ValueError("credential-free connectors must not receive a credential")
             ciphertext = None
         elif credential is not None:
+            try:
+                oauth2 = decode_oauth2_credential(credential)
+            except ConnectorCredentialError as exc:
+                raise ValueError("OAuth credential envelope is invalid") from exc
+            if oauth2 is not None:
+                if auth_kind not in {
+                    ConnectorAuthKind.OAUTH2_BEARER,
+                    ConnectorAuthKind.OIDC_BEARER,
+                }:
+                    raise ValueError("OAuth credentials require an OAuth auth kind")
+                if oauth2.token_path is not None:
+                    token_path = _validate_path(oauth2.token_path)
+                    if not _path_allowed(token_path, validated_prefixes):
+                        raise ValueError(
+                            "OAuth token path exceeds its allowed path prefixes"
+                        )
             ciphertext = self.runtime.credential_box.encrypt(credential)
         elif connector is not None and connector.auth_kind is auth_kind:
             ciphertext = connector.credential_ciphertext
@@ -384,6 +467,9 @@ class ConnectorService:
         fields = {
             "owner_id": owner_id,
             "name": name,
+            "provider": validated_provider,
+            "service": validated_service,
+            "capabilities_json": _json_list(validated_capabilities),
             "kind": kind,
             "base_url": origin,
             "auth_kind": auth_kind,
@@ -391,12 +477,19 @@ class ConnectorService:
             "scopes_json": _json_list(validated_scopes),
             "path_prefixes_json": _json_list(validated_prefixes),
             "health_path": validated_health_path,
+            "discovery_path": validated_discovery_path,
             "enabled": enabled,
             "timeout_seconds": timeout_seconds,
             "max_retries": max_retries,
             "rate_limit_requests_per_minute": rate_limit_requests_per_minute,
             "health_status": ConnectorHealthStatus.UNKNOWN,
             "last_health_checked_at": None,
+            "last_successful_test_at": (
+                connector.last_successful_test_at if connector is not None else None
+            ),
+            "last_audit_reference": (
+                connector.last_audit_reference if connector is not None else None
+            ),
         }
         if connector is None:
             return Connector(**fields)
@@ -422,6 +515,46 @@ class ConnectorService:
         except BaseException:
             await self.session.rollback()
             raise
+
+    async def disconnect_for_owner(
+        self, owner_id: UUID, connector_id: UUID
+    ) -> ConnectorView:
+        try:
+            connector = await self.repository.get_for_owner(owner_id, connector_id)
+            if connector is None:
+                raise ConnectorNotFoundError("connector not found")
+            if connector.revoked_at is not None:
+                raise ConnectorConflictError("revoked connectors cannot be disconnected")
+            connector.enabled = False
+            connector.health_status = ConnectorHealthStatus.UNKNOWN
+            connector.last_health_checked_at = None
+            connector.updated_at = datetime.now(timezone.utc)
+            await self.session.flush()
+            value = self._view(connector)
+            await self.session.commit()
+            return value
+        except BaseException:
+            await self.session.rollback()
+            raise
+
+    async def reconnect_for_owner(
+        self, owner_id: UUID, connector_id: UUID
+    ) -> ConnectorExecutionResult:
+        try:
+            connector = await self.repository.get_for_owner(owner_id, connector_id)
+            if connector is None:
+                raise ConnectorNotFoundError("connector not found")
+            if connector.revoked_at is not None:
+                raise ConnectorConflictError("revoked connectors cannot be reconnected")
+            connector.enabled = True
+            connector.health_status = ConnectorHealthStatus.UNKNOWN
+            connector.last_health_checked_at = None
+            connector.updated_at = datetime.now(timezone.utc)
+            await self.session.commit()
+        except BaseException:
+            await self.session.rollback()
+            raise
+        return await self.health_for_owner(owner_id, connector_id)
 
     async def list_executions_for_owner(
         self,
@@ -473,6 +606,18 @@ class ConnectorService:
                 json_body=json_body,
                 idempotency_key=idempotency_key,
             )
+            if action is ConnectorAction.DISCOVER:
+                try:
+                    connector.capabilities_json = _json_list(
+                        self._capabilities_from_discovery(result.payload)
+                    )
+                except ValueError as exc:
+                    raise ConnectorRuntimeError(
+                        ConnectorExecutionStatus.FAILED,
+                        "connector_response_invalid",
+                        attempts=result.attempts,
+                        response_status_code=result.response_status_code,
+                    ) from exc
             execution = self._audit(
                 connector,
                 action=action,
@@ -490,8 +635,12 @@ class ConnectorService:
             )
             self.session.add(execution)
             if action is ConnectorAction.HEALTH:
+                now = datetime.now(timezone.utc)
                 connector.health_status = ConnectorHealthStatus.HEALTHY
-                connector.last_health_checked_at = datetime.now(timezone.utc)
+                connector.last_health_checked_at = now
+                connector.last_successful_test_at = now
+            await self.session.flush()
+            connector.last_audit_reference = execution.id
             await self.session.flush()
             view = self._execution_view(execution)
             await self.session.commit()
@@ -513,6 +662,8 @@ class ConnectorService:
                 started=started,
             )
             self.session.add(execution)
+            await self.session.flush()
+            connector.last_audit_reference = execution.id
             await self.session.flush()
             await self.session.commit()
             raise ConnectorExecutionError(self._execution_view(execution)) from None
@@ -536,6 +687,8 @@ class ConnectorService:
             if action is ConnectorAction.HEALTH:
                 connector.health_status = ConnectorHealthStatus.UNAVAILABLE
                 connector.last_health_checked_at = datetime.now(timezone.utc)
+            await self.session.flush()
+            connector.last_audit_reference = execution.id
             await self.session.flush()
             await self.session.commit()
             raise ConnectorExecutionError(self._execution_view(execution)) from None
@@ -561,6 +714,35 @@ class ConnectorService:
             idempotency_key=None,
             action=ConnectorAction.HEALTH,
         )
+
+    async def discover_for_owner(
+        self, owner_id: UUID, connector_id: UUID
+    ) -> ConnectorExecutionResult:
+        connector = await self.repository.get_for_owner(owner_id, connector_id)
+        if connector is None:
+            await self.session.rollback()
+            raise ConnectorNotFoundError("connector not found")
+        discovery_path = connector.discovery_path
+        await self.session.rollback()
+        if discovery_path is None:
+            raise ConnectorConflictError("connector discovery is not configured")
+        return await self.execute_for_owner(
+            owner_id,
+            connector_id,
+            method="GET",
+            path=discovery_path,
+            json_body=None,
+            idempotency_key=None,
+            action=ConnectorAction.DISCOVER,
+        )
+
+    @staticmethod
+    def _capabilities_from_discovery(payload: Any) -> tuple[str, ...]:
+        if not isinstance(payload, dict) or not isinstance(
+            payload.get("capabilities"), list
+        ):
+            raise ValueError("connector discovery response is invalid")
+        return _validate_capabilities(tuple(payload["capabilities"]))
 
     @staticmethod
     def _authorize(

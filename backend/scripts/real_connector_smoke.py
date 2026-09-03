@@ -43,6 +43,11 @@ class _ConnectedAppHandler(BaseHTTPRequestHandler):
             self._reply(401, {"error": "unauthorized"})
         elif self.path == "/api/health":
             self._reply(200, {"status": "healthy"})
+        elif self.path == "/api/capabilities":
+            self._reply(
+                200,
+                {"capabilities": ["records.read", "records.synchronize"]},
+            )
         else:
             self._reply(404, {"error": "not_found"})
 
@@ -124,13 +129,17 @@ def main() -> None:
                 headers=owner,
                 json={
                     "name": "Real local connected app",
+                    "provider": "Local verification provider",
+                    "service": "Owner records",
                     "kind": "local_api",
                     "base_url": origin,
                     "auth_kind": "bearer",
                     "credential": _CREDENTIAL,
                     "scopes": ["read", "write"],
+                    "capabilities": ["records.read"],
                     "path_prefixes": ["/api/"],
                     "health_path": "/api/health",
+                    "discovery_path": "/api/capabilities",
                     "enabled": True,
                     "timeout_seconds": 2,
                     "max_retries": 1,
@@ -156,6 +165,52 @@ def main() -> None:
                 or health.json()["payload"] != {"status": "healthy"}
             ):
                 raise RuntimeError("real connector health check failed")
+
+            discovery = client.post(
+                f"/api/v1/connectors/{connector_id}/discover", headers=owner
+            )
+            if (
+                discovery.status_code != 200
+                or discovery.json()["payload"]
+                != {"capabilities": ["records.read", "records.synchronize"]}
+            ):
+                raise RuntimeError("real connector capability discovery failed")
+            discovered_connector = client.get(
+                f"/api/v1/connectors/{connector_id}", headers=owner
+            ).json()
+            if (
+                discovered_connector["capabilities"]
+                != ["records.read", "records.synchronize"]
+                or discovered_connector["last_successful_test_at"] is None
+                or discovered_connector["audit_reference"]
+                != discovery.json()["execution"]["id"]
+            ):
+                raise RuntimeError("connector registry evidence was not persisted")
+
+            disconnected = client.post(
+                f"/api/v1/connectors/{connector_id}/disconnect", headers=owner
+            )
+            if (
+                disconnected.status_code != 200
+                or disconnected.json()["connection_status"] != "disabled"
+                or not disconnected.json()["credential_configured"]
+            ):
+                raise RuntimeError("connector disconnect was not reversible")
+            disconnected_action = client.post(
+                f"/api/v1/connectors/{connector_id}/executions",
+                headers=owner,
+                json={"method": "GET", "path": "/api/health"},
+            )
+            if disconnected_action.status_code != 409:
+                raise RuntimeError("disconnected connector remained executable")
+            reconnect = client.post(
+                f"/api/v1/connectors/{connector_id}/reconnect", headers=owner
+            )
+            if (
+                reconnect.status_code != 200
+                or reconnect.json()["payload"] != {"status": "healthy"}
+            ):
+                raise RuntimeError("connector reconnect was not health verified")
 
             action = client.post(
                 f"/api/v1/connectors/{connector_id}/executions",
@@ -191,6 +246,9 @@ def main() -> None:
             )
             audits.raise_for_status()
             if [item["status"] for item in audits.json()["items"]] != [
+                "failed",
+                "completed",
+                "completed",
                 "failed",
                 "completed",
                 "completed",
@@ -231,6 +289,7 @@ def main() -> None:
     print("REAL_CONNECTOR_LOCAL_API=passed")
     print("CONNECTOR_ENCRYPTED_AUTH=passed")
     print("CONNECTOR_SCOPE_OWNER_AUDIT_RETRY=passed")
+    print("CONNECTOR_DISCOVER_DISCONNECT_RECONNECT=passed")
     print("CONNECTOR_REVOCATION=passed")
 
 

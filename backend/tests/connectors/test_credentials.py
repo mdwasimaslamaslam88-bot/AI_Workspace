@@ -1,8 +1,15 @@
 import os
+from datetime import datetime, timezone
 
 import pytest
 
-from app.connectors.credentials import ConnectorCredentialBox, ConnectorCredentialError
+from app.connectors.credentials import (
+    ConnectorCredentialBox,
+    ConnectorCredentialError,
+    OAuth2Credential,
+    decode_oauth2_credential,
+    encode_oauth2_credential,
+)
 
 
 def test_connector_credentials_are_authenticated_encrypted_and_owner_only(tmp_path):
@@ -32,3 +39,27 @@ def test_connector_credential_root_rejects_links_and_open_permissions(tmp_path):
     link.symlink_to(open_root, target_is_directory=True)
     with pytest.raises(ConnectorCredentialError, match="link"):
         ConnectorCredentialBox(link)
+
+
+def test_oauth_refresh_envelope_is_strict_and_remains_inside_encryption(tmp_path):
+    expiry = datetime(2026, 9, 3, 12, 0, tzinfo=timezone.utc)
+    oauth2 = OAuth2Credential(
+        access_token="access-token-000000000000",
+        refresh_token="refresh-token-0000000000",
+        client_id="owner-client",
+        client_secret="client-secret-0000000000",
+        token_path="/oauth/token",
+        expires_at=expiry,
+    )
+    envelope = encode_oauth2_credential(oauth2)
+    assert decode_oauth2_credential(envelope) == oauth2
+
+    box = ConnectorCredentialBox(tmp_path / "oauth-state")
+    ciphertext = box.encrypt(envelope)
+    assert oauth2.access_token not in ciphertext
+    assert oauth2.refresh_token not in ciphertext
+    assert oauth2.client_secret not in ciphertext
+    assert decode_oauth2_credential(box.decrypt(ciphertext)) == oauth2
+
+    with pytest.raises(ConnectorCredentialError, match="envelope"):
+        decode_oauth2_credential('{"version":1}')

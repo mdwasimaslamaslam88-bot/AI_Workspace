@@ -15,6 +15,7 @@ from app.connectors.service import (
 )
 from app.models.connector import (
     Connector,
+    ConnectorAction,
     ConnectorAuthKind,
     ConnectorExecution,
     ConnectorExecutionStatus,
@@ -40,6 +41,11 @@ async def test_connector_end_to_end_is_owner_scoped_encrypted_audited_and_revoca
         observed_authorization.append(request.headers.get("authorization"))
         if request.url.path == "/v1/actions" and calls == 1:
             return httpx.Response(503, json={"retry": True})
+        if request.url.path == "/v1/capabilities":
+            return httpx.Response(
+                200,
+                json={"capabilities": ["campaign.publish", "read", "write"]},
+            )
         return httpx.Response(
             200,
             json={"path": request.url.path, "method": request.method},
@@ -62,13 +68,17 @@ async def test_connector_end_to_end_is_owner_scoped_encrypted_audited_and_revoca
             connector = await ConnectorService(session, runtime).create_for_owner(
                 owner_id,
                 name="Connected test app",
+                provider="Loopback test",
+                service="Campaign API",
                 kind=ConnectorKind.REST,
                 base_url="https://connected.example.test",
                 auth_kind=ConnectorAuthKind.BEARER,
                 credential="private-connector-token-123456",
                 scopes=("read", "write"),
+                capabilities=("read",),
                 path_prefixes=("/v1/",),
                 health_path="/v1/health",
+                discovery_path="/v1/capabilities",
                 enabled=True,
                 timeout_seconds=2,
                 max_retries=1,
@@ -85,6 +95,21 @@ async def test_connector_end_to_end_is_owner_scoped_encrypted_audited_and_revoca
             assert health.execution.status is ConnectorExecutionStatus.COMPLETED
             assert health.payload == {"path": "/v1/health", "method": "GET"}
 
+            discovered = await ConnectorService(session, runtime).discover_for_owner(
+                owner_id, connector.id
+            )
+            assert discovered.execution.action is ConnectorAction.DISCOVER
+            refreshed_connector = await ConnectorService(session, runtime).get_for_owner(
+                owner_id, connector.id
+            )
+            assert refreshed_connector.capabilities == (
+                "campaign.publish",
+                "read",
+                "write",
+            )
+            assert refreshed_connector.last_successful_test_at is not None
+            assert refreshed_connector.audit_reference == discovered.execution.id
+
             calls = 0
             result = await ConnectorService(session, runtime).execute_for_owner(
                 owner_id,
@@ -98,6 +123,7 @@ async def test_connector_end_to_end_is_owner_scoped_encrypted_audited_and_revoca
             assert result.execution.attempts == 2
             assert result.execution.request_body_sha256 is not None
             assert observed_authorization == [
+                "Bearer private-connector-token-123456",
                 "Bearer private-connector-token-123456",
                 "Bearer private-connector-token-123456",
                 "Bearer private-connector-token-123456",
@@ -137,10 +163,20 @@ async def test_connector_end_to_end_is_owner_scoped_encrypted_audited_and_revoca
                 ConnectorExecutionStatus.FAILED,
                 ConnectorExecutionStatus.COMPLETED,
                 ConnectorExecutionStatus.COMPLETED,
+                ConnectorExecutionStatus.COMPLETED,
             ]
             assert await ConnectorService(session, runtime).list_executions_for_owner(
                 foreign_id
             ) == ()
+
+            disconnected = await ConnectorService(session, runtime).disconnect_for_owner(
+                owner_id, connector.id
+            )
+            assert disconnected.connection_status.value == "disabled"
+            reconnected = await ConnectorService(session, runtime).reconnect_for_owner(
+                owner_id, connector.id
+            )
+            assert reconnected.execution.action is ConnectorAction.HEALTH
 
             revoked = await ConnectorService(session, runtime).revoke_for_owner(
                 owner_id, connector.id

@@ -617,8 +617,13 @@ export interface ExternalProviderUpsertRequest {
   models?: ExternalModelPolicyRequest[];
 }
 
-export type ConnectorKind = "rest" | "webhook" | "local_api";
-export type ConnectorAuthKind = "none" | "bearer" | "api_key" | "oauth2_bearer";
+export type ConnectorKind = "rest" | "graphql" | "webhook" | "local_api";
+export type ConnectorAuthKind =
+  | "none"
+  | "bearer"
+  | "api_key"
+  | "oauth2_bearer"
+  | "oidc_bearer";
 export type ConnectorConnectionStatus =
   | "revoked"
   | "disabled"
@@ -638,22 +643,44 @@ export interface ConnectorSettings {
   supported_auth_kinds: ConnectorAuthKind[];
 }
 
+export type ConnectorPlatformSupportStatus = "native" | "adapter_required";
+
+export interface ConnectorPlatformCapability {
+  id: string;
+  label: string;
+  status: ConnectorPlatformSupportStatus;
+  execution_mode: string;
+  requirement: string | null;
+}
+
+export interface ConnectorPlatform {
+  lifecycle: string[];
+  capabilities: ConnectorPlatformCapability[];
+}
+
 export interface Connector {
   id: UUID;
   name: string;
+  provider: string;
+  service: string;
   kind: ConnectorKind;
   base_url: string;
   auth_kind: ConnectorAuthKind;
   credential_configured: boolean;
   scopes: Array<"read" | "write">;
+  permissions: Array<"read" | "write">;
+  capabilities: string[];
   path_prefixes: string[];
   health_path: string;
+  discovery_path: string | null;
   enabled: boolean;
   connection_status: ConnectorConnectionStatus;
   timeout_seconds: number;
   max_retries: number;
   rate_limit_requests_per_minute: number;
   last_health_checked_at: Timestamp | null;
+  last_successful_test_at: Timestamp | null;
+  audit_reference: UUID | null;
   created_at: Timestamp;
   updated_at: Timestamp;
   revoked_at: Timestamp | null;
@@ -663,13 +690,25 @@ export interface ConnectorPage { items: Connector[]; }
 
 export interface ConnectorWriteRequest {
   name: string;
+  provider?: string;
+  service?: string;
   kind: ConnectorKind;
   base_url: string;
   auth_kind: ConnectorAuthKind;
   credential?: string;
+  oauth2_credential?: {
+    access_token: string;
+    refresh_token?: string;
+    client_id?: string;
+    client_secret?: string;
+    token_path?: string;
+    expires_at?: Timestamp;
+  };
   scopes: Array<"read" | "write">;
+  capabilities?: string[];
   path_prefixes: string[];
   health_path: string;
+  discovery_path?: string;
   enabled: boolean;
   timeout_seconds?: number;
   max_retries?: number;
@@ -686,7 +725,7 @@ export interface ConnectorExecutionRequest {
 export interface ConnectorExecution {
   id: UUID;
   connector_id: UUID;
-  action: "execute" | "health";
+  action: "discover" | "execute" | "health";
   method: string;
   path: string;
   status: ConnectorExecutionStatus;
@@ -1583,10 +1622,11 @@ const agentRuntimeStatuses = [
   "timed_out",
 ] as const;
 const agentInputSources = ["text", "voice"] as const;
-const connectorKinds = ["rest", "webhook", "local_api"] as const;
-const connectorAuthKinds = ["none", "bearer", "api_key", "oauth2_bearer"] as const;
+const connectorKinds = ["rest", "graphql", "webhook", "local_api"] as const;
+const connectorAuthKinds = ["none", "bearer", "api_key", "oauth2_bearer", "oidc_bearer"] as const;
 const connectorConnectionStatuses = ["revoked", "disabled", "ready", "healthy", "unavailable"] as const;
 const connectorExecutionStatuses = ["completed", "failed", "timed_out", "rate_limited"] as const;
+const connectorPlatformSupportStatuses = ["native", "adapter_required"] as const;
 const marketingCampaignStatuses = ["pending", "running", "needs_approval", "publishing", "awaiting_analytics", "completed", "failed", "cancelled", "timed_out"] as const;
 const marketingStageKinds = ["research", "strategy", "content", "creative", "approval", "publish", "analytics", "optimization"] as const;
 const marketingStageStatuses = ["pending", "running", "blocked", "completed", "failed", "cancelled"] as const;
@@ -2159,19 +2199,51 @@ export function parseConnectorSettings(value: unknown): ConnectorSettings {
   };
 }
 
+export function parseConnectorPlatform(value: unknown): ConnectorPlatform {
+  const item = record(value);
+  if (
+    !Array.isArray(item.lifecycle) || item.lifecycle.length !== 10 ||
+    !Array.isArray(item.capabilities) || item.capabilities.length !== 13
+  ) return invalidResponse();
+  const lifecycle = item.lifecycle.map(stringField);
+  const capabilities = item.capabilities.map((raw) => {
+    const capability = record(raw);
+    return {
+      id: stringField(capability.id),
+      label: stringField(capability.label),
+      status: enumField(capability.status, connectorPlatformSupportStatuses),
+      execution_mode: stringField(capability.execution_mode),
+      requirement: nullableString(capability.requirement),
+    };
+  });
+  if (
+    new Set(lifecycle).size !== lifecycle.length ||
+    new Set(capabilities.map((capability) => capability.id)).size !== capabilities.length
+  ) return invalidResponse();
+  return { lifecycle, capabilities };
+}
+
 export function parseConnector(value: unknown): Connector {
   const item = record(value);
   if (
     !Array.isArray(item.scopes) || item.scopes.length < 1 || item.scopes.length > 2 ||
+    !Array.isArray(item.permissions) || item.permissions.length < 1 || item.permissions.length > 2 ||
+    !Array.isArray(item.capabilities) || item.capabilities.length < 1 || item.capabilities.length > 32 ||
     !Array.isArray(item.path_prefixes) || item.path_prefixes.length < 1 || item.path_prefixes.length > 16
   ) return invalidResponse();
   const scopes = item.scopes.map((scope) => enumField(scope, ["read", "write"] as const));
+  const permissions = item.permissions.map((scope) => enumField(scope, ["read", "write"] as const));
+  const capabilities = item.capabilities.map(stringField);
   const pathPrefixes = item.path_prefixes.map(stringField);
   const timeout = integerOrNull(item.timeout_seconds);
   const retries = integerOrNull(item.max_retries);
   const rateLimit = integerOrNull(item.rate_limit_requests_per_minute);
   if (
     new Set(scopes).size !== scopes.length ||
+    new Set(permissions).size !== permissions.length ||
+    scopes.join("|") !== permissions.join("|") ||
+    new Set(capabilities).size !== capabilities.length ||
+    capabilities.some((capability) => !/^[a-z][a-z0-9_.:-]{0,63}$/.test(capability)) ||
     new Set(pathPrefixes).size !== pathPrefixes.length ||
     timeout === null || timeout < 1 || timeout > 10 ||
     retries === null || retries < 0 || retries > 2 ||
@@ -2180,19 +2252,26 @@ export function parseConnector(value: unknown): Connector {
   return {
     id: stringField(item.id),
     name: stringField(item.name),
+    provider: stringField(item.provider),
+    service: stringField(item.service),
     kind: enumField(item.kind, connectorKinds),
     base_url: stringField(item.base_url),
     auth_kind: enumField(item.auth_kind, connectorAuthKinds),
     credential_configured: booleanField(item.credential_configured),
     scopes,
+    permissions,
+    capabilities,
     path_prefixes: pathPrefixes,
     health_path: stringField(item.health_path),
+    discovery_path: nullableString(item.discovery_path),
     enabled: booleanField(item.enabled),
     connection_status: enumField(item.connection_status, connectorConnectionStatuses),
     timeout_seconds: timeout,
     max_retries: retries,
     rate_limit_requests_per_minute: rateLimit,
     last_health_checked_at: nullableString(item.last_health_checked_at),
+    last_successful_test_at: nullableString(item.last_successful_test_at),
+    audit_reference: nullableString(item.audit_reference),
     created_at: stringField(item.created_at),
     updated_at: stringField(item.updated_at),
     revoked_at: nullableString(item.revoked_at),
@@ -2231,7 +2310,7 @@ export function parseConnectorExecution(value: unknown): ConnectorExecution {
   return {
     id: stringField(item.id),
     connector_id: stringField(item.connector_id),
-    action: enumField(item.action, ["execute", "health"] as const),
+    action: enumField(item.action, ["discover", "execute", "health"] as const),
     method: enumField(item.method, ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE"] as const),
     path: stringField(item.path),
     status,

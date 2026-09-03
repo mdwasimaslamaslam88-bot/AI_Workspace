@@ -16,6 +16,7 @@ import type {
   ConnectorExecution,
   ConnectorExecutionRequest,
   ConnectorExecutionResult,
+  ConnectorPlatform,
   ConnectorSettings,
   ConnectorWriteRequest,
   CreativeCapabilities,
@@ -963,6 +964,16 @@ export function App() {
     [client],
   );
 
+  const loadConnectorPlatform = useCallback(
+    (signal?: AbortSignal): Promise<ConnectorPlatform> => {
+      if (client === null) {
+        return Promise.reject(new ApiError("authentication", "Authentication failed."));
+      }
+      return client.getConnectorPlatform(signal);
+    },
+    [client],
+  );
+
   const loadConnectors = useCallback(
     async (signal?: AbortSignal): Promise<Connector[]> => {
       if (client === null) {
@@ -999,6 +1010,36 @@ export function App() {
         return Promise.reject(new ApiError("authentication", "Authentication failed."));
       }
       return client.checkConnectorHealth(connectorId);
+    },
+    [client],
+  );
+
+  const discoverConnector = useCallback(
+    (connectorId: string): Promise<ConnectorExecutionResult> => {
+      if (client === null) {
+        return Promise.reject(new ApiError("authentication", "Authentication failed."));
+      }
+      return client.discoverConnector(connectorId);
+    },
+    [client],
+  );
+
+  const disconnectConnector = useCallback(
+    (connectorId: string): Promise<Connector> => {
+      if (client === null) {
+        return Promise.reject(new ApiError("authentication", "Authentication failed."));
+      }
+      return client.disconnectConnector(connectorId);
+    },
+    [client],
+  );
+
+  const reconnectConnector = useCallback(
+    (connectorId: string): Promise<ConnectorExecutionResult> => {
+      if (client === null) {
+        return Promise.reject(new ApiError("authentication", "Authentication failed."));
+      }
+      return client.reconnectConnector(connectorId);
     },
     [client],
   );
@@ -2213,10 +2254,14 @@ export function App() {
             <ConnectorPanel
               onClose={() => setConnectorsOpen(false)}
               onLoadSettings={loadConnectorSettings}
+              onLoadPlatform={loadConnectorPlatform}
               onLoad={loadConnectors}
               onLoadAudit={loadConnectorAudit}
               onCreate={createConnector}
               onHealth={checkConnectorHealth}
+              onDiscover={discoverConnector}
+              onDisconnect={disconnectConnector}
+              onReconnect={reconnectConnector}
               onExecute={executeConnector}
               onRevoke={revokeConnector}
             />

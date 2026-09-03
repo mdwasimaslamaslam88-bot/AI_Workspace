@@ -370,19 +370,26 @@ describe("mobile API client", () => {
     const connector = {
       id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
       name: "Private API",
+      provider: "Example",
+      service: "Private API",
       kind: "rest",
       base_url: "https://api.example.test",
       auth_kind: "none",
       credential_configured: false,
       scopes: ["read", "write"],
+      permissions: ["read", "write"],
+      capabilities: ["read", "write"],
       path_prefixes: ["/v1/"],
       health_path: "/v1/health",
+      discovery_path: "/v1/capabilities",
       enabled: true,
       connection_status: "ready",
       timeout_seconds: 5,
       max_retries: 1,
       rate_limit_requests_per_minute: 30,
       last_health_checked_at: null,
+      last_successful_test_at: null,
+      audit_reference: null,
       created_at: timestamp,
       updated_at: timestamp,
       revoked_at: null,
@@ -415,8 +422,8 @@ describe("mobile API client", () => {
       if (url.pathname.endsWith("/settings")) return new Response(JSON.stringify({
         configured: true,
         allowed_origins: [connector.base_url],
-        supported_kinds: ["rest", "webhook", "local_api"],
-        supported_auth_kinds: ["none", "bearer", "api_key", "oauth2_bearer"],
+        supported_kinds: ["rest", "graphql", "webhook", "local_api"],
+        supported_auth_kinds: ["none", "bearer", "api_key", "oauth2_bearer", "oidc_bearer"],
       }));
       if (url.pathname.endsWith("/executions") && (init?.method ?? "GET") === "GET") {
         return new Response(JSON.stringify({ items: [execution] }));

@@ -28,6 +28,7 @@ from app.db.base import Base
 
 class ConnectorKind(StrEnum):
     REST = "rest"
+    GRAPHQL = "graphql"
     WEBHOOK = "webhook"
     LOCAL_API = "local_api"
 
@@ -37,6 +38,7 @@ class ConnectorAuthKind(StrEnum):
     BEARER = "bearer"
     API_KEY = "api_key"
     OAUTH2_BEARER = "oauth2_bearer"
+    OIDC_BEARER = "oidc_bearer"
 
 
 class ConnectorHealthStatus(StrEnum):
@@ -46,6 +48,7 @@ class ConnectorHealthStatus(StrEnum):
 
 
 class ConnectorAction(StrEnum):
+    DISCOVER = "discover"
     EXECUTE = "execute"
     HEALTH = "health"
 
@@ -73,16 +76,29 @@ class Connector(Base):
     __tablename__ = "connectors"
     __table_args__ = (
         CheckConstraint(
-            "kind IN ('rest', 'webhook', 'local_api')",
+            "kind IN ('rest', 'graphql', 'webhook', 'local_api')",
             name="kind_allowed",
         ),
         CheckConstraint(
-            "auth_kind IN ('none', 'bearer', 'api_key', 'oauth2_bearer')",
+            "auth_kind IN ('none', 'bearer', 'api_key', 'oauth2_bearer', "
+            "'oidc_bearer')",
             name="auth_kind_allowed",
         ),
         CheckConstraint(
             "char_length(trim(name)) BETWEEN 1 AND 120",
             name="name_bounded_nonblank",
+        ),
+        CheckConstraint(
+            "char_length(trim(provider)) BETWEEN 1 AND 120",
+            name="provider_bounded_nonblank",
+        ),
+        CheckConstraint(
+            "char_length(trim(service)) BETWEEN 1 AND 120",
+            name="service_bounded_nonblank",
+        ),
+        CheckConstraint(
+            "char_length(capabilities_json) BETWEEN 4 AND 4096",
+            name="capabilities_json_bounded",
         ),
         CheckConstraint(
             "char_length(base_url) BETWEEN 8 AND 2048",
@@ -101,6 +117,10 @@ class Connector(Base):
             name="health_path_bounded",
         ),
         CheckConstraint(
+            "discovery_path IS NULL OR char_length(discovery_path) BETWEEN 1 AND 512",
+            name="discovery_path_bounded",
+        ),
+        CheckConstraint(
             "timeout_seconds BETWEEN 1 AND 10",
             name="timeout_seconds_bounded",
         ),
@@ -115,7 +135,7 @@ class Connector(Base):
         CheckConstraint(
             "(auth_kind = 'none' AND credential_ciphertext IS NULL) OR "
             "(auth_kind != 'none' AND revoked_at IS NULL AND "
-            "char_length(credential_ciphertext) BETWEEN 1 AND 2048) OR "
+            "char_length(credential_ciphertext) BETWEEN 1 AND 8192) OR "
             "(auth_kind != 'none' AND revoked_at IS NOT NULL AND "
             "credential_ciphertext IS NULL)",
             name="credential_state_consistent",
@@ -173,12 +193,22 @@ class Connector(Base):
         DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
     )
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    provider: Mapped[str] = mapped_column(String(120), nullable=False, default="custom")
+    service: Mapped[str] = mapped_column(String(120), nullable=False, default="api")
+    capabilities_json: Mapped[str] = mapped_column(
+        Text, nullable=False, default='["read"]'
+    )
+    discovery_path: Mapped[str | None] = mapped_column(String(512))
+    last_successful_test_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_audit_reference: Mapped[UUID | None] = mapped_column(Uuid(as_uuid=True))
 
 
 class ConnectorExecution(Base):
     __tablename__ = "connector_executions"
     __table_args__ = (
-        CheckConstraint("action IN ('execute', 'health')", name="action_allowed"),
+        CheckConstraint(
+            "action IN ('discover', 'execute', 'health')", name="action_allowed"
+        ),
         CheckConstraint(
             "method IN ('GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE')",
             name="method_allowed",
@@ -210,7 +240,7 @@ class ConnectorExecution(Base):
             "'connector_permission_denied', "
             "'connector_rate_limited', 'connector_timed_out', "
             "'connector_unavailable', 'connector_http_error', "
-            "'connector_response_invalid')",
+            "'connector_response_invalid', 'connector_circuit_open')",
             name="error_code_allowed",
         ),
         CheckConstraint("duration_ms >= 0", name="duration_nonnegative"),

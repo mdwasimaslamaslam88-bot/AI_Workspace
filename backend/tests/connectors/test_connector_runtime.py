@@ -1,12 +1,17 @@
 """Network policy and execution tests for the connector runtime."""
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 
 import httpx
 import pytest
 
-from app.connectors.credentials import ConnectorCredentialBox
+from app.connectors.credentials import (
+    ConnectorCredentialBox,
+    OAuth2Credential,
+    decode_oauth2_credential,
+    encode_oauth2_credential,
+)
 from app.connectors.runtime import (
     ConnectorRuntime,
     ConnectorRuntimeError,
@@ -268,3 +273,131 @@ def test_connector_policy_rejects_noncanonical_path_scope_bypasses(tmp_path):
                 path,
                 action=ConnectorAction.EXECUTE,
             )
+
+
+@pytest.mark.asyncio
+async def test_oauth_access_token_refresh_is_bounded_encrypted_and_used_once(tmp_path):
+    seen: list[tuple[str, str | None, bytes]] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        raw = await request.aread()
+        seen.append((request.url.path, request.headers.get("authorization"), raw))
+        if request.url.path == "/v1/oauth/token":
+            return httpx.Response(
+                200,
+                json={
+                    "access_token": "fresh-access-token-000000",
+                    "expires_in": 3600,
+                },
+            )
+        return httpx.Response(200, json={"authenticated": True})
+
+    box = ConnectorCredentialBox(tmp_path / "oauth-runtime")
+    connector = _connector(box, max_retries=0)
+    connector.auth_kind = ConnectorAuthKind.OAUTH2_BEARER
+    connector.credential_ciphertext = box.encrypt(
+        encode_oauth2_credential(
+            OAuth2Credential(
+                access_token="expired-access-token-0000",
+                refresh_token="refresh-token-0000000000",
+                client_id="owner-client",
+                client_secret="client-secret-0000000000",
+                token_path="/v1/oauth/token",
+                expires_at=datetime.now(timezone.utc) - timedelta(minutes=1),
+            )
+        )
+    )
+    runtime = ConnectorRuntime(
+        box,
+        ("https://api.example.test",),
+        httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+    )
+    try:
+        result = await runtime.execute(
+            connector,
+            action=ConnectorAction.EXECUTE,
+            method="GET",
+            path="/v1/status",
+            json_body=None,
+            idempotency_key=None,
+        )
+    finally:
+        await runtime.close()
+
+    assert result.payload == {"authenticated": True}
+    assert [item[0] for item in seen] == ["/v1/oauth/token", "/v1/status"]
+    assert seen[0][1] is None
+    assert seen[1][1] == "Bearer fresh-access-token-000000"
+    assert b"refresh-token-0000000000" in seen[0][2]
+    persisted = decode_oauth2_credential(box.decrypt(connector.credential_ciphertext))
+    assert persisted is not None
+    assert persisted.access_token == "fresh-access-token-000000"
+    assert persisted.refresh_token == "refresh-token-0000000000"
+    assert persisted.expires_at is not None
+
+
+@pytest.mark.asyncio
+async def test_circuit_breaker_stops_repeated_failures_and_health_probe_recovers(tmp_path):
+    calls = 0
+
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        if calls <= 3:
+            return httpx.Response(503, json={"available": False})
+        return httpx.Response(200, json={"available": True})
+
+    box = ConnectorCredentialBox(tmp_path / "circuit-runtime")
+    connector = _connector(box, max_retries=0)
+    runtime = ConnectorRuntime(
+        box,
+        ("https://api.example.test",),
+        httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+    )
+    try:
+        for _index in range(3):
+            with pytest.raises(ConnectorRuntimeError) as unavailable:
+                await runtime.execute(
+                    connector,
+                    action=ConnectorAction.EXECUTE,
+                    method="GET",
+                    path="/v1/status",
+                    json_body=None,
+                    idempotency_key=None,
+                )
+            assert unavailable.value.code == "connector_http_error"
+        with pytest.raises(ConnectorRuntimeError) as open_circuit:
+            await runtime.execute(
+                connector,
+                action=ConnectorAction.EXECUTE,
+                method="GET",
+                path="/v1/status",
+                json_body=None,
+                idempotency_key=None,
+            )
+        assert open_circuit.value.code == "connector_circuit_open"
+        assert open_circuit.value.attempts == 0
+        assert calls == 3
+
+        recovered = await runtime.execute(
+            connector,
+            action=ConnectorAction.HEALTH,
+            method="GET",
+            path="/v1/health",
+            json_body=None,
+            idempotency_key=None,
+        )
+        after_recovery = await runtime.execute(
+            connector,
+            action=ConnectorAction.EXECUTE,
+            method="GET",
+            path="/v1/status",
+            json_body=None,
+            idempotency_key=None,
+        )
+    finally:
+        await runtime.close()
+
+    assert recovered.payload == {"available": True}
+    assert after_recovery.payload == {"available": True}
+    assert calls == 5

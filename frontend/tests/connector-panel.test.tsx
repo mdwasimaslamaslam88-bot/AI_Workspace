@@ -6,6 +6,7 @@ import type {
   Connector,
   ConnectorExecution,
   ConnectorExecutionRequest,
+  ConnectorPlatform,
   ConnectorSettings,
   ConnectorWriteRequest,
 } from "../src/api/contracts";
@@ -17,19 +18,26 @@ const timestamp = "2026-09-02T00:00:00Z";
 const connector: Connector = {
   id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
   name: "Private API",
+  provider: "Example",
+  service: "Private API",
   kind: "rest",
   base_url: "https://api.example.test",
   auth_kind: "bearer",
   credential_configured: true,
   scopes: ["read", "write"],
+  permissions: ["read", "write"],
+  capabilities: ["read", "write"],
   path_prefixes: ["/v1/"],
   health_path: "/v1/health",
+  discovery_path: "/v1/capabilities",
   enabled: true,
   connection_status: "ready",
   timeout_seconds: 5,
   max_retries: 1,
   rate_limit_requests_per_minute: 30,
   last_health_checked_at: null,
+  last_successful_test_at: null,
+  audit_reference: null,
   created_at: timestamp,
   updated_at: timestamp,
   revoked_at: null,
@@ -58,8 +66,16 @@ function props() {
     onLoadSettings: vi.fn(async (): Promise<ConnectorSettings> => ({
       configured: true,
       allowed_origins: [connector.base_url],
-      supported_kinds: ["rest", "webhook", "local_api"],
-      supported_auth_kinds: ["none", "bearer", "api_key", "oauth2_bearer"],
+      supported_kinds: ["rest", "graphql", "webhook", "local_api"],
+      supported_auth_kinds: ["none", "bearer", "api_key", "oauth2_bearer", "oidc_bearer"],
+    })),
+    onLoadPlatform: vi.fn(async (): Promise<ConnectorPlatform> => ({
+      lifecycle: ["discover", "authenticate", "authorize", "health_check", "capability_discovery", "execute", "verify", "audit", "revoke", "reconnect"],
+      capabilities: [
+        "rest", "graphql", "webhooks", "oauth2_oidc", "api_keys", "local_apis",
+        "websocket", "sse", "sdks", "databases", "browser_automation",
+        "desktop_automation", "file_connectors",
+      ].map((id) => ({ id, label: id, status: "native" as const, execution_mode: "test", requirement: null })),
     })),
     onLoad: vi.fn(async () => [connector]),
     onLoadAudit: vi.fn(async () => [] as ConnectorExecution[]),
@@ -68,6 +84,9 @@ function props() {
       return connector;
     }),
     onHealth: vi.fn(async () => ({ execution, payload: { healthy: true } })),
+    onDiscover: vi.fn(async () => ({ execution: { ...execution, action: "discover" as const }, payload: { capabilities: ["read"] } })),
+    onDisconnect: vi.fn(async () => ({ ...connector, enabled: false, connection_status: "disabled" as const })),
+    onReconnect: vi.fn(async () => ({ execution: { ...execution, action: "health" as const }, payload: { healthy: true } })),
     onExecute: vi.fn(async (id: string, request: ConnectorExecutionRequest) => {
       void id;
       void request;
@@ -129,5 +148,17 @@ describe("ConnectorPanel", () => {
       },
     ));
     expect(await screen.findByText(/"accepted": true/)).toBeVisible();
+  });
+
+  it("discovers capabilities and disconnects through real lifecycle actions", async () => {
+    const actions = props();
+    render(<ConnectorPanel {...actions} />);
+    await screen.findByText(/Example · Private API/);
+
+    await userEvent.click(screen.getByRole("button", { name: "Discover" }));
+    await waitFor(() => expect(actions.onDiscover).toHaveBeenCalledWith(connector.id));
+    await userEvent.click(screen.getByRole("button", { name: "Disconnect" }));
+    await waitFor(() => expect(actions.onDisconnect).toHaveBeenCalledWith(connector.id));
+    expect(document.body.textContent).not.toContain(rawSecret);
   });
 });

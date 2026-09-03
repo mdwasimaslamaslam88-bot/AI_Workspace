@@ -8,6 +8,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import get_current_user
 from app.connectors import ConnectorRuntime, ConnectorService
+from app.connectors.catalog import (
+    CONNECTOR_LIFECYCLE,
+    CONNECTOR_PLATFORM_CAPABILITIES,
+)
+from app.connectors.credentials import OAuth2Credential, encode_oauth2_credential
 from app.connectors.service import (
     ConnectorConflictError,
     ConnectorExecutionError,
@@ -21,6 +26,8 @@ from app.schemas.connector import (
     ConnectorExecutionResponse,
     ConnectorExecutionResultResponse,
     ConnectorPageResponse,
+    ConnectorPlatformCapabilityResponse,
+    ConnectorPlatformResponse,
     ConnectorResponse,
     ConnectorSettingsResponse,
     ConnectorWriteRequest,
@@ -58,19 +65,44 @@ def _execution_response(value) -> ConnectorExecutionResponse:
 
 
 def _write_arguments(payload: ConnectorWriteRequest) -> dict:
+    credential = (
+        payload.credential.get_secret_value()
+        if payload.credential is not None
+        else None
+    )
+    if payload.oauth2_credential is not None:
+        oauth2 = payload.oauth2_credential
+        credential = encode_oauth2_credential(
+            OAuth2Credential(
+                access_token=oauth2.access_token.get_secret_value(),
+                refresh_token=(
+                    oauth2.refresh_token.get_secret_value()
+                    if oauth2.refresh_token is not None
+                    else None
+                ),
+                client_id=oauth2.client_id,
+                client_secret=(
+                    oauth2.client_secret.get_secret_value()
+                    if oauth2.client_secret is not None
+                    else None
+                ),
+                token_path=oauth2.token_path,
+                expires_at=oauth2.expires_at,
+            )
+        )
     return {
         "name": payload.name,
+        "provider": payload.provider,
+        "service": payload.service,
         "kind": payload.kind,
         "base_url": payload.base_url,
         "auth_kind": payload.auth_kind,
-        "credential": (
-            payload.credential.get_secret_value()
-            if payload.credential is not None
-            else None
-        ),
+        "credential": credential,
         "scopes": tuple(payload.scopes),
+        "capabilities": tuple(payload.capabilities),
         "path_prefixes": tuple(payload.path_prefixes),
         "health_path": payload.health_path,
+        "discovery_path": payload.discovery_path,
         "enabled": payload.enabled,
         "timeout_seconds": payload.timeout_seconds,
         "max_retries": payload.max_retries,
@@ -85,6 +117,7 @@ def _raise_execution_error(exc: ConnectorExecutionError) -> None:
         "connector_disabled": status.HTTP_409_CONFLICT,
         "connector_rate_limited": status.HTTP_429_TOO_MANY_REQUESTS,
         "connector_timed_out": status.HTTP_504_GATEWAY_TIMEOUT,
+        "connector_circuit_open": status.HTTP_503_SERVICE_UNAVAILABLE,
     }.get(code, status.HTTP_502_BAD_GATEWAY)
     raise HTTPException(
         status_code=status_code,
@@ -106,6 +139,21 @@ async def read_connector_settings(
         allowed_origins=sorted(runtime.allowed_origins) if runtime is not None else [],
         supported_kinds=list(ConnectorKind),
         supported_auth_kinds=list(ConnectorAuthKind),
+    )
+
+
+@router.get("/platform", response_model=ConnectorPlatformResponse)
+async def read_connector_platform(
+    response: Response,
+    _current_user: Annotated[User, Depends(get_current_user)],
+) -> ConnectorPlatformResponse:
+    response.headers["Cache-Control"] = "private, no-store"
+    return ConnectorPlatformResponse(
+        lifecycle=list(CONNECTOR_LIFECYCLE),
+        capabilities=[
+            ConnectorPlatformCapabilityResponse.model_validate(capability)
+            for capability in CONNECTOR_PLATFORM_CAPABILITIES
+        ],
     )
 
 
@@ -228,6 +276,70 @@ async def check_connector_health(
         )
     except ConnectorNotFoundError:
         raise HTTPException(status_code=404, detail="Connector not found") from None
+    except ConnectorExecutionError as exc:
+        _raise_execution_error(exc)
+    return ConnectorExecutionResultResponse(
+        execution=_execution_response(value.execution), payload=value.payload
+    )
+
+
+@router.post("/{connector_id}/discover", response_model=ConnectorExecutionResultResponse)
+async def discover_connector_capabilities(
+    connector_id: UUID,
+    request: Request,
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> ConnectorExecutionResultResponse:
+    try:
+        value = await _service(request, session).discover_for_owner(
+            current_user.id, connector_id
+        )
+    except ConnectorNotFoundError:
+        raise HTTPException(status_code=404, detail="Connector not found") from None
+    except ConnectorConflictError:
+        raise HTTPException(
+            status_code=409, detail="Connector discovery is not configured"
+        ) from None
+    except ConnectorExecutionError as exc:
+        _raise_execution_error(exc)
+    return ConnectorExecutionResultResponse(
+        execution=_execution_response(value.execution), payload=value.payload
+    )
+
+
+@router.post("/{connector_id}/disconnect", response_model=ConnectorResponse)
+async def disconnect_connector(
+    connector_id: UUID,
+    request: Request,
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> ConnectorResponse:
+    try:
+        value = await _service(request, session).disconnect_for_owner(
+            current_user.id, connector_id
+        )
+    except ConnectorNotFoundError:
+        raise HTTPException(status_code=404, detail="Connector not found") from None
+    except ConnectorConflictError:
+        raise HTTPException(status_code=409, detail="Connector is revoked") from None
+    return _connector_response(value)
+
+
+@router.post("/{connector_id}/reconnect", response_model=ConnectorExecutionResultResponse)
+async def reconnect_connector(
+    connector_id: UUID,
+    request: Request,
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> ConnectorExecutionResultResponse:
+    try:
+        value = await _service(request, session).reconnect_for_owner(
+            current_user.id, connector_id
+        )
+    except ConnectorNotFoundError:
+        raise HTTPException(status_code=404, detail="Connector not found") from None
+    except ConnectorConflictError:
+        raise HTTPException(status_code=409, detail="Connector is revoked") from None
     except ConnectorExecutionError as exc:
         _raise_execution_error(exc)
     return ConnectorExecutionResultResponse(

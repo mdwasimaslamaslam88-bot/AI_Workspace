@@ -1,0 +1,69 @@
+# Connector Status
+
+Evidence was refreshed on 2026-09-03 during Phase B of global activation.
+This report distinguishes connector-platform readiness from real provider
+authorization. No external provider is reported connected without owner
+credentials and a successful provider response.
+
+## Phase B result
+
+| Area | Evidence | Status |
+| --- | --- | --- |
+| Lifecycle | Discover, authenticate, authorize, health check, capability discovery, execute, verify, audit, revoke and reconnect contracts | LOCAL PASS |
+| Credential isolation | API-key, bearer and OAuth2/OIDC envelopes encrypted at rest; secrets remain write-only and are excluded from responses and logs | LOCAL PASS |
+| OAuth2/OIDC refresh | Expiry-aware refresh through the connector's exact allowlisted origin and approved path; refresh/access/client secrets remain encrypted | LOCAL PASS |
+| Egress control | Exact-origin and path-prefix allowlists, redirect denial, environment-proxy isolation and bounded JSON request/response sizes | LOCAL PASS |
+| Reliability | Bounded timeout, retry, per-owner rate limit and three-failure circuit breaker with health-probe recovery | LOCAL PASS |
+| Evidence | Last successful health time and latest audit reference are persisted per connector | LOCAL PASS |
+| Owner lifecycle | Disconnect preserves the encrypted credential while denying execution; reconnect requires a fresh successful health probe; revoke destroys credential material | LOCAL PASS |
+| Loopback E2E | Real local HTTP service exercised discovery, health, transient retry, action, permission denial, disconnect/reconnect, owner isolation, audit and revocation | RUNTIME PASS |
+| Production schema | Backup verified; PostgreSQL migrated through `0018_connector_activation`; Alembic reports no drift | PRODUCTION PASS |
+| External providers | No configured connector or provider credential was present during activation | OWNER ACTION REQUIRED |
+
+The pre-migration last-known-good checkpoint is outside Git at
+`/home/md-wasim/AI_Workspace_Data/backups/work-station-20260903T072416Z`.
+Its dump, asset archive, manifest and checksum set passed independent integrity
+validation with owner-only permissions.
+
+## Protocol coverage
+
+| Interface | Platform status | Activation boundary |
+| --- | --- | --- |
+| REST | Native bounded JSON HTTP | Provider base URL, credential and owner-approved scopes |
+| GraphQL | Native bounded JSON HTTP | Provider endpoint, operation paths, credential and scopes |
+| Webhooks | Native bounded JSON HTTP | Provider webhook endpoint, secret and scopes |
+| OAuth2/OIDC | Native encrypted bearer with refresh | Legitimate client registration, consent and provider token endpoint |
+| API keys | Native encrypted fixed-header authentication | Legitimately obtained owner key |
+| Local APIs | Native loopback JSON HTTP | Running loopback service and approved paths |
+| WebSocket | Adapter required | Bounded provider-specific message schema and authentication |
+| Server-sent events | Adapter required | Bounded event schema and reconnect policy |
+| Provider SDKs | Adapter required | Reviewed and allowlisted provider adapter |
+| Databases | Adapter required | Least-privilege database adapter and query contract |
+| Browser automation | Adapter required | Sandboxed browser adapter and per-action authorization |
+| Desktop automation | Adapter required | Platform sandbox, foreground consent and bounded actions |
+| File connectors | Adapter required | Owner-approved root and traversal-safe adapter |
+
+The authenticated `/api/v1/connectors/platform` endpoint is the runtime
+authority for this catalog. Adapter-required interfaces are deliberately not
+advertised as native or live.
+
+## Verification summary
+
+- Backend regression: 2,938 passed; 48 intentional environment/runtime skips.
+- PostgreSQL integration: 48 passed; migrations `0001` through `0018`; no drift.
+- Web: 192 passed; typecheck, lint and production build passed.
+- Mobile: 61 passed; shared and mobile typechecks and mobile lint passed.
+- Focused connector/migration tests: 25 passed.
+- Runtime: the complete real local runtime matrix passed, including the
+  strengthened connector smoke and all downstream marketing, finance,
+  learning, creative, tool and workflow regressions.
+
+## Real-provider boundary
+
+Configured external connector count is zero. Consequently, provider read/write
+tests, token refresh against an internet provider and provider revocation are
+`EXTERNAL BLOCKED`, not failures of the local connector platform. Activation
+requires the owner to choose a provider, complete its legitimate authentication
+or OAuth consent flow, select the minimum scopes, and run the built-in health,
+discovery and action verification. MFA, OTP, billing and provider approval are
+never bypassed.
