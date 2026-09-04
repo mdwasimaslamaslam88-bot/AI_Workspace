@@ -102,7 +102,15 @@ def _payload() -> dict[str, object]:
         "registry_sha256": hashlib.sha256(canonical).hexdigest(),
         "total": len(items),
         "layers": dict(sorted(Counter(item["layer"] for item in items).items())),
-        "statuses": dict(sorted(Counter(item["status"] for item in items).items())),
+        "statuses": {
+            status: sum(item["status"] == status for item in items)
+            for status in (
+                "implemented",
+                "runtime_dependent",
+                "external_dependency",
+                "planned",
+            )
+        },
         "validation": {
             "unique_ids": True,
             "ui_paths_present": True,

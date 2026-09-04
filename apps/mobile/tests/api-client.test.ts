@@ -310,6 +310,7 @@ describe("mobile API client", () => {
       active_runs: 0,
       max_concurrency: 2,
       persistence: "bounded_process_memory",
+      controls: ["pause", "resume", "approve", "modify", "retry"],
     };
     const run = {
       id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
@@ -331,8 +332,20 @@ describe("mobile API client", () => {
         attempt: null,
         agent: null,
         model_id: null,
+        action: "submitted",
+        detail_sha256: null,
       }],
       attempts: [],
+      pause_requested: false,
+      requires_approval: false,
+      approved: false,
+      revision: 1,
+      manual_retry_count: 0,
+      can_pause: true,
+      can_resume: false,
+      can_approve: false,
+      can_modify: true,
+      can_retry: false,
     };
     const calls: Array<{ path: string; method: string; body: unknown }> = [];
     const fetchMock = vi.fn(async (input: URL | RequestInfo, init?: RequestInit) => {
@@ -356,12 +369,22 @@ describe("mobile API client", () => {
     await client.getAgentOSCapabilities();
     await client.listAgentRuns();
     await client.createAgentRun({ goal: "Diagnose it.", task: "debugging" });
+    await client.pauseAgentRun(run.id);
+    await client.resumeAgentRun(run.id);
+    await client.approveAgentRun(run.id);
+    await client.modifyAgentRun(run.id, { goal: "Diagnose safely." });
+    await client.retryAgentRun(run.id);
     await client.cancelAgentRun(run.id);
 
     expect(calls).toEqual([
       { path: "/api/v1/agent-os/capabilities", method: "GET", body: undefined },
       { path: "/api/v1/agent-os/runs?limit=20", method: "GET", body: undefined },
       { path: "/api/v1/agent-os/runs", method: "POST", body: { goal: "Diagnose it.", task: "debugging" } },
+      { path: `/api/v1/agent-os/runs/${run.id}/pause`, method: "POST", body: undefined },
+      { path: `/api/v1/agent-os/runs/${run.id}/resume`, method: "POST", body: undefined },
+      { path: `/api/v1/agent-os/runs/${run.id}/approve`, method: "POST", body: undefined },
+      { path: `/api/v1/agent-os/runs/${run.id}/modify`, method: "POST", body: { goal: "Diagnose safely." } },
+      { path: `/api/v1/agent-os/runs/${run.id}/retry`, method: "POST", body: undefined },
       { path: `/api/v1/agent-os/runs/${run.id}/cancel`, method: "POST", body: undefined },
     ]);
   });

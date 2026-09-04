@@ -75,6 +75,12 @@ async def test_lifespan_initializes_and_reconciles_configured_storage(
         "MarketingCampaignRunner",
         Mock(return_value=marketing_runner),
     )
+    mission_store = Mock(initialize=AsyncMock(return_value=()))
+    monkeypatch.setattr(
+        lifespan_module,
+        "DatabaseAgentRunStore",
+        Mock(return_value=mission_store),
+    )
     storage_factory = Mock(return_value=storage)
     reconcile = AsyncMock()
     monkeypatch.setattr(lifespan_module, "LocalAssetStorage", storage_factory)
@@ -87,6 +93,7 @@ async def test_lifespan_initializes_and_reconciles_configured_storage(
         reconcile_workflow_rows.assert_awaited_once_with(session_factory)
         reconcile.assert_awaited_once_with(session_factory, storage)
         workflow_runner.shutdown.assert_not_awaited()
+        mission_store.initialize.assert_awaited_once_with()
 
     workflow_runner.shutdown.assert_awaited_once_with()
     storage_factory.assert_called_once_with(root)

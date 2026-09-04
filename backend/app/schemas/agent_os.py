@@ -26,6 +26,7 @@ class AgentRunCreateRequest(BaseModel):
     deadline_seconds: float = Field(default=180.0, gt=0, le=600.0)
     required_context_tokens: int = Field(default=0, strict=True, ge=0, le=1_000_000)
     require_objective_evidence: bool = False
+    require_owner_approval: bool = False
 
     @field_validator("goal")
     @classmethod
@@ -52,6 +53,11 @@ class AgentOSCapabilitiesResponse(BaseModel):
     active_runs: int = Field(ge=0, le=100)
     max_concurrency: int = 2
     persistence: str = "bounded_process_memory"
+    controls: list[str] = Field(
+        default_factory=lambda: ["pause", "resume", "approve", "modify", "retry"],
+        min_length=5,
+        max_length=5,
+    )
 
 
 class AgentVerificationCheckResponse(BaseModel):
@@ -104,6 +110,8 @@ class AgentRunEventResponse(BaseModel):
         default=None,
         pattern=r"^[a-z0-9][a-z0-9_-]{0,63}:[a-f0-9]{24}$",
     )
+    action: str = Field(min_length=1, max_length=32, pattern=r"^[a-z][a-z0-9_]{0,31}$")
+    detail_sha256: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
 
 
 class AgentRunResponse(BaseModel):
@@ -125,6 +133,29 @@ class AgentRunResponse(BaseModel):
     plan: list[AgentPlanStepResponse] = Field(default_factory=list, max_length=16)
     events: list[AgentRunEventResponse] = Field(default_factory=list, max_length=128)
     attempts: list[AgentAttemptResponse] = Field(default_factory=list, max_length=48)
+    pause_requested: bool
+    requires_approval: bool
+    approved: bool
+    revision: int = Field(strict=True, ge=1, le=16)
+    manual_retry_count: int = Field(strict=True, ge=0, le=3)
+    can_pause: bool
+    can_resume: bool
+    can_approve: bool
+    can_modify: bool
+    can_retry: bool
+
+
+class AgentRunModifyRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    goal: str = Field(min_length=1, max_length=32_000)
+
+    @field_validator("goal")
+    @classmethod
+    def require_exact_nonblank_goal(cls, value: str) -> str:
+        if not value.strip() or value != value.strip():
+            raise ValueError("agent goal must be exact nonblank text")
+        return value
 
 
 class AgentRunPageResponse(BaseModel):

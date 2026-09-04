@@ -28,6 +28,7 @@ const TASKS: ModelTask[] = [
   "workflow_planning",
 ];
 const TERMINAL = new Set(["completed", "failed", "cancelled", "timed_out"]);
+const STREAMING = new Set(["queued", "planning", "running", "verifying", "retrying"]);
 
 export default function AgentsScreen() {
   const { colors } = useWorkStationAppearance();
@@ -37,6 +38,8 @@ export default function AgentsScreen() {
   const [runs, setRuns] = useState<AgentRun[]>([]);
   const [goal, setGoal] = useState("");
   const [task, setTask] = useState<ModelTask>("general_chat");
+  const [requireApproval, setRequireApproval] = useState(false);
+  const [revisions, setRevisions] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -61,7 +64,7 @@ export default function AgentsScreen() {
   }, [load]);
 
   useEffect(() => {
-    if (!runs.some((run) => !TERMINAL.has(run.status))) return;
+    if (!runs.some((run) => STREAMING.has(run.status))) return;
     const timer = setInterval(() => void load(), 1500);
     return () => clearInterval(timer);
   }, [load, runs]);
@@ -92,6 +95,16 @@ export default function AgentsScreen() {
             <Text style={styles.buttonText}>Task: {task.replaceAll("_", " ")}</Text>
           </Pressable>
           <Pressable
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: requireApproval }}
+            style={styles.secondaryButton}
+            onPress={() => setRequireApproval((current) => !current)}
+          >
+            <Text style={styles.buttonText}>
+              {requireApproval ? "Approval required" : "Run without approval hold"}
+            </Text>
+          </Pressable>
+          <Pressable
             accessibilityRole="button"
             disabled={busy}
             style={styles.primaryButton}
@@ -102,7 +115,14 @@ export default function AgentsScreen() {
               }
               setBusy(true);
               setNotice(null);
-              void client.createAgentRun({ goal, source: "text", task, max_retries: 1, deadline_seconds: 180 })
+              void client.createAgentRun({
+                goal,
+                source: "text",
+                task,
+                max_retries: 1,
+                deadline_seconds: 180,
+                require_owner_approval: requireApproval,
+              })
                 .then((created) => {
                   setRuns((current) => [created, ...current.filter((run) => run.id !== created.id)]);
                   setGoal("");
@@ -149,7 +169,7 @@ export default function AgentsScreen() {
               <Text style={styles.sectionLabel}>LIVE ACTIVITY</Text>
               {run.events.map((event) => (
                 <Text key={event.sequence} style={styles.muted}>
-                  {event.status.replaceAll("_", " ")}
+                  {event.action.replaceAll("_", " ")} · {event.status.replaceAll("_", " ")}
                   {event.agent === null ? "" : ` · ${event.agent}`}
                   {event.attempt === null ? "" : ` · attempt ${event.attempt}`}
                 </Text>
@@ -161,6 +181,62 @@ export default function AgentsScreen() {
                   Attempt {attempt.attempt} · {attempt.verified ? "verified" : "verification failed"}
                 </Text>
               ))}
+              <Text style={styles.muted}>
+                Revision {run.revision} · manual retries {run.manual_retry_count}/3
+              </Text>
+              {run.can_modify && (
+                <TextInput
+                  accessibilityLabel={`Revised mission goal for ${run.id}`}
+                  maxLength={32_000}
+                  placeholder="Revised mission goal"
+                  style={styles.input}
+                  value={revisions[run.id] ?? ""}
+                  onChangeText={(value) => setRevisions((current) => ({
+                    ...current,
+                    [run.id]: value,
+                  }))}
+                />
+              )}
+              <View style={styles.controlRow}>
+                {run.can_pause && (
+                  <Pressable accessibilityRole="button" style={styles.secondaryButton} onPress={() => {
+                    if (client === null) return;
+                    void client.pauseAgentRun(run.id).then((updated) => setRuns((current) => current.map((item) => item.id === updated.id ? updated : item))).catch(() => setNotice("The mission could not be paused."));
+                  }}><Text style={styles.buttonText}>Pause</Text></Pressable>
+                )}
+                {run.can_resume && (
+                  <Pressable accessibilityRole="button" style={styles.secondaryButton} onPress={() => {
+                    if (client === null) return;
+                    void client.resumeAgentRun(run.id).then((updated) => setRuns((current) => current.map((item) => item.id === updated.id ? updated : item))).catch(() => setNotice("The mission could not be resumed."));
+                  }}><Text style={styles.buttonText}>Resume</Text></Pressable>
+                )}
+                {run.can_approve && (
+                  <Pressable accessibilityRole="button" style={styles.primaryButton} onPress={() => {
+                    if (client === null) return;
+                    void client.approveAgentRun(run.id).then((updated) => setRuns((current) => current.map((item) => item.id === updated.id ? updated : item))).catch(() => setNotice("The mission could not be approved."));
+                  }}><Text style={styles.buttonText}>Approve</Text></Pressable>
+                )}
+                {run.can_modify && (
+                  <Pressable accessibilityRole="button" style={styles.secondaryButton} onPress={() => {
+                    if (client === null) return;
+                    const revisedGoal = revisions[run.id] ?? "";
+                    if (!revisedGoal.trim() || revisedGoal !== revisedGoal.trim()) {
+                      setNotice("Enter an exact nonblank revised mission goal.");
+                      return;
+                    }
+                    void client.modifyAgentRun(run.id, { goal: revisedGoal }).then((updated) => {
+                      setRuns((current) => current.map((item) => item.id === updated.id ? updated : item));
+                      setRevisions((current) => ({ ...current, [run.id]: "" }));
+                    }).catch(() => setNotice("The mission revision could not be applied."));
+                  }}><Text style={styles.buttonText}>Apply revision</Text></Pressable>
+                )}
+                {run.can_retry && (
+                  <Pressable accessibilityRole="button" style={styles.secondaryButton} onPress={() => {
+                    if (client === null) return;
+                    void client.retryAgentRun(run.id).then((updated) => setRuns((current) => current.map((item) => item.id === updated.id ? updated : item))).catch(() => setNotice("The mission could not be retried."));
+                  }}><Text style={styles.buttonText}>Retry</Text></Pressable>
+                )}
+              </View>
               {!TERMINAL.has(run.status) && (
                 <Pressable
                   accessibilityRole="button"
@@ -197,6 +273,7 @@ function createStyles(colors: WorkStationColors) {
     buttonText: { color: colors.text, fontWeight: "800" },
     notice: { color: colors.text },
     row: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 10 },
+    controlRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
     run: { gap: 8, borderTopColor: colors.line, borderTopWidth: 1, paddingTop: 10 },
     runTitle: { flex: 1, color: colors.text, fontWeight: "800", textTransform: "capitalize" },
     sectionLabel: { color: colors.accent, fontSize: 11, fontWeight: "900", letterSpacing: 1.1, marginTop: 4 },

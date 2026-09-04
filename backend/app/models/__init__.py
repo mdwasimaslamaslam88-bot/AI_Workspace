@@ -4,6 +4,7 @@ Import future modules that define mapped ``Base`` subclasses here.
 """
 
 from app.models.asset import Asset, AssetProvenanceKind
+from app.models.agent_mission import AgentMission, AgentMissionEvent
 from app.models.conversation import Conversation
 from app.models.connector import (
     Connector,
@@ -77,6 +78,8 @@ from app.models.workflow import Workflow, WorkflowStatus, WorkflowStep
 __all__ = [
     "Asset",
     "AssetProvenanceKind",
+    "AgentMission",
+    "AgentMissionEvent",
     "Conversation",
     "Connector",
     "ConnectorAction",

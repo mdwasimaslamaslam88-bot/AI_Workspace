@@ -58,8 +58,10 @@ class AgentPermission(StrEnum):
 
 class AgentRunStatus(StrEnum):
     QUEUED = "queued"
+    NEEDS_APPROVAL = "needs_approval"
     PLANNING = "planning"
     RUNNING = "running"
+    PAUSED = "paused"
     VERIFYING = "verifying"
     RETRYING = "retrying"
     COMPLETED = "completed"
@@ -221,6 +223,7 @@ class AgentRunRequest:
     required_context_tokens: int = 0
     require_objective_evidence: bool = False
     allow_external_models: bool = True
+    require_owner_approval: bool = False
 
     def __post_init__(self) -> None:
         if (
@@ -265,6 +268,8 @@ class AgentRunRequest:
             raise TypeError("objective evidence requirement must be boolean")
         if not isinstance(self.allow_external_models, bool):
             raise TypeError("external model allowance must be boolean")
+        if not isinstance(self.require_owner_approval, bool):
+            raise TypeError("owner approval requirement must be boolean")
 
 
 @dataclass(frozen=True, slots=True)

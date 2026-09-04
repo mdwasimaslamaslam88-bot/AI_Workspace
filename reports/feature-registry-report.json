@@ -1686,101 +1686,111 @@
       "ui_entry_point": "/missions#live-activity-refresh"
     },
     {
-      "backend_capability": "mission_checkpoint_roadmap",
+      "backend_capability": "persistent_agent_scheduler",
       "category": "Owner checkpoints",
       "dependencies": [
-        "persistent_mission_scheduler"
+        "postgresql"
       ],
-      "description": "Visible mission pause contract with an explicit implementation boundary; the UI must not present it as executable.",
+      "description": "Mission pause exposed through the existing authenticated owner checkpoints capability.",
       "id": "mission_control.mission_pause",
       "layer": "mission_control",
       "required_permissions": [
         "owner_session"
       ],
-      "status": "planned",
+      "status": "implemented",
       "test_coverage": [
-        "contract:feature_registry",
-        "manual:documented_gap"
+        "backend:test_agent_os_api",
+        "backend:test_agent_missions_postgres",
+        "web:agent_panel",
+        "mobile:agents"
       ],
       "title": "Mission pause",
       "ui_entry_point": "/missions#mission-pause"
     },
     {
-      "backend_capability": "mission_checkpoint_roadmap",
+      "backend_capability": "persistent_agent_scheduler",
       "category": "Owner checkpoints",
       "dependencies": [
-        "persistent_mission_scheduler"
+        "postgresql"
       ],
-      "description": "Visible mission resume contract with an explicit implementation boundary; the UI must not present it as executable.",
+      "description": "Mission resume exposed through the existing authenticated owner checkpoints capability.",
       "id": "mission_control.mission_resume",
       "layer": "mission_control",
       "required_permissions": [
         "owner_session"
       ],
-      "status": "planned",
+      "status": "implemented",
       "test_coverage": [
-        "contract:feature_registry",
-        "manual:documented_gap"
+        "backend:test_agent_os_api",
+        "backend:test_agent_missions_postgres",
+        "web:agent_panel",
+        "mobile:agents"
       ],
       "title": "Mission resume",
       "ui_entry_point": "/missions#mission-resume"
     },
     {
-      "backend_capability": "mission_checkpoint_roadmap",
+      "backend_capability": "persistent_agent_scheduler",
       "category": "Owner checkpoints",
       "dependencies": [
-        "persistent_mission_scheduler"
+        "postgresql"
       ],
-      "description": "Visible mission approval checkpoint contract with an explicit implementation boundary; the UI must not present it as executable.",
+      "description": "Mission approval checkpoint exposed through the existing authenticated owner checkpoints capability.",
       "id": "mission_control.mission_approve",
       "layer": "mission_control",
       "required_permissions": [
         "owner_session"
       ],
-      "status": "planned",
+      "status": "implemented",
       "test_coverage": [
-        "contract:feature_registry",
-        "manual:documented_gap"
+        "backend:test_agent_os_api",
+        "backend:test_agent_missions_postgres",
+        "web:agent_panel",
+        "mobile:agents"
       ],
       "title": "Mission approval checkpoint",
       "ui_entry_point": "/missions#mission-approve"
     },
     {
-      "backend_capability": "mission_checkpoint_roadmap",
+      "backend_capability": "persistent_agent_scheduler",
       "category": "Owner checkpoints",
       "dependencies": [
-        "persistent_mission_scheduler"
+        "postgresql"
       ],
-      "description": "Visible in-flight mission modification contract with an explicit implementation boundary; the UI must not present it as executable.",
+      "description": "In-flight mission modification exposed through the existing authenticated owner checkpoints capability.",
       "id": "mission_control.mission_modify",
       "layer": "mission_control",
       "required_permissions": [
         "owner_session"
       ],
-      "status": "planned",
+      "status": "implemented",
       "test_coverage": [
-        "contract:feature_registry",
-        "manual:documented_gap"
+        "backend:test_agent_os_api",
+        "backend:test_agent_missions_postgres",
+        "web:agent_panel",
+        "mobile:agents"
       ],
       "title": "In-flight mission modification",
       "ui_entry_point": "/missions#mission-modify"
     },
     {
-      "backend_capability": "mission_checkpoint_roadmap",
+      "backend_capability": "persistent_agent_scheduler",
       "category": "Owner checkpoints",
       "dependencies": [
-        "persistent_mission_scheduler"
+        "postgresql"
       ],
-      "description": "Visible owner-triggered mission retry contract with an explicit implementation boundary; the UI must not present it as executable.",
+      "description": "Owner-triggered mission retry exposed through the existing authenticated owner checkpoints capability.",
       "id": "mission_control.mission_manual_retry",
       "layer": "mission_control",
       "required_permissions": [
         "owner_session"
       ],
-      "status": "planned",
+      "status": "implemented",
       "test_coverage": [
-        "contract:feature_registry",
-        "manual:documented_gap"
+        "backend:test_agent_os_api",
+        "backend:test_agent_missions_postgres",
+        "web:agent_panel",
+        "mobile:agents"
       ],
       "title": "Owner-triggered mission retry",
       "ui_entry_point": "/missions#mission-manual-retry"
@@ -7033,12 +7043,12 @@
     "universal_workspace": 138
   },
   "product": "AI OS",
-  "registry_sha256": "0bddfa318fcdb0f864f700083d1bffab523f4f52d04308bdff012c2c8fa91737",
+  "registry_sha256": "606eefc6c6193a0757afa6dbfc8608b79426739a26b8b6081e1456bf26e5ada2",
   "schema_version": 1,
   "statuses": {
     "external_dependency": 39,
-    "implemented": 263,
-    "planned": 5,
+    "implemented": 268,
+    "planned": 0,
     "runtime_dependent": 14
   },
   "total": 321,

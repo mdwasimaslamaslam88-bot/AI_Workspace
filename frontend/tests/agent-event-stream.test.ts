@@ -15,6 +15,8 @@ function event(sequence: number, status: "queued" | "planning" | "completed") {
     attempt: status === "queued" ? null : 1,
     agent: status === "queued" ? null : "planner",
     model_id: status === "queued" ? null : `ollama:${"1".repeat(24)}`,
+    action: "status",
+    detail_sha256: null,
   };
 }
 

@@ -51,6 +51,7 @@ def test_agent_os_capabilities_are_authenticated_fixed_contracts():
     assert AgentPermission.WORKSPACE_WRITE.value in coding["permissions"]
     assert payload["persistence"] == "bounded_process_memory"
     assert payload["max_concurrency"] == 2
+    assert payload["controls"] == ["pause", "resume", "approve", "modify", "retry"]
 
 
 def test_agent_os_capabilities_report_bounded_queue_above_execution_concurrency():
@@ -125,3 +126,38 @@ def test_agent_run_api_rejects_unknown_fields_whitespace_and_unbounded_values():
         response = client.post("/api/v1/agent-os/runs", json=body)
         assert response.status_code == 422
     orchestrator.run.assert_not_awaited()
+
+
+def test_agent_run_api_holds_for_approval_and_applies_audited_revision():
+    client, _application, owner, orchestrator = _api()
+    owner_id = owner.id
+    response = client.post(
+        "/api/v1/agent-os/runs",
+        json={
+            "goal": "Prepare a bounded plan.",
+            "task": "workflow_planning",
+            "require_owner_approval": True,
+        },
+    )
+    assert response.status_code == 202
+    run = response.json()
+    assert run["status"] == "needs_approval"
+    assert run["can_approve"] is True
+    orchestrator.run.assert_not_awaited()
+
+    revised = client.post(
+        f"/api/v1/agent-os/runs/{run['id']}/modify",
+        json={"goal": "Prepare and verify a bounded plan."},
+    )
+    assert revised.status_code == 200
+    assert revised.json()["revision"] == 2
+    assert revised.json()["status"] == "needs_approval"
+    assert revised.json()["events"][-1]["detail_sha256"] is not None
+
+    owner.id = uuid4()
+    assert client.post(f"/api/v1/agent-os/runs/{run['id']}/approve").status_code == 404
+    owner.id = owner_id
+    approved = client.post(f"/api/v1/agent-os/runs/{run['id']}/approve")
+    assert approved.status_code == 200
+    assert approved.json()["approved"] is True
+    assert approved.json()["status"] in {"queued", "completed"}

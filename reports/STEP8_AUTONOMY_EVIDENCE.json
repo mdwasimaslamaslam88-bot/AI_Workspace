@@ -1,0 +1,129 @@
+{
+  "schema_version": 1,
+  "step": 8,
+  "roadmap_phase": "I",
+  "generated_at": "2026-09-05T00:31:31+05:30",
+  "baseline_commit": "89112d9c12c4446dc792df9868ee9fd98932f525",
+  "status": "COMPLETE_LOCAL",
+  "states": {
+    "persistent_agent_missions": "RUNTIME_PASS",
+    "mission_pause_resume": "LOCAL_PASS",
+    "owner_approval_checkpoint": "RUNTIME_PASS",
+    "approval_invalidating_revision": "RUNTIME_PASS",
+    "bounded_manual_retry": "LOCAL_PASS",
+    "startup_recovery": "LOCAL_PASS",
+    "append_only_control_audit": "RUNTIME_PASS",
+    "web_mission_controls": "LOCAL_PASS",
+    "mobile_mission_controls": "LOCAL_PASS",
+    "background_workflows": "RUNTIME_PASS",
+    "agent_model_hardware_monitoring": "RUNTIME_PASS",
+    "service_failure_recovery": "RUNTIME_PASS",
+    "update_rollback_pipeline": "RUNTIME_PASS",
+    "remote_alert_delivery": "EXTERNAL_BLOCKED",
+    "daily_encrypted_backup_destination": "OWNER_ACTION"
+  },
+  "implementation": {
+    "persistence": "PostgreSQL mission snapshots plus append-only content-free events",
+    "migration_head": "0022_persistent_agent_missions",
+    "restart_policy": "queued work resumes; interrupted active work recovers paused",
+    "control_bounds": {
+      "maximum_revisions": 16,
+      "maximum_manual_retries": 3,
+      "maximum_retained_events": 128,
+      "maximum_recovered_active_missions": 1000
+    },
+    "controls": [
+      "pause",
+      "resume",
+      "approve",
+      "modify",
+      "retry"
+    ],
+    "goal_content_in_control_audit": false,
+    "goal_change_digest": "sha256"
+  },
+  "runtime_evidence": {
+    "real_local_model_mission": true,
+    "approval_hold_prevented_execution": true,
+    "foreign_owner_approval_denied": true,
+    "revision_invalidated_prior_approval": true,
+    "approved_revised_goal_executed": true,
+    "independent_verification_completed": true,
+    "sse_lifecycle_completed": true,
+    "goal_log_redaction_verified": true,
+    "agent_attempts": 1,
+    "agent_latency_ms": 10496
+  },
+  "feature_registry": {
+    "total": 321,
+    "implemented": 268,
+    "runtime_dependent": 14,
+    "external_dependency": 39,
+    "planned": 0,
+    "missing_ui_paths": 0,
+    "missing_backend_contracts": 0,
+    "missing_coverage_records": 0,
+    "broken_registry_wiring": 0,
+    "registry_sha256": "606eefc6c6193a0757afa6dbfc8608b79426739a26b8b6081e1456bf26e5ada2"
+  },
+  "verification": {
+    "focused_backend": {
+      "passed": 56,
+      "failed": 0
+    },
+    "backend_regression": {
+      "passed": 3007,
+      "intentional_skips": 55,
+      "failed": 0
+    },
+    "web_regression": {
+      "passed": 202,
+      "failed": 0
+    },
+    "mobile_regression": {
+      "passed": 64,
+      "failed": 0
+    },
+    "postgresql_integration": {
+      "passed": 55,
+      "failed": 0,
+      "migration_head": "0022_persistent_agent_missions",
+      "downgrade_upgrade_cycle": "PASS",
+      "schema_drift": false
+    },
+    "browser_pwa_e2e": "PASS",
+    "native_android_arm64_package": "PASS",
+    "desktop_package_and_launch": "PASS",
+    "runtime_e2e": "PASS",
+    "security": {
+      "status": "PASS",
+      "critical": 0,
+      "high": 0,
+      "moderate": 14,
+      "moderate_scope": "transitive Expo build tooling",
+      "secret_leaks": 0
+    },
+    "release_gate": "PASS"
+  },
+  "artifacts": {
+    "android_arm64_apk": {
+      "path": "/home/md-wasim/AI_Workspace_Data/releases/step8-finalcheck2/Work_Station_Android_ARM64.apk",
+      "sha256": "86b7a6c1e186aa9b3080ae8dcc50db529621a20442b7654c60bd6d669ece2d6a",
+      "signing": "debug certificate for bounded owner sideload"
+    }
+  },
+  "failures_fixed": [
+    "SSE control-event contract omitted action and detail digest fields",
+    "PostgreSQL schema inventory omitted the new mission tables",
+    "shutdown could cancel a completed mission before its final persistence flush",
+    "immediate pause, cancel, or shutdown could leave a never-started scheduled task in a misleading queued state",
+    "concurrent persistence calls could commit mission snapshots out of order",
+    "feature authority tests assumed planned capabilities could never become implemented"
+  ],
+  "external_requirements": [
+    "Configure an authorized push provider and register an owner device for remote alerts.",
+    "Configure an owner-approved encrypted backup destination before enabling the daily backup timer.",
+    "External providers remain subject to their existing credentials, approvals, billing, and device boundaries."
+  ],
+  "step_9_started": false
+}

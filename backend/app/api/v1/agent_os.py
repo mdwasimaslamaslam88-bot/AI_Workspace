@@ -10,6 +10,7 @@ from fastapi.responses import StreamingResponse
 from app.agent_os.contracts import AgentPermission, AgentRunRequest, AgentRunStatus
 from app.agent_os.runtime import (
     AgentRunManager,
+    AgentRunConflictError,
     AgentRunNotFoundError,
     AgentRunRecord,
 )
@@ -21,6 +22,7 @@ from app.schemas.agent_os import (
     AgentPlanStepResponse,
     AgentProfileResponse,
     AgentRunCreateRequest,
+    AgentRunModifyRequest,
     AgentRunPageResponse,
     AgentRunResponse,
     AgentRunEventResponse,
@@ -71,6 +73,8 @@ def _response(record: AgentRunRecord) -> AgentRunResponse:
                 attempt=event.attempt,
                 agent=event.agent,
                 model_id=event.model_id,
+                action=event.action,
+                detail_sha256=event.detail_sha256,
             )
             for event in record.events
         ],
@@ -94,6 +98,43 @@ def _response(record: AgentRunRecord) -> AgentRunResponse:
             )
             for attempt in (result.attempts if result is not None else ())
         ],
+        pause_requested=record.pause_requested,
+        requires_approval=record.requires_approval,
+        approved=record.approved,
+        revision=record.revision,
+        manual_retry_count=record.manual_retry_count,
+        can_pause=(
+            not record.pause_requested
+            and record.status
+            in {
+                AgentRunStatus.QUEUED,
+                AgentRunStatus.PLANNING,
+                AgentRunStatus.RUNNING,
+                AgentRunStatus.VERIFYING,
+                AgentRunStatus.RETRYING,
+            }
+        ),
+        can_resume=record.status is AgentRunStatus.PAUSED,
+        can_approve=record.status is AgentRunStatus.NEEDS_APPROVAL,
+        can_modify=record.status
+        in {
+            AgentRunStatus.QUEUED,
+            AgentRunStatus.NEEDS_APPROVAL,
+            AgentRunStatus.PLANNING,
+            AgentRunStatus.RUNNING,
+            AgentRunStatus.PAUSED,
+            AgentRunStatus.VERIFYING,
+            AgentRunStatus.RETRYING,
+        },
+        can_retry=(
+            record.manual_retry_count < 3
+            and record.status
+            in {
+                AgentRunStatus.FAILED,
+                AgentRunStatus.CANCELLED,
+                AgentRunStatus.TIMED_OUT,
+            }
+        ),
     )
 
 
@@ -115,6 +156,7 @@ async def read_agent_os_capabilities(
             for profile in policy.profiles
         ],
         active_runs=manager.active_count,
+        persistence=manager.persistence,
     )
 
 
@@ -139,6 +181,7 @@ async def create_agent_run(
             deadline_seconds=payload.deadline_seconds,
             required_context_tokens=payload.required_context_tokens,
             require_objective_evidence=payload.require_objective_evidence,
+            require_owner_approval=payload.require_owner_approval,
         )
         record = await _manager(request).submit(current_user.id, run_request)
     except RuntimeError as exc:
@@ -184,6 +227,8 @@ async def stream_agent_run_events(
                     attempt=event.attempt,
                     agent=event.agent,
                     model_id=event.model_id,
+                    action=event.action,
+                    detail_sha256=event.detail_sha256,
                 )
                 sequence = event.sequence
                 yield (
@@ -192,6 +237,8 @@ async def stream_agent_run_events(
                     f"data: {payload.model_dump_json()}\n\n"
                 )
             if record.status in {
+                AgentRunStatus.NEEDS_APPROVAL,
+                AgentRunStatus.PAUSED,
                 AgentRunStatus.COMPLETED,
                 AgentRunStatus.FAILED,
                 AgentRunStatus.CANCELLED,
@@ -235,6 +282,86 @@ async def get_agent_run(
             detail="Agent run not found",
         )
     return _response(record)
+
+
+def _control_error(exc: RuntimeError) -> HTTPException:
+    if isinstance(exc, AgentRunNotFoundError):
+        return HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Agent run not found",
+        )
+    return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
+
+
+@router.post("/runs/{run_id}/pause", response_model=AgentRunResponse)
+async def pause_agent_run(
+    run_id: UUID,
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> AgentRunResponse:
+    try:
+        return _response(
+            await _manager(request).pause_for_owner(current_user.id, run_id)
+        )
+    except (AgentRunNotFoundError, AgentRunConflictError) as exc:
+        raise _control_error(exc) from None
+
+
+@router.post("/runs/{run_id}/resume", response_model=AgentRunResponse)
+async def resume_agent_run(
+    run_id: UUID,
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> AgentRunResponse:
+    try:
+        return _response(
+            await _manager(request).resume_for_owner(current_user.id, run_id)
+        )
+    except (AgentRunNotFoundError, AgentRunConflictError) as exc:
+        raise _control_error(exc) from None
+
+
+@router.post("/runs/{run_id}/approve", response_model=AgentRunResponse)
+async def approve_agent_run(
+    run_id: UUID,
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> AgentRunResponse:
+    try:
+        return _response(
+            await _manager(request).approve_for_owner(current_user.id, run_id)
+        )
+    except (AgentRunNotFoundError, AgentRunConflictError) as exc:
+        raise _control_error(exc) from None
+
+
+@router.post("/runs/{run_id}/modify", response_model=AgentRunResponse)
+async def modify_agent_run(
+    run_id: UUID,
+    payload: AgentRunModifyRequest,
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> AgentRunResponse:
+    try:
+        return _response(
+            await _manager(request).modify_for_owner(current_user.id, run_id, payload.goal)
+        )
+    except (AgentRunNotFoundError, AgentRunConflictError) as exc:
+        raise _control_error(exc) from None
+
+
+@router.post("/runs/{run_id}/retry", response_model=AgentRunResponse)
+async def retry_agent_run(
+    run_id: UUID,
+    request: Request,
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> AgentRunResponse:
+    try:
+        return _response(
+            await _manager(request).retry_for_owner(current_user.id, run_id)
+        )
+    except (AgentRunNotFoundError, AgentRunConflictError) as exc:
+        raise _control_error(exc) from None
 
 
 @router.post("/runs/{run_id}/cancel", response_model=AgentRunResponse)

@@ -16,6 +16,7 @@ from scripts.runtime_smoke_safety import select_disposable_runtime_database
 
 
 _GOAL = "Return one concise sentence confirming bounded local mission execution."
+_REVISED_GOAL = "Return one concise verified sentence confirming bounded local mission execution."
 _TERMINAL = {"completed", "failed", "cancelled", "timed_out"}
 
 
@@ -60,6 +61,17 @@ def main() -> None:
                 "Authorization": f"Bearer {_provision(client, provisioning_token)}"
             }
             started = time.monotonic()
+            capabilities = client.get(
+                "/api/v1/agent-os/capabilities", headers=owner
+            )
+            capabilities.raise_for_status()
+            if (
+                capabilities.json()["persistence"]
+                != "postgresql_checkpoint_scheduler"
+                or capabilities.json()["controls"]
+                != ["pause", "resume", "approve", "modify", "retry"]
+            ):
+                raise RuntimeError("persistent mission controls are unavailable")
             response = client.post(
                 "/api/v1/agent-os/runs",
                 headers=owner,
@@ -69,6 +81,7 @@ def main() -> None:
                     "task": "general_chat",
                     "max_retries": 1,
                     "deadline_seconds": 120,
+                    "require_owner_approval": True,
                 },
             )
             if response.status_code != 202:
@@ -76,9 +89,9 @@ def main() -> None:
             created = response.json()
             run_id = created["id"]
             if (
-                created["status"] != "queued"
+                created["status"] != "needs_approval"
                 or created["source"] != "voice"
-                or created["events"][0]["status"] != "queued"
+                or created["events"][0]["action"] != "approval_required"
             ):
                 raise RuntimeError("real Agent OS mission did not start truthfully")
             if client.get(
@@ -89,6 +102,30 @@ def main() -> None:
                 f"/api/v1/agent-os/runs/{run_id}/events", headers=foreign
             ).status_code != 404:
                 raise RuntimeError("foreign owner could stream mission activity")
+            if client.post(
+                f"/api/v1/agent-os/runs/{run_id}/approve", headers=foreign
+            ).status_code != 404:
+                raise RuntimeError("foreign owner could approve a mission")
+            modified = client.post(
+                f"/api/v1/agent-os/runs/{run_id}/modify",
+                headers=owner,
+                json={"goal": _REVISED_GOAL},
+            )
+            modified.raise_for_status()
+            modified_payload = modified.json()
+            if (
+                modified_payload["status"] != "needs_approval"
+                or modified_payload["approved"]
+                or modified_payload["revision"] != 2
+                or modified_payload["events"][-1]["detail_sha256"] is None
+            ):
+                raise RuntimeError("mission revision did not invalidate approval")
+            approved = client.post(
+                f"/api/v1/agent-os/runs/{run_id}/approve", headers=owner
+            )
+            approved.raise_for_status()
+            if not approved.json()["approved"]:
+                raise RuntimeError("owner mission approval was not recorded")
 
             deadline = time.monotonic() + 125
             completed = created
@@ -131,6 +168,7 @@ def main() -> None:
                 raise RuntimeError("real Agent OS event stream is incomplete")
             elapsed_ms = round((time.monotonic() - started) * 1000)
             print("REAL_AGENT_OS_MISSION=passed")
+            print("REAL_AGENT_OS_PERSISTENT_CONTROLS=passed")
             print("REAL_AGENT_OS_SSE=passed")
             print(f"AGENT_OS_ATTEMPTS={len(completed['attempts'])}")
             print(f"AGENT_OS_LATENCY_MS={elapsed_ms}")
@@ -140,6 +178,8 @@ def main() -> None:
     logs = captured_logs.getvalue()
     if _GOAL in logs:
         raise RuntimeError("mission goal leaked into logs")
+    if _REVISED_GOAL in logs:
+        raise RuntimeError("revised mission goal leaked into logs")
     print("AGENT_OS_OWNER_ISOLATION_AND_LOG_REDACTION=passed")
 
 

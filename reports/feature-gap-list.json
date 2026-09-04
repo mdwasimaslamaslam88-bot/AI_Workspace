@@ -1,76 +1,6 @@
 {
   "gaps": [
     {
-      "backend_state": "planned_contract_only",
-      "category": "Owner checkpoints",
-      "code": "planned_implementation",
-      "dependencies": [
-        "persistent_mission_scheduler"
-      ],
-      "id": "mission_control.mission_approve",
-      "layer": "mission_control",
-      "locally_actionable": true,
-      "priority": "P1",
-      "status": "planned",
-      "ui_state": "disabled_documented_gap"
-    },
-    {
-      "backend_state": "planned_contract_only",
-      "category": "Owner checkpoints",
-      "code": "planned_implementation",
-      "dependencies": [
-        "persistent_mission_scheduler"
-      ],
-      "id": "mission_control.mission_manual_retry",
-      "layer": "mission_control",
-      "locally_actionable": true,
-      "priority": "P1",
-      "status": "planned",
-      "ui_state": "disabled_documented_gap"
-    },
-    {
-      "backend_state": "planned_contract_only",
-      "category": "Owner checkpoints",
-      "code": "planned_implementation",
-      "dependencies": [
-        "persistent_mission_scheduler"
-      ],
-      "id": "mission_control.mission_modify",
-      "layer": "mission_control",
-      "locally_actionable": true,
-      "priority": "P1",
-      "status": "planned",
-      "ui_state": "disabled_documented_gap"
-    },
-    {
-      "backend_state": "planned_contract_only",
-      "category": "Owner checkpoints",
-      "code": "planned_implementation",
-      "dependencies": [
-        "persistent_mission_scheduler"
-      ],
-      "id": "mission_control.mission_pause",
-      "layer": "mission_control",
-      "locally_actionable": true,
-      "priority": "P1",
-      "status": "planned",
-      "ui_state": "disabled_documented_gap"
-    },
-    {
-      "backend_state": "planned_contract_only",
-      "category": "Owner checkpoints",
-      "code": "planned_implementation",
-      "dependencies": [
-        "persistent_mission_scheduler"
-      ],
-      "id": "mission_control.mission_resume",
-      "layer": "mission_control",
-      "locally_actionable": true,
-      "priority": "P1",
-      "status": "planned",
-      "ui_state": "disabled_documented_gap"
-    },
-    {
       "backend_state": "external_boundary",
       "category": "Realtime communications",
       "code": "external_dependency",
@@ -872,7 +802,7 @@
     }
   ],
   "product": "AI OS",
-  "registry_sha256": "0bddfa318fcdb0f864f700083d1bffab523f4f52d04308bdff012c2c8fa91737",
+  "registry_sha256": "606eefc6c6193a0757afa6dbfc8608b79426739a26b8b6081e1456bf26e5ada2",
   "schema_version": 1,
   "summary": {
     "broken_registry_wiring": 0,
@@ -880,7 +810,7 @@
     "missing_backend_contracts": 0,
     "missing_coverage_records": 0,
     "missing_ui_paths": 0,
-    "planned_gaps": 5,
+    "planned_gaps": 0,
     "runtime_gates": 14
   }
 }

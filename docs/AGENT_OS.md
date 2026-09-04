@@ -22,11 +22,14 @@ cancellation and permission denial are terminal typed states; there is no
 unbounded autonomous loop.
 
 The runtime receives typed lifecycle updates directly from the orchestrator.
-It records the real `queued`, `planning`, `running`, `verifying`, `retrying` and
-terminal transitions in a bounded 128-event owner-scoped history. The plan,
-specialist, admitted public model identifier, attempt number and verification
-state shown by Mission Control come from that history; the clients do not
-invent percentages or intermediate states.
+It records real `queued`, `needs_approval`, `planning`, `running`, `paused`,
+`verifying`, `retrying` and terminal transitions in a bounded owner-scoped
+snapshot. PostgreSQL stores that snapshot plus an append-only, content-free
+event audit. Startup resumes queued work and converts an interrupted active
+attempt into a safe paused checkpoint; it never reports an interrupted attempt
+as complete. The plan, specialist, admitted public model identifier, attempt
+number and verification state shown by Mission Control come from that history;
+the clients do not invent percentages or intermediate states.
 
 `IndependentVerificationEngine` hashes output and checks declared artifacts as
 regular non-symlink files beneath an optional workspace root. Digest, size and
@@ -65,23 +68,31 @@ diagnostic text.
 - `GET /api/v1/agent-os/runs`
 - `GET /api/v1/agent-os/runs/{id}`
 - `GET /api/v1/agent-os/runs/{id}/events?after={sequence}` (authenticated SSE)
+- `POST /api/v1/agent-os/runs/{id}/pause`
+- `POST /api/v1/agent-os/runs/{id}/resume`
+- `POST /api/v1/agent-os/runs/{id}/approve`
+- `POST /api/v1/agent-os/runs/{id}/modify`
+- `POST /api/v1/agent-os/runs/{id}/retry`
 - `POST /api/v1/agent-os/runs/{id}/cancel`
 
-All routes require the owner bearer and list/get/cancel are owner-isolated. Web
-and mobile Agents views expose task, optional registered specialist, run state,
-typed plan, live activity, verification attempts and final output. The web
-client consumes authenticated SSE with a bounded reconnect cursor; mobile uses
-the same retained event contract with bounded refresh polling because React
-Native streaming-fetch support varies by runtime. Chat drafts can be submitted
-directly as text missions, and locally transcribed speech retains a typed
-`voice` input source when it becomes a mission. Persistence is explicitly
-reported as `bounded_process_memory`.
+All routes require the owner bearer and every read/control is owner-isolated.
+Web and mobile Agents views expose task, optional registered specialist, run
+state, typed plan, live activity, verification attempts, final output and only
+the controls valid for the current state. Approval-held missions cannot execute
+until the owner approves. Changing an approval-held goal invalidates the prior
+approval and requires a fresh one. Pause cancels the current unverified attempt,
+persists a checkpoint, and resume starts a fresh verified attempt. Manual retry
+is restricted to failed/cancelled/timed-out missions and capped at three.
+Revision is capped at sixteen. Audit details contain SHA-256 digests rather than
+goal content.
 
-Pause, resume, in-flight modification, owner-triggered retry and approval
-checkpoints remain `planned` feature-registry entries. They require a persistent
-mission scheduler. The current public mission endpoint grants only model
-inference, so it has no privileged tool action that would legitimately wait for
-an approval checkpoint.
+The web client consumes authenticated SSE with a bounded reconnect cursor;
+mobile uses the same retained event contract with bounded refresh polling
+because React Native streaming-fetch support varies by runtime. Chat drafts can
+be submitted directly as text missions, and locally transcribed speech retains
+a typed `voice` input source when it becomes a mission. Persistence is reported
+as `postgresql_checkpoint_scheduler` when the database is configured, otherwise
+the explicitly degraded `bounded_process_memory` mode remains available.
 
 The Learning Teacher reuses this orchestrator with only `model_inference`, a
 bounded 120-second deadline, one Agent OS retry, and `allow_external_models=false`.
@@ -94,4 +105,5 @@ are untrusted private data; they cannot grant permissions or invoke tools.
 ```bash
 cd backend
 .venv/bin/python -m pytest -q tests/agent_os tests/test_agent_os_api.py
+../scripts/postgres_integration_check.sh
 ```

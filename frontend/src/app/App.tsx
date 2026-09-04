@@ -1483,6 +1483,32 @@ export function App() {
     [client],
   );
 
+  const controlAgentRun = useCallback(
+    (
+      action: "pause" | "resume" | "approve" | "retry",
+      runId: string,
+    ): Promise<AgentRun> => {
+      if (client === null) {
+        return Promise.reject(new ApiError("authentication", "Authentication failed."));
+      }
+      if (action === "pause") return client.pauseAgentRun(runId);
+      if (action === "resume") return client.resumeAgentRun(runId);
+      if (action === "approve") return client.approveAgentRun(runId);
+      return client.retryAgentRun(runId);
+    },
+    [client],
+  );
+
+  const modifyAgentRun = useCallback(
+    (runId: string, goal: string): Promise<AgentRun> => {
+      if (client === null) {
+        return Promise.reject(new ApiError("authentication", "Authentication failed."));
+      }
+      return client.modifyAgentRun(runId, { goal });
+    },
+    [client],
+  );
+
   const streamAgentRunEvents = useCallback(
     (
       runId: string,
@@ -2386,6 +2412,8 @@ export function App() {
               onLoadRuns={loadAgentRuns}
               onCreate={createAgentRun}
               onCancel={cancelAgentRun}
+              onControl={controlAgentRun}
+              onModify={modifyAgentRun}
               onStreamEvents={streamAgentRunEvents}
               onPresenceStateChange={setAgentPresence}
             />

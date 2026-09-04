@@ -5,6 +5,7 @@ import {
   type AgentRun,
   type AgentRunCreateRequest,
   type AgentRunEvent,
+  type AgentRunModifyRequest,
   type AgentRunPage,
   type Asset,
   type ConversationCreateRequest,
@@ -435,6 +436,47 @@ export class ApiClient {
       signal,
       decode: parseAgentRun,
     });
+  }
+
+  pauseAgentRun(runId: string, signal?: AbortSignal): Promise<AgentRun> {
+    return this.#agentRunControl(runId, "pause", undefined, signal);
+  }
+
+  resumeAgentRun(runId: string, signal?: AbortSignal): Promise<AgentRun> {
+    return this.#agentRunControl(runId, "resume", undefined, signal);
+  }
+
+  approveAgentRun(runId: string, signal?: AbortSignal): Promise<AgentRun> {
+    return this.#agentRunControl(runId, "approve", undefined, signal);
+  }
+
+  modifyAgentRun(
+    runId: string,
+    request: AgentRunModifyRequest,
+    signal?: AbortSignal,
+  ): Promise<AgentRun> {
+    return this.#agentRunControl(runId, "modify", request, signal);
+  }
+
+  retryAgentRun(runId: string, signal?: AbortSignal): Promise<AgentRun> {
+    return this.#agentRunControl(runId, "retry", undefined, signal);
+  }
+
+  #agentRunControl(
+    runId: string,
+    action: "pause" | "resume" | "approve" | "modify" | "retry",
+    body: AgentRunModifyRequest | undefined,
+    signal: AbortSignal | undefined,
+  ): Promise<AgentRun> {
+    return this.#request(
+      `api/v1/agent-os/runs/${encodeURIComponent(runId)}/${action}`,
+      {
+        method: "POST",
+        ...(body === undefined ? {} : { body }),
+        signal,
+        decode: parseAgentRun,
+      },
+    );
   }
 
   async streamAgentRunEvents(

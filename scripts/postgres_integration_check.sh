@@ -199,6 +199,9 @@ if [[ "${run_integration}" == true ]]; then
     cd backend
     .venv/bin/python -m alembic upgrade head
     .venv/bin/python -m alembic check
+    .venv/bin/python -m alembic downgrade -1
+    .venv/bin/python -m alembic upgrade head
+    .venv/bin/python -m alembic check
   )
 fi
 

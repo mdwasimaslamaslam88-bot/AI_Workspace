@@ -9,6 +9,7 @@ from app.agent_os import (
     AgentKind,
     AgentOrchestrator,
     AgentRunManager,
+    DatabaseAgentRunStore,
     IndependentVerificationEngine,
     LocalFirstModelSelector,
     LocalModelSelector,
@@ -413,9 +414,16 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             ),
             max_active=2,
         )
-        app.state.agent_run_manager = AgentRunManager(
-            app.state.agent_orchestrator
+        agent_run_store = (
+            DatabaseAgentRunStore(app.state.db_session_factory)
+            if app.state.db_session_factory is not None
+            else None
         )
+        app.state.agent_run_manager = AgentRunManager(
+            app.state.agent_orchestrator,
+            store=agent_run_store,
+        )
+        await app.state.agent_run_manager.initialize()
         resource_stack.push_async_callback(app.state.agent_run_manager.shutdown)
         app.state.marketing_campaign_tasks = {}
         app.state.marketing_campaign_runner = (

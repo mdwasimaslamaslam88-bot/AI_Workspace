@@ -49,6 +49,7 @@ def main() -> None:
         "tests/db/test_finance_postgres.py",
         "tests/db/test_learning_postgres.py",
         "tests/db/test_creative_postgres.py",
+        "tests/db/test_agent_missions_postgres.py",
     ]
     os.chdir(PROJECT_ROOT)
     os.execvpe(sys.executable, command, environment)

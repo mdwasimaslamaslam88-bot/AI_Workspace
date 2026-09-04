@@ -549,8 +549,10 @@ export interface ExternalProviderDiagnostic {
 
 export type AgentRuntimeStatus =
   | "queued"
+  | "needs_approval"
   | "planning"
   | "running"
+  | "paused"
   | "verifying"
   | "retrying"
   | "completed"
@@ -1531,6 +1533,7 @@ export interface AgentOSCapabilities {
   active_runs: number;
   max_concurrency: number;
   persistence: string;
+  controls: Array<"pause" | "resume" | "approve" | "modify" | "retry">;
 }
 
 export interface AgentVerificationCheck {
@@ -1568,6 +1571,8 @@ export interface AgentRunEvent {
   attempt: number | null;
   agent: AgentKind | null;
   model_id: string | null;
+  action: string;
+  detail_sha256: string | null;
 }
 
 export interface AgentRun {
@@ -1584,6 +1589,16 @@ export interface AgentRun {
   plan: AgentPlanStep[];
   events: AgentRunEvent[];
   attempts: AgentAttempt[];
+  pause_requested: boolean;
+  requires_approval: boolean;
+  approved: boolean;
+  revision: number;
+  manual_retry_count: number;
+  can_pause: boolean;
+  can_resume: boolean;
+  can_approve: boolean;
+  can_modify: boolean;
+  can_retry: boolean;
 }
 
 export interface AgentRunPage { items: AgentRun[]; }
@@ -1597,7 +1612,10 @@ export interface AgentRunCreateRequest {
   deadline_seconds?: number;
   required_context_tokens?: number;
   require_objective_evidence?: boolean;
+  require_owner_approval?: boolean;
 }
+
+export interface AgentRunModifyRequest { goal: string; }
 
 export interface ConversationSummary {
   id: UUID;
@@ -1894,8 +1912,10 @@ const selfUpdateStates = [
 ] as const;
 const agentRuntimeStatuses = [
   "queued",
+  "needs_approval",
   "planning",
   "running",
+  "paused",
   "verifying",
   "retrying",
   "completed",
@@ -1903,6 +1923,7 @@ const agentRuntimeStatuses = [
   "cancelled",
   "timed_out",
 ] as const;
+const agentRunControls = ["pause", "resume", "approve", "modify", "retry"] as const;
 const agentInputSources = ["text", "voice"] as const;
 const connectorKinds = ["rest", "graphql", "webhook", "local_api"] as const;
 const connectorAuthKinds = ["none", "bearer", "api_key", "oauth2_bearer", "oidc_bearer"] as const;
@@ -3461,11 +3482,14 @@ export function parseAgentOSCapabilities(value: unknown): AgentOSCapabilities {
   const maxDeadline = integerOrNull(item.max_deadline_seconds);
   const activeRuns = integerOrNull(item.active_runs);
   const maxConcurrency = integerOrNull(item.max_concurrency);
+  if (!Array.isArray(item.controls) || item.controls.length !== agentRunControls.length) return invalidResponse();
+  const controls = item.controls.map((control) => enumField(control, agentRunControls));
   if (
     maxRetries === null || maxRetries < 0 || maxRetries > 2 ||
     maxDeadline === null || maxDeadline < 1 || maxDeadline > 600 ||
     activeRuns === null || activeRuns < 0 || activeRuns > 100 ||
     maxConcurrency === null || maxConcurrency < 1 || maxConcurrency > 8
+    || new Set(controls).size !== agentRunControls.length
   ) return invalidResponse();
   return {
     profiles,
@@ -3474,6 +3498,7 @@ export function parseAgentOSCapabilities(value: unknown): AgentOSCapabilities {
     active_runs: activeRuns,
     max_concurrency: maxConcurrency,
     persistence: stringField(item.persistence),
+    controls,
   };
 }
 
@@ -3502,10 +3527,14 @@ export function parseAgentRun(value: unknown): AgentRun {
     const sequence = integerOrNull(event.sequence);
     const attempt = event.attempt === null ? null : integerOrNull(event.attempt);
     const modelId = nullableString(event.model_id);
+    const action = stringField(event.action);
+    const detailDigest = nullableString(event.detail_sha256);
     if (
       sequence === null || sequence < 1 || sequence > 10_000 ||
       (attempt !== null && (attempt < 1 || attempt > 3)) ||
-      (modelId !== null && !/^[a-z0-9][a-z0-9_-]{0,63}:[a-f0-9]{24}$/.test(modelId))
+      (modelId !== null && !/^[a-z0-9][a-z0-9_-]{0,63}:[a-f0-9]{24}$/.test(modelId)) ||
+      !/^[a-z][a-z0-9_]{0,31}$/.test(action) ||
+      (detailDigest !== null && !/^[a-f0-9]{64}$/.test(detailDigest))
     ) return invalidResponse();
     return {
       sequence,
@@ -3515,6 +3544,8 @@ export function parseAgentRun(value: unknown): AgentRun {
       attempt,
       agent: event.agent === null ? null : enumField(event.agent, agentKinds),
       model_id: modelId,
+      action,
+      detail_sha256: detailDigest,
     };
   });
   if (events.some((event, index) => index > 0 && event.sequence <= events[index - 1]!.sequence)) {
@@ -3552,6 +3583,12 @@ export function parseAgentRun(value: unknown): AgentRun {
       checks,
     };
   });
+  const revision = integerOrNull(item.revision);
+  const manualRetryCount = integerOrNull(item.manual_retry_count);
+  if (
+    revision === null || revision < 1 || revision > 16 ||
+    manualRetryCount === null || manualRetryCount < 0 || manualRetryCount > 3
+  ) return invalidResponse();
   return {
     id: stringField(item.id),
     goal: stringField(item.goal),
@@ -3566,6 +3603,16 @@ export function parseAgentRun(value: unknown): AgentRun {
     plan,
     events,
     attempts,
+    pause_requested: booleanField(item.pause_requested),
+    requires_approval: booleanField(item.requires_approval),
+    approved: booleanField(item.approved),
+    revision,
+    manual_retry_count: manualRetryCount,
+    can_pause: booleanField(item.can_pause),
+    can_resume: booleanField(item.can_resume),
+    can_approve: booleanField(item.can_approve),
+    can_modify: booleanField(item.can_modify),
+    can_retry: booleanField(item.can_retry),
   };
 }
 
@@ -3584,6 +3631,16 @@ export function parseAgentRunEvent(value: unknown): AgentRunEvent {
     plan: [],
     events: [value],
     attempts: [],
+    pause_requested: false,
+    requires_approval: false,
+    approved: false,
+    revision: 1,
+    manual_retry_count: 0,
+    can_pause: false,
+    can_resume: false,
+    can_approve: false,
+    can_modify: false,
+    can_retry: false,
   });
   return parsed.events[0]!;
 }

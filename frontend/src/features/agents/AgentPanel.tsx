@@ -17,6 +17,11 @@ interface AgentPanelProps {
   onLoadRuns: (signal?: AbortSignal) => Promise<AgentRun[]>;
   onCreate: (request: AgentRunCreateRequest) => Promise<AgentRun>;
   onCancel: (runId: string) => Promise<AgentRun>;
+  onControl: (
+    action: "pause" | "resume" | "approve" | "retry",
+    runId: string,
+  ) => Promise<AgentRun>;
+  onModify: (runId: string, goal: string) => Promise<AgentRun>;
   onStreamEvents?: (
     runId: string,
     onEvent: (event: AgentRunEvent) => void,
@@ -42,6 +47,7 @@ const TASKS: Array<{ value: ModelTask; label: string }> = [
 ];
 
 const TERMINAL = new Set(["completed", "failed", "cancelled", "timed_out"]);
+const STREAMING = new Set(["queued", "planning", "running", "verifying", "retrying"]);
 
 export function AgentPanel({
   onClose,
@@ -49,6 +55,8 @@ export function AgentPanel({
   onLoadRuns,
   onCreate,
   onCancel,
+  onControl,
+  onModify,
   onStreamEvents,
   onPresenceStateChange,
 }: AgentPanelProps) {
@@ -57,6 +65,8 @@ export function AgentPanel({
   const [goal, setGoal] = useState("");
   const [task, setTask] = useState<ModelTask>("general_chat");
   const [specialist, setSpecialist] = useState<AgentKind | "auto">("auto");
+  const [requireApproval, setRequireApproval] = useState(false);
+  const [revisions, setRevisions] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const controller = useRef<AbortController | null>(null);
@@ -86,12 +96,12 @@ export function AgentPanel({
   }, [load]);
 
   useEffect(() => {
-    if (onStreamEvents !== undefined || !runs.some((run) => !TERMINAL.has(run.status))) return;
+    if (onStreamEvents !== undefined || !runs.some((run) => STREAMING.has(run.status))) return;
     const timer = window.setInterval(() => void load(), 1500);
     return () => window.clearInterval(timer);
   }, [load, onStreamEvents, runs]);
 
-  const activeRun = runs.find((run) => !TERMINAL.has(run.status));
+  const activeRun = runs.find((run) => STREAMING.has(run.status));
   const activeRunId = activeRun?.id;
   useEffect(() => {
     if (activeRunId === undefined || onStreamEvents === undefined) return;
@@ -147,6 +157,7 @@ export function AgentPanel({
         max_retries: 1,
         deadline_seconds: 180,
         source: "text",
+        require_owner_approval: requireApproval,
       });
       setRuns((current) => [created, ...current.filter((run) => run.id !== created.id)]);
       setGoal("");
@@ -156,7 +167,46 @@ export function AgentPanel({
     } finally {
       setBusy(false);
     }
-  }, [goal, onCreate, specialist, task]);
+  }, [goal, onCreate, requireApproval, specialist, task]);
+
+  const updateRun = useCallback((updated: AgentRun) => {
+    setRuns((current) => current.map((item) => (
+      item.id === updated.id ? updated : item
+    )));
+  }, []);
+
+  const control = useCallback(async (
+    action: "pause" | "resume" | "approve" | "retry",
+    runId: string,
+  ) => {
+    setBusy(true);
+    setNotice(null);
+    try {
+      updateRun(await onControl(action, runId));
+    } catch {
+      setNotice(`The mission could not be ${action === "retry" ? "retried" : `${action}d`}.`);
+    } finally {
+      setBusy(false);
+    }
+  }, [onControl, updateRun]);
+
+  const modify = useCallback(async (run: AgentRun) => {
+    const revisionGoal = revisions[run.id] ?? "";
+    if (!revisionGoal.trim() || revisionGoal !== revisionGoal.trim()) {
+      setNotice("Enter an exact nonblank revised goal without surrounding whitespace.");
+      return;
+    }
+    setBusy(true);
+    setNotice(null);
+    try {
+      updateRun(await onModify(run.id, revisionGoal));
+      setRevisions((current) => ({ ...current, [run.id]: "" }));
+    } catch {
+      setNotice("The mission revision could not be applied.");
+    } finally {
+      setBusy(false);
+    }
+  }, [onModify, revisions, updateRun]);
 
   return (
     <aside className="settings-panel" aria-labelledby="agents-title">
@@ -168,6 +218,14 @@ export function AgentPanel({
             Goals follow a bounded plan → route → execute → independently verify → retry lifecycle.
           </p>
         </div>
+        <label>
+          <input
+            type="checkbox"
+            checked={requireApproval}
+            onChange={(event) => setRequireApproval(event.target.checked)}
+          />
+          <span>Hold for my approval before execution</span>
+        </label>
         <button type="button" className="button button-quiet" onClick={onClose}>Close</button>
       </div>
 
@@ -257,7 +315,7 @@ export function AgentPanel({
                 <ol className="mission-activity">
                   {run.events.map((event) => (
                     <li key={event.sequence}>
-                      {event.status.replaceAll("_", " ")}
+                      {event.action.replaceAll("_", " ")} · {event.status.replaceAll("_", " ")}
                       {event.agent === null ? "" : ` · ${event.agent}`}
                       {event.attempt === null ? "" : ` · attempt ${event.attempt}`}
                     </li>
@@ -271,6 +329,40 @@ export function AgentPanel({
                   Attempt {attempt.attempt} · {attempt.agent} · {attempt.verified ? "verified" : "verification failed"}
                 </p>
               ))}
+              <p className="field-help">
+                Revision {run.revision} · manual retries {run.manual_retry_count}/3
+              </p>
+              {run.can_modify && (
+                <label>
+                  <span>Revised mission goal</span>
+                  <textarea
+                    aria-label={`Revised mission goal for ${run.id}`}
+                    maxLength={32_000}
+                    value={revisions[run.id] ?? ""}
+                    onChange={(event) => setRevisions((current) => ({
+                      ...current,
+                      [run.id]: event.target.value,
+                    }))}
+                  />
+                </label>
+              )}
+              <div className="session-controls" aria-label="Mission controls">
+                {run.can_pause && (
+                  <button type="button" className="button button-quiet" disabled={busy} onClick={() => void control("pause", run.id)}>Pause</button>
+                )}
+                {run.can_resume && (
+                  <button type="button" className="button button-quiet" disabled={busy} onClick={() => void control("resume", run.id)}>Resume</button>
+                )}
+                {run.can_approve && (
+                  <button type="button" className="button button-primary" disabled={busy} onClick={() => void control("approve", run.id)}>Approve</button>
+                )}
+                {run.can_modify && (
+                  <button type="button" className="button button-quiet" disabled={busy} onClick={() => void modify(run)}>Apply revision</button>
+                )}
+                {run.can_retry && (
+                  <button type="button" className="button button-quiet" disabled={busy} onClick={() => void control("retry", run.id)}>Retry</button>
+                )}
+              </div>
               {!TERMINAL.has(run.status) && (
                 <button
                   type="button"
@@ -279,7 +371,7 @@ export function AgentPanel({
                   onClick={() => {
                     setBusy(true);
                     void onCancel(run.id)
-                      .then((cancelled) => setRuns((current) => current.map((item) => item.id === cancelled.id ? cancelled : item)))
+                      .then(updateRun)
                       .catch(() => setNotice("The agent run could not be cancelled."))
                       .finally(() => setBusy(false));
                   }}

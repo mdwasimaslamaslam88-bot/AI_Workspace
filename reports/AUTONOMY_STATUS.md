@@ -6,8 +6,10 @@ approval-gated.
 
 | Capability | Status | Evidence or exact boundary |
 |---|---|---|
-| Background missions/workflows | RUNTIME PASS | Workflow execution runs asynchronously with concurrency admission, per-step and wall deadlines, cancellation, terminal error classification, and persisted results |
-| Agent retry and repair | LOCAL PASS | Bounded attempt count, verification before completion, retry states, cancellation, deadlines, and integrity hashes passed focused tests |
+| Background missions/workflows | RUNTIME PASS | Workflow execution runs asynchronously with concurrency admission, per-step and wall deadlines, cancellation, terminal error classification, and persisted results; generic Agent OS missions now use PostgreSQL checkpoints and append-only lifecycle audit |
+| Agent retry and repair | LOCAL PASS | Bounded automatic attempts plus an owner-triggered retry capped at three, verification before completion, cancellation, deadlines and integrity hashes passed focused tests |
+| Owner mission controls | LOCAL PASS | Pause/resume, approval hold, approval-invalidating revision and manual retry are owner-isolated, state-gated, bounded and available through matching web/mobile controls |
+| Restart recovery | LOCAL PASS | Queued Agent OS missions resume after initialization; interrupted active attempts recover as paused and require explicit owner resume rather than claiming completion |
 | Connector retry/failover | LOCAL PASS | Idempotency-aware retries, 429/5xx handling, timeout, circuit breaker, health state, reconnect, and audit contracts passed; no owner external connector is configured |
 | Model monitoring/fallback | RUNTIME PASS | Authenticated production diagnostics returned installed-model admission and task routes; local model health is part of five-minute readiness checks |
 | Hardware/resource monitoring | RUNTIME PASS | Authoritative hardware diagnostics reported the admitted GPU and validated runtime; VRAM/RAM/model admission guards passed focused tests without forcing artificial resource exhaustion |
@@ -52,8 +54,8 @@ for audit rather than destructively deleted.
 
 ## Phase I evidence
 
-- Full backend regression after the final Phase I changes: **2,950 passed, 48
-  skipped**.
+- Persistent Agent OS focused suite: **56 passed**; PostgreSQL integration:
+  **55 passed**, head `0022`, latest downgrade/re-upgrade passed, no drift.
 - Remote-device harness tests and the production monitoring smoke: **passed**.
 - User systemd unit syntax/sandbox compatibility: **passed**.
 - Backup verification and disposable restore: **passed**.

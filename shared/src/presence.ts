@@ -12,8 +12,10 @@ export type PresenceState = typeof presenceStates[number];
 
 export type PresenceAgentStatus =
   | "queued"
+  | "needs_approval"
   | "planning"
   | "running"
+  | "paused"
   | "verifying"
   | "retrying"
   | "completed"
@@ -34,6 +36,8 @@ export function presenceStateForAgentStatus(
   status: PresenceAgentStatus | null | undefined,
 ): PresenceState | null {
   if (status === "queued" || status === "planning") return "THINKING";
+  if (status === "needs_approval") return "NEEDS INPUT";
+  if (status === "paused") return "WAITING";
   if (status === "running" || status === "retrying") return "WORKING";
   if (status === "verifying") return "VERIFYING";
   if (status === "completed") return "DONE";

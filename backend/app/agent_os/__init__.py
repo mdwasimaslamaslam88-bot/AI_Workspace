@@ -24,7 +24,13 @@ from app.agent_os.orchestrator import (
     RuleBasedAgentPlanner,
 )
 from app.agent_os.policy import AgentPolicy
-from app.agent_os.runtime import AgentRunEventRecord, AgentRunManager, AgentRunRecord
+from app.agent_os.persistence import DatabaseAgentRunStore
+from app.agent_os.runtime import (
+    AgentRunConflictError,
+    AgentRunEventRecord,
+    AgentRunManager,
+    AgentRunRecord,
+)
 from app.agent_os.verification import IndependentVerificationEngine
 
 __all__ = [
@@ -40,10 +46,12 @@ __all__ = [
     "AgentPolicy",
     "AgentRunRequest",
     "AgentRunResult",
+    "AgentRunConflictError",
     "AgentRunManager",
     "AgentRunEventRecord",
     "AgentRunRecord",
     "AgentRunStatus",
+    "DatabaseAgentRunStore",
     "IndependentVerificationEngine",
     "LocalModelSelector",
     "LocalFirstModelSelector",

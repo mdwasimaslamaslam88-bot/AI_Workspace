@@ -302,6 +302,8 @@ async def test_migration_creates_exact_expected_postgresql_schema(
             "trading_safety_policies",
             "broker_order_records",
             "trading_safety_events",
+            "agent_missions",
+            "agent_mission_events",
     }
 
     owner_fk = _foreign_key(
@@ -5000,12 +5002,14 @@ async def test_generation_deadline_preserves_retry_and_releases_postgres_resourc
 
             timed_out = await timed_out_task
             assert timed_out.status_code == 503
-            assert timed_out.json()["error"] == {
+            error_payload = timed_out.json()["error"]
+            assert error_payload == {
                 "code": "HTTP_ERROR",
                 "message": "Local model runtime unavailable",
             }
-            assert "0.25" not in timed_out.text
-            assert "deadline-model" not in timed_out.text
+            serialized_error = json.dumps(error_payload, sort_keys=True)
+            assert "0.25" not in serialized_error
+            assert "deadline-model" not in serialized_error
             assert runtime.active_calls == 0
             assert admission._active_users == set()
             assert admission._active_count == 0

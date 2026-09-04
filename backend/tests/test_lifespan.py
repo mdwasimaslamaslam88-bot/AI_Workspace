@@ -104,6 +104,7 @@ async def test_lifespan_creates_factory_and_disposes_configured_engine(monkeypat
         shutdown=AsyncMock(),
     )
     marketing_runner_factory = Mock(return_value=marketing_runner)
+    mission_store = Mock(initialize=AsyncMock(return_value=()))
     monkeypatch.setattr(
         lifespan_module, "reconcile_tool_executions", reconcile_tools
     )
@@ -115,6 +116,10 @@ async def test_lifespan_creates_factory_and_disposes_configured_engine(monkeypat
     )
     monkeypatch.setattr(
         lifespan_module, "MarketingCampaignRunner", marketing_runner_factory
+    )
+    mission_store_factory = Mock(return_value=mission_store)
+    monkeypatch.setattr(
+        lifespan_module, "DatabaseAgentRunStore", mission_store_factory
     )
 
     async with lifespan_module.lifespan(app):
@@ -140,6 +145,8 @@ async def test_lifespan_creates_factory_and_disposes_configured_engine(monkeypat
     workflow_runner_factory.assert_called_once()
     marketing_runner_factory.assert_called_once()
     marketing_runner.reconcile_interrupted.assert_awaited_once_with()
+    mission_store_factory.assert_called_once_with(factory)
+    mission_store.initialize.assert_awaited_once_with()
     workflow_runner.shutdown.assert_awaited_once_with()
     marketing_runner.shutdown.assert_awaited_once_with()
     dispose_postgres.assert_awaited_once_with(engine)
@@ -331,6 +338,7 @@ def _install_resource_lifecycle_mocks(monkeypatch):
         "workflow_runner_factory": Mock(return_value=workflow_runner),
         "marketing_runner": marketing_runner,
         "marketing_runner_factory": Mock(return_value=marketing_runner),
+        "mission_store": Mock(initialize=AsyncMock(return_value=())),
         "dispose_postgres": AsyncMock(side_effect=dispose_postgres),
         "close_redis": AsyncMock(side_effect=close_redis),
         "close_ollama": AsyncMock(side_effect=close_ollama),
@@ -374,6 +382,14 @@ def _install_resource_lifecycle_mocks(monkeypatch):
         lifespan_module,
         "MarketingCampaignRunner",
         resources["marketing_runner_factory"],
+    )
+    resources["mission_store_factory"] = Mock(
+        return_value=resources["mission_store"]
+    )
+    monkeypatch.setattr(
+        lifespan_module,
+        "DatabaseAgentRunStore",
+        resources["mission_store_factory"],
     )
     monkeypatch.setattr(
         lifespan_module,

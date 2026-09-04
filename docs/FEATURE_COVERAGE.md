@@ -3,11 +3,11 @@
 This report is generated from the authenticated product registry. It distinguishes working capabilities from runtime gates, external services, and documented implementation gaps; it is not a claim that external or planned features execute locally.
 
 - Registered capabilities: **321**
-- Registry SHA-256: `0bddfa318fcdb0f864f700083d1bffab523f4f52d04308bdff012c2c8fa91737`
-- Implemented: **263**
+- Registry SHA-256: `606eefc6c6193a0757afa6dbfc8608b79426739a26b8b6081e1456bf26e5ada2`
+- Implemented: **268**
 - Runtime-dependent: **14**
 - External dependency: **39**
-- Planned/documented gap: **5**
+- Planned/documented gap: **0**
 
 ## Five-layer coverage
 
@@ -28,7 +28,7 @@ The deterministic `reports/feature-implementation-matrix.json` maps every capabi
 - Missing UI paths: **0**
 - Missing backend contracts: **0**
 - Missing coverage records: **0**
-- Planned implementation gaps: **5**
+- Planned implementation gaps: **0**
 - External boundaries: **39**
 - Runtime gates: **14**
 

@@ -20,6 +20,8 @@ from sqlalchemy.schema import CreateIndex
 import app.models  # noqa: F401  # Populate the model registry.
 from app.db.base import Base
 from app.models import (
+    AgentMission,
+    AgentMissionEvent,
     Asset,
     BrokerOrderRecord,
     Connector,
@@ -68,6 +70,8 @@ from app.models.message import (
 
 
 EXPECTED_TABLES = {
+    "agent_missions",
+    "agent_mission_events",
     "users",
     "user_sessions",
     "conversations",
