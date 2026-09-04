@@ -119,3 +119,18 @@ or the private tailnet hostname.
 This test proves the private HTTPS/API/session/mission contract through the
 active tailnet. It does not claim a physical Android/iOS device run or push
 notification delivery; those remain separate device/provider gates.
+
+## Step 7 verified production snapshot
+
+On 2026-09-04, the guarded production smoke passed through the active private
+Serve endpoint. It verified TLS and bearer authentication, desktop-to-mobile
+and mobile-to-desktop workflow continuation, targeted session revocation and
+logout, authenticated diagnostics, connector-monitor owner isolation, and
+exact cleanup back to the starting database counts.
+
+The same release gate passed the canonical backend, web, mobile, PostgreSQL,
+browser/PWA, desktop package/launch, Android native build, security, and local
+runtime suites. Native Windows and macOS hosted checks also succeeded on exact
+commit `7fafcf800be66171b64b136b7a12ee8613205201`. See
+`reports/STEP7_REMOTE_DEVICES.md` for hashes and the remaining physical-device,
+push-provider, and distribution-signing boundaries.

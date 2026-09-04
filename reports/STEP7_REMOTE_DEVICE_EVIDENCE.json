@@ -1,0 +1,89 @@
+{
+  "schema_version": 1,
+  "step": 7,
+  "roadmap_phase": "H",
+  "generated_at": "2026-09-04T22:41:42+05:30",
+  "source_commit": "7fafcf800be66171b64b136b7a12ee8613205201",
+  "status": "COMPLETE_LOCAL",
+  "capabilities": {
+    "private_remote_gateway": "RUNTIME_PASS",
+    "remote_authenticated_session": "RUNTIME_PASS",
+    "device_session_lifecycle": "RUNTIME_PASS",
+    "desktop_to_mobile_continuation": "RUNTIME_PASS",
+    "mobile_to_desktop_continuation": "RUNTIME_PASS",
+    "ubuntu_desktop": "DEVICE_PASS",
+    "web_pwa": "RUNTIME_PASS",
+    "android_arm64_artifact": "LOCAL_PASS",
+    "android_x86_64_emulator_prior_release": "DEVICE_PASS",
+    "android_physical_device": "DEVICE_BLOCKED",
+    "windows_native_host": "BUILD_NATIVE_PASS",
+    "windows_physical_device": "DEVICE_BLOCKED",
+    "macos_native_host": "BUILD_NATIVE_PASS",
+    "macos_physical_device": "DEVICE_BLOCKED",
+    "ios_static_export": "LOCAL_PASS",
+    "ios_native_device": "DEVICE_BLOCKED",
+    "local_notifications": "LOCAL_PASS",
+    "remote_push_delivery": "EXTERNAL_BLOCKED"
+  },
+  "runtime_evidence": {
+    "gateway": "Tailscale Serve TLS to the loopback backend; Funnel disabled",
+    "production_smoke": [
+      "REMOTE_TAILNET_TLS_AND_AUTH",
+      "DESKTOP_TO_MOBILE_WORKFLOW_CONTINUATION",
+      "MOBILE_TO_DESKTOP_WORKFLOW_CONTINUATION",
+      "REMOTE_DEVICE_REVOCATION_AND_LOGOUT",
+      "PRODUCTION_MONITORING_DIAGNOSTICS",
+      "CONNECTOR_MONITOR_OWNER_ISOLATION",
+      "REMOTE_SMOKE_PRODUCTION_CLEANUP"
+    ],
+    "android_arm64_apk": {
+      "path": "/home/md-wasim/AI_Workspace_Data/releases/step7-7fafcf8/Work_Station_Android_ARM64.apk",
+      "sha256": "c5dd4a4101e500abc0d4274eff1f6020b37e5b199b09d573b0f07f3b72abd2f4",
+      "signing": "debug certificate for owner sideload",
+      "physical_devices_attached": 0
+    },
+    "windows_native_ci": {
+      "run_id": 33897323310,
+      "conclusion": "success",
+      "head_sha": "7fafcf800be66171b64b136b7a12ee8613205201",
+      "url": "https://github.com/mdwasimaslamaslam88-bot/AI_Workspace/actions/runs/33897323310"
+    },
+    "macos_native_ci": {
+      "run_id": 33897326738,
+      "conclusion": "success",
+      "head_sha": "7fafcf800be66171b64b136b7a12ee8613205201",
+      "url": "https://github.com/mdwasimaslamaslam88-bot/AI_Workspace/actions/runs/33897326738"
+    }
+  },
+  "tests": {
+    "focused_backend": {"passed": 109, "skipped": 4},
+    "focused_web": {"passed": 30},
+    "focused_mobile": {"passed": 23},
+    "full_backend": {"passed": 3003, "skipped": 53},
+    "full_web": {"passed": 201},
+    "full_mobile": {"passed": 64},
+    "postgresql_integration": {"passed": 53, "migration_head": "0021", "schema_drift": false},
+    "browser_pwa_e2e": "PASS",
+    "desktop_build_package_launch": "PASS",
+    "android_native_debug_build": "PASS",
+    "full_local_runtime_e2e": "PASS",
+    "release_gate": "PASS"
+  },
+  "security": {
+    "status": "PASS",
+    "critical": 0,
+    "high": 0,
+    "moderate": 14,
+    "moderate_scope": "transitive Expo build tooling",
+    "secret_leaks": 0,
+    "public_funnel_enabled": false
+  },
+  "external_boundaries": [
+    "Enroll and authorize each owner-controlled physical device in the private tailnet.",
+    "Install and launch the ARM64 APK on an owner-controlled Android device.",
+    "Provide Windows publisher and Apple Developer ID/notarization credentials for trusted public distribution.",
+    "Provide Apple hardware, provisioning, signing, and a physical device for native iOS validation.",
+    "Configure an authorized push provider and register a physical device before claiming remote push delivery."
+  ],
+  "step_8_started": false
+}

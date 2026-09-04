@@ -1,4 +1,4 @@
-# Phase 11 Device and Remote Ecosystem Status
+# Step 7 Device and Remote Ecosystem Status
 
 Status labels separate local build/runtime evidence from physical-device and
 external-provider evidence. No physical-device, public-network, store, or push
@@ -13,29 +13,30 @@ delivery result is inferred from a package build.
 | Mobile to desktop continuation | RUNTIME PASS | Independent mobile/desktop owner sessions used the real private HTTPS route; desktop session observed and completed the mobile-created mission with verified result |
 | Device registration and trust | LOCAL/RUNTIME PASS | Owner-scoped session issue, label, list, current-session detection, targeted revoke, logout, and post-revocation denial passed |
 | Remote authenticated session | RUNTIME PASS | Temporary owner provisioned through the active private gateway; both bearer sessions authenticated; exact test data was removed and database counts returned to baseline |
-| Windows desktop | BUILD/NATIVE PASS; trust boundary | Current x64 PE/NSIS artifacts passed native Windows build, scan and launch run `33735245448`; trusted publisher certificate remains external |
-| macOS desktop | BUILD/NATIVE PASS; trust boundary | Current arm64 app ZIP/DMG passed native macOS build, strict ad-hoc signing, scan and launch run `33735249778`; Developer ID/notarization remains external |
-| Android | EMULATOR DEVICE PASS; ARM/STORE BOUNDARY | Android 16/API 36 x86_64 release build installed and launched; `MainActivity` remained top-resumed and bottom navigation opened Mission Control. The ARM64 owner-sideload APK passed signing/alignment/artifact checks but still needs a physical ARM device and owner store signing |
+| Windows desktop | BUILD/NATIVE PASS; trust boundary | Native x64 PE/NSIS build, scan and launch run `33897323310` succeeded for exact commit `7fafcf8`; trusted publisher certificate and owner physical-machine acceptance remain external |
+| macOS desktop | BUILD/NATIVE PASS; trust boundary | Native arm64 app ZIP/DMG build, strict ad-hoc signing, scan and launch run `33897326738` succeeded for exact commit `7fafcf8`; Developer ID/notarization and owner physical-machine acceptance remain external |
+| Android | EMULATOR DEVICE PASS; ARM PHYSICAL BLOCKED | The preserved Phase 11 Android 16/API 36 x86_64 emulator run passed install, launch and Mission Control navigation. The fresh ARM64 owner-sideload APK passed build, ABI, signing, alignment, path and secret scans; no physical Android was attached in Step 7 |
 | iOS | STATIC PASS; EXTERNAL BLOCKED | Expo static export passed; Apple hardware, account, signing, and physical-device validation remain external |
 | Notification routing | LOCAL PASS; PROVIDER BLOCKED | Local notification contracts pass; remote push delivery needs an authorized FCM/APNs/EAS provider and registered physical device |
 | Public internet exposure | DISABLED | No public Funnel or router forwarding is enabled; owner devices must be enrolled in the private tailnet |
 
-## Phase H validation
+## Step 7 validation
 
-- Backend authentication/session/workflow/remote-harness tests: **91 passed**.
-- Web session/platform tests: **12 passed**.
+- Backend authentication/session/workflow/remote-harness tests: **109 passed, 4 skipped**.
+- Web session/platform tests: **30 passed**.
 - Mobile session, API, deep-link, network, notification, and workflow tests:
-  **42 passed**.
+  **23 passed** in the focused gate and **64 passed** in the canonical gate.
 - Remote gateway configuration and private-target guards: **passed**.
 - Authenticated production remote smoke: **passed**, including exact cleanup.
 - Security gate: **passed** with no critical/high findings or secret leak.
-- Phase J Android emulator: **device runtime passed** after a software-emulated
-  boot; package install, process/activity health, accessibility tree and Mission
-  Control navigation were verified. The emulator exposed no `/dev/kvm`, so the
-  Android system produced one transient system-process ANR during the slow cold
-  boot. Selecting `Wait` recovered; the WORK STATION process did not crash.
-- Current native Windows/macOS workflow artifacts and the consolidated release
-  checksum/extracted-content gate: **passed**.
+- Canonical backend **3,003 passed, 53 skipped**; web **201 passed**; PostgreSQL
+  **53 passed** at migration `0021` with no drift.
+- Native Android build and artifact validation: **passed**. Physical-device
+  execution remains `DEVICE_BLOCKED` because `adb devices -l` was empty.
+- The prior Android 16/API 36 x86_64 emulator device-run evidence remains valid
+  and is not represented as ARM64 physical-device acceptance.
+- Native Windows/macOS exact-commit hosted build, scan and launch gates:
+  **passed**.
 
 The local userspace Tailscale daemon does not install host MagicDNS routing.
 The production smoke therefore uses Tailscale's own userspace TCP transport to
@@ -52,3 +53,8 @@ enrolled remote device uses the normal tailnet path.
   claiming remote notification delivery.
 - Supply trusted Windows and Apple signing identities for public distribution;
   Apple notarization additionally needs an Apple developer account/service.
+
+The fresh APK is stored at
+`/home/md-wasim/AI_Workspace_Data/releases/step7-7fafcf8/Work_Station_Android_ARM64.apk`
+with SHA-256
+`c5dd4a4101e500abc0d4274eff1f6020b37e5b199b09d573b0f07f3b72abd2f4`.
