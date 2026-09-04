@@ -5,6 +5,7 @@ import type {
   CreativeExperienceMode,
   FeatureRegistry,
   FinanceWorkspace,
+  LearningAnalytics,
   LearningProgram,
   Connector,
   ConnectorSettings,
@@ -103,6 +104,7 @@ export default function StudioScreen() {
   const [campaigns, setCampaigns] = useState<MarketingCampaign[]>([]);
   const [financeWorkspaces, setFinanceWorkspaces] = useState<FinanceWorkspace[]>([]);
   const [learningPrograms, setLearningPrograms] = useState<LearningProgram[]>([]);
+  const [learningAnalytics, setLearningAnalytics] = useState<LearningAnalytics | null>(null);
   const [selectedLearningId, setSelectedLearningId] = useState<string | null>(null);
   const [learningSubject, setLearningSubject] = useState("");
   const [learningGoal, setLearningGoal] = useState("");
@@ -189,6 +191,17 @@ export default function StudioScreen() {
       ?? null,
     [creativeExperiences, selectedCreativeId],
   );
+
+  useEffect(() => {
+    if (client === null || selectedLearning === null || state !== "connected") {
+      return;
+    }
+    const controller = new AbortController();
+    void client.getLearningAnalytics(selectedLearning.id, controller.signal)
+      .then((value) => { if (!controller.signal.aborted) setLearningAnalytics(value); })
+      .catch(() => { if (!controller.signal.aborted) setLearningAnalytics(null); });
+    return () => controller.abort();
+  }, [client, selectedLearning, state]);
 
   const updateWorkflow = useCallback((workflow: Workflow) => {
     setWorkflows((current) =>
@@ -296,6 +309,7 @@ export default function StudioScreen() {
       setSelectedFinanceId((current) => financePage.items.some((workspace) => workspace.id === current)
         ? current
         : financePage.items[0]?.id ?? null);
+      setLearningAnalytics(null);
       setLearningPrograms(learningPage.items);
       setSelectedLearningId((current) => learningPage.items.some((program) => program.id === current)
         ? current
@@ -650,6 +664,7 @@ export default function StudioScreen() {
   }
 
   function replaceLearningProgram(program: LearningProgram) {
+    setLearningAnalytics(null);
     setLearningPrograms((current) => [program, ...current.filter((item) => item.id !== program.id)]);
     setSelectedLearningId(program.id);
   }
@@ -683,6 +698,49 @@ export default function StudioScreen() {
         selectedLearning.id, lessonId, signal,
       ));
     }, true);
+  }
+
+  async function generateMobileAssessment(lessonId: string) {
+    if (selectedLearning === null) return;
+    await perform("Generating verified assessment", async (signal) => {
+      replaceLearningProgram(await connectedClient.generateLearningAssessment(
+        selectedLearning.id, lessonId, signal,
+      ));
+    }, true);
+  }
+
+  async function requestMobileHint(activityId: string) {
+    if (selectedLearning === null) return;
+    await perform("Loading progressive hint", async (signal) => {
+      const hint = await connectedClient.requestLearningHint(
+        selectedLearning.id, activityId, signal,
+      );
+      setNotice(`Hint: ${hint.hint}`);
+      replaceLearningProgram(await connectedClient.getLearningProgram(selectedLearning.id, signal));
+    });
+  }
+
+  async function startMobileLearningSession() {
+    if (selectedLearning === null) return;
+    await perform("Starting learning session", async (signal) => {
+      await connectedClient.startLearningSession(selectedLearning.id, {
+        mode: selectedLearning.teaching_mode,
+        focus: selectedLearning.subject,
+        planned_minutes: selectedLearning.preferences.preferred_session_minutes,
+        current_lesson_id: null,
+      }, signal);
+      setLearningAnalytics(await connectedClient.getLearningAnalytics(selectedLearning.id, signal));
+    });
+  }
+
+  async function transitionMobileLearningSession(action: "pause" | "resume" | "complete") {
+    if (selectedLearning === null || learningAnalytics?.active_session === null || learningAnalytics === null) return;
+    await perform(`${action} learning session`, async (signal) => {
+      await connectedClient.transitionLearningSession(
+        selectedLearning.id, learningAnalytics.active_session!.id, action, signal,
+      );
+      setLearningAnalytics(await connectedClient.getLearningAnalytics(selectedLearning.id, signal));
+    });
   }
 
   async function submitMobileLearningAttempt(activityId: string) {
@@ -1010,7 +1068,7 @@ export default function StudioScreen() {
         <View style={styles.card}>
           <Text style={styles.eyebrow}>UNIVERSAL LEARNING</Text>
           <Text accessibilityRole="header" style={styles.heading}>AI Teacher</Text>
-          <Text style={styles.muted}>Private curriculum, verified lessons, adaptive exact-answer practice, vocabulary, and spaced repetition. Pronunciation scoring remains unavailable until a verified provider is configured.</Text>
+          <Text style={styles.muted}>Private curriculum, resumable teaching sessions, source-grounded lessons, adaptive assessment, mastery analytics, vocabulary, and spaced repetition. Pronunciation scoring remains unavailable until a verified provider is configured.</Text>
           {learningPrograms.length === 0 ? <>
             <TextInput accessibilityLabel="Learning subject" maxLength={160} value={learningSubject} onChangeText={setLearningSubject} placeholder="Subject, e.g. Japanese" placeholderTextColor={colors.subtle} style={styles.input} />
             <TextInput accessibilityLabel="Learning goal" multiline maxLength={2_000} value={learningGoal} onChangeText={setLearningGoal} placeholder="What you want to achieve" placeholderTextColor={colors.subtle} style={styles.textArea} />
@@ -1019,16 +1077,16 @@ export default function StudioScreen() {
             <Pressable accessibilityRole="button" disabled={busyAction !== null || learningSubject.trim().length === 0 || learningGoal.trim().length === 0} style={[styles.primaryButton, busyAction !== null && styles.disabled]} onPress={() => void createLearningProgram()}><Text style={styles.primaryButtonText}>Create curriculum</Text></Pressable>
           </> : <>
             <ScrollView horizontal contentContainerStyle={styles.chipRow}>
-              {learningPrograms.map((program) => <Pressable accessibilityRole="button" accessibilityState={{ selected: selectedLearning?.id === program.id }} key={program.id} style={[styles.chip, selectedLearning?.id === program.id && styles.selectedChip]} onPress={() => setSelectedLearningId(program.id)}><Text style={styles.chipText}>{program.subject}</Text></Pressable>)}
+              {learningPrograms.map((program) => <Pressable accessibilityRole="button" accessibilityState={{ selected: selectedLearning?.id === program.id }} key={program.id} style={[styles.chip, selectedLearning?.id === program.id && styles.selectedChip]} onPress={() => { setLearningAnalytics(null); setSelectedLearningId(program.id); }}><Text style={styles.chipText}>{program.subject}</Text></Pressable>)}
             </ScrollView>
             {selectedLearning !== null && <>
-              <View style={styles.result}><Text style={styles.itemLabel}>{selectedLearning.status} · difficulty {selectedLearning.current_difficulty}/5</Text><Text style={styles.itemText}>{selectedLearning.completed_lessons}/{selectedLearning.total_lessons} lessons · {selectedLearning.progress_bps / 100}%</Text><Text style={styles.detail}>{selectedLearning.target_language} content taught in {selectedLearning.instruction_language}</Text></View>
+              <View style={styles.result}><Text style={styles.itemLabel}>{selectedLearning.status} · {selectedLearning.teaching_mode} · difficulty {selectedLearning.current_difficulty}/5</Text><Text style={styles.itemText}>{selectedLearning.completed_lessons}/{selectedLearning.total_lessons} lessons · {selectedLearning.progress_bps / 100}%</Text><Text style={styles.detail}>{selectedLearning.target_language} content taught in {selectedLearning.instruction_language} · {selectedLearning.sources.length} private source(s)</Text><Text style={styles.detail}>Streak {selectedLearning.current_streak_days} day(s) · mastery {learningAnalytics?.mastery_bps === null || learningAnalytics === null ? "not assessed" : `${learningAnalytics.mastery_bps / 100}%`} · {learningAnalytics?.due_review_count ?? 0} due</Text>{learningAnalytics?.active_session == null ? <Pressable accessibilityRole="button" disabled={busyAction !== null} style={styles.primaryButton} onPress={() => void startMobileLearningSession()}><Text style={styles.primaryButtonText}>Start {selectedLearning.preferences.preferred_session_minutes}-minute session</Text></Pressable> : <View style={styles.buttonRow}><Pressable accessibilityRole="button" disabled={busyAction !== null} style={styles.secondaryButton} onPress={() => void transitionMobileLearningSession(learningAnalytics.active_session?.status === "active" ? "pause" : "resume")}><Text style={styles.buttonText}>{learningAnalytics.active_session.status === "active" ? "Pause" : "Resume"}</Text></Pressable><Pressable accessibilityRole="button" disabled={busyAction !== null} style={styles.primaryButton} onPress={() => void transitionMobileLearningSession("complete")}><Text style={styles.primaryButtonText}>Complete</Text></Pressable></View>}</View>
               {selectedLearning.lessons.map((lesson) => <View key={lesson.id} style={styles.result}>
                 <Text style={styles.itemLabel}>Lesson {lesson.position} · {lesson.status}</Text>
                 <Text style={styles.itemText}>{lesson.title}</Text>
                 {lesson.status === "planned" && <Pressable accessibilityRole="button" disabled={busyAction !== null} style={styles.primaryButton} onPress={() => void generateMobileLesson(lesson.id)}><Text style={styles.primaryButtonText}>Generate verified lesson</Text></Pressable>}
-                {lesson.content !== null && <Text selectable style={styles.itemText}>{lesson.content}</Text>}
-                {lesson.activities.map((activity) => <View key={activity.id} style={styles.result}><Text style={styles.detail}>{activity.kind} · {activity.prompt}</Text><TextInput accessibilityLabel={`Answer for ${activity.prompt}`} maxLength={4_000} value={learningAnswer} onChangeText={setLearningAnswer} placeholder="Your answer" placeholderTextColor={colors.subtle} style={styles.input} /><Pressable accessibilityRole="button" disabled={busyAction !== null || learningAnswer.trim().length === 0 || activity.attempts.length >= activity.max_attempts} style={styles.secondaryButton} onPress={() => void submitMobileLearningAttempt(activity.id)}><Text style={styles.buttonText}>Check answer</Text></Pressable></View>)}
+                {lesson.content !== null && <><Text selectable style={styles.itemText}>{lesson.content}</Text><Text style={styles.detail}>{lesson.grounding_state} · {lesson.source_context_count} retrieved source(s)</Text><Pressable accessibilityRole="button" disabled={busyAction !== null || lesson.activities.some((activity) => activity.generated)} style={styles.secondaryButton} onPress={() => void generateMobileAssessment(lesson.id)}><Text style={styles.buttonText}>Generate assessment</Text></Pressable></>}
+                {lesson.activities.map((activity) => <View key={activity.id} style={styles.result}><Text style={styles.detail}>{activity.kind} · {activity.skill_name} · {activity.grading_mode}</Text><Text style={styles.itemText}>{activity.prompt}</Text><TextInput accessibilityLabel={`Answer for ${activity.prompt}`} multiline={activity.kind === "long_answer" || activity.kind === "assignment"} maxLength={4_000} value={learningAnswer} onChangeText={setLearningAnswer} placeholder="Your answer" placeholderTextColor={colors.subtle} style={styles.input} /><View style={styles.buttonRow}><Pressable accessibilityRole="button" disabled={busyAction !== null || learningAnswer.trim().length === 0 || activity.attempts.some((attempt) => attempt.is_correct) || activity.attempts.length >= activity.max_attempts} style={styles.secondaryButton} onPress={() => void submitMobileLearningAttempt(activity.id)}><Text style={styles.buttonText}>Check answer</Text></Pressable>{activity.hints_available > 0 && <Pressable accessibilityRole="button" disabled={busyAction !== null} style={styles.touchAction} onPress={() => void requestMobileHint(activity.id)}><Text style={styles.link}>Hint</Text></Pressable>}</View></View>)}
               </View>)}
               <Text style={styles.itemLabel}>Vocabulary and spaced repetition</Text>
               <TextInput accessibilityLabel="Review card front" maxLength={1_000} value={reviewFront} onChangeText={setReviewFront} placeholder="Prompt or term" placeholderTextColor={colors.subtle} style={styles.input} />

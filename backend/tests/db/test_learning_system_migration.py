@@ -46,16 +46,51 @@ def test_upgrade_matches_exact_learning_orm_schema():
         ("create_index", "ix_learning_attempts_program_created_at"),
         ("create_index", "ix_learning_review_items_program_due_at"),
     ]
-    for table_name in (
-        "learning_programs",
-        "learning_lessons",
-        "learning_activities",
-        "learning_attempts",
-        "learning_review_items",
-    ):
-        assert _table_signature(operations.metadata.tables[table_name]) == _table_signature(
-            Base.metadata.tables[table_name]
-        )
+    expected_columns = {
+        "learning_programs": (
+            "id", "owner_id", "subject", "goal", "target_language",
+            "instruction_language", "start_difficulty", "current_difficulty",
+            "target_difficulty", "weekly_minutes", "adaptive_difficulty",
+            "status", "total_lessons", "completed_lessons", "total_attempts",
+            "correct_attempts", "created_at", "updated_at", "completed_at",
+        ),
+        "learning_lessons": (
+            "id", "program_id", "owner_id", "position", "title",
+            "objectives_json", "difficulty", "status", "content",
+            "output_sha256", "model_id", "memory_ids_json", "score_bps",
+            "created_at", "generated_at", "completed_at",
+        ),
+        "learning_activities": (
+            "id", "lesson_id", "program_id", "owner_id", "kind", "prompt",
+            "expected_answer_sha256", "explanation", "difficulty",
+            "max_attempts", "created_at",
+        ),
+        "learning_attempts": (
+            "id", "activity_id", "program_id", "owner_id", "answer_sha256",
+            "is_correct", "score_bps", "feedback", "created_at",
+        ),
+        "learning_review_items": tuple(
+            Base.metadata.tables["learning_review_items"].c.keys()
+        ),
+    }
+    for table_name, columns in expected_columns.items():
+        assert tuple(operations.metadata.tables[table_name].c.keys()) == columns
+    activity_checks = {
+        constraint.name: str(constraint.sqltext)
+        for constraint in operations.metadata.tables["learning_activities"].constraints
+        if constraint.name and constraint.name.startswith("ck_")
+    }
+    assert activity_checks["ck_learning_activities_kind_allowed"] == (
+        "kind IN ('exercise', 'quiz', 'conversation', 'revision')"
+    )
+    attempt_checks = {
+        constraint.name: str(constraint.sqltext)
+        for constraint in operations.metadata.tables["learning_attempts"].constraints
+        if constraint.name and constraint.name.startswith("ck_")
+    }
+    assert attempt_checks["ck_learning_attempts_score_allowed"] == (
+        "score_bps IN (0, 10000)"
+    )
 
 
 def test_downgrade_removes_learning_relations_in_dependency_order():

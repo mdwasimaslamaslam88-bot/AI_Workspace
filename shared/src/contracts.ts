@@ -1184,7 +1184,18 @@ export interface MarketAlertEvaluation { items: MarketAlert[]; }
 
 export type LearningProgramStatus = "active" | "completed" | "archived";
 export type LearningLessonStatus = "planned" | "ready" | "completed";
-export type LearningActivityKind = "exercise" | "quiz" | "conversation" | "revision";
+export type LearningActivityKind = "exercise" | "quiz" | "conversation" | "revision" | "mcq" | "short_answer" | "long_answer" | "coding" | "assignment";
+export type LearningGradingMode = "exact" | "rubric";
+export type LearningTeachingMode = "teacher" | "socratic" | "coach" | "mentor" | "interviewer" | "pair_programming" | "study" | "focus" | "exam" | "revision";
+export type LearningSessionStatus = "active" | "paused" | "completed";
+
+export interface LearningPreferences {
+  explanation_style: "concise" | "detailed" | "step_by_step" | "example_first";
+  hints_before_answers: boolean;
+  mixed_language: boolean;
+  preferred_session_minutes: number;
+  pace: "gentle" | "balanced" | "intensive";
+}
 
 export interface LearningProgramCreateRequest {
   subject: string;
@@ -1195,6 +1206,9 @@ export interface LearningProgramCreateRequest {
   target_difficulty: number;
   weekly_minutes: number;
   adaptive_difficulty: boolean;
+  teaching_mode?: LearningTeachingMode;
+  preferences?: LearningPreferences;
+  source_document_ids?: UUID[];
 }
 
 export interface LearningActivityCreateRequest {
@@ -1204,6 +1218,12 @@ export interface LearningActivityCreateRequest {
   explanation: string;
   difficulty: number;
   max_attempts: number;
+  skill_name?: string;
+  grading_mode?: LearningGradingMode;
+  hints?: string[];
+  rubric_keywords?: string[];
+  source_ids?: UUID[];
+  required?: boolean;
 }
 
 export interface LearningAttemptRequest { answer: string; }
@@ -1216,6 +1236,7 @@ export interface LearningAttempt {
   is_correct: boolean;
   score_bps: number;
   feedback: string;
+  mistake_code: string | null;
   created_at: Timestamp;
 }
 
@@ -1223,10 +1244,18 @@ export interface LearningActivity {
   id: UUID;
   lesson_id: UUID;
   kind: LearningActivityKind;
+  grading_mode: LearningGradingMode;
   prompt: string;
   explanation_available_after_attempt: true;
   difficulty: number;
   max_attempts: number;
+  skill_name: string;
+  hints_available: number;
+  hints_requested: number;
+  source_context_count: number;
+  required: boolean;
+  generated: boolean;
+  model_id: string | null;
   attempts: LearningAttempt[];
   created_at: Timestamp;
 }
@@ -1242,6 +1271,8 @@ export interface LearningLesson {
   output_sha256: string | null;
   model_id: string | null;
   memory_context_count: number;
+  source_context_count: number;
+  grounding_state: "general_knowledge" | "source_grounded";
   score_bps: number | null;
   activities: LearningActivity[];
   created_at: Timestamp;
@@ -1262,6 +1293,68 @@ export interface LearningReviewItem {
   updated_at: Timestamp;
 }
 
+export interface LearningSkill {
+  id: UUID;
+  name: string;
+  mastery_bps: number;
+  confidence_bps: number;
+  attempts: number;
+  mistake_count: number;
+  last_score_bps: number;
+  last_practiced_at: Timestamp | null;
+  next_review_at: Timestamp | null;
+}
+
+export interface LearningSource {
+  id: UUID;
+  document_id: UUID;
+  asset_id: UUID;
+  label: string;
+  source_sha256: string;
+  created_at: Timestamp;
+}
+
+export interface LearningSession {
+  id: UUID;
+  program_id: UUID;
+  current_lesson_id: UUID | null;
+  mode: LearningTeachingMode;
+  status: LearningSessionStatus;
+  focus: string;
+  planned_minutes: number;
+  interruption_count: number;
+  started_at: Timestamp;
+  last_activity_at: Timestamp;
+  paused_at: Timestamp | null;
+  completed_at: Timestamp | null;
+}
+
+export interface LearningAnalytics {
+  program_id: UUID;
+  mastery_bps: number | null;
+  confidence_bps: number;
+  weak_topics: string[];
+  due_review_count: number;
+  current_streak_days: number;
+  best_streak_days: number;
+  active_session: LearningSession | null;
+  skills: LearningSkill[];
+}
+
+export interface LearningStudyPlanItem {
+  date: string;
+  minutes: number;
+  focus: string;
+  mode: LearningTeachingMode;
+}
+
+export interface LearningStudyPlan { items: LearningStudyPlanItem[]; }
+export interface LearningHint { hint: string; remaining: number; }
+export interface LearningSessionCreateRequest { mode: LearningTeachingMode; focus: string; planned_minutes: number; current_lesson_id: UUID | null; }
+export interface LearningProfileUpdateRequest { teaching_mode: LearningTeachingMode; preferences: LearningPreferences; }
+export interface LearningEvent { id: UUID; action: string; entity_kind: string; entity_id: UUID; metadata_sha256: string; created_at: Timestamp; }
+export interface LearningEventPage { items: LearningEvent[]; }
+
 export interface LearningProgram {
   id: UUID;
   subject: string;
@@ -1273,15 +1366,21 @@ export interface LearningProgram {
   target_difficulty: number;
   weekly_minutes: number;
   adaptive_difficulty: boolean;
+  teaching_mode: LearningTeachingMode;
+  preferences: LearningPreferences;
   status: LearningProgramStatus;
   total_lessons: number;
   completed_lessons: number;
   total_attempts: number;
   correct_attempts: number;
+  current_streak_days: number;
+  best_streak_days: number;
   progress_bps: number;
   accuracy_bps: number | null;
   lessons: LearningLesson[];
   review_items: LearningReviewItem[];
+  skills: LearningSkill[];
+  sources: LearningSource[];
   created_at: Timestamp;
   updated_at: Timestamp;
   completed_at: Timestamp | null;
@@ -1295,6 +1394,12 @@ export interface LearningCapabilities {
   exam_mode: true;
   vocabulary_trainer: true;
   spaced_repetition: true;
+  adaptive_assessment: true;
+  rubric_grading: true;
+  resumable_sessions: true;
+  document_grounding: true;
+  audit_history: true;
+  mixed_language: true;
   pronunciation_scoring: false;
   pronunciation_status: "external_dependency";
   pronunciation_dependencies: ["pronunciation_scoring_provider"];
@@ -1818,7 +1923,10 @@ const brokerOrderStatuses = ["submitted", "verified_open", "verified_filled", "v
 const tradingSafetyActions = ["configured", "live_enabled", "live_disabled", "kill_switch_activated"] as const;
 const learningProgramStatuses = ["active", "completed", "archived"] as const;
 const learningLessonStatuses = ["planned", "ready", "completed"] as const;
-const learningActivityKinds = ["exercise", "quiz", "conversation", "revision"] as const;
+const learningActivityKinds = ["exercise", "quiz", "conversation", "revision", "mcq", "short_answer", "long_answer", "coding", "assignment"] as const;
+const learningGradingModes = ["exact", "rubric"] as const;
+const learningTeachingModes = ["teacher", "socratic", "coach", "mentor", "interviewer", "pair_programming", "study", "focus", "exam", "revision"] as const;
+const learningSessionStatuses = ["active", "paused", "completed"] as const;
 const creativeExperienceModes = ["story", "game", "character"] as const;
 const creativeExperienceStatuses = ["active", "completed", "archived"] as const;
 const securityEventKinds = [
@@ -2919,6 +3027,7 @@ export function parseLearningAttempt(value: unknown): LearningAttempt {
     is_correct: booleanField(item.is_correct),
     score_bps: boundedInteger(item.score_bps, 0, 10_000),
     feedback: stringField(item.feedback),
+    mistake_code: nullableString(item.mistake_code),
     created_at: stringField(item.created_at),
   };
 }
@@ -2933,10 +3042,18 @@ function parseLearningActivity(value: unknown): LearningActivity {
     id: stringField(item.id),
     lesson_id: stringField(item.lesson_id),
     kind: enumField(item.kind, learningActivityKinds),
+    grading_mode: enumField(item.grading_mode, learningGradingModes),
     prompt: stringField(item.prompt),
     explanation_available_after_attempt: true,
     difficulty: boundedInteger(item.difficulty, 1, 5),
     max_attempts: boundedInteger(item.max_attempts, 1, 10),
+    skill_name: stringField(item.skill_name),
+    hints_available: boundedInteger(item.hints_available, 0, 10),
+    hints_requested: boundedInteger(item.hints_requested, 0, 10),
+    source_context_count: boundedInteger(item.source_context_count, 0, 8),
+    required: booleanField(item.required),
+    generated: booleanField(item.generated),
+    model_id: nullableString(item.model_id),
     attempts: item.attempts.map(parseLearningAttempt),
     created_at: stringField(item.created_at),
   };
@@ -2969,6 +3086,8 @@ function parseLearningLesson(value: unknown): LearningLesson {
     output_sha256: outputHash,
     model_id: modelId,
     memory_context_count: boundedInteger(item.memory_context_count, 0, 4),
+    source_context_count: boundedInteger(item.source_context_count, 0, 8),
+    grounding_state: enumField(item.grounding_state, ["general_knowledge", "source_grounded"] as const),
     score_bps: item.score_bps === null ? null : boundedInteger(item.score_bps, 0, 10_000),
     activities: item.activities.map(parseLearningActivity),
     created_at: stringField(item.created_at),
@@ -2993,11 +3112,107 @@ export function parseLearningReviewItem(value: unknown): LearningReviewItem {
   };
 }
 
+function parseLearningPreferences(value: unknown): LearningPreferences {
+  const item = record(value);
+  return {
+    explanation_style: enumField(item.explanation_style, ["concise", "detailed", "step_by_step", "example_first"] as const),
+    hints_before_answers: booleanField(item.hints_before_answers),
+    mixed_language: booleanField(item.mixed_language),
+    preferred_session_minutes: boundedInteger(item.preferred_session_minutes, 5, 480),
+    pace: enumField(item.pace, ["gentle", "balanced", "intensive"] as const),
+  };
+}
+
+function parseLearningSkill(value: unknown): LearningSkill {
+  const item = record(value);
+  return {
+    id: stringField(item.id),
+    name: stringField(item.name),
+    mastery_bps: boundedInteger(item.mastery_bps, 0, 10_000),
+    confidence_bps: boundedInteger(item.confidence_bps, 0, 10_000),
+    attempts: boundedInteger(item.attempts, 0, 1_000_000),
+    mistake_count: boundedInteger(item.mistake_count, 0, 1_000_000),
+    last_score_bps: boundedInteger(item.last_score_bps, 0, 10_000),
+    last_practiced_at: nullableString(item.last_practiced_at),
+    next_review_at: nullableString(item.next_review_at),
+  };
+}
+
+function parseLearningSource(value: unknown): LearningSource {
+  const item = record(value);
+  const sourceHash = stringField(item.source_sha256);
+  if (!/^[a-f0-9]{64}$/.test(sourceHash)) return invalidResponse();
+  return {
+    id: stringField(item.id), document_id: stringField(item.document_id),
+    asset_id: stringField(item.asset_id), label: stringField(item.label),
+    source_sha256: sourceHash, created_at: stringField(item.created_at),
+  };
+}
+
+export function parseLearningSession(value: unknown): LearningSession {
+  const item = record(value);
+  return {
+    id: stringField(item.id), program_id: stringField(item.program_id),
+    current_lesson_id: nullableString(item.current_lesson_id),
+    mode: enumField(item.mode, learningTeachingModes),
+    status: enumField(item.status, learningSessionStatuses),
+    focus: stringField(item.focus),
+    planned_minutes: boundedInteger(item.planned_minutes, 5, 480),
+    interruption_count: boundedInteger(item.interruption_count, 0, 10_000),
+    started_at: stringField(item.started_at),
+    last_activity_at: stringField(item.last_activity_at),
+    paused_at: nullableString(item.paused_at), completed_at: nullableString(item.completed_at),
+  };
+}
+
+export function parseLearningAnalytics(value: unknown): LearningAnalytics {
+  const item = record(value);
+  if (!Array.isArray(item.weak_topics) || item.weak_topics.length > 100 || !Array.isArray(item.skills) || item.skills.length > 100) return invalidResponse();
+  return {
+    program_id: stringField(item.program_id),
+    mastery_bps: item.mastery_bps === null ? null : boundedInteger(item.mastery_bps, 0, 10_000),
+    confidence_bps: boundedInteger(item.confidence_bps, 0, 10_000),
+    weak_topics: item.weak_topics.map(stringField),
+    due_review_count: boundedInteger(item.due_review_count, 0, 500),
+    current_streak_days: boundedInteger(item.current_streak_days, 0, 36_500),
+    best_streak_days: boundedInteger(item.best_streak_days, 0, 36_500),
+    active_session: item.active_session === null ? null : parseLearningSession(item.active_session),
+    skills: item.skills.map(parseLearningSkill),
+  };
+}
+
+export function parseLearningStudyPlan(value: unknown): LearningStudyPlan {
+  const item = record(value);
+  if (!Array.isArray(item.items) || item.items.length < 1 || item.items.length > 7) return invalidResponse();
+  return { items: item.items.map((entry) => {
+    const value = record(entry);
+    return { date: stringField(value.date), minutes: boundedInteger(value.minutes, 5, 1_440), focus: stringField(value.focus), mode: enumField(value.mode, learningTeachingModes) };
+  }) };
+}
+
+export function parseLearningHint(value: unknown): LearningHint {
+  const item = record(value);
+  return { hint: stringField(item.hint), remaining: boundedInteger(item.remaining, 0, 10) };
+}
+
+export function parseLearningEventPage(value: unknown): LearningEventPage {
+  const item = record(value);
+  if (!Array.isArray(item.items) || item.items.length > 100) return invalidResponse();
+  return { items: item.items.map((entry) => {
+    const event = record(entry);
+    const metadataHash = stringField(event.metadata_sha256);
+    if (!/^[a-f0-9]{64}$/.test(metadataHash)) return invalidResponse();
+    return { id: stringField(event.id), action: stringField(event.action), entity_kind: stringField(event.entity_kind), entity_id: stringField(event.entity_id), metadata_sha256: metadataHash, created_at: stringField(event.created_at) };
+  }) };
+}
+
 export function parseLearningProgram(value: unknown): LearningProgram {
   const item = record(value);
   if (
     !Array.isArray(item.lessons) || item.lessons.length < 1 || item.lessons.length > 50 ||
-    !Array.isArray(item.review_items) || item.review_items.length > 500
+    !Array.isArray(item.review_items) || item.review_items.length > 500 ||
+    !Array.isArray(item.skills) || item.skills.length > 100 ||
+    !Array.isArray(item.sources) || item.sources.length > 8
   ) return invalidResponse();
   const totalLessons = boundedInteger(item.total_lessons, 1, 50);
   const completedLessons = boundedInteger(item.completed_lessons, 0, totalLessons);
@@ -3026,15 +3241,21 @@ export function parseLearningProgram(value: unknown): LearningProgram {
     target_difficulty: target,
     weekly_minutes: boundedInteger(item.weekly_minutes, 15, 10_080),
     adaptive_difficulty: booleanField(item.adaptive_difficulty),
+    teaching_mode: enumField(item.teaching_mode, learningTeachingModes),
+    preferences: parseLearningPreferences(item.preferences),
     status: enumField(item.status, learningProgramStatuses),
     total_lessons: totalLessons,
     completed_lessons: completedLessons,
     total_attempts: totalAttempts,
     correct_attempts: correctAttempts,
+    current_streak_days: boundedInteger(item.current_streak_days, 0, 36_500),
+    best_streak_days: boundedInteger(item.best_streak_days, 0, 36_500),
     progress_bps: progress,
     accuracy_bps: accuracy,
     lessons,
     review_items: item.review_items.map(parseLearningReviewItem),
+    skills: item.skills.map(parseLearningSkill),
+    sources: item.sources.map(parseLearningSource),
     created_at: stringField(item.created_at),
     updated_at: stringField(item.updated_at),
     completed_at: nullableString(item.completed_at),
@@ -3053,6 +3274,9 @@ export function parseLearningCapabilities(value: unknown): LearningCapabilities 
     item.teacher_mode !== true || item.speaking_partner !== true ||
     item.exam_mode !== true || item.vocabulary_trainer !== true ||
     item.spaced_repetition !== true || item.pronunciation_scoring !== false ||
+    item.adaptive_assessment !== true || item.rubric_grading !== true ||
+    item.resumable_sessions !== true || item.document_grounding !== true ||
+    item.audit_history !== true || item.mixed_language !== true ||
     item.pronunciation_status !== "external_dependency" ||
     !Array.isArray(item.pronunciation_dependencies) ||
     item.pronunciation_dependencies.length !== 1 ||
@@ -3064,6 +3288,12 @@ export function parseLearningCapabilities(value: unknown): LearningCapabilities 
     exam_mode: true,
     vocabulary_trainer: true,
     spaced_repetition: true,
+    adaptive_assessment: true,
+    rubric_grading: true,
+    resumable_sessions: true,
+    document_grounding: true,
+    audit_history: true,
+    mixed_language: true,
     pronunciation_scoring: false,
     pronunciation_status: "external_dependency",
     pronunciation_dependencies: ["pronunciation_scoring_provider"],

@@ -222,5 +222,23 @@ The authoritative final evidence is in `reports/RELEASE_REPORT.md`,
 `reports/PLATFORM_STATUS.md`, `reports/TEST_SUMMARY.md`,
 `reports/SECURITY_REPORT.md`, and `reports/EXTERNAL_BOUNDARIES.md`. The release
 keeps the current AI benchmark at its honestly measured 97.88/100 and preserves
-the registry classifications: 187 implemented, 14 runtime-dependent, 39
-external-dependent, and 5 planned/disabled capabilities.
+the then-current registry classifications: 187 implemented, 14
+runtime-dependent, 39 external-dependent, and 5 planned/disabled capabilities.
+
+## Step 5 Learning/Teacher/Knowledge OS (2026-09-04)
+
+The Learning workspace now uses the existing local-only Teacher Agent, memory,
+RAG, document, voice, mission, and model-routing foundations for persistent
+adaptive courses. It adds explicit teaching profiles and modes, generated
+five-form assessments, progressive hints, exact/rubric grading, skill mastery
+and confidence, weak-topic recommendations, streaks, deterministic daily/weekly
+study plans, resumable sessions, document grounding with preserved citations,
+and hash-only learning audit history. Web/desktop and native mobile share strict
+contracts and truthful runtime boundaries. Migration
+`0021_learning_knowledge_os` is the new schema head.
+
+The current feature authority contains 321 capabilities: 263 implemented, 14
+runtime-dependent, 39 external-dependent, and 5 planned/disabled. Acoustic
+pronunciation scoring and real LMS/classroom/institution connections remain
+explicit external boundaries. See `LEARNING.md` and the Step 5 evidence report
+for the implemented contract and measured release results.

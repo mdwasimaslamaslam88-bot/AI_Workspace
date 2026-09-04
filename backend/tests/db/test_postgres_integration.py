@@ -292,7 +292,11 @@ async def test_migration_creates_exact_expected_postgresql_schema(
             "learning_lessons",
             "learning_activities",
             "learning_attempts",
-            "learning_review_items",
+                "learning_review_items",
+                "learning_skills",
+                "learning_sources",
+                "learning_sessions",
+                "learning_events",
             "creative_experiences",
             "creative_turns",
             "trading_safety_policies",
@@ -405,10 +409,18 @@ async def test_migration_creates_exact_expected_postgresql_schema(
         "failed",
         "cancelled",
     }
-    assert len(snapshot["document_uniques"]) == 1
-    document_unique = snapshot["document_uniques"][0]
+    assert len(snapshot["document_uniques"]) == 2
+    document_unique = next(
+        item for item in snapshot["document_uniques"]
+        if item["name"] == "uq_documents_asset_id"
+    )
     assert document_unique["name"] == "uq_documents_asset_id"
     assert document_unique["column_names"] == ["asset_id"]
+    owner_unique = next(
+        item for item in snapshot["document_uniques"]
+        if item["name"] == "uq_documents_id_owner"
+    )
+    assert owner_unique["column_names"] == ["id", "owner_id"]
     assert {
         item["name"]
         for item in snapshot["document_indexes"]

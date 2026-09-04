@@ -199,15 +199,18 @@ try {
     );
   });
   await page.getByRole("button", { name: /Universal Workspace/ }).click();
+  const featureRegistryHttpResponse = await featureRegistryResponse;
   assert.equal(
-    (await featureRegistryResponse).status(),
+    featureRegistryHttpResponse.status(),
     200,
     "Authenticated feature registry loading failed.",
   );
+  const featureRegistryPayload = await featureRegistryHttpResponse.json();
   await page.getByRole("heading", { name: "Universal Workspace" }).waitFor();
-  assert.match(
-    await page.getByText(/registered product capabilities/).innerText(),
-    /245 registered product capabilities/,
+  assert.ok(
+    (await page.getByText(/registered product capabilities/).innerText()).includes(
+      `${featureRegistryPayload.count} registered product capabilities`,
+    ),
     "The complete feature registry was not exposed through the workspace catalog.",
   );
   assert.equal(

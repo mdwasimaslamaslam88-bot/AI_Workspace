@@ -1,0 +1,108 @@
+{
+  "schema_version": 1,
+  "step": 5,
+  "generated_at": "2026-09-04T16:38:17+05:30",
+  "baseline_commit": "d47141736af33c5287ba2d2b7d7180098ec06ecb",
+  "status": "COMPLETE_LOCAL",
+  "states": {
+    "teacher_and_tutor": "RUNTIME_PASS",
+    "personalized_curriculum": "LOCAL_PASS",
+    "teaching_modes": "LOCAL_PASS",
+    "multilingual_and_mixed_language": "LOCAL_PASS",
+    "assessment_generation": "LOCAL_PASS",
+    "grading_and_mistake_analysis": "LOCAL_PASS",
+    "adaptive_difficulty": "RUNTIME_PASS",
+    "mastery_and_confidence": "RUNTIME_PASS",
+    "spaced_repetition": "RUNTIME_PASS",
+    "learning_sessions": "RUNTIME_PASS",
+    "document_rag_grounding": "LOCAL_PASS",
+    "web_desktop_learning_ui": "LOCAL_PASS",
+    "mobile_learning_ui": "LOCAL_PASS",
+    "pronunciation_scoring": "EXTERNAL_BLOCKED",
+    "lms_classroom_institution": "EXTERNAL_BLOCKED",
+    "proprietary_exam_content": "EXTERNAL_BLOCKED"
+  },
+  "feature_registry": {
+    "total": 321,
+    "implemented": 263,
+    "runtime_dependent": 14,
+    "external_dependency": 39,
+    "planned": 5,
+    "learning_os_implemented_records": 86,
+    "learning_os_external_records": 1,
+    "registry_sha256": "0bddfa318fcdb0f864f700083d1bffab523f4f52d04308bdff012c2c8fa91737"
+  },
+  "runtime_evidence": {
+    "real_local_model_lesson": true,
+    "untouched_output_hash_verified": true,
+    "model_identity_recorded": true,
+    "private_memory_context_used": true,
+    "owner_isolation_verified": true,
+    "required_assessments_passed": 3,
+    "attempts_persisted": 4,
+    "completed_lessons": 1,
+    "difficulty_before": 1,
+    "difficulty_after": 2,
+    "aggregate_mastery_bps": 7500,
+    "spaced_reviews_persisted": 1,
+    "session_start_pause_resume_complete": true,
+    "hash_only_audit_verified": true,
+    "pronunciation_external_live_claim": false,
+    "external_learning_provider_live_claim": false
+  },
+  "database": {
+    "migration_head": "0021_learning_knowledge_os",
+    "clean_upgrade": "PASS",
+    "downgrade_normalization": "PASS",
+    "downgrade_and_reupgrade": "PASS",
+    "schema_drift": false,
+    "production_database_mutated": false
+  },
+  "verification": {
+    "focused_backend": {
+      "passed": 42,
+      "intentional_skips": 4,
+      "failed": 0
+    },
+    "backend_regression": {
+      "passed": 3003,
+      "intentional_skips": 53,
+      "failed": 0
+    },
+    "web_regression": {
+      "passed": 201,
+      "failed": 0
+    },
+    "mobile_regression": {
+      "passed": 64,
+      "failed": 0
+    },
+    "expo_doctor": "21/21",
+    "postgresql_integration": {
+      "passed": 53,
+      "failed": 0,
+      "migration_head": "0021_learning_knowledge_os",
+      "schema_drift": false
+    },
+    "browser_pwa_e2e": "PASS",
+    "native_android_debug_package": "PASS",
+    "desktop_package_and_launch": "PASS",
+    "runtime_e2e": "PASS",
+    "security": {
+      "status": "PASS",
+      "critical": 0,
+      "high": 0,
+      "moderate": 14,
+      "moderate_scope": "transitive Expo build tooling"
+    },
+    "release_gate": "PASS"
+  },
+  "external_requirements": [
+    "admitted pronunciation-scoring runtime or lawful owner-authorized provider",
+    "microphone/device permission, privacy controls and language-specific real score validation",
+    "owner LMS/classroom/institution account, exact origin/callback, OAuth consent and minimum scopes",
+    "lawful provider/content license for proprietary certification or exam banks"
+  ],
+  "failures": [],
+  "step_6_started": false
+}

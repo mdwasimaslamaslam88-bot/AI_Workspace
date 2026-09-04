@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 from uuid import uuid4
 
@@ -76,10 +77,20 @@ def learning_api(monkeypatch):
         "create_program",
         "get_program",
         "generate_lesson",
+        "generate_assessment",
         "create_activity",
         "submit_attempt",
+        "request_hint",
         "add_review_item",
         "review_item",
+        "update_profile",
+        "attach_source",
+        "detach_source",
+        "start_session",
+        "transition_session",
+        "analytics",
+        "study_plan",
+        "list_events",
     ):
         setattr(service, method, AsyncMock())
     monkeypatch.setattr(learning_module, "LearningService", Mock(return_value=service))
@@ -190,3 +201,69 @@ def test_learning_api_hides_owner_existence_and_model_failures(learning_api):
     assert failed.status_code == 502
     assert failed.json() == {"detail": "Verified local learning generation failed"}
     assert "PRIVATE_MODEL_SENTINEL" not in failed.text
+
+
+def test_learning_api_exposes_sessions_grounding_analytics_and_hash_only_audit(learning_api):
+    client, user, service = learning_api
+    program = _program()
+    now = datetime(2026, 9, 4, 12, tzinfo=timezone.utc)
+    session_id = uuid4()
+    learning_session = {
+        "id": session_id, "program_id": program.id, "current_lesson_id": None,
+        "mode": "socratic", "status": "active", "focus": "Recursion",
+        "planned_minutes": 45, "interruption_count": 0, "started_at": now,
+        "last_activity_at": now, "paused_at": None, "completed_at": None,
+    }
+    service.update_profile.return_value = program
+    service.attach_source.return_value = program
+    service.detach_source.return_value = program
+    service.generate_assessment.return_value = program
+    service.request_hint.return_value = ("Consider the stopping condition.", 1)
+    service.start_session.return_value = SimpleNamespace(**learning_session)
+    service.transition_session.return_value = SimpleNamespace(**{
+        **learning_session, "status": "paused", "paused_at": now,
+        "interruption_count": 1,
+    })
+    service.analytics.return_value = {
+        "program_id": program.id, "mastery_bps": 7_500, "confidence_bps": 5_000,
+        "weak_topics": ["Recursion"], "due_review_count": 2,
+        "current_streak_days": 3, "best_streak_days": 5,
+        "active_session": SimpleNamespace(**learning_session), "skills": [],
+    }
+    service.study_plan.return_value = ({
+        "date": now.date(), "minutes": 30, "focus": "Recursion", "mode": "revision",
+    },)
+    audit_id = uuid4()
+    service.list_events.return_value = (SimpleNamespace(
+        id=audit_id, action="session_started", entity_kind="session",
+        entity_id=session_id, metadata_sha256="a" * 64, created_at=now,
+    ),)
+
+    profile = client.put(f"/api/v1/learning/programs/{program.id}/profile", json={
+        "teaching_mode": "socratic", "preferences": {
+            "explanation_style": "step_by_step", "hints_before_answers": True,
+            "mixed_language": True, "preferred_session_minutes": 45, "pace": "balanced",
+        },
+    })
+    assert profile.status_code == 200
+    document_id, source_id = uuid4(), uuid4()
+    assert client.post(f"/api/v1/learning/programs/{program.id}/sources", json={"document_id": str(document_id)}).status_code == 201
+    assert client.delete(f"/api/v1/learning/programs/{program.id}/sources/{source_id}").status_code == 200
+    lesson_id = program.lessons[0].id
+    assert client.post(f"/api/v1/learning/programs/{program.id}/lessons/{lesson_id}/assessment").status_code == 200
+    activity_id = uuid4()
+    hint = client.post(f"/api/v1/learning/programs/{program.id}/activities/{activity_id}/hint")
+    assert hint.json() == {"hint": "Consider the stopping condition.", "remaining": 1}
+    started = client.post(f"/api/v1/learning/programs/{program.id}/sessions", json={
+        "mode": "socratic", "focus": "Recursion", "planned_minutes": 45,
+        "current_lesson_id": None,
+    })
+    assert started.status_code == 201
+    assert client.post(f"/api/v1/learning/programs/{program.id}/sessions/{session_id}/pause").status_code == 200
+    analytics = client.get(f"/api/v1/learning/programs/{program.id}/analytics")
+    assert analytics.json()["weak_topics"] == ["Recursion"]
+    assert client.get(f"/api/v1/learning/programs/{program.id}/study-plan?days=1").status_code == 200
+    audit = client.get(f"/api/v1/learning/programs/{program.id}/audit")
+    assert audit.json()["items"][0]["metadata_sha256"] == "a" * 64
+    assert "expected_answer" not in audit.text
+    assert service.start_session.await_args.args[0] == user.id

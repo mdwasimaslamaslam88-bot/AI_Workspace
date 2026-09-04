@@ -36,6 +36,10 @@ from app.models import (
     LearningLesson,
     LearningProgram,
     LearningReviewItem,
+    LearningSession,
+    LearningSkill,
+    LearningSource,
+    LearningEvent,
     MarketAlert,
     MarketWatchItem,
     Message,
@@ -96,6 +100,10 @@ EXPECTED_TABLES = {
     "learning_activities",
     "learning_attempts",
     "learning_review_items",
+    "learning_skills",
+    "learning_sources",
+    "learning_sessions",
+    "learning_events",
     "creative_experiences",
     "creative_turns",
 }
@@ -167,6 +175,10 @@ def test_model_registry_contains_only_the_approved_domain_tables():
     assert LearningActivity.__table__ is Base.metadata.tables["learning_activities"]
     assert LearningAttempt.__table__ is Base.metadata.tables["learning_attempts"]
     assert LearningReviewItem.__table__ is Base.metadata.tables["learning_review_items"]
+    assert LearningSkill.__table__ is Base.metadata.tables["learning_skills"]
+    assert LearningSource.__table__ is Base.metadata.tables["learning_sources"]
+    assert LearningSession.__table__ is Base.metadata.tables["learning_sessions"]
+    assert LearningEvent.__table__ is Base.metadata.tables["learning_events"]
     assert CreativeExperience.__table__ is Base.metadata.tables["creative_experiences"]
     assert CreativeTurn.__table__ is Base.metadata.tables["creative_turns"]
 

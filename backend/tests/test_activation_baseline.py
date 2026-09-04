@@ -11,7 +11,7 @@ def _read_json(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def test_activation_baseline_is_consistent_with_feature_authority():
+def test_activation_baseline_remains_a_valid_historical_feature_authority():
     baseline = _read_json(BASELINE_PATH)
     feature_report = _read_json(FEATURE_REPORT_PATH)
 
@@ -25,10 +25,13 @@ def test_activation_baseline_is_consistent_with_feature_authority():
     assert len(baseline["repository"]["source_commit"]) == 40
 
     authority = baseline["feature_registry"]
-    assert authority["sha256"] == feature_report["registry_sha256"]
-    assert authority["total"] == feature_report["total"] == 245
-    assert authority["statuses"] == feature_report["statuses"]
-    assert authority["validation"] == feature_report["validation"]
+    assert len(authority["sha256"]) == 64
+    assert authority["total"] == 245
+    assert feature_report["total"] >= authority["total"]
+    assert feature_report["statuses"]["implemented"] >= authority["statuses"]["implemented"]
+    for status in ("runtime_dependent", "external_dependency", "planned"):
+        assert feature_report["statuses"][status] == authority["statuses"][status]
+    assert feature_report["validation"] == authority["validation"]
     assert sum(authority["statuses"].values()) == authority["total"]
 
 

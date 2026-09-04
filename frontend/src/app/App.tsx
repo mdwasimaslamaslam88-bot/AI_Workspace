@@ -38,14 +38,21 @@ import type {
   FinanceWorkspaceCreateRequest,
   IndexedDocument,
   LearningActivityCreateRequest,
+  LearningAnalytics,
   LearningAttempt,
   LearningAttemptRequest,
   LearningCapabilities,
+  LearningEventPage,
+  LearningHint,
+  LearningProfileUpdateRequest,
   LearningProgram,
   LearningProgramCreateRequest,
   LearningReviewItem,
   LearningReviewItemCreateRequest,
   LearningReviewRequest,
+  LearningSession,
+  LearningSessionCreateRequest,
+  LearningStudyPlan,
   LocalModel,
   MarketingAnalyticsRequest,
   MarketingCampaign,
@@ -1262,6 +1269,11 @@ export function App() {
     return client.generateLearningLesson(programId, lessonId, signal);
   }, [client]);
 
+  const generateLearningAssessment = useCallback((programId: string, lessonId: string, signal?: AbortSignal): Promise<LearningProgram> => {
+    if (client === null) return Promise.reject(new ApiError("authentication", "Authentication failed."));
+    return client.generateLearningAssessment(programId, lessonId, signal);
+  }, [client]);
+
   const createLearningActivity = useCallback((programId: string, lessonId: string, request: LearningActivityCreateRequest, signal?: AbortSignal): Promise<LearningProgram> => {
     if (client === null) return Promise.reject(new ApiError("authentication", "Authentication failed."));
     return client.createLearningActivity(programId, lessonId, request, signal);
@@ -1280,6 +1292,51 @@ export function App() {
   const reviewLearningItem = useCallback((programId: string, itemId: string, request: LearningReviewRequest, signal?: AbortSignal): Promise<LearningReviewItem> => {
     if (client === null) return Promise.reject(new ApiError("authentication", "Authentication failed."));
     return client.reviewLearningItem(programId, itemId, request, signal);
+  }, [client]);
+
+  const updateLearningProfile = useCallback((programId: string, request: LearningProfileUpdateRequest, signal?: AbortSignal): Promise<LearningProgram> => {
+    if (client === null) return Promise.reject(new ApiError("authentication", "Authentication failed."));
+    return client.updateLearningProfile(programId, request, signal);
+  }, [client]);
+
+  const requestLearningHint = useCallback((programId: string, activityId: string, signal?: AbortSignal): Promise<LearningHint> => {
+    if (client === null) return Promise.reject(new ApiError("authentication", "Authentication failed."));
+    return client.requestLearningHint(programId, activityId, signal);
+  }, [client]);
+
+  const attachLearningSource = useCallback((programId: string, documentId: string, signal?: AbortSignal): Promise<LearningProgram> => {
+    if (client === null) return Promise.reject(new ApiError("authentication", "Authentication failed."));
+    return client.attachLearningSource(programId, documentId, signal);
+  }, [client]);
+
+  const detachLearningSource = useCallback((programId: string, sourceId: string, signal?: AbortSignal): Promise<LearningProgram> => {
+    if (client === null) return Promise.reject(new ApiError("authentication", "Authentication failed."));
+    return client.detachLearningSource(programId, sourceId, signal);
+  }, [client]);
+
+  const startLearningSession = useCallback((programId: string, request: LearningSessionCreateRequest, signal?: AbortSignal): Promise<LearningSession> => {
+    if (client === null) return Promise.reject(new ApiError("authentication", "Authentication failed."));
+    return client.startLearningSession(programId, request, signal);
+  }, [client]);
+
+  const transitionLearningSession = useCallback((programId: string, sessionId: string, action: "pause" | "resume" | "complete", signal?: AbortSignal): Promise<LearningSession> => {
+    if (client === null) return Promise.reject(new ApiError("authentication", "Authentication failed."));
+    return client.transitionLearningSession(programId, sessionId, action, signal);
+  }, [client]);
+
+  const getLearningAnalytics = useCallback((programId: string, signal?: AbortSignal): Promise<LearningAnalytics> => {
+    if (client === null) return Promise.reject(new ApiError("authentication", "Authentication failed."));
+    return client.getLearningAnalytics(programId, signal);
+  }, [client]);
+
+  const getLearningStudyPlan = useCallback((programId: string, signal?: AbortSignal): Promise<LearningStudyPlan> => {
+    if (client === null) return Promise.reject(new ApiError("authentication", "Authentication failed."));
+    return client.getLearningStudyPlan(programId, 7, signal);
+  }, [client]);
+
+  const getLearningAudit = useCallback((programId: string, signal?: AbortSignal): Promise<LearningEventPage> => {
+    if (client === null) return Promise.reject(new ApiError("authentication", "Authentication failed."));
+    return client.getLearningAudit(programId, signal);
   }, [client]);
 
   const loadCreativeCapabilities = useCallback((signal?: AbortSignal): Promise<CreativeCapabilities> => {
@@ -2415,10 +2472,20 @@ export function App() {
               onGet={getLearningProgram}
               onCreate={createLearningProgram}
               onGenerateLesson={generateLearningLesson}
+              onGenerateAssessment={generateLearningAssessment}
               onCreateActivity={createLearningActivity}
               onAttempt={submitLearningAttempt}
+              onHint={requestLearningHint}
               onCreateReviewItem={createLearningReviewItem}
               onReview={reviewLearningItem}
+              onUpdateProfile={updateLearningProfile}
+              onAttachSource={attachLearningSource}
+              onDetachSource={detachLearningSource}
+              onStartSession={startLearningSession}
+              onTransitionSession={transitionLearningSession}
+              onAnalytics={getLearningAnalytics}
+              onStudyPlan={getLearningStudyPlan}
+              onAudit={getLearningAudit}
             />
           </div>
         )}

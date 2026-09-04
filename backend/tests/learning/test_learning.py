@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 import hashlib
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
@@ -86,9 +86,16 @@ async def test_spaced_repetition_scheduler_is_deterministic_and_bounded():
         due_at=now,
     )
     session = AsyncMock()
+    session.add = Mock()
     service = LearningService(session)
+    program = SimpleNamespace(
+        last_study_date=None,
+        current_streak_days=0,
+        best_streak_days=0,
+    )
     service.repository = SimpleNamespace(
-        get_review_item_for_owner=AsyncMock(return_value=item)
+        get_review_item_for_owner=AsyncMock(return_value=item),
+        get_program_for_owner=AsyncMock(return_value=program),
     )
 
     first = await service.review_item(

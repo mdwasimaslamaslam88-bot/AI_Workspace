@@ -46,15 +46,22 @@ import {
   type FinanceWorkspacePage,
   type IndexedDocument,
   type LearningActivityCreateRequest,
+  type LearningAnalytics,
   type LearningAttempt,
   type LearningAttemptRequest,
   type LearningCapabilities,
+  type LearningEventPage,
+  type LearningHint,
+  type LearningProfileUpdateRequest,
   type LearningProgram,
   type LearningProgramCreateRequest,
   type LearningProgramPage,
   type LearningReviewItem,
   type LearningReviewItemCreateRequest,
   type LearningReviewRequest,
+  type LearningSession,
+  type LearningSessionCreateRequest,
+  type LearningStudyPlan,
   type ImageEditingRequest,
   type ImageGenerationRequest,
   type ImageOperation,
@@ -136,10 +143,15 @@ import {
   parseBrokerOrderRecord,
   parseGenerationResponse,
   parseLearningAttempt,
+  parseLearningAnalytics,
   parseLearningCapabilities,
+  parseLearningEventPage,
+  parseLearningHint,
   parseLearningProgram,
   parseLearningProgramPage,
   parseLearningReviewItem,
+  parseLearningSession,
+  parseLearningStudyPlan,
   parseMemoryPage,
   parseMarketingCampaign,
   parseMarketingCampaignPage,
@@ -928,12 +940,24 @@ export class ApiClient {
     });
   }
 
+  updateLearningProfile(programId: string, request: LearningProfileUpdateRequest, signal?: AbortSignal): Promise<LearningProgram> {
+    return this.#request(`api/v1/learning/programs/${encodeURIComponent(programId)}/profile`, {
+      method: "PUT", body: request, signal, decode: parseLearningProgram,
+    });
+  }
+
   generateLearningLesson(
     programId: string,
     lessonId: string,
     signal?: AbortSignal,
   ): Promise<LearningProgram> {
     return this.#request(`api/v1/learning/programs/${encodeURIComponent(programId)}/lessons/${encodeURIComponent(lessonId)}/generate`, {
+      method: "POST", signal, decode: parseLearningProgram,
+    });
+  }
+
+  generateLearningAssessment(programId: string, lessonId: string, signal?: AbortSignal): Promise<LearningProgram> {
+    return this.#request(`api/v1/learning/programs/${encodeURIComponent(programId)}/lessons/${encodeURIComponent(lessonId)}/assessment`, {
       method: "POST", signal, decode: parseLearningProgram,
     });
   }
@@ -957,6 +981,54 @@ export class ApiClient {
   ): Promise<LearningAttempt> {
     return this.#request(`api/v1/learning/programs/${encodeURIComponent(programId)}/activities/${encodeURIComponent(activityId)}/attempts`, {
       method: "POST", body: request, signal, decode: parseLearningAttempt,
+    });
+  }
+
+  requestLearningHint(programId: string, activityId: string, signal?: AbortSignal): Promise<LearningHint> {
+    return this.#request(`api/v1/learning/programs/${encodeURIComponent(programId)}/activities/${encodeURIComponent(activityId)}/hint`, {
+      method: "POST", signal, decode: parseLearningHint,
+    });
+  }
+
+  attachLearningSource(programId: string, documentId: string, signal?: AbortSignal): Promise<LearningProgram> {
+    return this.#request(`api/v1/learning/programs/${encodeURIComponent(programId)}/sources`, {
+      method: "POST", body: { document_id: documentId }, signal, decode: parseLearningProgram,
+    });
+  }
+
+  detachLearningSource(programId: string, sourceId: string, signal?: AbortSignal): Promise<LearningProgram> {
+    return this.#request(`api/v1/learning/programs/${encodeURIComponent(programId)}/sources/${encodeURIComponent(sourceId)}`, {
+      method: "DELETE", signal, decode: parseLearningProgram,
+    });
+  }
+
+  startLearningSession(programId: string, request: LearningSessionCreateRequest, signal?: AbortSignal): Promise<LearningSession> {
+    return this.#request(`api/v1/learning/programs/${encodeURIComponent(programId)}/sessions`, {
+      method: "POST", body: request, signal, decode: parseLearningSession,
+    });
+  }
+
+  transitionLearningSession(programId: string, sessionId: string, action: "pause" | "resume" | "complete", signal?: AbortSignal): Promise<LearningSession> {
+    return this.#request(`api/v1/learning/programs/${encodeURIComponent(programId)}/sessions/${encodeURIComponent(sessionId)}/${action}`, {
+      method: "POST", signal, decode: parseLearningSession,
+    });
+  }
+
+  getLearningAnalytics(programId: string, signal?: AbortSignal): Promise<LearningAnalytics> {
+    return this.#request(`api/v1/learning/programs/${encodeURIComponent(programId)}/analytics`, {
+      signal, decode: parseLearningAnalytics,
+    });
+  }
+
+  getLearningStudyPlan(programId: string, days = 7, signal?: AbortSignal): Promise<LearningStudyPlan> {
+    return this.#request(`api/v1/learning/programs/${encodeURIComponent(programId)}/study-plan?days=${days}`, {
+      signal, decode: parseLearningStudyPlan,
+    });
+  }
+
+  getLearningAudit(programId: string, signal?: AbortSignal): Promise<LearningEventPage> {
+    return this.#request(`api/v1/learning/programs/${encodeURIComponent(programId)}/audit`, {
+      signal, decode: parseLearningEventPage,
     });
   }
 

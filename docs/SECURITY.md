@@ -164,6 +164,15 @@ operator/path leakage, desktop CSP scope, Python dependencies, and npm
 high/critical advisories. Manual review must still inspect authorization,
 transactions, upload parsing, lifecycle cleanup, and exact staged changes.
 
+Learning records are owner isolated by queries and composite foreign keys.
+Document excerpts are bounded, restricted to ready documents owned by the
+learner, delimited as untrusted data, and excluded when they contain recognized
+credential forms. The local-only Teacher Agent has no tool or connector
+permission. Learner answers are stored as SHA-256 digests; learning audit rows
+store canonical metadata digests rather than answers, sources, prompts, model
+output, or credentials. Missing grounded citations and credential-like
+generated output fail closed before persistence.
+
 Self-update candidates run outside source and cannot activate until all fixed
 release/security/compatibility/rollback gates pass. Checkpoints include an
 integrity-verified Git bundle and encrypted configuration. Activation remains an

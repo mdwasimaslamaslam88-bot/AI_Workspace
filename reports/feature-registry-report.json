@@ -2657,6 +2657,1709 @@
     },
     {
       "backend_capability": "learning_program_service",
+      "category": "AI Teacher",
+      "dependencies": [
+        "verified_local_model",
+        "database"
+      ],
+      "description": "Private AI teacher and tutor exposed through the existing authenticated ai teacher capability.",
+      "id": "universal_workspace.ai_teacher",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "memory_read",
+        "model_inference"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_api",
+        "backend:test_learning_postgres",
+        "web:learning_panel",
+        "mobile:studio"
+      ],
+      "title": "Private AI teacher and tutor",
+      "ui_entry_point": "/workspaces/learning#ai-teacher"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "AI Teacher",
+      "dependencies": [
+        "verified_local_model",
+        "database"
+      ],
+      "description": "Personalized learning plans exposed through the existing authenticated ai teacher capability.",
+      "id": "universal_workspace.personalized_learning_plans",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "memory_read",
+        "model_inference"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_api",
+        "backend:test_learning_postgres",
+        "web:learning_panel",
+        "mobile:studio"
+      ],
+      "title": "Personalized learning plans",
+      "ui_entry_point": "/workspaces/learning#personalized-learning-plans"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "AI Teacher",
+      "dependencies": [
+        "verified_local_model",
+        "database"
+      ],
+      "description": "Course and curriculum generation exposed through the existing authenticated ai teacher capability.",
+      "id": "universal_workspace.course_generation",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "memory_read",
+        "model_inference"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_api",
+        "backend:test_learning_postgres",
+        "web:learning_panel",
+        "mobile:studio"
+      ],
+      "title": "Course and curriculum generation",
+      "ui_entry_point": "/workspaces/learning#course-generation"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "AI Teacher",
+      "dependencies": [
+        "verified_local_model",
+        "database"
+      ],
+      "description": "Subject-aware teaching exposed through the existing authenticated ai teacher capability.",
+      "id": "universal_workspace.subject_aware_teaching",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "memory_read",
+        "model_inference"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_api",
+        "backend:test_learning_postgres",
+        "web:learning_panel",
+        "mobile:studio"
+      ],
+      "title": "Subject-aware teaching",
+      "ui_entry_point": "/workspaces/learning#subject-aware-teaching"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "AI Teacher",
+      "dependencies": [
+        "verified_local_model",
+        "database"
+      ],
+      "description": "Socratic teaching mode exposed through the existing authenticated ai teacher capability.",
+      "id": "universal_workspace.socratic_teaching",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "memory_read",
+        "model_inference"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_api",
+        "backend:test_learning_postgres",
+        "web:learning_panel",
+        "mobile:studio"
+      ],
+      "title": "Socratic teaching mode",
+      "ui_entry_point": "/workspaces/learning#socratic-teaching"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "AI Teacher",
+      "dependencies": [
+        "verified_local_model",
+        "database"
+      ],
+      "description": "Step-by-step explanations exposed through the existing authenticated ai teacher capability.",
+      "id": "universal_workspace.step_by_step_explanations",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "memory_read",
+        "model_inference"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_api",
+        "backend:test_learning_postgres",
+        "web:learning_panel",
+        "mobile:studio"
+      ],
+      "title": "Step-by-step explanations",
+      "ui_entry_point": "/workspaces/learning#step-by-step-explanations"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "AI Teacher",
+      "dependencies": [
+        "verified_local_model",
+        "database"
+      ],
+      "description": "Progressive hint system exposed through the existing authenticated ai teacher capability.",
+      "id": "universal_workspace.progressive_hints",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "memory_read",
+        "model_inference"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_api",
+        "backend:test_learning_postgres",
+        "web:learning_panel",
+        "mobile:studio"
+      ],
+      "title": "Progressive hint system",
+      "ui_entry_point": "/workspaces/learning#progressive-hints"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "AI Teacher",
+      "dependencies": [
+        "verified_local_model",
+        "database"
+      ],
+      "description": "Worked and guided examples exposed through the existing authenticated ai teacher capability.",
+      "id": "universal_workspace.worked_examples",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "memory_read",
+        "model_inference"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_api",
+        "backend:test_learning_postgres",
+        "web:learning_panel",
+        "mobile:studio"
+      ],
+      "title": "Worked and guided examples",
+      "ui_entry_point": "/workspaces/learning#worked-examples"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "AI Teacher",
+      "dependencies": [
+        "verified_local_model",
+        "database"
+      ],
+      "description": "Practice-question generation exposed through the existing authenticated ai teacher capability.",
+      "id": "universal_workspace.practice_question_generation",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "memory_read",
+        "model_inference"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_api",
+        "backend:test_learning_postgres",
+        "web:learning_panel",
+        "mobile:studio"
+      ],
+      "title": "Practice-question generation",
+      "ui_entry_point": "/workspaces/learning#practice-question-generation"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "AI Teacher",
+      "dependencies": [
+        "verified_local_model",
+        "database"
+      ],
+      "description": "Coding tutor and pair-programming mode exposed through the existing authenticated ai teacher capability.",
+      "id": "universal_workspace.coding_tutor",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "memory_read",
+        "model_inference"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_api",
+        "backend:test_learning_postgres",
+        "web:learning_panel",
+        "mobile:studio"
+      ],
+      "title": "Coding tutor and pair-programming mode",
+      "ui_entry_point": "/workspaces/learning#coding-tutor"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "AI Teacher",
+      "dependencies": [
+        "verified_local_model",
+        "database"
+      ],
+      "description": "Mathematics tutor exposed through the existing authenticated ai teacher capability.",
+      "id": "universal_workspace.mathematics_tutor",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "memory_read",
+        "model_inference"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_api",
+        "backend:test_learning_postgres",
+        "web:learning_panel",
+        "mobile:studio"
+      ],
+      "title": "Mathematics tutor",
+      "ui_entry_point": "/workspaces/learning#mathematics-tutor"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "AI Teacher",
+      "dependencies": [
+        "verified_local_model",
+        "database"
+      ],
+      "description": "Science tutor exposed through the existing authenticated ai teacher capability.",
+      "id": "universal_workspace.science_tutor",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "memory_read",
+        "model_inference"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_api",
+        "backend:test_learning_postgres",
+        "web:learning_panel",
+        "mobile:studio"
+      ],
+      "title": "Science tutor",
+      "ui_entry_point": "/workspaces/learning#science-tutor"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "AI Teacher",
+      "dependencies": [
+        "verified_local_model",
+        "database"
+      ],
+      "description": "Business and finance learning exposed through the existing authenticated ai teacher capability.",
+      "id": "universal_workspace.business_finance_learning",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "memory_read",
+        "model_inference"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_api",
+        "backend:test_learning_postgres",
+        "web:learning_panel",
+        "mobile:studio"
+      ],
+      "title": "Business and finance learning",
+      "ui_entry_point": "/workspaces/learning#business-finance-learning"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "AI Teacher",
+      "dependencies": [
+        "verified_local_model",
+        "database"
+      ],
+      "description": "Exam preparation exposed through the existing authenticated ai teacher capability.",
+      "id": "universal_workspace.exam_preparation",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "memory_read",
+        "model_inference"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_api",
+        "backend:test_learning_postgres",
+        "web:learning_panel",
+        "mobile:studio"
+      ],
+      "title": "Exam preparation",
+      "ui_entry_point": "/workspaces/learning#exam-preparation"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "AI Teacher",
+      "dependencies": [
+        "verified_local_model",
+        "database"
+      ],
+      "description": "Interview preparation exposed through the existing authenticated ai teacher capability.",
+      "id": "universal_workspace.interview_preparation",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "memory_read",
+        "model_inference"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_api",
+        "backend:test_learning_postgres",
+        "web:learning_panel",
+        "mobile:studio"
+      ],
+      "title": "Interview preparation",
+      "ui_entry_point": "/workspaces/learning#interview-preparation"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "AI Teacher",
+      "dependencies": [
+        "verified_local_model",
+        "database"
+      ],
+      "description": "Certification preparation exposed through the existing authenticated ai teacher capability.",
+      "id": "universal_workspace.certification_preparation",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "memory_read",
+        "model_inference"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_api",
+        "backend:test_learning_postgres",
+        "web:learning_panel",
+        "mobile:studio"
+      ],
+      "title": "Certification preparation",
+      "ui_entry_point": "/workspaces/learning#certification-preparation"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "AI Teacher",
+      "dependencies": [
+        "verified_local_model",
+        "database"
+      ],
+      "description": "Owner-scoped learner profile exposed through the existing authenticated ai teacher capability.",
+      "id": "universal_workspace.learner_profile",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "memory_read",
+        "model_inference"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_api",
+        "backend:test_learning_postgres",
+        "web:learning_panel",
+        "mobile:studio"
+      ],
+      "title": "Owner-scoped learner profile",
+      "ui_entry_point": "/workspaces/learning#learner-profile"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "AI Teacher",
+      "dependencies": [
+        "verified_local_model",
+        "database"
+      ],
+      "description": "Persistent teaching preferences exposed through the existing authenticated ai teacher capability.",
+      "id": "universal_workspace.teaching_preferences",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "memory_read",
+        "model_inference"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_api",
+        "backend:test_learning_postgres",
+        "web:learning_panel",
+        "mobile:studio"
+      ],
+      "title": "Persistent teaching preferences",
+      "ui_entry_point": "/workspaces/learning#teaching-preferences"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "AI Teacher",
+      "dependencies": [
+        "verified_local_model",
+        "database"
+      ],
+      "description": "Learning context and history exposed through the existing authenticated ai teacher capability.",
+      "id": "universal_workspace.learning_memory",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "memory_read",
+        "model_inference"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_api",
+        "backend:test_learning_postgres",
+        "web:learning_panel",
+        "mobile:studio"
+      ],
+      "title": "Learning context and history",
+      "ui_entry_point": "/workspaces/learning#learning-memory"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "AI Teacher",
+      "dependencies": [
+        "verified_local_model",
+        "database"
+      ],
+      "description": "Pause, resume and recover study sessions exposed through the existing authenticated ai teacher capability.",
+      "id": "universal_workspace.resumable_study_sessions",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "memory_read",
+        "model_inference"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_api",
+        "backend:test_learning_postgres",
+        "web:learning_panel",
+        "mobile:studio"
+      ],
+      "title": "Pause, resume and recover study sessions",
+      "ui_entry_point": "/workspaces/learning#resumable-study-sessions"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "Learning assessment and mastery",
+      "dependencies": [
+        "database",
+        "verified_local_model"
+      ],
+      "description": "MCQ assessment exposed through the existing authenticated learning assessment and mastery capability.",
+      "id": "universal_workspace.mcq_assessment",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_os",
+        "backend:test_learning_postgres",
+        "web:learning_panel",
+        "mobile:studio"
+      ],
+      "title": "MCQ assessment",
+      "ui_entry_point": "/workspaces/learning#mcq-assessment"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "Learning assessment and mastery",
+      "dependencies": [
+        "database",
+        "verified_local_model"
+      ],
+      "description": "Short-answer assessment exposed through the existing authenticated learning assessment and mastery capability.",
+      "id": "universal_workspace.short_answer_assessment",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_os",
+        "backend:test_learning_postgres",
+        "web:learning_panel",
+        "mobile:studio"
+      ],
+      "title": "Short-answer assessment",
+      "ui_entry_point": "/workspaces/learning#short-answer-assessment"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "Learning assessment and mastery",
+      "dependencies": [
+        "database",
+        "verified_local_model"
+      ],
+      "description": "Long-answer assessment exposed through the existing authenticated learning assessment and mastery capability.",
+      "id": "universal_workspace.long_answer_assessment",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_os",
+        "backend:test_learning_postgres",
+        "web:learning_panel",
+        "mobile:studio"
+      ],
+      "title": "Long-answer assessment",
+      "ui_entry_point": "/workspaces/learning#long-answer-assessment"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "Learning assessment and mastery",
+      "dependencies": [
+        "database",
+        "verified_local_model"
+      ],
+      "description": "Continuous assessment exposed through the existing authenticated learning assessment and mastery capability.",
+      "id": "universal_workspace.continuous_assessment",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_os",
+        "backend:test_learning_postgres",
+        "web:learning_panel",
+        "mobile:studio"
+      ],
+      "title": "Continuous assessment",
+      "ui_entry_point": "/workspaces/learning#continuous-assessment"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "Learning assessment and mastery",
+      "dependencies": [
+        "database",
+        "verified_local_model"
+      ],
+      "description": "Verified local quiz generation exposed through the existing authenticated learning assessment and mastery capability.",
+      "id": "universal_workspace.quiz_generation",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_os",
+        "backend:test_learning_postgres",
+        "web:learning_panel",
+        "mobile:studio"
+      ],
+      "title": "Verified local quiz generation",
+      "ui_entry_point": "/workspaces/learning#quiz-generation"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "Learning assessment and mastery",
+      "dependencies": [
+        "database",
+        "verified_local_model"
+      ],
+      "description": "Quiz grading exposed through the existing authenticated learning assessment and mastery capability.",
+      "id": "universal_workspace.quiz_grading",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_os",
+        "backend:test_learning_postgres",
+        "web:learning_panel",
+        "mobile:studio"
+      ],
+      "title": "Quiz grading",
+      "ui_entry_point": "/workspaces/learning#quiz-grading"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "Learning assessment and mastery",
+      "dependencies": [
+        "database",
+        "verified_local_model"
+      ],
+      "description": "Assignment generation exposed through the existing authenticated learning assessment and mastery capability.",
+      "id": "universal_workspace.assignment_generation",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_os",
+        "backend:test_learning_postgres",
+        "web:learning_panel",
+        "mobile:studio"
+      ],
+      "title": "Assignment generation",
+      "ui_entry_point": "/workspaces/learning#assignment-generation"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "Learning assessment and mastery",
+      "dependencies": [
+        "database",
+        "verified_local_model"
+      ],
+      "description": "Assignment review exposed through the existing authenticated learning assessment and mastery capability.",
+      "id": "universal_workspace.assignment_review",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_os",
+        "backend:test_learning_postgres",
+        "web:learning_panel",
+        "mobile:studio"
+      ],
+      "title": "Assignment review",
+      "ui_entry_point": "/workspaces/learning#assignment-review"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "Learning assessment and mastery",
+      "dependencies": [
+        "database",
+        "verified_local_model"
+      ],
+      "description": "Deterministic rubric evaluation exposed through the existing authenticated learning assessment and mastery capability.",
+      "id": "universal_workspace.rubric_evaluation",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_os",
+        "backend:test_learning_postgres",
+        "web:learning_panel",
+        "mobile:studio"
+      ],
+      "title": "Deterministic rubric evaluation",
+      "ui_entry_point": "/workspaces/learning#rubric-evaluation"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "Learning assessment and mastery",
+      "dependencies": [
+        "database",
+        "verified_local_model"
+      ],
+      "description": "Mistake classification and analysis exposed through the existing authenticated learning assessment and mastery capability.",
+      "id": "universal_workspace.mistake_analysis",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_os",
+        "backend:test_learning_postgres",
+        "web:learning_panel",
+        "mobile:studio"
+      ],
+      "title": "Mistake classification and analysis",
+      "ui_entry_point": "/workspaces/learning#mistake-analysis"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "Learning assessment and mastery",
+      "dependencies": [
+        "database",
+        "verified_local_model"
+      ],
+      "description": "Skill mastery scoring exposed through the existing authenticated learning assessment and mastery capability.",
+      "id": "universal_workspace.skill_mastery",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_os",
+        "backend:test_learning_postgres",
+        "web:learning_panel",
+        "mobile:studio"
+      ],
+      "title": "Skill mastery scoring",
+      "ui_entry_point": "/workspaces/learning#skill-mastery"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "Learning assessment and mastery",
+      "dependencies": [
+        "database",
+        "verified_local_model"
+      ],
+      "description": "Evidence-count confidence estimation exposed through the existing authenticated learning assessment and mastery capability.",
+      "id": "universal_workspace.confidence_estimation",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_os",
+        "backend:test_learning_postgres",
+        "web:learning_panel",
+        "mobile:studio"
+      ],
+      "title": "Evidence-count confidence estimation",
+      "ui_entry_point": "/workspaces/learning#confidence-estimation"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "Learning assessment and mastery",
+      "dependencies": [
+        "database",
+        "verified_local_model"
+      ],
+      "description": "Weak-topic detection exposed through the existing authenticated learning assessment and mastery capability.",
+      "id": "universal_workspace.weak_topic_detection",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_os",
+        "backend:test_learning_postgres",
+        "web:learning_panel",
+        "mobile:studio"
+      ],
+      "title": "Weak-topic detection",
+      "ui_entry_point": "/workspaces/learning#weak-topic-detection"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "Learning assessment and mastery",
+      "dependencies": [
+        "database",
+        "verified_local_model"
+      ],
+      "description": "Knowledge-gap detection exposed through the existing authenticated learning assessment and mastery capability.",
+      "id": "universal_workspace.knowledge_gap_detection",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_os",
+        "backend:test_learning_postgres",
+        "web:learning_panel",
+        "mobile:studio"
+      ],
+      "title": "Knowledge-gap detection",
+      "ui_entry_point": "/workspaces/learning#knowledge-gap-detection"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "Learning assessment and mastery",
+      "dependencies": [
+        "database",
+        "verified_local_model"
+      ],
+      "description": "Personalized revision recommendations exposed through the existing authenticated learning assessment and mastery capability.",
+      "id": "universal_workspace.adaptive_recommendations",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_os",
+        "backend:test_learning_postgres",
+        "web:learning_panel",
+        "mobile:studio"
+      ],
+      "title": "Personalized revision recommendations",
+      "ui_entry_point": "/workspaces/learning#adaptive-recommendations"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "Learning assessment and mastery",
+      "dependencies": [
+        "database",
+        "verified_local_model"
+      ],
+      "description": "Learning analytics exposed through the existing authenticated learning assessment and mastery capability.",
+      "id": "universal_workspace.learning_analytics",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_os",
+        "backend:test_learning_postgres",
+        "web:learning_panel",
+        "mobile:studio"
+      ],
+      "title": "Learning analytics",
+      "ui_entry_point": "/workspaces/learning#learning-analytics"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "Learning assessment and mastery",
+      "dependencies": [
+        "database",
+        "verified_local_model"
+      ],
+      "description": "Attempt-to-teaching feedback loop exposed through the existing authenticated learning assessment and mastery capability.",
+      "id": "universal_workspace.teacher_feedback_loop",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_os",
+        "backend:test_learning_postgres",
+        "web:learning_panel",
+        "mobile:studio"
+      ],
+      "title": "Attempt-to-teaching feedback loop",
+      "ui_entry_point": "/workspaces/learning#teacher-feedback-loop"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "Learning knowledge grounding",
+      "dependencies": [
+        "database",
+        "ingested_owner_document",
+        "verified_local_model"
+      ],
+      "description": "Private document-to-course conversion exposed through the existing authenticated learning knowledge grounding capability.",
+      "id": "universal_workspace.document_to_course",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "asset_access",
+        "rag_read"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_grounding",
+        "backend:test_learning_postgres",
+        "web:learning_panel"
+      ],
+      "title": "Private document-to-course conversion",
+      "ui_entry_point": "/workspaces/learning#document-to-course"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "Learning knowledge grounding",
+      "dependencies": [
+        "database",
+        "ingested_owner_document",
+        "verified_local_model"
+      ],
+      "description": "Private document-to-quiz conversion exposed through the existing authenticated learning knowledge grounding capability.",
+      "id": "universal_workspace.document_to_quiz",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "asset_access",
+        "rag_read"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_grounding",
+        "backend:test_learning_postgres",
+        "web:learning_panel"
+      ],
+      "title": "Private document-to-quiz conversion",
+      "ui_entry_point": "/workspaces/learning#document-to-quiz"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "Learning knowledge grounding",
+      "dependencies": [
+        "database",
+        "ingested_owner_document",
+        "verified_local_model"
+      ],
+      "description": "RAG-based teaching over owner documents exposed through the existing authenticated learning knowledge grounding capability.",
+      "id": "universal_workspace.rag_based_teaching",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "asset_access",
+        "rag_read"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_grounding",
+        "backend:test_learning_postgres",
+        "web:learning_panel"
+      ],
+      "title": "RAG-based teaching over owner documents",
+      "ui_entry_point": "/workspaces/learning#rag-based-teaching"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "Learning knowledge grounding",
+      "dependencies": [
+        "database",
+        "ingested_owner_document",
+        "verified_local_model"
+      ],
+      "description": "Source-grounded educational answers exposed through the existing authenticated learning knowledge grounding capability.",
+      "id": "universal_workspace.source_grounded_teaching",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "asset_access",
+        "rag_read"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_grounding",
+        "backend:test_learning_postgres",
+        "web:learning_panel"
+      ],
+      "title": "Source-grounded educational answers",
+      "ui_entry_point": "/workspaces/learning#source-grounded-teaching"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "Learning knowledge grounding",
+      "dependencies": [
+        "database",
+        "ingested_owner_document",
+        "verified_local_model"
+      ],
+      "description": "Learning citation and source tracking exposed through the existing authenticated learning knowledge grounding capability.",
+      "id": "universal_workspace.learning_citation_tracking",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "asset_access",
+        "rag_read"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_grounding",
+        "backend:test_learning_postgres",
+        "web:learning_panel"
+      ],
+      "title": "Learning citation and source tracking",
+      "ui_entry_point": "/workspaces/learning#learning-citation-tracking"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "Learning knowledge grounding",
+      "dependencies": [
+        "database",
+        "ingested_owner_document",
+        "verified_local_model"
+      ],
+      "description": "Insufficient-source and uncertainty handling exposed through the existing authenticated learning knowledge grounding capability.",
+      "id": "universal_workspace.source_uncertainty",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "asset_access",
+        "rag_read"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_grounding",
+        "backend:test_learning_postgres",
+        "web:learning_panel"
+      ],
+      "title": "Insufficient-source and uncertainty handling",
+      "ui_entry_point": "/workspaces/learning#source-uncertainty"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "Learning knowledge grounding",
+      "dependencies": [
+        "database",
+        "ingested_owner_document",
+        "verified_local_model"
+      ],
+      "description": "Source terminology preservation exposed through the existing authenticated learning knowledge grounding capability.",
+      "id": "universal_workspace.source_terminology_preservation",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "asset_access",
+        "rag_read"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_grounding",
+        "backend:test_learning_postgres",
+        "web:learning_panel"
+      ],
+      "title": "Source terminology preservation",
+      "ui_entry_point": "/workspaces/learning#source-terminology-preservation"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "Learning knowledge grounding",
+      "dependencies": [
+        "database",
+        "ingested_owner_document",
+        "verified_local_model"
+      ],
+      "description": "Document prompt-injection containment exposed through the existing authenticated learning knowledge grounding capability.",
+      "id": "universal_workspace.learning_prompt_injection_defense",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "asset_access",
+        "rag_read"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_grounding",
+        "backend:test_learning_postgres",
+        "web:learning_panel"
+      ],
+      "title": "Document prompt-injection containment",
+      "ui_entry_point": "/workspaces/learning#learning-prompt-injection-defense"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "Learning knowledge grounding",
+      "dependencies": [
+        "database",
+        "ingested_owner_document",
+        "verified_local_model"
+      ],
+      "description": "Personal knowledge-base learning exposed through the existing authenticated learning knowledge grounding capability.",
+      "id": "universal_workspace.personal_knowledge_learning",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "asset_access",
+        "rag_read"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_grounding",
+        "backend:test_learning_postgres",
+        "web:learning_panel"
+      ],
+      "title": "Personal knowledge-base learning",
+      "ui_entry_point": "/workspaces/learning#personal-knowledge-learning"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "Learning knowledge grounding",
+      "dependencies": [
+        "database",
+        "ingested_owner_document",
+        "verified_local_model"
+      ],
+      "description": "Knowledge notes and review cards exposed through the existing authenticated learning knowledge grounding capability.",
+      "id": "universal_workspace.learning_notes",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "asset_access",
+        "rag_read"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_grounding",
+        "backend:test_learning_postgres",
+        "web:learning_panel"
+      ],
+      "title": "Knowledge notes and review cards",
+      "ui_entry_point": "/workspaces/learning#learning-notes"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "Learning knowledge grounding",
+      "dependencies": [
+        "database",
+        "ingested_owner_document",
+        "verified_local_model"
+      ],
+      "description": "Lesson summaries exposed through the existing authenticated learning knowledge grounding capability.",
+      "id": "universal_workspace.learning_summaries",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "asset_access",
+        "rag_read"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_grounding",
+        "backend:test_learning_postgres",
+        "web:learning_panel"
+      ],
+      "title": "Lesson summaries",
+      "ui_entry_point": "/workspaces/learning#learning-summaries"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "Learning knowledge grounding",
+      "dependencies": [
+        "database",
+        "ingested_owner_document",
+        "verified_local_model"
+      ],
+      "description": "Concept-map teaching prompts exposed through the existing authenticated learning knowledge grounding capability.",
+      "id": "universal_workspace.concept_map_learning",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "asset_access",
+        "rag_read"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_grounding",
+        "backend:test_learning_postgres",
+        "web:learning_panel"
+      ],
+      "title": "Concept-map teaching prompts",
+      "ui_entry_point": "/workspaces/learning#concept-map-learning"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "Learning knowledge grounding",
+      "dependencies": [
+        "database",
+        "ingested_owner_document",
+        "verified_local_model"
+      ],
+      "description": "Audited learning timeline exposed through the existing authenticated learning knowledge grounding capability.",
+      "id": "universal_workspace.learning_timeline",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "asset_access",
+        "rag_read"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_grounding",
+        "backend:test_learning_postgres",
+        "web:learning_panel"
+      ],
+      "title": "Audited learning timeline",
+      "ui_entry_point": "/workspaces/learning#learning-timeline"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "Learning knowledge grounding",
+      "dependencies": [
+        "database",
+        "ingested_owner_document",
+        "verified_local_model"
+      ],
+      "description": "Ingested transcript-to-learning conversion exposed through the existing authenticated learning knowledge grounding capability.",
+      "id": "universal_workspace.transcript_to_learning",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session",
+        "asset_access",
+        "rag_read"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_grounding",
+        "backend:test_learning_postgres",
+        "web:learning_panel"
+      ],
+      "title": "Ingested transcript-to-learning conversion",
+      "ui_entry_point": "/workspaces/learning#transcript-to-learning"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "Learning modes and language",
+      "dependencies": [
+        "verified_local_model",
+        "database"
+      ],
+      "description": "Study-session mode exposed through the existing authenticated learning modes and language capability.",
+      "id": "universal_workspace.study_mode",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_os",
+        "web:learning_panel",
+        "mobile:studio"
+      ],
+      "title": "Study-session mode",
+      "ui_entry_point": "/workspaces/learning#study-mode"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "Learning modes and language",
+      "dependencies": [
+        "verified_local_model",
+        "database"
+      ],
+      "description": "Focus mode exposed through the existing authenticated learning modes and language capability.",
+      "id": "universal_workspace.focus_mode",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_os",
+        "web:learning_panel",
+        "mobile:studio"
+      ],
+      "title": "Focus mode",
+      "ui_entry_point": "/workspaces/learning#focus-mode"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "Learning modes and language",
+      "dependencies": [
+        "verified_local_model",
+        "database"
+      ],
+      "description": "Exam mode exposed through the existing authenticated learning modes and language capability.",
+      "id": "universal_workspace.learning_exam_mode",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_os",
+        "web:learning_panel",
+        "mobile:studio"
+      ],
+      "title": "Exam mode",
+      "ui_entry_point": "/workspaces/learning#learning-exam-mode"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "Learning modes and language",
+      "dependencies": [
+        "verified_local_model",
+        "database"
+      ],
+      "description": "Revision mode exposed through the existing authenticated learning modes and language capability.",
+      "id": "universal_workspace.learning_revision_mode",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_os",
+        "web:learning_panel",
+        "mobile:studio"
+      ],
+      "title": "Revision mode",
+      "ui_entry_point": "/workspaces/learning#learning-revision-mode"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "Learning modes and language",
+      "dependencies": [
+        "verified_local_model",
+        "database"
+      ],
+      "description": "Teacher mode exposed through the existing authenticated learning modes and language capability.",
+      "id": "universal_workspace.learning_teacher_mode",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_os",
+        "web:learning_panel",
+        "mobile:studio"
+      ],
+      "title": "Teacher mode",
+      "ui_entry_point": "/workspaces/learning#learning-teacher-mode"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "Learning modes and language",
+      "dependencies": [
+        "verified_local_model",
+        "database"
+      ],
+      "description": "Coach mode exposed through the existing authenticated learning modes and language capability.",
+      "id": "universal_workspace.learning_coach_mode",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_os",
+        "web:learning_panel",
+        "mobile:studio"
+      ],
+      "title": "Coach mode",
+      "ui_entry_point": "/workspaces/learning#learning-coach-mode"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "Learning modes and language",
+      "dependencies": [
+        "verified_local_model",
+        "database"
+      ],
+      "description": "Mentor mode exposed through the existing authenticated learning modes and language capability.",
+      "id": "universal_workspace.learning_mentor_mode",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_os",
+        "web:learning_panel",
+        "mobile:studio"
+      ],
+      "title": "Mentor mode",
+      "ui_entry_point": "/workspaces/learning#learning-mentor-mode"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "Learning modes and language",
+      "dependencies": [
+        "verified_local_model",
+        "database"
+      ],
+      "description": "Interviewer mode exposed through the existing authenticated learning modes and language capability.",
+      "id": "universal_workspace.learning_interviewer_mode",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_os",
+        "web:learning_panel",
+        "mobile:studio"
+      ],
+      "title": "Interviewer mode",
+      "ui_entry_point": "/workspaces/learning#learning-interviewer-mode"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "Learning modes and language",
+      "dependencies": [
+        "verified_local_model",
+        "database"
+      ],
+      "description": "Pair-programming teaching mode exposed through the existing authenticated learning modes and language capability.",
+      "id": "universal_workspace.pair_programming_mode",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_os",
+        "web:learning_panel",
+        "mobile:studio"
+      ],
+      "title": "Pair-programming teaching mode",
+      "ui_entry_point": "/workspaces/learning#pair-programming-mode"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "Learning modes and language",
+      "dependencies": [
+        "verified_local_model",
+        "database"
+      ],
+      "description": "Mixed-language and Hinglish teaching exposed through the existing authenticated learning modes and language capability.",
+      "id": "universal_workspace.mixed_language_teaching",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_os",
+        "web:learning_panel",
+        "mobile:studio"
+      ],
+      "title": "Mixed-language and Hinglish teaching",
+      "ui_entry_point": "/workspaces/learning#mixed-language-teaching"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "Learning modes and language",
+      "dependencies": [
+        "verified_local_model",
+        "database"
+      ],
+      "description": "Translation-assisted learning exposed through the existing authenticated learning modes and language capability.",
+      "id": "universal_workspace.translation_assisted_learning",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_os",
+        "web:learning_panel",
+        "mobile:studio"
+      ],
+      "title": "Translation-assisted learning",
+      "ui_entry_point": "/workspaces/learning#translation-assisted-learning"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "Learning modes and language",
+      "dependencies": [
+        "verified_local_model",
+        "database"
+      ],
+      "description": "Reading comprehension exposed through the existing authenticated learning modes and language capability.",
+      "id": "universal_workspace.reading_comprehension",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_os",
+        "web:learning_panel",
+        "mobile:studio"
+      ],
+      "title": "Reading comprehension",
+      "ui_entry_point": "/workspaces/learning#reading-comprehension"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "Learning modes and language",
+      "dependencies": [
+        "verified_local_model",
+        "database"
+      ],
+      "description": "Writing improvement exposed through the existing authenticated learning modes and language capability.",
+      "id": "universal_workspace.writing_improvement",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_os",
+        "web:learning_panel",
+        "mobile:studio"
+      ],
+      "title": "Writing improvement",
+      "ui_entry_point": "/workspaces/learning#writing-improvement"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "Learning modes and language",
+      "dependencies": [
+        "verified_local_model",
+        "database"
+      ],
+      "description": "Vocabulary training exposed through the existing authenticated learning modes and language capability.",
+      "id": "universal_workspace.vocabulary_training",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_os",
+        "web:learning_panel",
+        "mobile:studio"
+      ],
+      "title": "Vocabulary training",
+      "ui_entry_point": "/workspaces/learning#vocabulary-training"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "Learning modes and language",
+      "dependencies": [
+        "verified_local_model",
+        "database"
+      ],
+      "description": "Grammar training exposed through the existing authenticated learning modes and language capability.",
+      "id": "universal_workspace.grammar_training",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_os",
+        "web:learning_panel",
+        "mobile:studio"
+      ],
+      "title": "Grammar training",
+      "ui_entry_point": "/workspaces/learning#grammar-training"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "Learning modes and language",
+      "dependencies": [
+        "verified_local_model",
+        "database"
+      ],
+      "description": "Daily learning plan exposed through the existing authenticated learning modes and language capability.",
+      "id": "universal_workspace.daily_learning_plan",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_os",
+        "web:learning_panel",
+        "mobile:studio"
+      ],
+      "title": "Daily learning plan",
+      "ui_entry_point": "/workspaces/learning#daily-learning-plan"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "Learning modes and language",
+      "dependencies": [
+        "verified_local_model",
+        "database"
+      ],
+      "description": "Weekly learning plan exposed through the existing authenticated learning modes and language capability.",
+      "id": "universal_workspace.weekly_learning_plan",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_os",
+        "web:learning_panel",
+        "mobile:studio"
+      ],
+      "title": "Weekly learning plan",
+      "ui_entry_point": "/workspaces/learning#weekly-learning-plan"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "Learning modes and language",
+      "dependencies": [
+        "verified_local_model",
+        "database"
+      ],
+      "description": "Long-term learning goals exposed through the existing authenticated learning modes and language capability.",
+      "id": "universal_workspace.long_term_learning_goals",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_os",
+        "web:learning_panel",
+        "mobile:studio"
+      ],
+      "title": "Long-term learning goals",
+      "ui_entry_point": "/workspaces/learning#long-term-learning-goals"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "Learning modes and language",
+      "dependencies": [
+        "verified_local_model",
+        "database"
+      ],
+      "description": "Learning streak tracking exposed through the existing authenticated learning modes and language capability.",
+      "id": "universal_workspace.learning_streaks",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_os",
+        "web:learning_panel",
+        "mobile:studio"
+      ],
+      "title": "Learning streak tracking",
+      "ui_entry_point": "/workspaces/learning#learning-streaks"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "Learning modes and language",
+      "dependencies": [
+        "verified_local_model",
+        "database"
+      ],
+      "description": "Educational uncertainty and safety boundaries exposed through the existing authenticated learning modes and language capability.",
+      "id": "universal_workspace.educational_safety",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_os",
+        "web:learning_panel",
+        "mobile:studio"
+      ],
+      "title": "Educational uncertainty and safety boundaries",
+      "ui_entry_point": "/workspaces/learning#educational-safety"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "Learning modes and language",
+      "dependencies": [
+        "verified_local_model",
+        "database"
+      ],
+      "description": "Hash-only audit of learning state changes exposed through the existing authenticated learning modes and language capability.",
+      "id": "universal_workspace.learning_auditability",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_os",
+        "web:learning_panel",
+        "mobile:studio"
+      ],
+      "title": "Hash-only audit of learning state changes",
+      "ui_entry_point": "/workspaces/learning#learning-auditability"
+    },
+    {
+      "backend_capability": "learning_program_service",
       "category": "Spaced repetition",
       "dependencies": [
         "database"
@@ -2676,6 +4379,94 @@
       ],
       "title": "Spaced repetition scheduling",
       "ui_entry_point": "/workspaces/learning#spaced-repetition"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "Spaced repetition",
+      "dependencies": [
+        "database"
+      ],
+      "description": "Private flashcards exposed through the existing authenticated spaced repetition capability.",
+      "id": "universal_workspace.flashcards",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_api",
+        "backend:test_learning_postgres",
+        "web:learning_panel",
+        "mobile:studio"
+      ],
+      "title": "Private flashcards",
+      "ui_entry_point": "/workspaces/learning#flashcards"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "Spaced repetition",
+      "dependencies": [
+        "database"
+      ],
+      "description": "Active recall exposed through the existing authenticated spaced repetition capability.",
+      "id": "universal_workspace.active_recall",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_api",
+        "backend:test_learning_postgres",
+        "web:learning_panel",
+        "mobile:studio"
+      ],
+      "title": "Active recall",
+      "ui_entry_point": "/workspaces/learning#active-recall"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "Spaced repetition",
+      "dependencies": [
+        "database"
+      ],
+      "description": "Revision scheduling exposed through the existing authenticated spaced repetition capability.",
+      "id": "universal_workspace.revision_scheduler",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_api",
+        "backend:test_learning_postgres",
+        "web:learning_panel",
+        "mobile:studio"
+      ],
+      "title": "Revision scheduling",
+      "ui_entry_point": "/workspaces/learning#revision-scheduler"
+    },
+    {
+      "backend_capability": "learning_program_service",
+      "category": "Spaced repetition",
+      "dependencies": [
+        "database"
+      ],
+      "description": "Automatic revision recommendations exposed through the existing authenticated spaced repetition capability.",
+      "id": "universal_workspace.automatic_revision_recommendations",
+      "layer": "universal_workspace",
+      "required_permissions": [
+        "owner_session"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_learning_api",
+        "backend:test_learning_postgres",
+        "web:learning_panel",
+        "mobile:studio"
+      ],
+      "title": "Automatic revision recommendations",
+      "ui_entry_point": "/workspaces/learning#automatic-revision-recommendations"
     },
     {
       "backend_capability": "external_pronunciation_scoring_provider",
@@ -5239,18 +7030,18 @@
     "ai_presence": 45,
     "apps_hub": 47,
     "mission_control": 39,
-    "universal_workspace": 62
+    "universal_workspace": 138
   },
   "product": "AI OS",
-  "registry_sha256": "7478ef10ca0613e4b2dca6d7fa70c3ac44482bf96b2445aeb5a9ac2723ce1a07",
+  "registry_sha256": "0bddfa318fcdb0f864f700083d1bffab523f4f52d04308bdff012c2c8fa91737",
   "schema_version": 1,
   "statuses": {
     "external_dependency": 39,
-    "implemented": 187,
+    "implemented": 263,
     "planned": 5,
     "runtime_dependent": 14
   },
-  "total": 245,
+  "total": 321,
   "validation": {
     "backend_or_boundary_present": true,
     "test_coverage_present": true,

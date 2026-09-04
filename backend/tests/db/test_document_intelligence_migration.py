@@ -47,10 +47,18 @@ def test_upgrade_matches_exact_document_and_citation_orm_schema():
         ("create_index", "ix_document_chunks_owner_document_ordinal"),
         ("create_table", "message_citations"),
     ]
-    for table_name in ("documents", "message_citations"):
-        assert _table_signature(operations.metadata.tables[table_name]) == (
-            _table_signature(Base.metadata.tables[table_name])
-        )
+    assert _table_signature(operations.metadata.tables["message_citations"]) == (
+        _table_signature(Base.metadata.tables["message_citations"])
+    )
+    historical_document = _table_signature(operations.metadata.tables["documents"])
+    current_document = _table_signature(Base.metadata.tables["documents"])
+    assert historical_document[0] == current_document[0]
+    assert set(historical_document[1]) == {
+        constraint
+        for constraint in current_document[1]
+        if constraint[1] != "uq_documents_id_owner"
+    }
+    assert historical_document[2] == current_document[2]
     historical_chunks = operations.metadata.tables["document_chunks"]
     assert tuple(historical_chunks.c.keys()) == (
         "id",

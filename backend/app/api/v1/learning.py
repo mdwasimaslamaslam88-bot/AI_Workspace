@@ -19,15 +19,24 @@ from app.learning.service import (
 from app.models.user import User
 from app.schemas.learning import (
     LearningActivityCreateRequest,
+    LearningAnalyticsResponse,
     LearningAttemptRequest,
     LearningAttemptResponse,
     LearningCapabilitiesResponse,
+    LearningEventPageResponse,
+    LearningEventResponse,
+    LearningHintResponse,
+    LearningProfileUpdateRequest,
     LearningProgramCreateRequest,
     LearningProgramPageResponse,
     LearningProgramResponse,
     LearningReviewItemCreateRequest,
     LearningReviewItemResponse,
     LearningReviewRequest,
+    LearningSessionCreateRequest,
+    LearningSessionResponse,
+    LearningSourceCreateRequest,
+    LearningStudyPlanResponse,
 )
 
 
@@ -98,6 +107,9 @@ async def create_learning_program(
             target_difficulty=payload.target_difficulty,
             weekly_minutes=payload.weekly_minutes,
             adaptive_difficulty=payload.adaptive_difficulty,
+            teaching_mode=payload.teaching_mode,
+            preferences=payload.preferences.model_dump(),
+            source_document_ids=tuple(payload.source_document_ids),
         )
     except (LearningInputError, LearningConflictError, LearningNotFoundError) as exc:
         _raise_learning_error(exc)
@@ -116,6 +128,25 @@ async def get_learning_program(
     return _program_response(value)
 
 
+@router.put("/programs/{program_id}/profile", response_model=LearningProgramResponse)
+async def update_learning_profile(
+    program_id: UUID,
+    payload: LearningProfileUpdateRequest,
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> LearningProgramResponse:
+    try:
+        value = await LearningService(session).update_profile(
+            current_user.id,
+            program_id,
+            teaching_mode=payload.teaching_mode,
+            preferences=payload.preferences.model_dump(),
+        )
+    except (LearningInputError, LearningConflictError, LearningNotFoundError) as exc:
+        _raise_learning_error(exc)
+    return _program_response(value)
+
+
 @router.post(
     "/programs/{program_id}/lessons/{lesson_id}/generate",
     response_model=LearningProgramResponse,
@@ -129,6 +160,30 @@ async def generate_learning_lesson(
 ) -> LearningProgramResponse:
     try:
         value = await LearningService(session, _teacher(request)).generate_lesson(
+            current_user.id, program_id, lesson_id
+        )
+    except (
+        LearningConflictError,
+        LearningNotFoundError,
+        LearningTeacherError,
+    ) as exc:
+        _raise_learning_error(exc)
+    return _program_response(value)
+
+
+@router.post(
+    "/programs/{program_id}/lessons/{lesson_id}/assessment",
+    response_model=LearningProgramResponse,
+)
+async def generate_learning_assessment(
+    program_id: UUID,
+    lesson_id: UUID,
+    request: Request,
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> LearningProgramResponse:
+    try:
+        value = await LearningService(session, _teacher(request)).generate_assessment(
             current_user.id, program_id, lesson_id
         )
     except (
@@ -163,6 +218,12 @@ async def create_learning_activity(
             explanation=payload.explanation,
             difficulty=payload.difficulty,
             max_attempts=payload.max_attempts,
+            skill_name=payload.skill_name,
+            grading_mode=payload.grading_mode,
+            hints=tuple(payload.hints),
+            rubric_keywords=tuple(payload.rubric_keywords),
+            source_ids=tuple(payload.source_ids),
+            required=payload.required,
         )
     except (LearningInputError, LearningConflictError, LearningNotFoundError) as exc:
         _raise_learning_error(exc)
@@ -188,6 +249,25 @@ async def submit_learning_attempt(
     except (LearningInputError, LearningConflictError, LearningNotFoundError) as exc:
         _raise_learning_error(exc)
     return LearningAttemptResponse.model_validate(value, from_attributes=True)
+
+
+@router.post(
+    "/programs/{program_id}/activities/{activity_id}/hint",
+    response_model=LearningHintResponse,
+)
+async def request_learning_hint(
+    program_id: UUID,
+    activity_id: UUID,
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> LearningHintResponse:
+    try:
+        hint, remaining = await LearningService(session).request_hint(
+            current_user.id, program_id, activity_id
+        )
+    except (LearningInputError, LearningConflictError, LearningNotFoundError) as exc:
+        _raise_learning_error(exc)
+    return LearningHintResponse(hint=hint, remaining=remaining)
 
 
 @router.post(
@@ -228,3 +308,146 @@ async def review_learning_item(
     except (LearningInputError, LearningConflictError, LearningNotFoundError) as exc:
         _raise_learning_error(exc)
     return LearningReviewItemResponse.model_validate(value, from_attributes=True)
+
+
+@router.post(
+    "/programs/{program_id}/sources",
+    response_model=LearningProgramResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def attach_learning_source(
+    program_id: UUID,
+    payload: LearningSourceCreateRequest,
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> LearningProgramResponse:
+    try:
+        value = await LearningService(session).attach_source(
+            current_user.id, program_id, payload.document_id
+        )
+    except (LearningInputError, LearningConflictError, LearningNotFoundError) as exc:
+        _raise_learning_error(exc)
+    return _program_response(value)
+
+
+@router.delete(
+    "/programs/{program_id}/sources/{source_id}",
+    response_model=LearningProgramResponse,
+)
+async def detach_learning_source(
+    program_id: UUID,
+    source_id: UUID,
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> LearningProgramResponse:
+    try:
+        value = await LearningService(session).detach_source(
+            current_user.id, program_id, source_id
+        )
+    except (LearningInputError, LearningConflictError, LearningNotFoundError) as exc:
+        _raise_learning_error(exc)
+    return _program_response(value)
+
+
+@router.post(
+    "/programs/{program_id}/sessions",
+    response_model=LearningSessionResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def start_learning_session(
+    program_id: UUID,
+    payload: LearningSessionCreateRequest,
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> LearningSessionResponse:
+    try:
+        value = await LearningService(session).start_session(
+            current_user.id,
+            program_id,
+            mode=payload.mode,
+            focus=payload.focus,
+            planned_minutes=payload.planned_minutes,
+            current_lesson_id=payload.current_lesson_id,
+        )
+    except (LearningInputError, LearningConflictError, LearningNotFoundError) as exc:
+        _raise_learning_error(exc)
+    return LearningSessionResponse.model_validate(value, from_attributes=True)
+
+
+@router.post(
+    "/programs/{program_id}/sessions/{learning_session_id}/{action}",
+    response_model=LearningSessionResponse,
+)
+async def transition_learning_session(
+    program_id: UUID,
+    learning_session_id: UUID,
+    action: str,
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> LearningSessionResponse:
+    try:
+        value = await LearningService(session).transition_session(
+            current_user.id, program_id, learning_session_id, action
+        )
+    except (LearningInputError, LearningConflictError, LearningNotFoundError) as exc:
+        _raise_learning_error(exc)
+    return LearningSessionResponse.model_validate(value, from_attributes=True)
+
+
+@router.get(
+    "/programs/{program_id}/analytics",
+    response_model=LearningAnalyticsResponse,
+)
+async def get_learning_analytics(
+    program_id: UUID,
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> LearningAnalyticsResponse:
+    try:
+        value = await LearningService(session).analytics(current_user.id, program_id)
+    except (LearningInputError, LearningConflictError, LearningNotFoundError) as exc:
+        _raise_learning_error(exc)
+    return LearningAnalyticsResponse.model_validate(value)
+
+
+@router.get(
+    "/programs/{program_id}/study-plan",
+    response_model=LearningStudyPlanResponse,
+)
+async def get_learning_study_plan(
+    program_id: UUID,
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    days: Annotated[int, Query(ge=1, le=7)] = 7,
+) -> LearningStudyPlanResponse:
+    try:
+        values = await LearningService(session).study_plan(
+            current_user.id, program_id, days=days
+        )
+    except (LearningInputError, LearningConflictError, LearningNotFoundError) as exc:
+        _raise_learning_error(exc)
+    return LearningStudyPlanResponse(items=list(values))
+
+
+@router.get(
+    "/programs/{program_id}/audit",
+    response_model=LearningEventPageResponse,
+)
+async def get_learning_audit(
+    program_id: UUID,
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    limit: Annotated[int, Query(ge=1, le=100)] = 100,
+) -> LearningEventPageResponse:
+    try:
+        values = await LearningService(session).list_events(
+            current_user.id, program_id, limit=limit
+        )
+    except (LearningInputError, LearningConflictError, LearningNotFoundError) as exc:
+        _raise_learning_error(exc)
+    return LearningEventPageResponse(
+        items=[
+            LearningEventResponse.model_validate(value, from_attributes=True)
+            for value in values
+        ]
+    )

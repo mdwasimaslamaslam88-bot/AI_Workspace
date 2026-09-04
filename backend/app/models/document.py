@@ -66,6 +66,7 @@ class Document(Base):
             name="processing_token_consistent",
         ),
         UniqueConstraint("asset_id", name="uq_documents_asset_id"),
+        UniqueConstraint("id", "owner_id", name="uq_documents_id_owner"),
     )
 
     id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)

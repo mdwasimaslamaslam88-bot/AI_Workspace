@@ -22,7 +22,7 @@ def test_feature_implementation_matrix_is_complete_and_prioritized():
     matrix = module._matrix_payload(registry)
 
     assert matrix["registry_sha256"] == registry["registry_sha256"]
-    assert matrix["total"] == registry["total"] == 245
+    assert matrix["total"] == registry["total"] == 321
     assert len(matrix["items"]) == registry["total"]
     assert len({item["id"] for item in matrix["items"]}) == registry["total"]
     assert matrix["summary"] == {

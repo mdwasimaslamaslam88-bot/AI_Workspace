@@ -83,6 +83,12 @@ mission scheduler. The current public mission endpoint grants only model
 inference, so it has no privileged tool action that would legitimately wait for
 an approval checkpoint.
 
+The Learning Teacher reuses this orchestrator with only `model_inference`, a
+bounded 120-second deadline, one Agent OS retry, and `allow_external_models=false`.
+Lessons and assessments are persisted only when the independent verifier's
+output digest matches the untouched artifact. Learning sources and preferences
+are untrusted private data; they cannot grant permissions or invoke tools.
+
 ## Verification
 
 ```bash
