@@ -1,97 +1,61 @@
-# Phase 11 Final Test Summary
+# Final Test Summary
 
-## Complete local release gate
+## Complete native/runtime release gate
 
 | Suite | Result |
 |---|---|
-| Feature registry | 245 validated; unique IDs and complete UI/backend/dependency/coverage records |
-| Backend | 2,950 passed, 48 skipped, zero failed, one third-party deprecation warning |
-| Web | 194 passed across 36 files; typecheck and lint PASS |
-| Mobile | 62 passed across 19 files; typecheck and lint PASS |
+| Feature registry | 321 validated; IDs/UI/backend-or-boundary/coverage complete |
+| Backend | 3,007 passed, 55 intentional environment/runtime skips, zero failed |
+| Web | 202 passed across 36 files; typecheck, lint and production build PASS |
+| Mobile | 64 passed across 19 files; typecheck/lint/static checks PASS |
 | Expo Doctor | 21/21 |
-| Desktop Rust | 2 passed, zero failed |
-| PostgreSQL | 48 passed; migrations `0001` through `0018_connector_activation`; no drift |
-| Web production | PASS; 489,282-byte initial entry; 11 lazy workspaces |
-| Linux packages | AppImage and DEB built; production binary/AppImage real launch PASS |
-| Native Android ARM64 | Fresh release build, 532 Gradle tasks, identity/signing/alignment/artifact safety PASS |
-| Browser/PWA E2E | Install, authenticated registry, chat, cache isolation and logout PASS |
-| Service/gateway | systemd units, private target and public-Funnel guards PASS |
-| Runtime E2E | Vision, RAG, memory, image, voice, Agent OS, connector, marketing, finance, learning, creative, tools and workflows PASS |
-| Repository artifact scan | No tracked build/runtime artifacts or unexpected files |
+| Android ARM64 | 532-task release build; ABI/identity/signature/alignment/scan PASS |
+| Desktop | 2 Rust tests; binary/AppImage/DEB build and real X11 launches PASS |
+| PostgreSQL | 55 passed; head `0022_persistent_agent_missions`; migration cycle and drift PASS |
+| Browser/PWA | Compiled Chromium install/auth/chat/cache-isolation/logout PASS |
+| Windows | Native run `33910594358` build/NSIS/scan/process launch PASS |
+| macOS | Native run `33910594428` app/DMG/ad-hoc signing/scan/process launch PASS |
+| Runtime E2E | Vision, RAG, memory, image, voice, missions, connectors, marketing, finance, learning, creative, tools and workflows PASS |
+| Self-update | 11 passed |
+| Rollback | 17 passed |
+| Backup | Database/assets checkpoint creation and integrity verification PASS |
+| Security | Credential, ownership, egress, source and artifact gates PASS |
+| Release | `WORK STATION release validation passed` |
 
-The release command ended with the canonical result:
-`WORK STATION release validation passed`.
+Runtime probes exercised Qwen vision/routing paths, FLUX.2 Klein Base 4B FP8
+generation/img2img/inpainting, Piper TTS and Faster-Whisper STT. Image load
+peaked at approximately 10,972 MiB GPU memory, vision at 8,532 MiB and voice at
+1,096 MiB, within the current 12 GiB guard strategy.
 
-## Native and device validation
+## Recovery evidence
 
-- Windows GitHub Actions run `33735245448`: **PASS** on exact application
-  commit `a82b5b5`; source/web/desktop checks, NSIS build/extraction, secret scan
-  and process launch passed.
-- macOS GitHub Actions run `33735249778`: **PASS** on exact application commit
-  `a82b5b5`; source/web/desktop checks, app/DMG, strict ad-hoc codesign, secret
-  scan and process launch passed.
-- Android x86_64 release: mobile 62/62, Expo Doctor 21/21 and a second fresh
-  532-task build passed. It installed on Android 16/API 36, launched package
-  `com.workstation.personalai`, retained a live top-resumed `MainActivity`, and
-  navigated through the mobile bottom bar into Mission Control.
-- Android ARM64 distribution: build, ABI, package/version, v2/v3 signature,
-  alignment and artifact scan passed. Physical ARM-device acceptance remains
-  an owner/device boundary.
-
-## Real runtime matrix
-
-The final runtime execution passed:
-
-- vision against the admitted local vision model, with 8,538 MiB GPU memory
-  and 96% utilization observed during the probe;
-- RAG with 768-dimensional embeddings, citations, isolation and tombstoning;
-- long-term memory with provenance, isolation, disable, forget and redaction;
-- FLUX.2 Klein generation, img2img and exact masked inpainting with ownership,
-  provenance, cleanup and bounded GPU guards;
-- Piper TTS and Faster-Whisper STT, validated audio formats and truthful state;
-- Agent OS plan/execute/verify/SSE with bounded retry and retained integrity;
-- encrypted connector health/action/retry/audit/revocation;
-- local marketing stages, approval, loopback publish receipt and grounded
-  analytics;
-- finance research, backtest, paper trade, portfolio/risk/alerts/journal;
-- teacher generation, assessment, adaptive progress and spaced repetition;
-- creative story generation, integrity and general-audience controls;
-- bounded tools without shell/code/unrestricted network; and
-- workflow completion, cancellation/failure/restart and audit linkage.
+- Self-update candidate gate: 11/11.
+- Rollback gate: 17/17.
+- Checkpoint:
+  `/home/md-wasim/AI_Workspace_Data/backups/work-station-20260904T194406Z`.
+- Checkpoint manifest SHA-256:
+  `cac0da3b8ada158867283b1e84452284d490081753c3e040f20c21f9cb2c3cd2`.
 
 ## Artifact verification
 
-Eight production artifacts passed SHA-256, format, archive and extracted-content
-checks. The scan found no provisioning credential marker, workstation build
-path or project private key. GnuTLS's packaged crypto parser/self-test fixture
-blocks were classified separately: all six length/digest pairs exactly matched
-Ubuntu's distribution `libgnutls.so.30`, so they are system-library constants,
-not project credentials. Any PEM block outside that exact system library case
-remained a hard failure.
+Eight artifacts passed recorded SHA-256 checks, format/archive inspection,
+operator-token and build-path scans. The only broad PEM markers occur in three
+fixed-hash AppImage dependency files: GnuTLS self-test fixtures and GLib parser
+diagnostic strings. The exact files, hashes and semantic context were verified;
+no project credential or credential-shaped token was found.
 
-## Preserved scale and AI quality
+## Preserved quality and scale
 
-The million-interaction workload was not rerun because Phase 11 did not change
-its scale path. The stored evidence was rehashed:
-
-- 1,000,000 completed and passed; zero failed;
-- disposable database; production data unchanged;
-- duration 1,806.412 seconds; average 0.073693 s; p95 0.134651 s;
-- report SHA-256
-  `d535abaf1dc8ce49536185e4b46996bcb65337b9839fb9be2e189bbf303c238a`.
-
-The canonical AI benchmark was preserved because no model route, prompt,
-checker or output path changed:
+No Step 6-9 change touched production model routing, benchmark prompts, answers,
+checkers or output. The canonical AI evidence remains:
 
 - 459 cases; 97.88/100; 457 PASS, one PARTIAL, one FAIL;
-- Safety 100%; hallucination 0%; executable code 24/24;
-- average latency 7.6724 s; p95 15.6681 s; duration 3,554.62 s;
+- Safety 100%; hallucination zero; executable code 24/24;
 - summary SHA-256
   `436e6fe8a4da50dda368de3c94ce3f0ad1d47e863c7bdee46bd3b47fe4dbfe0e`;
-- results SHA-256
+- result SHA-256
   `0f66871f34ab18ea37d56381fe93a70b77a223d95607644aba5ab9f6fdb47913`.
 
-`medium-coding-04` remains PARTIAL and `model-comparison-coder-06` remains
-FAIL as documented local coder-model limitations. No expected answer, scoring,
-checker, output post-processing, external API or benchmark-specific route was
-used to change that result.
+The preserved scale report remains 1,000,000/1,000,000 with SHA-256
+`d535abaf1dc8ce49536185e4b46996bcb65337b9839fb9be2e189bbf303c238a`.
+No 100/100 quality claim is made.

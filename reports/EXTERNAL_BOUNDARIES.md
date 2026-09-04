@@ -1,72 +1,59 @@
-# External Boundaries and Documented Gaps
+# External Boundaries and Owner Actions
 
-The registry is authoritative: 187 capabilities are implemented, 14 remain
-runtime-dependent, 39 remain external-dependent, and 5 remain visibly disabled
-planned controls. No item below is reported as locally live without its system.
+The registry has 268 implemented, 14 runtime-dependent, 39
+external-dependent and zero planned entries. All locally installed runtime
+paths passed; external entries retain their truthful registry classification.
 
-## Platform and owner credentials
+## External capability groups (39 entries)
 
-- Windows trusted publisher signing requires an owner-controlled code-signing
-  certificate. The current PE/NSIS artifacts are unsigned owner-sideload builds.
-- macOS Developer ID trust, notarization and stapling require an Apple Developer
-  account and private signing credentials. The current arm64 app is ad-hoc
-  signed and strict-valid, but not Apple-trusted.
-- Android Play Store publication requires the owner's release keystore and
-  store account. The current APK uses the standard debug certificate. An
-  Android 16/API 36 x86_64 emulator install/launch passed, but the ARM64 release
-  still requires physical-device acceptance.
-- Native iOS packaging/device acceptance requires Apple hardware, signing,
-  provisioning and a device/account; only the static Expo iOS export was run.
+- Realtime communications (7): telephony account/number, provider approval,
+  credentials, billing, authorized callback destination and provider-grade
+  video/screen/camera transport are required.
+- Extended speech profiles (3): a verified admitted female/multilingual/mixed-
+  language profile or authorized provider is required.
+- Connected productivity (18): email, calendar, meetings, CRM, social/CMS,
+  publishing/analytics/leads and generic REST/GraphQL/OAuth/SDK/database/local-
+  API/browser/desktop connectors require owner-selected systems, exact origins,
+  least scopes, credentials and consent.
+- Broker execution (4): a legitimate broker account, KYC, MFA/session,
+  permissions, risk profile and explicit live authorization are required. No
+  real-money order was attempted.
+- Protected experiences (4): lawful age, jurisdiction and consent verification
+  is required; illegal, exploitative, non-consensual or minor sexual content is
+  never enabled.
+- Video/multimedia creation (2): an integrity-verified admitted runtime or
+  authorized provider is required.
+- Pronunciation scoring (1): a verified acoustic scoring runtime/provider is
+  required.
 
-## External capability groups (39 registry entries)
+Configured external connectors: **0**. Healthy external connectors: **0**.
+Verified external provider responses: **0**. Loopback protocol evidence is not
+represented as an internet-provider result.
 
-- Realtime communications (7): phone call, configured callback, video,
-  screen share, live camera stream, provider-grade interruption and natural
-  turn-taking require an authorized WebRTC/telephony provider. Phone and
-  callback requests now have owner-scoped desktop/web and Android activation
-  paths through the encrypted connector gateway, but no carrier connector is
-  configured in production and no external call is claimed.
-- Extended speech profiles (3): verified female and multilingual/mixed-language
-  models must be installed and admitted before these profiles can be enabled.
-- Connected productivity (18): email, calendar, meetings, CRM, social,
-  publishing/analytics/leads, webhooks, REST, GraphQL, OAuth, SDK, database,
-  local API, browser and desktop automation require provider authorization and
-  owner consent. The generic encrypted loopback connector E2E passed; that does
-  not promote provider-specific integrations.
-- Broker execution (4): broker integration, live orders, risk confirmation and
-  permission enforcement require a legitimate broker account/API and owner risk
-  policy. Research, backtesting and paper trading passed locally; no live trade
-  was claimed.
-- Protected experiences (4): adult gating, consent, minor safety and
-  jurisdiction controls require lawful age/jurisdiction/consent verification;
-  they remain disabled. Illegal, exploitative, non-consensual, or minor sexual
-  content is never enabled.
-- Video creation (2): video and multimedia creation require a verified admitted
-  runtime or legitimate provider.
-- Pronunciation scoring (1): acoustic pronunciation scoring requires a verified
-  provider/runtime; local curriculum and speaking practice do not claim it.
+## Platform/device actions
 
-Exact IDs, UI states and dependency lists are in
-`reports/feature-gap-list.json`.
+- Windows public distribution: supply an owner-controlled trusted publisher
+  certificate and perform owner-machine acceptance.
+- macOS public distribution: supply Apple Developer ID credentials, notarize,
+  staple and perform owner-machine acceptance.
+- Android public distribution: use an owner release keystore/store account and
+  run the ARM64 artifact on an owner-controlled physical device.
+- Native iOS: use Apple hardware, developer account, provisioning, signing and
+  a physical device.
+- Remote clients: enroll owner devices in the private tailnet and retain the
+  least-privilege access policy.
+- Push delivery: configure FCM/APNs/EAS and register an owner physical device.
 
-## Runtime-dependent capabilities (14)
+## Operations
 
-Microphone/STT/TTS/playback, language detection, camera/vision, file/document
-grounding, image generation/editing, and the image/audio/voice workspaces remain
-gated on installed, integrity-verified local models and private asset storage.
-They passed on the current configured workstation where reported, but the
-registry correctly recomputes readiness on another machine.
-
-## Planned controls (5)
-
-`mission_approve`, `mission_manual_retry`, `mission_modify`, `mission_pause`,
-and `mission_resume` remain disabled/documented until the persistent mission
-scheduler contract exists. Existing mission creation, streaming, cancellation,
-bounded automatic retry, deadline, verification and results are implemented;
-the five controls are not mislabeled as ready.
+A verified manual last-known-good checkpoint exists at
+`/home/md-wasim/AI_Workspace_Data/backups/work-station-20260904T194406Z`.
+Enabling scheduled backups requires an owner-selected encrypted destination.
+Updates remain owner-activated after all gates pass.
 
 ## AI quality boundary
 
-The canonical score is 97.88/100, not 100. The two remaining failures require a
-stronger stable hardware-safe coder model/profile that preserves the complete
-coding and model-comparison categories. No installed candidate met that gate.
+The canonical score is 97.88/100, not 100. `medium-coding-04` remains PARTIAL
+and `model-comparison-coder-06` remains FAIL because no installed stable,
+hardware-safe candidate fixed them without category regression. No benchmark
+contract, expected answer or output was altered.

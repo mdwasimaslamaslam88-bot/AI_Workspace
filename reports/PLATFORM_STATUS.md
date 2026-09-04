@@ -1,35 +1,32 @@
-# Step 7 Platform Status
+# Final Platform Status
 
-| Platform | Build | Runtime/launch evidence | Distribution trust | Status |
-|---|---|---|---|---|
-| Ubuntu Desktop | x86-64 Tauri AppImage and DEB | Current production binary and AppImage opened real X11 windows and closed cleanly | Owner-sideload | DEVICE PASS |
-| Windows Desktop | x64 standalone PE and NSIS installer | Native run `33897323310` built exact commit `7fafcf8`, inspected/extracted NSIS, scanned artifacts and kept the app process alive | Unsigned; trusted publisher certificate and owner physical-machine acceptance are external | NATIVE PASS with trust boundary |
-| macOS Desktop | arm64 `.app` ZIP and DMG | Native run `33897326738` built exact commit `7fafcf8`, verified bundle/DMG, strict ad-hoc signature, scans and process launch | Developer ID/notarization/stapling and owner physical-machine acceptance require owner resources | NATIVE PASS with trust boundary |
-| Android | ARM64 owner-sideload APK plus preserved x86_64 emulator evidence | Fresh native release build passed ABI, signature, alignment, path and secret scans. Phase 11 Android 16/API 36 x86_64 install/launch/Mission Control evidence remains valid; no physical ARM device was attached in Step 7 | Standard debug certificate; physical ARM acceptance and owner store signing remain external | EMULATOR DEVICE PASS; ARM DEVICE BLOCKED |
-| Web/PWA | Production Vite bundle and deterministic archive | Chromium install/navigation/auth/chat/cache-isolation/logout E2E, service worker and manifest passed | Private authenticated self-hosting | RUNTIME PASS |
-| iOS companion source | Expo static iOS export | Static export passed; no native `.ipa` or physical-device run | Apple hardware, account, provisioning, signing and physical device required | STATIC PASS; native external boundary |
+All artifacts below were built and validated from application source commit
+`07f4976a801c566a2434c9b802340c5fbb4ea2c1`.
 
-The current web entry is 489,282 bytes before compression and remains below its
-500 KiB release guard. Eleven feature workspaces load on demand. Desktop,
-mobile and web share the authenticated backend contracts, missions, memory,
-permissions and feature authority.
+| Platform | Evidence | Distribution boundary | Status |
+|---|---|---|---|
+| Ubuntu x86-64 | Tauri binary, AppImage and DEB built; binary and AppImage opened real X11 windows and closed cleanly | Owner-sideload | DEVICE PASS |
+| Windows x64 | Native run `33910594358` passed source/web/desktop tests, PE/NSIS build, archive/secret scan and process launch | Trusted publisher certificate and owner-machine acceptance | NATIVE PASS; OWNER TRUST BOUNDARY |
+| macOS arm64 | Native run `33910594428` passed source/web/desktop tests, app/DMG build, strict ad-hoc signing, archive/secret scan and process launch | Developer ID, notarization/stapling and owner-machine acceptance | NATIVE PASS; OWNER TRUST BOUNDARY |
+| Android ARM64 | Fresh 532-task release build passed ABI, identity, v2/v3 signature, alignment, path and secret checks | Standard debug certificate; physical ARM install and owner release signing/store | BUILD PASS; DEVICE BLOCKED |
+| Web/PWA | Production archive, manifest/service worker and compiled Chromium install/auth/chat/cache-isolation/logout E2E passed | Private authenticated deployment | RUNTIME PASS |
+| iOS | Shared Expo source, typecheck and static export passed | Apple hardware, account, provisioning, signing and physical device | STATIC PASS; EXTERNAL BLOCKED |
 
-## Android device detail
+Web's 503,271-byte entry remains within the 512,000-byte release guard and 11
+workspaces load lazily. Web, desktop and mobile share the authenticated backend,
+mission, memory, permission and registry contracts.
 
-`adb devices -l` returned no attached device during Step 7. The generated
-ARM64 package is therefore a validated build artifact, not physical-device
-runtime evidence. Physical install, permission and crash-recovery acceptance
-remains an explicit owner/device boundary. The prior Phase 11 Android 16/API
-36 x86_64 emulator run remains valid device evidence: the package installed,
-`MainActivity` remained top-resumed, and Mission Control navigation passed.
+## Release artifacts
 
-## Artifact authority
+Root: `/home/md-wasim/AI_Workspace_Data/releases/final-07f4976`
 
-Step 7 Android release root:
-`/home/md-wasim/AI_Workspace_Data/releases/step7-7fafcf8`
-
-The ARM64 APK SHA-256 is
-`c5dd4a4101e500abc0d4274eff1f6020b37e5b199b09d573b0f07f3b72abd2f4`.
-Windows and macOS native evidence is linked from
-`reports/STEP7_REMOTE_DEVICES.md`; those hosted jobs built and launched exact
-commit `7fafcf800be66171b64b136b7a12ee8613205201`.
+| Artifact | SHA-256 |
+|---|---|
+| `Work_Station_Ubuntu.AppImage` | `8df47eb3c88abb68693e3213503e08502866c3d68788f4cfa172173aeae78bc6` |
+| `Work_Station_Ubuntu.deb` | `f3f63210c75cdc7822f46228c780f55224f124f41061f916a87e314692105dfb` |
+| `Work_Station_Windows_Setup.exe` | `ea00723994e7b092e4054b2967361f3d1d5989e8f6acd160ac428f87202f8ffb` |
+| `Work_Station_Windows.exe` | `3e4d61f4e7159793be25bfde7b8afa50bee8e4623bcbcb61dc55f91e02eb033d` |
+| `Work_Station_macOS.app.zip` | `b03c050c1b3a63468f0b98acf5307f233627e7e2e3cfc8b696dcaf925cd958e4` |
+| `Work_Station_macOS.dmg` | `43725836d5fea98c7fb276cca181bbaacb1c297b6e6e38a967dd56add45ce7dd` |
+| `Work_Station_Android_ARM64.apk` | `ff17a3deef47bcaa0ac76107866b4407e46f6b1f354c18a6a35e34e6df32daa1` |
+| `Work_Station_Web_PWA.tar.gz` | `b7d2353f4f3c0e1a066693fb60b332065d5024a40beb2a61e26449fcff6d8c2c` |

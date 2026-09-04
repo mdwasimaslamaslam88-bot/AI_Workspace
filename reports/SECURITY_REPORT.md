@@ -1,79 +1,61 @@
-# Current Final Security Report
+# Final Security Report
 
-## Mandatory gate: PASS
+## Gate result
 
-The production and release gates passed:
-
-- tracked credential/private-key signature scanning;
-- compiled web/mobile operator-token, credential and host-path scanning;
-- provider secrets kept write-only, encrypted and outside model prompts,
-  responses, reports and logs;
-- connector origin/path/scope allowlists, redirect denial, bounded payloads,
-  rate limits, retry/circuit-breaker behavior, audit linkage and revocation;
-- authenticated owner isolation for conversations, memory, RAG, missions,
-  sessions, connectors, marketing, finance, learning, creative assets, tools
-  and workflows;
-- denial of unregistered shell, code and unrestricted-network tools;
-- desktop CSP and Android cleartext-network policy checks;
-- PostgreSQL constraints/migrations through `0020_trading_safety` with
-  no schema drift;
-- private loopback backend and authenticated private Tailscale TLS gateway;
-- public Tailscale Funnel and unrestricted remote target guards;
-- systemd unit syntax and user-manager-compatible sandboxing;
-- backup checksum/archive/member/permission verification and disposable restore;
-- stale self-update candidate fail-closed reconciliation and rollback tests;
-- Windows/macOS native CI secret/path scans and launch checks;
-- APK package/ABI/signature/alignment checks; and
-- consolidated release hash, archive, extracted-path and secret scans.
-
-Production egress remains deny-all until an owner registers an exact legitimate
-provider origin and scopes. External connector count is zero. Local API
-documentation is disabled in the active remote production mode.
-
-Step 4 additionally verified that generic connector paths cannot issue broker
-mutations, paper mode cannot route to a provider, every live order requires a
-persisted owner risk policy and explicit live state, and the emergency kill
-switch blocks before network access. Order acknowledgement and independent
-status/fill readback are linked to concrete connector execution audits;
-concurrent duplicate submissions produce one provider request. The local
-protocol checks used exact-origin loopback endpoints only. No live provider,
-account balance, order or fill is claimed, and no real-money order was attempted.
-
-## Dependency findings
+**PASS with recorded moderate transitive build-tool risk.**
 
 - Critical findings: **0**
 - High findings: **0**
 - Moderate findings: **14**
 
-The moderate findings are transitive Expo build-tool advisories, including
-`decode-uri-component` and `uuid`. Automated forced fixes would replace the
-current Expo stack with breaking/incompatible versions, so they were not
-applied without compatibility evidence. This residual build-tool risk is
-recorded rather than misreported as zero.
+The moderate findings are transitive Expo build-tool advisories. Forced
+upgrades would replace the compatible Expo stack without regression evidence,
+so the residual is documented rather than hidden or automatically forced.
+Python package consistency passed.
 
-## Artifact scan classification
+## Verified controls
 
-All eight production artifacts passed their provider/native manifests and the
-consolidated SHA-256 manifest. Expanded unpacked scanning found no provisioning
-marker, private workstation path or project key. The AppImage legitimately
-bundles Ubuntu's `libgnutls.so.30`, which contains crypto parser/self-test PEM
-fixtures. The six fixture length/SHA-256 pairs exactly matched the installed
-Ubuntu distribution library. The validator treated only that exact proven
-system-library set as non-secret; a PEM key block anywhere else remained a
-release failure.
+- owner authentication/isolation across conversations, memory, RAG, missions,
+  sessions, connectors, finance, learning, creative assets and workflows;
+- encrypted write-only provider credentials excluded from prompts, API output,
+  logs, reports and audit payloads;
+- exact connector origin/path/scope enforcement, redirect/SSRF denial, bounded
+  payloads, timeouts, retry/rate/circuit-breaker controls and revocation;
+- production external egress deny-all with zero approved external origins;
+- persistent mission approval invalidation, bounded retry, cancellation,
+  recovery and durable owner-scoped audit events;
+- paper/live broker separation, risk policy, kill switch, idempotency,
+  provider acknowledgement and independent status/fill verification;
+- document injection/secret redaction, traversal-safe storage and controlled
+  tool permissions;
+- loopback backend, authenticated private TLS remote access and public Funnel
+  disabled;
+- PostgreSQL migrations through `0022_persistent_agent_missions` without drift;
+- self-update isolation, last-known-good backup, release gates and rollback;
+- Windows/macOS/Android/Linux/Web artifact identity, archive, path and secret
+  checks.
 
-## Artifact trust boundaries
+## Consolidated artifact classification
 
-- Linux and Web/PWA: private owner/self-hosted artifacts with recorded hashes.
-- Windows: native build/scan/launch validated but unsigned; owner-sideload only
-  until a trusted publisher certificate is supplied.
-- macOS: strict-valid ad-hoc signature for the native artifact; Developer ID,
-  notarization and stapling require owner Apple credentials.
-- Android: v2/v3-signed with the standard Android debug certificate; the
-  x86_64 emulator package passed device launch, while physical ARM acceptance
-  and Play release signing remain external.
-- iOS: no native artifact claim; Apple hardware, account, provisioning, signing
-  and device testing are external boundaries.
+All eight artifacts passed checksums and extracted-content scans. No private
+workspace path or credential-shaped token was found. Broad PEM marker scanning
+identified only:
 
-No claim of being unhackable is made. The result is defense-in-depth with the
-explicit residual and external boundaries above.
+- AppImage `usr/lib/libgnutls.so.30`, SHA-256
+  `76821a78bc2a273aae74b90750036a392de18b93180504343e607b4c69a82692`,
+  containing upstream `test_dh`/`test_known_sig` self-test fixtures; and
+- AppImage `usr/lib/libgio-2.0.so.0` and its versioned target, both SHA-256
+  `5f02b1437b08cafd094d7236b134453a6a232419efedcd1def131a2ff80ccafb`,
+  containing PEM parser labels/diagnostics rather than key material.
+
+Any marker outside those exact fixed-hash dependency files was a hard failure.
+This corrects the older imprecise statement that packaged files matched the
+currently installed system-library hashes; the classification is based on
+fixed packaged hashes and verified upstream self-test/parser context.
+
+## Trust boundaries
+
+Windows is unsigned, macOS is ad-hoc signed, Android uses the standard debug
+certificate and iOS has no native package claim. Owner identities, signing,
+notarization, store approval and physical-device validation remain external.
+No claim of being unhackable is made.

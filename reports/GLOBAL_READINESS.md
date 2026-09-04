@@ -1,75 +1,58 @@
 # AI OS Global Production Readiness
 
-Evidence was finalized on 2026-09-03 for application source commit
-`a82b5b5039e8123da754e1a700b4a0f9db4a8473`. The result is **PASS with explicit
-external boundaries**. This is not a claim that absent providers, credentials,
-physical devices, stores, or approvals were exercised.
+Final status: **PASS with explicit external boundaries** for application source
+commit `07f4976a801c566a2434c9b802340c5fbb4ea2c1`.
 
-## Readiness dashboard
+## Dashboard
 
-| Field | Count | Meaning |
+| State | Count | Meaning |
 |---|---:|---|
-| Total capabilities | 245 | Authoritative feature registry |
-| Implemented | 187 | Complete local product paths |
-| Live local | 187 | Implemented paths verified locally; not external-provider claims |
-| Runtime-ready | 14 | Admitted model/storage paths ready on this workstation; device inputs remain device-specific |
-| External-connected | 0 | No third-party provider is configured or claimed healthy |
-| Blocked | 44 | 39 external dependencies plus five planned, visibly disabled controls |
-| Owner-action | 39 | Overlaps blocked; legitimate owner/provider setup is required |
-| Failed | 0 | No unresolved internal Phase 11 failure |
-| Verified | 201 | Implemented plus current-workstation runtime-ready entries |
+| Total capabilities | 321 | Authoritative registry total |
+| LOCAL PASS | 268 | Implemented product paths verified by regression/release gates |
+| RUNTIME PASS | 14 | Runtime-dependent paths exercised on this workstation |
+| EXTERNAL BLOCKED | 39 | Legitimate provider/runtime/owner prerequisites absent |
+| OWNER ACTION | 39 | Non-additive annotation on the 39 external-blocked entries |
+| Planned/disabled | 0 | No unfinished internal roadmap capability |
+| External live | 0 | No third-party provider is configured or claimed live |
+| Failed | 0 | No unresolved internal release failure |
 
-The registry contains no duplicate IDs, silent UI gaps, missing backend or
-boundary contracts, or missing coverage records. Its SHA-256 is
-`8739c06c478a912b1fd9b6cfa9022a291953e7c6f2e0a7a5fafafb2f6106f7ce`.
+Registry SHA-256:
+`606eefc6c6193a0757afa6dbfc8608b79426739a26b8b6081e1456bf26e5ada2`.
+All feature IDs, UI paths, backend/boundary contracts and coverage references
+validate.
 
-## Activation phases
+## Verified product state
 
-| Phase | Result | Evidence |
-|---|---|---|
-| A — Baseline lock | PASS | Clean synchronized baseline, registry, models, database, security and artifacts captured |
-| B — Connector platform | PASS | Encrypted owner credentials, OAuth refresh, exact egress scopes, retry/circuit-breaker, audit and revoke |
-| C — Communications | PASS with provider boundary | Real local STT/TTS and voice mission contracts; no carrier/video/email provider claimed |
-| D — App connection | PASS with provider boundary | Complete loopback read/write/verify/audit flow; zero external providers configured |
-| E — Business/marketing | PASS with provider boundary | Local-agent campaign, approval-before-publish, real loopback receipt and grounded analytics |
-| F — Finance/trading | PASS with broker boundary | Grounded research, backtest, paper order, risk, alerts and journal; no live order claim |
-| G — Learning/creative | PASS with runtime boundaries | Teacher, memory, image generation/editing, voice and story execution passed |
-| H — Devices/remote | PASS with physical-device boundaries | Private TLS remote session, cross-device continuation, revocation and Android emulator launch passed |
-| I — Autonomy/recovery | PASS with owner gates | Monitors active; backend/remote-daemon recovery and backup restore passed; updates remain approval-gated |
-| J — Production readiness | PASS with external boundaries | Complete release gate, native CI, Android device run and eight-artifact verification passed |
+- Persistent missions support create, plan, execute, verify, pause, resume,
+  approve, modify, manual retry, cancel, SSE recovery and startup recovery.
+- Encrypted owner connector lifecycle and deny-by-default egress passed local
+  protocol, ownership, scope, audit, revoke and reconnect tests.
+- Installed local models passed vision, RAG, memory, FLUX.2 image
+  generation/editing, Piper/Faster-Whisper voice, learning and creative flows.
+- Finance research/backtesting/paper trading and the fail-closed live safety
+  wall passed without a live market/broker claim.
+- The private TLS remote path, independent desktop/mobile sessions, session
+  revocation and bidirectional mission continuation passed.
+- Backup, self-update candidate and rollback gates passed; update activation
+  remains owner-gated.
 
-## Live systems
+## Platform readiness
 
-- The backend remains loopback-only on `127.0.0.1:8000`.
-- Authenticated remote access is through a private Tailscale TLS Serve route;
-  public Funnel exposure is disabled.
-- PostgreSQL is at migration `0018_connector_activation` with no Alembic drift.
-- Backend, dependency, remote-gateway, technology-watcher and systemd target
-  monitoring are active. The daily backup timer remains deliberately disabled
-  until the owner selects an approved encrypted destination.
-- The installed local runtime matrix passed vision, RAG, memory, FLUX.2 image
-  generation/editing/inpainting, Piper TTS, Faster-Whisper STT, Agent OS,
-  connectors, marketing, finance, learning, stories, tools and workflows.
+Ubuntu AppImage/DEB and Web/PWA built and ran locally. Android ARM64 packaging
+passed native build and artifact checks; physical ARM acceptance remains a
+device boundary. Windows workflow `33910594358` and macOS workflow
+`33910594428` built, inspected and launched the exact application commit.
+Windows is unsigned and macOS is ad-hoc signed; public trust requires owner
+signing/notarization. Native iOS packaging requires Apple hardware and owner
+credentials.
 
-## Platform result
+## Verification summary
 
-Ubuntu AppImage/DEB and Web/PWA passed local build and runtime gates. Windows
-run `33735245448` and macOS run `33735249778` passed native build, archive,
-scan and launch checks against the exact application commit. Android 16/API 36
-software emulation installed the x86_64 release build, kept `MainActivity` as
-the top resumed process, and navigated from AI Presence to Mission Control.
-The production ARM64 APK remains an owner-sideload build until it is exercised
-on a physical ARM device and signed with the owner's release identity.
+Backend 3,007 pass; web 202; mobile 64; desktop Rust 2; PostgreSQL 55;
+migration head `0022_persistent_agent_missions`; browser/PWA, Android ARM64,
+Ubuntu launch, Windows/macOS native, runtime, security, self-update, rollback
+and eight-artifact gates all passed. There are zero critical/high security
+findings and 14 recorded moderate transitive Expo build-tool advisories.
 
-## Honest external state
-
-External-connected is zero. Telephony, SMS, email, calendar, meetings, CRM,
-social/CMS publishing, provider analytics, live market feeds, broker orders,
-push delivery, provider-grade video/screen share, pronunciation scoring and
-uninstalled advanced media runtimes remain blocked on the exact systems listed
-in `EXTERNAL_BOUNDARIES.md`. Windows trusted signing, Apple Developer ID and
-notarization, Android store signing, native iOS packaging/device acceptance,
-and a production encrypted backup destination also remain owner boundaries.
-
-The machine-readable authority is `reports/GLOBAL_READINESS.json`; scenario
-evidence is in `reports/REAL_WORLD_TESTS.md`.
+Exact machine-readable evidence is in `reports/GLOBAL_READINESS.json` and
+`reports/STEP9_FINAL_EVIDENCE.json`.

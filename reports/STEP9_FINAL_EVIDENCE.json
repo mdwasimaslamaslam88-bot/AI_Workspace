@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "step": 9,
+  "name": "Final production readiness and release",
+  "generated_at": "2026-09-05T01:24:24+05:30",
+  "status": "PASS_WITH_EXTERNAL_BOUNDARIES",
+  "application_source_commit": "07f4976a801c566a2434c9b802340c5fbb4ea2c1",
+  "feature_registry": {
+    "path": "reports/feature-registry-report.json",
+    "sha256": "606eefc6c6193a0757afa6dbfc8608b79426739a26b8b6081e1456bf26e5ada2",
+    "total": 321,
+    "implemented": 268,
+    "runtime_dependent": 14,
+    "external_dependency": 39,
+    "planned": 0,
+    "validation_passed": true
+  },
+  "tests": {
+    "backend": {"passed": 3007, "skipped": 55, "failed": 0},
+    "web": {"passed": 202, "files": 36, "typecheck": "PASS", "lint": "PASS", "build": "PASS"},
+    "mobile": {"passed": 64, "files": 19, "expo_doctor": "21/21", "android_arm64_build": "PASS"},
+    "desktop_rust": {"passed": 2, "failed": 0, "ubuntu_launch": "PASS"},
+    "postgresql": {"passed": 55, "migration_head": "0022_persistent_agent_missions", "upgrade_downgrade_reupgrade": "PASS", "schema_drift": false},
+    "browser_pwa": "PASS",
+    "runtime_matrix": "PASS",
+    "self_update": {"passed": 11, "failed": 0},
+    "rollback": {"passed": 17, "failed": 0},
+    "release_gate": "PASS"
+  },
+  "native_workflows": {
+    "windows": {"run_id": 33910594358, "status": "PASS", "source_commit": "07f4976a801c566a2434c9b802340c5fbb4ea2c1"},
+    "macos": {"run_id": 33910594428, "status": "PASS", "source_commit": "07f4976a801c566a2434c9b802340c5fbb4ea2c1"}
+  },
+  "security": {
+    "status": "PASS_WITH_RECORDED_MODERATE_BUILD_TOOL_RISK",
+    "critical": 0,
+    "high": 0,
+    "moderate": 14,
+    "credential_scan": "PASS",
+    "artifact_scan": "PASS",
+    "production_egress": "DENY_ALL_UNTIL_OWNER_ALLOWLISTS_EXACT_ORIGIN"
+  },
+  "backup": {
+    "path": "/home/md-wasim/AI_Workspace_Data/backups/work-station-20260904T194406Z",
+    "manifest_sha256": "cac0da3b8ada158867283b1e84452284d490081753c3e040f20c21f9cb2c3cd2",
+    "integrity": "PASS"
+  },
+  "release": {
+    "root": "/home/md-wasim/AI_Workspace_Data/releases/final-07f4976",
+    "manifest_sha256": "f18cb18e1fd4e4dc7dbe26c300aa5dd0490682d5a8077d07ebd672db93305c77",
+    "artifacts": [
+      {"name": "Work_Station_Ubuntu.AppImage", "sha256": "8df47eb3c88abb68693e3213503e08502866c3d68788f4cfa172173aeae78bc6"},
+      {"name": "Work_Station_Ubuntu.deb", "sha256": "f3f63210c75cdc7822f46228c780f55224f124f41061f916a87e314692105dfb"},
+      {"name": "Work_Station_Windows_Setup.exe", "sha256": "ea00723994e7b092e4054b2967361f3d1d5989e8f6acd160ac428f87202f8ffb"},
+      {"name": "Work_Station_Windows.exe", "sha256": "3e4d61f4e7159793be25bfde7b8afa50bee8e4623bcbcb61dc55f91e02eb033d"},
+      {"name": "Work_Station_macOS.app.zip", "sha256": "b03c050c1b3a63468f0b98acf5307f233627e7e2e3cfc8b696dcaf925cd958e4"},
+      {"name": "Work_Station_macOS.dmg", "sha256": "43725836d5fea98c7fb276cca181bbaacb1c297b6e6e38a967dd56add45ce7dd"},
+      {"name": "Work_Station_Android_ARM64.apk", "sha256": "ff17a3deef47bcaa0ac76107866b4407e46f6b1f354c18a6a35e34e6df32daa1"},
+      {"name": "Work_Station_Web_PWA.tar.gz", "sha256": "b7d2353f4f3c0e1a066693fb60b332065d5024a40beb2a61e26449fcff6d8c2c"}
+    ]
+  },
+  "external": {
+    "configured_connectors": 0,
+    "verified_external_live": 0,
+    "external_blocked_capabilities": 39,
+    "owner_action_capabilities": 39
+  }
+}
