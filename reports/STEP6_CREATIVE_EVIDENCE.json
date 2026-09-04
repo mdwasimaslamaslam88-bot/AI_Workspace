@@ -1,0 +1,103 @@
+{
+  "schema_version": 1,
+  "step": 6,
+  "generated_at": "2026-09-04T21:59:16+05:30",
+  "baseline_commit": "51d3f5893ea557fb2845400dbe55abea05540dea",
+  "status": "COMPLETE_LOCAL",
+  "roadmap_authority": "reports/RELEASE_REPORT.md phase G creative remainder",
+  "states": {
+    "interactive_stories": "RUNTIME_PASS",
+    "text_games": "LOCAL_PASS",
+    "fictional_character_experiences": "LOCAL_PASS",
+    "verified_local_text_generation": "RUNTIME_PASS",
+    "creative_persistence": "RUNTIME_PASS",
+    "web_desktop_creative_ui": "LOCAL_PASS",
+    "mobile_creative_ui": "LOCAL_PASS",
+    "image_generation": "RUNTIME_PASS",
+    "image_editing_and_inpainting": "RUNTIME_PASS",
+    "speech_recognition_and_synthesis": "RUNTIME_PASS",
+    "video_generation": "EXTERNAL_BLOCKED",
+    "animation": "EXTERNAL_BLOCKED",
+    "generative_audio_editing": "EXTERNAL_BLOCKED",
+    "protected_adult_experiences": "EXTERNAL_BLOCKED"
+  },
+  "feature_registry": {
+    "total": 321,
+    "implemented": 263,
+    "runtime_dependent": 14,
+    "external_dependency": 39,
+    "planned": 5,
+    "creative_implemented_records": 3,
+    "registry_sha256": "0bddfa318fcdb0f864f700083d1bffab523f4f52d04308bdff012c2c8fa91737"
+  },
+  "runtime_evidence": {
+    "real_local_model_turn": true,
+    "model_identity_emitted_by_smoke": true,
+    "untouched_output_hash_verified": true,
+    "owner_isolation_verified": true,
+    "completion_and_post_completion_denial": true,
+    "general_audience_gate_verified": true,
+    "image_route": "FLUX.2 Klein Base 4B FP8",
+    "image_generation_executed": true,
+    "image_editing_executed": true,
+    "image_inpainting_executed": true,
+    "local_stt_executed": true,
+    "local_tts_executed": true,
+    "external_media_live_claim": false,
+    "protected_experience_live_claim": false
+  },
+  "verification": {
+    "focused_backend": {
+      "passed": 26,
+      "failed": 0
+    },
+    "focused_web": {
+      "passed": 5,
+      "failed": 0
+    },
+    "focused_mobile": {
+      "passed": 1,
+      "failed": 0
+    },
+    "backend_regression": {
+      "passed": 3003,
+      "intentional_skips": 53,
+      "failed": 0
+    },
+    "web_regression": {
+      "passed": 201,
+      "failed": 0
+    },
+    "mobile_regression": {
+      "passed": 64,
+      "failed": 0
+    },
+    "expo_doctor": "21/21",
+    "postgresql_integration": {
+      "passed": 53,
+      "failed": 0,
+      "migration_head": "0021_learning_knowledge_os",
+      "schema_drift": false
+    },
+    "browser_pwa_e2e": "PASS",
+    "native_android_debug_package": "PASS",
+    "desktop_package_and_launch": "PASS",
+    "runtime_e2e": "PASS",
+    "security": {
+      "status": "PASS",
+      "critical": 0,
+      "high": 0,
+      "moderate": 14,
+      "moderate_scope": "transitive Expo build tooling"
+    },
+    "release_gate": "PASS"
+  },
+  "external_requirements": [
+    "integrity-verified and hardware-admitted video or animation runtime, or lawful owner-authorized provider",
+    "integrity-verified generative audio creation/editing runtime, or lawful owner-authorized provider",
+    "exact provider origins, encrypted owner credentials, minimum scopes and real provider receipts for external media",
+    "lawful jurisdiction policy, adult age verification and consent enforcement before any protected experience can be considered"
+  ],
+  "failures": [],
+  "step_7_started": false
+}

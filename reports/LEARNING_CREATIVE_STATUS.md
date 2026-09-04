@@ -1,8 +1,9 @@
 # Learning, Creative, and Entertainment Runtime Status
 
 Evidence was refreshed on 2026-09-04 against the RTX 3060 12 GB workstation.
-This update changes only the Learning/Teacher/Knowledge OS portion; the existing
-creative and media routes are preserved.
+The Learning/Teacher/Knowledge OS and Creative/Entertainment gates now each
+have current, separate evidence while continuing to share the existing model,
+media, Agent OS, persistence, and client architecture.
 
 | Capability | Status | Evidence or exact boundary |
 |---|---|---|
@@ -21,7 +22,8 @@ creative and media routes are preserved.
 | Video, animation, and generative audio creation/editing | RUNTIME BLOCKED | No separate integrity-verified runtime/model is installed and admitted. |
 | Protected adult experiences | OWNER ACTION / RUNTIME BLOCKED | No age/jurisdiction/consent control plane and verified protected runtime is configured. |
 
-The complete Step 5 implementation and verification record is
-`reports/STEP5_LEARNING_OS.md`; its machine-readable authority is
-`reports/STEP5_LEARNING_EVIDENCE.json`. No unavailable runtime or external
+The complete Step 5 learning record is `reports/STEP5_LEARNING_OS.md`. The
+complete Step 6 creative record is `reports/STEP6_CREATIVE_ENTERTAINMENT.md`.
+Their machine-readable authorities are `reports/STEP5_LEARNING_EVIDENCE.json`
+and `reports/STEP6_CREATIVE_EVIDENCE.json`. No unavailable runtime or external
 provider is promoted to ready or live.

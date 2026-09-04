@@ -53,6 +53,8 @@ def main() -> None:
         provisioning_token.encode("utf-8")
     ).hexdigest()
     captured_logs = io.StringIO()
+    verified_model_id = ""
+    verified_output_sha256 = ""
     handler = logging.StreamHandler(captured_logs)
     logging.getLogger().addHandler(handler)
     try:
@@ -110,6 +112,8 @@ def main() -> None:
                 != hashlib.sha256(turn["output"].encode("utf-8")).hexdigest()
             ):
                 raise RuntimeError("real creative verification evidence is incomplete")
+            verified_model_id = turn["model_id"]
+            verified_output_sha256 = turn["output_sha256"]
             denied = client.post(
                 f"/api/v1/creative/experiences/{experience_id}/turns",
                 headers=owner,
@@ -136,6 +140,8 @@ def main() -> None:
     if _PRIVATE_PREMISE in captured_logs.getvalue():
         raise RuntimeError("private creative premise leaked into logs")
     print("REAL_CREATIVE_LOCAL_STORY=passed")
+    print(f"CREATIVE_MODEL_ID={verified_model_id}")
+    print(f"CREATIVE_OUTPUT_SHA256={verified_output_sha256}")
     print("CREATIVE_OWNER_ISOLATION_AND_INTEGRITY=passed")
     print("CREATIVE_GENERAL_AUDIENCE_BOUNDARY=passed")
     print("ADVANCED_MEDIA_BOUNDARY=external_dependency")

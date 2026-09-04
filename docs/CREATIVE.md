@@ -55,5 +55,11 @@ Focused tests cover lifecycle, safety, owner isolation, response redaction,
 schema parity, migration downgrade, strict web/mobile decoding, and UI paths.
 The disposable PostgreSQL suite validates real foreign keys and persistence.
 `python -m scripts.real_creative_smoke` additionally exercises one admitted
-local model and validates the persisted output digest; it requires the normal
+local model and validates the persisted output digest. Its evidence output
+includes only the public model identifier and SHA-256—not the premise, input,
+generated content, prompt, owner data, or credentials. It requires the normal
 local runtime and the disposable-database environment used by the release gate.
+
+The current locally achievable completion record is
+`reports/STEP6_CREATIVE_ENTERTAINMENT.md`; machine-readable evidence is
+`reports/STEP6_CREATIVE_EVIDENCE.json`.

@@ -242,3 +242,19 @@ runtime-dependent, 39 external-dependent, and 5 planned/disabled. Acoustic
 pronunciation scoring and real LMS/classroom/institution connections remain
 explicit external boundaries. See `LEARNING.md` and the Step 5 evidence report
 for the implemented contract and measured release results.
+
+## Step 6 Creative/Entertainment completion (2026-09-04)
+
+The existing owner-scoped interactive story, text-game, and explicitly
+fictional-character service remains the creative authority. Its current gate
+re-executed an admitted local-model turn, verified the untouched response
+SHA-256 and public model identity, persisted it in disposable PostgreSQL, and
+confirmed owner isolation, completion behavior, general-audience controls, and
+redacted failures across web/desktop and native mobile contracts. The separate
+FLUX.2 generation/editing/inpainting and Piper/Faster-Whisper voice routes also
+executed successfully without being duplicated inside Creative.
+
+Video, animation, generative audio creation/editing, and protected adult
+experiences remain explicit runtime/external boundaries. No provider or
+protected-experience success is inferred. See `CREATIVE.md` and
+`reports/STEP6_CREATIVE_ENTERTAINMENT.md`.
