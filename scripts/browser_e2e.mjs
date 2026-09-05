@@ -48,33 +48,46 @@ const webOrigin = exactHttpOrigin(
 );
 const filesystemRoot = requiredEnvironment("WORK_STATION_E2E_FILESYSTEM_ROOT");
 assert.ok(filesystemRoot.startsWith("/"), "The filesystem E2E root must be absolute.");
-const provisioningToken = readFileSync(0, "utf8").trim();
-assert.ok(provisioningToken.length > 0, "The piped provisioning token is required.");
+const authMode = process.env.WORK_STATION_E2E_AUTH_MODE?.trim() || "provision";
+assert.ok(
+  ["provision", "existing-session"].includes(authMode),
+  "WORK_STATION_E2E_AUTH_MODE must be provision or existing-session.",
+);
+let pipedCredential = readFileSync(0, "utf8").trim();
+assert.ok(pipedCredential.length > 0, "The piped credential is required.");
 
 const apiRequest = await request.newContext({ baseURL: `${apiOrigin}/` });
 let accessToken = "";
+let ownerId = "";
+let createdConversationId = "";
+let createdFile = "";
 let browser;
 
 try {
-  const provisioningResponse = await apiRequest.post("api/v1/users", {
-    data: {},
-    headers: { "X-User-Provisioning-Token": provisioningToken },
-  });
-  assert.equal(provisioningResponse.status(), 201, "Owner provisioning failed.");
-  assert.match(
-    provisioningResponse.headers()["cache-control"] ?? "",
-    /(?:^|,)\s*no-store\s*(?:,|$)/i,
-    "Provisioning must be non-cacheable.",
-  );
-  const provisioned = await provisioningResponse.json();
-  assert.equal(provisioned.token_type, "bearer", "Unexpected token type.");
-  assert.equal(
-    typeof provisioned.access_token,
-    "string",
-    "Provisioning did not return an access token.",
-  );
-  assert.ok(provisioned.access_token.length > 0, "The access token was empty.");
-  accessToken = provisioned.access_token;
+  if (authMode === "provision") {
+    const provisioningResponse = await apiRequest.post("api/v1/users", {
+      data: {},
+      headers: { "X-User-Provisioning-Token": pipedCredential },
+    });
+    assert.equal(provisioningResponse.status(), 201, "Owner provisioning failed.");
+    assert.match(
+      provisioningResponse.headers()["cache-control"] ?? "",
+      /(?:^|,)\s*no-store\s*(?:,|$)/i,
+      "Provisioning must be non-cacheable.",
+    );
+    const provisioned = await provisioningResponse.json();
+    assert.equal(provisioned.token_type, "bearer", "Unexpected token type.");
+    assert.equal(
+      typeof provisioned.access_token,
+      "string",
+      "Provisioning did not return an access token.",
+    );
+    assert.ok(provisioned.access_token.length > 0, "The access token was empty.");
+    accessToken = provisioned.access_token;
+    ownerId = provisioned.id;
+  } else {
+    accessToken = pipedCredential;
+  }
 
   browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({
@@ -151,11 +164,18 @@ try {
   );
   await bearerInput.fill(accessToken);
   await page.getByRole("button", { name: "Connect", exact: true }).click();
+  const currentUserHttpResponse = await currentUserResponse;
   assert.equal(
-    (await currentUserResponse).status(),
+    currentUserHttpResponse.status(),
     200,
     "Browser current-user resolution failed.",
   );
+  const currentUser = await currentUserHttpResponse.json();
+  if (ownerId) {
+    assert.equal(currentUser.id, ownerId, "Provisioned owner identity changed.");
+  } else {
+    ownerId = currentUser.id;
+  }
   await page.getByLabel("Connection status").waitFor();
   assert.equal(
     (await page.getByLabel("Connection status").innerText()).trim(),
@@ -287,11 +307,13 @@ try {
   await page
     .getByRole("button", { name: "Create and generate" })
     .click();
+  const conversationCreatedResponse = await conversationCreated;
   assert.equal(
-    (await conversationCreated).status(),
+    conversationCreatedResponse.status(),
     201,
     "Browser conversation creation failed.",
   );
+  createdConversationId = (await conversationCreatedResponse.json()).id;
   assert.equal(
     (await firstGeneration).status(),
     201,
@@ -373,8 +395,8 @@ try {
   assert.match(await executionRegion.innerText(), /AI_OS_REAL_TEST\.txt/);
   assert.match(await executionRegion.innerText(), /exact read back passed/i);
 
-  const ownerWorkspace = join(filesystemRoot, provisioned.id);
-  const createdFile = join(ownerWorkspace, "AI_OS_REAL_TEST.txt");
+  const ownerWorkspace = join(filesystemRoot, ownerId);
+  createdFile = join(ownerWorkspace, "AI_OS_REAL_TEST.txt");
   assert.equal(existsSync(createdFile), true, "The real owner file was not created.");
   assert.equal(
     readFileSync(createdFile, "utf8"),
@@ -426,6 +448,16 @@ try {
     "The PWA cached a private API response.",
   );
 
+  const deleteConversationResponse = await apiRequest.delete(
+    `api/v1/conversations/${createdConversationId}`,
+    { headers: { Authorization: `Bearer ${accessToken}` } },
+  );
+  assert.equal(
+    deleteConversationResponse.status(),
+    204,
+    "The browser smoke conversation was not cleaned up.",
+  );
+  createdConversationId = "";
   await page.getByRole("button", { name: "Logout" }).click();
   await page
     .getByRole("heading", { name: "Connect to your Personal AI" })
@@ -442,7 +474,22 @@ try {
     "browser/PWA E2E: install, connect, authenticated chat tool execution, real file read-back, audit, cleanup, cache isolation, and logout passed",
   );
 } finally {
+  if (createdConversationId && accessToken) {
+    await apiRequest.delete(`api/v1/conversations/${createdConversationId}`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    }).catch(() => undefined);
+  }
+  if (createdFile && existsSync(createdFile)) {
+    unlinkSync(createdFile);
+    const ownerWorkspace = join(filesystemRoot, ownerId);
+    try {
+      rmdirSync(ownerWorkspace);
+    } catch {
+      // Preserve non-test owner files if the workspace is not empty.
+    }
+  }
   accessToken = "";
+  pipedCredential = "";
   await apiRequest.dispose();
   await browser?.close();
 }
