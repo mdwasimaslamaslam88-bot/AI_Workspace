@@ -50,8 +50,9 @@ a separate owner action. The build uses a pinned AppImage runtime, remaps Rust
 source roots, neutralizes equal-length third-party compiler roots, validates
 AppStream metadata, and rejects local home paths in the executable and package
 contents. The AppImage also carries the matching GStreamer `appsink`/`appsrc`
-plugin and its license notice so WebKit media initialization does not depend on
-the packaging host's relocated plugin search path. When an X11 session and
+plugin, version-matched plugin-scanner helper, and license notices so WebKit
+media initialization does not depend on the packaging host's relocated plugin
+or helper search paths. When an X11 session and
 `xwininfo` are available, the default check starts both the production
 executable and AppImage, confirms the expected native WORK STATION window
 without taking a screenshot, keeps each process alive through delayed WebKit

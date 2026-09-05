@@ -131,6 +131,30 @@ install -d -m 0755 "${appdir}/usr/lib/gstreamer-1.0"
 install -m 0644 \
   "${gstreamer_app_plugin}" \
   "${appdir}/usr/lib/gstreamer-1.0/libgstapp.so"
+
+# GStreamer scans the relocated plugin in a helper process. Debian and Ubuntu
+# install that version-matched helper in a multiarch sibling directory which
+# linuxdeploy does not discover when only libgstreamer is copied. Bundle it in
+# a stable AppDir location and point the generated launch hook at that exact
+# executable so media startup does not fall back to a missing host path.
+gstreamer_multiarch_root="$(dirname -- "$(dirname -- "${gstreamer_app_plugin}")")"
+gstreamer_plugin_scanner="${gstreamer_multiarch_root}/gstreamer1.0/gstreamer-1.0/gst-plugin-scanner"
+if [[ ! -x "${gstreamer_plugin_scanner}" ]]; then
+  echo "The version-matched GStreamer plugin scanner is required." >&2
+  exit 1
+fi
+file "${gstreamer_plugin_scanner}" | rg -q 'ELF .* executable'
+install -d -m 0755 "${appdir}/usr/libexec/gstreamer-1.0"
+install -m 0755 \
+  "${gstreamer_plugin_scanner}" \
+  "${appdir}/usr/libexec/gstreamer-1.0/gst-plugin-scanner"
+app_run_hook="${appdir}/apprun-hooks/linuxdeploy-plugin-gtk.sh"
+[[ -f "${app_run_hook}" ]]
+if ! rg -q '^export GST_PLUGIN_SCANNER=' "${app_run_hook}"; then
+  printf '%s\n' \
+    'export GST_PLUGIN_SCANNER="$APPDIR/usr/libexec/gstreamer-1.0/gst-plugin-scanner"' \
+    >>"${app_run_hook}"
+fi
 gstreamer_copyright="/usr/share/doc/gstreamer1.0-plugins-base/copyright"
 if [[ ! -f "${gstreamer_copyright}" ]]; then
   echo "The GStreamer app plugin copyright notice is required." >&2
@@ -140,6 +164,15 @@ install -d -m 0755 "${appdir}/usr/share/doc/gstreamer1.0-plugins-base"
 install -m 0644 \
   "${gstreamer_copyright}" \
   "${appdir}/usr/share/doc/gstreamer1.0-plugins-base/copyright"
+gstreamer_runtime_copyright="/usr/share/doc/libgstreamer1.0-0/copyright"
+if [[ ! -f "${gstreamer_runtime_copyright}" ]]; then
+  echo "The GStreamer runtime copyright notice is required." >&2
+  exit 1
+fi
+install -d -m 0755 "${appdir}/usr/share/doc/libgstreamer1.0-0"
+install -m 0644 \
+  "${gstreamer_runtime_copyright}" \
+  "${appdir}/usr/share/doc/libgstreamer1.0-0/copyright"
 
 install -d -m 0755 "${appdir}/usr/share/metainfo"
 appstreamcli validate --no-net \
@@ -284,8 +317,9 @@ launch_and_verify() {
     fi
     sleep 0.25
   done
-  if rg -q 'GStreamer element appsink not found' "${work_root}/${label}.log"; then
-    echo "${label} could not initialize its bundled GStreamer appsink runtime." >&2
+  if rg -q 'GStreamer element appsink not found|External plugin loader failed' \
+    "${work_root}/${label}.log"; then
+    echo "${label} could not initialize its bundled GStreamer media runtime." >&2
     return 1
   fi
   cleanup_desktop_launch
