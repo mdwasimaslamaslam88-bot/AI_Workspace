@@ -49,11 +49,15 @@ The validated AppImage and Debian package are written below
 a separate owner action. The build uses a pinned AppImage runtime, remaps Rust
 source roots, neutralizes equal-length third-party compiler roots, validates
 AppStream metadata, and rejects local home paths in the executable and package
-contents. When an X11 session and `xwininfo` are available, the default check
-starts both the production executable and AppImage, confirms the expected
-native WORK STATION window without taking a screenshot, and terminates only the
-process groups it started. `check:desktop:launch` makes both smokes mandatory;
-use `--skip-launch` on a deliberately headless packaging host.
+contents. The AppImage also carries the matching GStreamer `appsink`/`appsrc`
+plugin and its license notice so WebKit media initialization does not depend on
+the packaging host's relocated plugin search path. When an X11 session and
+`xwininfo` are available, the default check starts both the production
+executable and AppImage, confirms the expected native WORK STATION window
+without taking a screenshot, keeps each process alive through delayed WebKit
+media initialization, and terminates only the process groups it started.
+`check:desktop:launch` makes both smokes mandatory; use `--skip-launch` on a
+deliberately headless packaging host.
 
 Install the pinned AppImage type-2 runtime once on a Linux packaging host:
 

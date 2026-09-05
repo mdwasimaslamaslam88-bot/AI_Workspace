@@ -113,6 +113,34 @@ if [[ ! -x "${appimage_plugin}" ]]; then
   exit 1
 fi
 
+# WebKit uses the GStreamer app plugin for browser audio/video streams. The
+# AppImage relocates libgstreamer into its own usr/lib directory, so the host
+# plugin directory is no longer GStreamer's default relocated search path.
+# Bundle the matching appsink/appsrc plugin beside the relocated runtime rather
+# than relying on the packaging host after installation.
+for executable in gst-inspect-1.0 file; do
+  command -v "${executable}" >/dev/null
+done
+gstreamer_app_plugin="$({ gst-inspect-1.0 appsink || true; } | awk '/^  Filename/ {print $2; exit}')"
+if [[ "${gstreamer_app_plugin}" != /* || ! -f "${gstreamer_app_plugin}" ]]; then
+  echo "The GStreamer appsink plugin is required for the desktop media runtime." >&2
+  exit 1
+fi
+file "${gstreamer_app_plugin}" | rg -q 'ELF .* shared object'
+install -d -m 0755 "${appdir}/usr/lib/gstreamer-1.0"
+install -m 0644 \
+  "${gstreamer_app_plugin}" \
+  "${appdir}/usr/lib/gstreamer-1.0/libgstapp.so"
+gstreamer_copyright="/usr/share/doc/gstreamer1.0-plugins-base/copyright"
+if [[ ! -f "${gstreamer_copyright}" ]]; then
+  echo "The GStreamer app plugin copyright notice is required." >&2
+  exit 1
+fi
+install -d -m 0755 "${appdir}/usr/share/doc/gstreamer1.0-plugins-base"
+install -m 0644 \
+  "${gstreamer_copyright}" \
+  "${appdir}/usr/share/doc/gstreamer1.0-plugins-base/copyright"
+
 install -d -m 0755 "${appdir}/usr/share/metainfo"
 appstreamcli validate --no-net \
   "${repository_root}/apps/desktop/src-tauri/linux/com.workstation.personalai.metainfo.xml" \
@@ -244,6 +272,20 @@ launch_and_verify() {
   done
   if [[ "${window_found}" != true ]]; then
     echo "${label} did not open its expected native window." >&2
+    return 1
+  fi
+  # A momentary window is insufficient evidence: WebKit media initialization
+  # occurs after first paint. Keep the process alive long enough to catch a
+  # missing relocated plugin or another delayed startup failure.
+  for _attempt in {1..20}; do
+    if ! desktop_pid_is_owned; then
+      echo "${label} exited during sustained launch validation." >&2
+      return 1
+    fi
+    sleep 0.25
+  done
+  if rg -q 'GStreamer element appsink not found' "${work_root}/${label}.log"; then
+    echo "${label} could not initialize its bundled GStreamer appsink runtime." >&2
     return 1
   fi
   cleanup_desktop_launch
