@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import ast
 import asyncio
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
+import hashlib
 import json
 import math
 import time
@@ -23,6 +24,15 @@ from app.models.tool import (
 )
 from app.repositories.tool import ToolRepository
 from app.services.document import DocumentService
+from app.services.filesystem_tool import (
+    FilesystemOperationResult,
+    FilesystemToolError,
+    MAX_FILESYSTEM_LIST_ENTRIES,
+    MAX_FILESYSTEM_PATH_CHARACTERS,
+    MAX_FILESYSTEM_READ_BYTES,
+    MAX_FILESYSTEM_WRITE_BYTES,
+    OwnerFilesystemWorkspace,
+)
 from app.services.memory import MemoryService
 
 MAX_CALCULATOR_AST_NODES = 64
@@ -80,6 +90,29 @@ class MemorySearchInput(_StrictInput):
     limit: StrictInt = Field(default=8, ge=1, le=8)
 
 
+class FilesystemPathInput(_StrictInput):
+    path: str = Field(min_length=1, max_length=MAX_FILESYSTEM_PATH_CHARACTERS)
+    root_index: StrictInt = Field(default=0, ge=0, le=3)
+
+
+class FilesystemWriteInput(FilesystemPathInput):
+    content: str = Field(max_length=MAX_FILESYSTEM_WRITE_BYTES)
+
+
+class FilesystemReadInput(FilesystemPathInput):
+    max_bytes: StrictInt = Field(
+        default=MAX_FILESYSTEM_READ_BYTES,
+        ge=1,
+        le=MAX_FILESYSTEM_READ_BYTES,
+    )
+
+
+class FilesystemListInput(_StrictInput):
+    path: str = Field(default=".", min_length=1, max_length=MAX_FILESYSTEM_PATH_CHARACTERS)
+    root_index: StrictInt = Field(default=0, ge=0, le=3)
+    limit: StrictInt = Field(default=100, ge=1, le=MAX_FILESYSTEM_LIST_ENTRIES)
+
+
 @dataclass(frozen=True, slots=True)
 class ToolDefinition:
     name: str
@@ -88,6 +121,9 @@ class ToolDefinition:
     permission: str
     timeout_seconds: float
     max_output_characters: int
+    allowed_initiators: frozenset[str] = frozenset(
+        {"explicit_user", "workflow", "chat_model", "chat_verifier"}
+    )
 
     def public_schema(self) -> dict[str, Any]:
         return self.input_model.model_json_schema()
@@ -149,6 +185,51 @@ TOOL_DEFINITIONS = (
         "personal_memory_read",
         5.0,
         12_000,
+    ),
+    ToolDefinition(
+        "filesystem.write",
+        "Create one bounded UTF-8 file in the authenticated owner's configured workspace.",
+        FilesystemWriteInput,
+        "workspace_write",
+        5.0,
+        4_096,
+        frozenset({"explicit_user", "chat_model"}),
+    ),
+    ToolDefinition(
+        "filesystem.read",
+        "Read one bounded UTF-8 file from the authenticated owner's configured workspace.",
+        FilesystemReadInput,
+        "workspace_read",
+        5.0,
+        16_384,
+        frozenset({"explicit_user", "chat_model", "chat_verifier"}),
+    ),
+    ToolDefinition(
+        "filesystem.exists",
+        "Check whether one entry exists in the authenticated owner's configured workspace.",
+        FilesystemPathInput,
+        "workspace_read",
+        5.0,
+        4_096,
+        frozenset({"explicit_user", "chat_model", "chat_verifier"}),
+    ),
+    ToolDefinition(
+        "filesystem.list",
+        "List bounded non-sensitive entries in the authenticated owner's configured workspace.",
+        FilesystemListInput,
+        "workspace_read",
+        5.0,
+        12_000,
+        frozenset({"explicit_user", "chat_model"}),
+    ),
+    ToolDefinition(
+        "filesystem.stat",
+        "Read bounded metadata for one entry in the authenticated owner's configured workspace.",
+        FilesystemPathInput,
+        "workspace_read",
+        5.0,
+        4_096,
+        frozenset({"explicit_user", "chat_model"}),
     ),
 )
 TOOL_REGISTRY = {definition.name: definition for definition in TOOL_DEFINITIONS}
@@ -247,10 +328,14 @@ def _canonical_json(value: Any, maximum: int) -> str:
 def validate_tool_call(
     tool_name: str,
     arguments: dict[str, Any],
+    *,
+    initiator: str | None = None,
 ) -> ValidatedToolCall:
     definition = TOOL_REGISTRY.get(tool_name)
     if definition is None:
         raise ToolNotFoundError("tool is not registered")
+    if initiator is not None and initiator not in definition.allowed_initiators:
+        raise ToolNotFoundError("tool is not admitted for this execution path")
     try:
         validated = definition.input_model.model_validate(arguments)
     except ValidationError as exc:
@@ -294,16 +379,30 @@ class ToolService:
         document_storage=None,
         document_admission: asyncio.Semaphore | None = None,
         document_embedding_runtime: EmbeddingRuntime | None = None,
+        filesystem_workspace: OwnerFilesystemWorkspace | None = None,
     ) -> None:
         self.session = session
         self.repository = ToolRepository(session)
         self.document_storage = document_storage
         self.document_admission = document_admission
         self.document_embedding_runtime = document_embedding_runtime
+        self.filesystem_workspace = filesystem_workspace
 
     @staticmethod
-    def definitions() -> tuple[ToolDefinition, ...]:
-        return TOOL_DEFINITIONS
+    def definitions(
+        *,
+        initiator: str = "explicit_user",
+        filesystem_available: bool = False,
+    ) -> tuple[ToolDefinition, ...]:
+        return tuple(
+            definition
+            for definition in TOOL_DEFINITIONS
+            if initiator in definition.allowed_initiators
+            and (
+                not definition.name.startswith("filesystem.")
+                or filesystem_available
+            )
+        )
 
     async def list_for_owner(
         self, owner_id: UUID, *, limit: int = 50
@@ -325,15 +424,25 @@ class ToolService:
         *,
         conversation_id: UUID | None = None,
         initiator: str = "explicit_user",
+        allowed_permissions: frozenset[str] | None = None,
     ) -> ToolExecutionRecord:
-        if initiator not in {"explicit_user", "workflow"}:
+        if initiator not in {
+            "explicit_user",
+            "workflow",
+            "chat_model",
+            "chat_verifier",
+        }:
             raise ValueError("tool initiator is invalid")
-        validated_call = validate_tool_call(tool_name, arguments)
+        validated_call = validate_tool_call(
+            tool_name,
+            arguments,
+            initiator=initiator,
+        )
         definition = validated_call.definition
         validated = definition.input_model.model_validate(
             validated_call.arguments
         )
-        arguments_json = validated_call.arguments_json
+        arguments_json = self._audit_arguments(definition, validated_call.arguments)
 
         try:
             conversation_is_owned = (
@@ -365,12 +474,34 @@ class ToolService:
             raise
 
         started = time.monotonic()
+        if (
+            allowed_permissions is not None
+            and definition.permission not in allowed_permissions
+        ):
+            return await self._finish(
+                owner_id,
+                execution_id,
+                ToolExecutionStatus.FAILED,
+                started,
+                error_code="tool_permission_denied",
+            )
         try:
             result = await asyncio.wait_for(
                 self._invoke(owner_id, definition, validated),
                 timeout=definition.timeout_seconds,
             )
-            encoded = _canonical_json(result, definition.max_output_characters)
+            if isinstance(result, FilesystemOperationResult):
+                result = {
+                    "tool": definition.name,
+                    "operation": result.operation,
+                    "status": "completed",
+                    "path": result.path,
+                    **result.payload,
+                    "audit_id": str(execution_id),
+                }
+            response_result = result
+            audit_result = self._audit_result(definition, result)
+            encoded = _canonical_json(audit_result, definition.max_output_characters)
             encoded = _canonical_json(
                 json.loads(encoded), MAX_TOOL_RESULT_JSON_CHARACTERS
             )
@@ -380,6 +511,7 @@ class ToolService:
                 ToolExecutionStatus.COMPLETED,
                 started,
                 result_json=encoded,
+                response_result=response_result,
             )
         except asyncio.TimeoutError:
             return await self._finish(
@@ -400,7 +532,12 @@ class ToolService:
                 )
             )
             raise
-        except (ToolInputInvalidError, _ToolInvocationFailed, ZoneInfoNotFoundError):
+        except (
+            ToolInputInvalidError,
+            _ToolInvocationFailed,
+            FilesystemToolError,
+            ZoneInfoNotFoundError,
+        ):
             return await self._finish(
                 owner_id,
                 execution_id,
@@ -426,6 +563,7 @@ class ToolService:
         started: float,
         *,
         result_json: str | None = None,
+        response_result: Any | None = None,
         error_code: str | None = None,
     ) -> ToolExecutionRecord:
         duration_ms = max(0, int((time.monotonic() - started) * 1_000))
@@ -442,7 +580,12 @@ class ToolService:
             if execution is None:
                 raise RuntimeError("tool execution terminal state was lost")
             await self.session.commit()
-            return _record(execution)
+            record = _record(execution)
+            return (
+                replace(record, result=response_result)
+                if response_result is not None
+                else record
+            )
         except BaseException:
             await self.session.rollback()
             raise
@@ -453,6 +596,9 @@ class ToolService:
         definition: ToolDefinition,
         validated: _StrictInput,
     ) -> Any:
+        active_definition = TOOL_REGISTRY.get(definition.name)
+        if active_definition is not definition:
+            raise _ToolInvocationFailed("tool capability changed before execution")
         if definition.name == "calculator":
             assert isinstance(validated, CalculatorInput)
             return {"value": _evaluate_arithmetic(validated.expression)}
@@ -542,7 +688,83 @@ class ToolService:
                     }
                 )
             return {"items": items}
+        if definition.name.startswith("filesystem."):
+            workspace = self.filesystem_workspace
+            if workspace is None or not workspace.available:
+                raise _ToolInvocationFailed("filesystem workspace is unavailable")
+            if definition.name == "filesystem.write":
+                assert isinstance(validated, FilesystemWriteInput)
+                return await asyncio.to_thread(
+                    workspace.write,
+                    owner_id,
+                    validated.path,
+                    validated.content,
+                    root_index=validated.root_index,
+                )
+            if definition.name == "filesystem.read":
+                assert isinstance(validated, FilesystemReadInput)
+                return await asyncio.to_thread(
+                    workspace.read,
+                    owner_id,
+                    validated.path,
+                    root_index=validated.root_index,
+                    max_bytes=validated.max_bytes,
+                )
+            if definition.name == "filesystem.exists":
+                assert isinstance(validated, FilesystemPathInput)
+                return await asyncio.to_thread(
+                    workspace.exists,
+                    owner_id,
+                    validated.path,
+                    root_index=validated.root_index,
+                )
+            if definition.name == "filesystem.list":
+                assert isinstance(validated, FilesystemListInput)
+                return await asyncio.to_thread(
+                    workspace.list,
+                    owner_id,
+                    validated.path,
+                    root_index=validated.root_index,
+                    limit=validated.limit,
+                )
+            if definition.name == "filesystem.stat":
+                assert isinstance(validated, FilesystemPathInput)
+                return await asyncio.to_thread(
+                    workspace.stat,
+                    owner_id,
+                    validated.path,
+                    root_index=validated.root_index,
+                )
         raise ToolNotFoundError("tool is not registered")
+
+    @staticmethod
+    def _audit_arguments(
+        definition: ToolDefinition,
+        arguments: dict[str, Any],
+    ) -> str:
+        if definition.name != "filesystem.write":
+            return _canonical_json(arguments, MAX_TOOL_ARGUMENT_JSON_CHARACTERS)
+        content = arguments["content"]
+        encoded = content.encode("utf-8")
+        return _canonical_json(
+            {
+                "path": arguments["path"],
+                "root_index": arguments.get("root_index", 0),
+                "bytes": len(encoded),
+                "content_sha256": hashlib.sha256(encoded).hexdigest(),
+            },
+            MAX_TOOL_ARGUMENT_JSON_CHARACTERS,
+        )
+
+    @staticmethod
+    def _audit_result(definition: ToolDefinition, result: Any) -> Any:
+        if definition.name != "filesystem.read" or not isinstance(result, dict):
+            return result
+        return {
+            key: value
+            for key, value in result.items()
+            if key != "content"
+        } | {"content_redacted": True}
 
 
 async def reconcile_tool_executions(session_factory) -> int:

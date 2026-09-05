@@ -43,7 +43,7 @@ def test_isolated_ollama_fixture_exposes_bounded_inventory_and_details():
             }
         ]
     }
-    assert details["capabilities"] == ["completion"]
+    assert details["capabilities"] == ["completion", "tools"]
 
 
 def test_isolated_ollama_fixture_rejects_unknown_or_malformed_requests():
@@ -66,6 +66,66 @@ def test_isolated_ollama_fixture_returns_nonempty_generation():
     assert status == 200
     assert payload["done"] is True
     assert payload["message"]["content"]
+
+
+def test_isolated_ollama_fixture_requires_real_tool_receipt_before_success():
+    prompt = "Create AI_OS_REAL_TEST.txt with:\nAI OS REAL EXECUTION VERIFIED"
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "filesystem.write",
+                "description": "write",
+                "parameters": {"type": "object"},
+            },
+        }
+    ]
+    first_status, first = response_for(
+        "POST",
+        "/api/chat",
+        {
+            "model": MODEL_REFERENCE,
+            "messages": [{"role": "user", "content": prompt}],
+            "tools": tools,
+            "stream": False,
+        },
+    )
+    assert first_status == 200
+    assert first["message"]["content"] == ""
+    call = first["message"]["tool_calls"][0]["function"]
+    assert call == {
+        "name": "filesystem.write",
+        "arguments": {
+            "path": "AI_OS_REAL_TEST.txt",
+            "content": "AI OS REAL EXECUTION VERIFIED",
+        },
+    }
+
+    second_status, second = response_for(
+        "POST",
+        "/api/chat",
+        {
+            "model": MODEL_REFERENCE,
+            "messages": [
+                {"role": "user", "content": prompt},
+                {"role": "assistant", "content": "", "tool_calls": [first["message"]["tool_calls"][0]]},
+                {
+                    "role": "tool",
+                    "tool_name": "filesystem.write",
+                    "content": json.dumps(
+                        {
+                            "status": "completed",
+                            "path": "AI_OS_REAL_TEST.txt",
+                        }
+                    ),
+                },
+            ],
+            "tools": tools,
+            "stream": False,
+        },
+    )
+    assert second_status == 200
+    assert "tool receipt" in second["message"]["content"]
 
 
 def test_isolated_ollama_server_binds_loopback_and_emits_bounded_json():

@@ -1609,6 +1609,142 @@
     },
     {
       "backend": {
+        "capability": "conversation_tool_orchestrator",
+        "state": "bound"
+      },
+      "category": "Chat execution",
+      "coverage_modes": [
+        "automated_backend",
+        "automated_web"
+      ],
+      "dependencies": [
+        "verified_tool_capable_local_model"
+      ],
+      "description": "Structured chat tool selection exposed through the existing authenticated chat execution capability.",
+      "id": "ai_presence.structured_tool_selection",
+      "layer": "ai_presence",
+      "permissions": [
+        "owner_session",
+        "bounded_tool_execution"
+      ],
+      "runtime_state": "available_by_contract",
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_conversation_generation",
+        "backend:test_filesystem_tool",
+        "web:authenticated_chat_tool_e2e",
+        "backend:real_chat_tool_smoke",
+        "web:chat_execution_state"
+      ],
+      "ui": {
+        "entry_point": "/home#structured-tool-selection",
+        "state": "enabled"
+      }
+    },
+    {
+      "backend": {
+        "capability": "conversation_tool_orchestrator",
+        "state": "bound"
+      },
+      "category": "Chat execution",
+      "coverage_modes": [
+        "automated_backend",
+        "automated_web"
+      ],
+      "dependencies": [
+        "verified_tool_capable_local_model"
+      ],
+      "description": "Real tool result continuation exposed through the existing authenticated chat execution capability.",
+      "id": "ai_presence.real_tool_result_loop",
+      "layer": "ai_presence",
+      "permissions": [
+        "owner_session",
+        "bounded_tool_execution"
+      ],
+      "runtime_state": "available_by_contract",
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_conversation_generation",
+        "backend:test_filesystem_tool",
+        "web:authenticated_chat_tool_e2e",
+        "backend:real_chat_tool_smoke",
+        "web:chat_execution_state"
+      ],
+      "ui": {
+        "entry_point": "/home#real-tool-result-loop",
+        "state": "enabled"
+      }
+    },
+    {
+      "backend": {
+        "capability": "conversation_tool_orchestrator",
+        "state": "bound"
+      },
+      "category": "Chat execution",
+      "coverage_modes": [
+        "automated_backend",
+        "automated_web"
+      ],
+      "dependencies": [
+        "verified_tool_capable_local_model"
+      ],
+      "description": "Independent tool read-back verification exposed through the existing authenticated chat execution capability.",
+      "id": "ai_presence.tool_read_back_verification",
+      "layer": "ai_presence",
+      "permissions": [
+        "owner_session",
+        "bounded_tool_execution"
+      ],
+      "runtime_state": "available_by_contract",
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_conversation_generation",
+        "backend:test_filesystem_tool",
+        "web:authenticated_chat_tool_e2e",
+        "backend:real_chat_tool_smoke",
+        "web:chat_execution_state"
+      ],
+      "ui": {
+        "entry_point": "/home#tool-read-back-verification",
+        "state": "enabled"
+      }
+    },
+    {
+      "backend": {
+        "capability": "conversation_tool_orchestrator",
+        "state": "bound"
+      },
+      "category": "Chat execution",
+      "coverage_modes": [
+        "automated_backend",
+        "automated_web"
+      ],
+      "dependencies": [
+        "verified_tool_capable_local_model"
+      ],
+      "description": "Truthful blocked and failed tool state exposed through the existing authenticated chat execution capability.",
+      "id": "ai_presence.truthful_tool_failure",
+      "layer": "ai_presence",
+      "permissions": [
+        "owner_session",
+        "bounded_tool_execution"
+      ],
+      "runtime_state": "available_by_contract",
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_conversation_generation",
+        "backend:test_filesystem_tool",
+        "web:authenticated_chat_tool_e2e",
+        "backend:real_chat_tool_smoke",
+        "web:chat_execution_state"
+      ],
+      "ui": {
+        "entry_point": "/home#truthful-tool-failure",
+        "state": "enabled"
+      }
+    },
+    {
+      "backend": {
         "capability": "external_speech_model_contract",
         "state": "external_boundary"
       },
@@ -9972,6 +10108,161 @@
         "automated_web"
       ],
       "dependencies": [],
+      "description": "Owner workspace file write exposed through the existing authenticated local tools capability.",
+      "id": "apps_hub.filesystem_write",
+      "layer": "apps_hub",
+      "permissions": [
+        "owner_session",
+        "bounded_tool_execution"
+      ],
+      "runtime_state": "available_by_contract",
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_tools_api",
+        "web:tool_panel",
+        "mobile:studio"
+      ],
+      "ui": {
+        "entry_point": "/apps#filesystem-write",
+        "state": "enabled"
+      }
+    },
+    {
+      "backend": {
+        "capability": "bounded_tools",
+        "state": "bound"
+      },
+      "category": "Local tools",
+      "coverage_modes": [
+        "automated_backend",
+        "automated_mobile",
+        "automated_web"
+      ],
+      "dependencies": [],
+      "description": "Owner workspace file read exposed through the existing authenticated local tools capability.",
+      "id": "apps_hub.filesystem_read",
+      "layer": "apps_hub",
+      "permissions": [
+        "owner_session",
+        "bounded_tool_execution"
+      ],
+      "runtime_state": "available_by_contract",
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_tools_api",
+        "web:tool_panel",
+        "mobile:studio"
+      ],
+      "ui": {
+        "entry_point": "/apps#filesystem-read",
+        "state": "enabled"
+      }
+    },
+    {
+      "backend": {
+        "capability": "bounded_tools",
+        "state": "bound"
+      },
+      "category": "Local tools",
+      "coverage_modes": [
+        "automated_backend",
+        "automated_mobile",
+        "automated_web"
+      ],
+      "dependencies": [],
+      "description": "Owner workspace existence check exposed through the existing authenticated local tools capability.",
+      "id": "apps_hub.filesystem_exists",
+      "layer": "apps_hub",
+      "permissions": [
+        "owner_session",
+        "bounded_tool_execution"
+      ],
+      "runtime_state": "available_by_contract",
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_tools_api",
+        "web:tool_panel",
+        "mobile:studio"
+      ],
+      "ui": {
+        "entry_point": "/apps#filesystem-exists",
+        "state": "enabled"
+      }
+    },
+    {
+      "backend": {
+        "capability": "bounded_tools",
+        "state": "bound"
+      },
+      "category": "Local tools",
+      "coverage_modes": [
+        "automated_backend",
+        "automated_mobile",
+        "automated_web"
+      ],
+      "dependencies": [],
+      "description": "Owner workspace directory list exposed through the existing authenticated local tools capability.",
+      "id": "apps_hub.filesystem_list",
+      "layer": "apps_hub",
+      "permissions": [
+        "owner_session",
+        "bounded_tool_execution"
+      ],
+      "runtime_state": "available_by_contract",
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_tools_api",
+        "web:tool_panel",
+        "mobile:studio"
+      ],
+      "ui": {
+        "entry_point": "/apps#filesystem-list",
+        "state": "enabled"
+      }
+    },
+    {
+      "backend": {
+        "capability": "bounded_tools",
+        "state": "bound"
+      },
+      "category": "Local tools",
+      "coverage_modes": [
+        "automated_backend",
+        "automated_mobile",
+        "automated_web"
+      ],
+      "dependencies": [],
+      "description": "Owner workspace file metadata exposed through the existing authenticated local tools capability.",
+      "id": "apps_hub.filesystem_stat",
+      "layer": "apps_hub",
+      "permissions": [
+        "owner_session",
+        "bounded_tool_execution"
+      ],
+      "runtime_state": "available_by_contract",
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_tools_api",
+        "web:tool_panel",
+        "mobile:studio"
+      ],
+      "ui": {
+        "entry_point": "/apps#filesystem-stat",
+        "state": "enabled"
+      }
+    },
+    {
+      "backend": {
+        "capability": "bounded_tools",
+        "state": "bound"
+      },
+      "category": "Local tools",
+      "coverage_modes": [
+        "automated_backend",
+        "automated_mobile",
+        "automated_web"
+      ],
+      "dependencies": [],
       "description": "Tool audit log exposed through the existing authenticated local tools capability.",
       "id": "apps_hub.tool_audit_log",
       "layer": "apps_hub",
@@ -11307,7 +11598,7 @@
     }
   ],
   "product": "AI OS",
-  "registry_sha256": "606eefc6c6193a0757afa6dbfc8608b79426739a26b8b6081e1456bf26e5ada2",
+  "registry_sha256": "24f7603971405d6f8777da685607c9687186809ee4a9cfe66a7023ccee375f2d",
   "schema_version": 1,
   "summary": {
     "broken_registry_wiring": 0,
@@ -11318,5 +11609,5 @@
     "planned_gaps": 0,
     "runtime_gates": 14
   },
-  "total": 321
+  "total": 330
 }

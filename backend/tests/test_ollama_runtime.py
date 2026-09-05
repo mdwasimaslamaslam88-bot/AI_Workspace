@@ -16,6 +16,8 @@ from app.ai.generation import (
     TextGenerationMessage,
     TextGenerationRequestTooLargeError,
     TextGenerationRole,
+    TextGenerationToolCall,
+    TextGenerationToolDefinition,
     TextGenerationRuntimeUnavailableError,
     TextGenerationRuntimeUnsupportedError,
 )
@@ -2814,6 +2816,108 @@ def test_qwen3_preflight_caps_total_predict_tokens():
 
     assert payload["think"] is True
     assert payload["options"]["num_predict"] == 1_792
+
+
+def test_ollama_native_tool_contract_serializes_schema_calls_and_results():
+    runtime = OllamaTextGenerationRuntime(
+        object(),
+        37,
+        (QWEN3_MODEL_REFERENCE,),
+    )
+    call = TextGenerationToolCall(
+        name="filesystem.write",
+        arguments={"path": "result.txt", "content": "verified"},
+    )
+    tool = TextGenerationToolDefinition(
+        name="filesystem.write",
+        description="Write one bounded owner file.",
+        parameters={
+            "type": "object",
+            "required": ["path", "content"],
+            "properties": {
+                "path": {"type": "string"},
+                "content": {"type": "string"},
+            },
+        },
+    )
+
+    payload = runtime._generation_payload(
+        QWEN3_MODEL_REFERENCE,
+        (
+            TextGenerationMessage(
+                role=TextGenerationRole.USER,
+                content="Create result.txt",
+            ),
+            TextGenerationMessage(
+                role=TextGenerationRole.ASSISTANT,
+                content="",
+                tool_calls=(call,),
+            ),
+            TextGenerationMessage(
+                role=TextGenerationRole.TOOL,
+                content='{"status":"completed"}',
+                tool_name="filesystem.write",
+            ),
+        ),
+        max_output_tokens=128,
+        thinking=False,
+        tools=(tool,),
+    )
+
+    assert payload["tools"] == [
+        {
+            "type": "function",
+            "function": {
+                "name": "filesystem.write",
+                "description": "Write one bounded owner file.",
+                "parameters": tool.parameters,
+            },
+        }
+    ]
+    assert payload["messages"][1]["tool_calls"] == [
+        {
+            "function": {
+                "name": "filesystem.write",
+                "arguments": {"path": "result.txt", "content": "verified"},
+            }
+        }
+    ]
+    assert payload["messages"][2] == {
+        "role": "tool",
+        "content": '{"status":"completed"}',
+        "tool_name": "filesystem.write",
+    }
+
+
+def test_ollama_parses_bounded_native_tool_call_without_fake_text():
+    result = ollama_runtime_module._parse_generation(
+        {
+            "done": True,
+            "message": {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                    {
+                        "function": {
+                            "name": "filesystem.write",
+                            "arguments": {
+                                "path": "result.txt",
+                                "content": "verified",
+                            },
+                        }
+                    }
+                ],
+            },
+        }
+    )
+
+    assert result.content == ""
+    assert result.tool_calls == (
+        TextGenerationToolCall(
+            name="filesystem.write",
+            arguments={"path": "result.txt", "content": "verified"},
+        ),
+    )
 
 
 def test_deepcoder_uses_bounded_reasoning_even_when_opt_out_is_requested():

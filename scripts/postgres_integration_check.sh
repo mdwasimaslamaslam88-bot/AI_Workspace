@@ -10,6 +10,7 @@ run_browser=false
 run_benchmark=false
 run_massive_benchmark=false
 run_model_candidate_benchmark=false
+run_chat_tool=false
 e2e_backend_pid=""
 isolated_ollama_pid=""
 
@@ -29,6 +30,7 @@ the same disposable database before exercising real clients and runtimes.
   --benchmark     Skip integration and run the full real-HTTP AI benchmark.
   --massive-benchmark  Run only the disposable adaptive massive benchmark.
   --model-candidate-benchmark  Run one isolated real-HTTP model comparison.
+  --chat-tool-only  Run only the installed-model authenticated chat tool smoke.
 EOF
 }
 
@@ -41,6 +43,7 @@ for argument in "$@"; do
     --benchmark) run_integration=false; run_benchmark=true; run_massive_benchmark=true ;;
     --massive-benchmark) run_integration=false; run_massive_benchmark=true ;;
     --model-candidate-benchmark) run_integration=false; run_model_candidate_benchmark=true ;;
+    --chat-tool-only) run_integration=false; run_chat_tool=true ;;
     --help|-h) usage; exit 0 ;;
     *) echo "Unknown PostgreSQL check option: ${argument}" >&2; usage >&2; exit 2 ;;
   esac
@@ -66,6 +69,7 @@ cluster_root="$(mktemp -d "${cluster_parent%/}/work-station-postgres-integration
 cluster_data="${cluster_root}/data"
 cluster_socket="${cluster_root}/socket"
 cluster_log="${cluster_root}/postgres.log"
+filesystem_test_root="${cluster_root}/filesystem-tools"
 cluster_started=false
 
 stop_e2e_backend() {
@@ -141,7 +145,7 @@ with socket.socket() as candidate:
 PY
 }
 
-mkdir -m 700 "${cluster_socket}"
+mkdir -m 700 "${cluster_socket}" "${filesystem_test_root}"
 cluster_password="$("${backend_python}" - <<'PY'
 import secrets
 
@@ -206,6 +210,7 @@ if [[ "${run_integration}" == true ]]; then
 fi
 
 if [[ "${run_runtime}" == true || "${run_browser}" == true ||
+  "${run_chat_tool}" == true ||
   "${run_benchmark}" == true || "${run_massive_benchmark}" == true ||
   "${run_model_candidate_benchmark}" == true ]]; then
   (
@@ -246,6 +251,7 @@ JS
   api_origin="http://127.0.0.1:${api_port}"
   web_root="${cluster_root}/web"
   asset_root="${cluster_root}/assets"
+  filesystem_root="${filesystem_test_root}"
   backend_log="${cluster_root}/backend.log"
   mkdir -m 700 "${web_root}" "${asset_root}"
 
@@ -321,6 +327,7 @@ PY
     export DATABASE_SSL_MODE=disable
     export DATABASE_URL="${ephemeral_url}"
     export EXTERNAL_AI_STATE_ROOT="${cluster_root}/external-ai"
+    export FILESYSTEM_TOOL_ROOTS="[\"${filesystem_root}\"]"
     export CONNECTOR_STATE_ROOT="${cluster_root}/connectors"
     export CONNECTOR_ALLOWED_ORIGINS="[]"
     export HARDWARE_STATE_PATH="${cluster_root}/hardware-capability.json"
@@ -403,6 +410,7 @@ PY
     printf '%s' "${e2e_provisioning_token}" | (
       export PLAYWRIGHT_BROWSERS_PATH="${playwright_browsers_path}"
       export WORK_STATION_E2E_API_ORIGIN="${api_origin}"
+      export WORK_STATION_E2E_FILESYSTEM_ROOT="${filesystem_root}"
       export WORK_STATION_E2E_WEB_ORIGIN="${api_origin}"
       exec node scripts/browser_e2e.mjs
     )
@@ -458,8 +466,19 @@ fi
 
 if [[ "${run_runtime}" == true ]]; then
   (
+    export FILESYSTEM_TOOL_ROOTS="[\"${filesystem_test_root}\"]"
     export WORK_STATION_EPHEMERAL_TEST_DATABASE_URL="${ephemeral_url}"
     exec "${script_directory}/runtime_e2e.sh"
+  )
+fi
+
+if [[ "${run_chat_tool}" == true ]]; then
+  (
+    export DATABASE_SSL_MODE=disable
+    export FILESYSTEM_TOOL_ROOTS="[\"${filesystem_test_root}\"]"
+    export TEST_DATABASE_URL="${ephemeral_url}"
+    cd backend
+    exec .venv/bin/python -m scripts.real_chat_tool_smoke
   )
 fi
 
@@ -469,7 +488,9 @@ if [[ "${after_status}" != "${before_status}" ]]; then
   exit 1
 fi
 
-if [[ "${run_benchmark}" == true ]]; then
+if [[ "${run_chat_tool}" == true ]]; then
+  echo "ephemeral PostgreSQL validation: authenticated installed-model chat tool smoke passed"
+elif [[ "${run_benchmark}" == true ]]; then
   echo "ephemeral PostgreSQL validation: real-HTTP AI and massive benchmarks passed"
 elif [[ "${run_model_candidate_benchmark}" == true ]]; then
   echo "ephemeral PostgreSQL validation: isolated model candidate benchmark passed"

@@ -48,6 +48,62 @@ const baseProps = {
 };
 
 describe("ChatView", () => {
+  it("shows only verified real tool evidence as done", () => {
+    render(
+      <ChatView
+        {...baseProps}
+        execution={{
+          status: "completed",
+          states: [
+            "planning",
+            "selecting_tool",
+            "checking_permission",
+            "executing",
+            "verifying",
+            "done",
+          ],
+          receipts: [
+            {
+              tool: "filesystem.write",
+              operation: "write",
+              status: "completed",
+              audit_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+              path: "AI_OS_REAL_TEST.txt",
+              verification: "exact_read_back_passed",
+            },
+          ],
+          detail: "Real tool execution completed with durable audit evidence.",
+        }}
+      />,
+    );
+
+    const execution = screen.getByRole("region", { name: "AI OS tool execution" });
+    expect(execution).toHaveTextContent("Verified");
+    expect(execution).toHaveTextContent("filesystem.write");
+    expect(execution).toHaveTextContent("AI_OS_REAL_TEST.txt");
+    expect(execution).toHaveTextContent("exact read back passed");
+    expect(execution).toHaveTextContent("done");
+  });
+
+  it("never presents a blocked tool request as done", () => {
+    render(
+      <ChatView
+        {...baseProps}
+        execution={{
+          status: "blocked",
+          states: ["planning", "selecting_tool", "blocked"],
+          receipts: [],
+          detail: "Filesystem workspace capability is unavailable.",
+        }}
+      />,
+    );
+
+    const execution = screen.getByRole("region", { name: "AI OS tool execution" });
+    expect(execution).toHaveTextContent("blocked");
+    expect(execution).not.toHaveTextContent("done");
+    expect(execution).not.toHaveTextContent("Verified");
+  });
+
   it("renders persisted messages as text and merges refreshed pages without duplicates", () => {
     const unsafe = message(2, "assistant", `<img src=x onerror="${rawSecret}">`);
     const merged = mergeMessages(

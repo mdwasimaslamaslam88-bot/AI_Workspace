@@ -37,12 +37,15 @@ class ToolExecution(Base):
     __table_args__ = (
         CheckConstraint(
             "tool_name IN ('calculator', 'local_time', 'document_search', "
-            "'conversation_search', 'memory_search')",
+            "'conversation_search', 'memory_search', 'filesystem.write', "
+            "'filesystem.read', 'filesystem.exists', 'filesystem.list', "
+            "'filesystem.stat')",
             name="tool_name_allowed",
         ),
         CheckConstraint(
             "permission IN ('utility', 'personal_documents_read', "
-            "'personal_conversations_read', 'personal_memory_read')",
+            "'personal_conversations_read', 'personal_memory_read', "
+            "'workspace_read', 'workspace_write')",
             name="permission_allowed",
         ),
         CheckConstraint(
@@ -50,7 +53,8 @@ class ToolExecution(Base):
             name="status_allowed",
         ),
         CheckConstraint(
-            "initiator IN ('explicit_user', 'workflow')",
+            "initiator IN ('explicit_user', 'workflow', 'chat_model', "
+            "'chat_verifier')",
             name="initiator_allowed",
         ),
         CheckConstraint(
@@ -64,7 +68,7 @@ class ToolExecution(Base):
         CheckConstraint(
             "error_code IS NULL OR error_code IN ('tool_timed_out', "
             "'tool_cancelled', 'tool_execution_failed', 'tool_unavailable', "
-            "'server_restarted')",
+            "'server_restarted', 'tool_permission_denied')",
             name="error_code_allowed",
         ),
         CheckConstraint(

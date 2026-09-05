@@ -572,13 +572,34 @@ async def test_migration_creates_exact_expected_postgresql_schema(
         "document_search",
         "conversation_search",
         "memory_search",
+        "filesystem.write",
+        "filesystem.read",
+        "filesystem.exists",
+        "filesystem.list",
+        "filesystem.stat",
     }
     assert set(
         re.findall(
             r"'([^']+)'",
             tool_checks["ck_tool_executions_initiator_allowed"],
         )
-    ) == {"explicit_user", "workflow"}
+    ) == {"explicit_user", "workflow", "chat_model", "chat_verifier"}
+    assert set(
+        re.findall(
+            r"'([^']+)'",
+            tool_checks["ck_tool_executions_permission_allowed"],
+        )
+    ) == {
+        "utility",
+        "personal_documents_read",
+        "personal_conversations_read",
+        "personal_memory_read",
+        "workspace_read",
+        "workspace_write",
+    }
+    assert "tool_permission_denied" in tool_checks[
+        "ck_tool_executions_error_code_allowed"
+    ]
     assert {
         item["name"]
         for item in snapshot["tool_execution_indexes"]

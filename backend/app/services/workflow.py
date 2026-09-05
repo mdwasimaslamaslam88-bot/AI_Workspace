@@ -174,7 +174,11 @@ class WorkflowService:
             for step in steps:
                 if not isinstance(step, WorkflowStepDraft):
                     raise TypeError("workflow steps must be WorkflowStepDraft values")
-                validated = validate_tool_call(step.tool_name, step.arguments)
+                validated = validate_tool_call(
+                    step.tool_name,
+                    step.arguments,
+                    initiator="workflow",
+                )
                 persisted_steps.append(
                     (
                         validated.definition.name,
@@ -404,7 +408,9 @@ class WorkflowRunner:
                 await session.commit()
 
                 validated = validate_tool_call(
-                    step.tool_name, json.loads(step.arguments_json)
+                    step.tool_name,
+                    json.loads(step.arguments_json),
+                    initiator="workflow",
                 )
                 if validated.definition.permission != step.permission:
                     await self._terminalize(

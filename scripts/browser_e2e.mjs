@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync, rmdirSync, unlinkSync } from "node:fs";
+import { join } from "node:path";
 
 import { chromium, request } from "playwright";
 
@@ -45,6 +46,8 @@ const webOrigin = exactHttpOrigin(
   requiredEnvironment("WORK_STATION_E2E_WEB_ORIGIN"),
   "WORK_STATION_E2E_WEB_ORIGIN",
 );
+const filesystemRoot = requiredEnvironment("WORK_STATION_E2E_FILESYSTEM_ROOT");
+assert.ok(filesystemRoot.startsWith("/"), "The filesystem E2E root must be absolute.");
 const provisioningToken = readFileSync(0, "utf8").trim();
 assert.ok(provisioningToken.length > 0, "The piped provisioning token is required.");
 
@@ -321,6 +324,88 @@ try {
   );
   await waitForNonemptyAssistant(page, secondAssistantCount);
 
+  const toolAssistantCount = await page
+    .locator(".message-assistant .markdown-body")
+    .count();
+  await page
+    .getByRole("textbox", { name: "Message", exact: true })
+    .fill("Create AI_OS_REAL_TEST.txt with:\nAI OS REAL EXECUTION VERIFIED");
+  const toolGenerationPromise = page.waitForResponse(
+    (response) => {
+      const responseUrl = new URL(response.url());
+      return (
+        response.request().method() === "POST" &&
+        responseUrl.origin === apiOrigin &&
+        responseUrl.pathname.endsWith("/messages/generate")
+      );
+    },
+    { timeout: 180_000 },
+  );
+  await page.getByRole("button", { name: "Send", exact: true }).click();
+  const toolGenerationResponse = await toolGenerationPromise;
+  assert.equal(
+    toolGenerationResponse.status(),
+    201,
+    "Authenticated browser tool generation failed.",
+  );
+  const toolGeneration = await toolGenerationResponse.json();
+  assert.equal(
+    toolGeneration.execution?.status,
+    "completed",
+    "The chat tool path did not return completed execution evidence.",
+  );
+  assert.equal(
+    toolGeneration.execution?.states.at(-1),
+    "done",
+    "The chat tool path reached Done without a completed trace.",
+  );
+  assert.deepEqual(
+    toolGeneration.execution?.receipts.map((receipt) => receipt.tool),
+    ["filesystem.write", "filesystem.exists", "filesystem.read"],
+    "The chat tool path omitted write/read-back audit receipts.",
+  );
+  await waitForNonemptyAssistant(page, toolAssistantCount);
+  const executionRegion = page.getByRole("region", {
+    name: "AI OS tool execution",
+  });
+  await executionRegion.waitFor();
+  assert.match(await executionRegion.innerText(), /Verified/i);
+  assert.match(await executionRegion.innerText(), /AI_OS_REAL_TEST\.txt/);
+  assert.match(await executionRegion.innerText(), /exact read back passed/i);
+
+  const ownerWorkspace = join(filesystemRoot, provisioned.id);
+  const createdFile = join(ownerWorkspace, "AI_OS_REAL_TEST.txt");
+  assert.equal(existsSync(createdFile), true, "The real owner file was not created.");
+  assert.equal(
+    readFileSync(createdFile, "utf8"),
+    "AI OS REAL EXECUTION VERIFIED",
+    "The real owner file failed exact content verification.",
+  );
+  const auditResponse = await apiRequest.get("api/v1/tools/executions", {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  assert.equal(auditResponse.status(), 200, "Tool audit retrieval failed.");
+  const auditItems = (await auditResponse.json()).items;
+  const relevantAudits = auditItems.filter((item) =>
+    ["filesystem.write", "filesystem.exists", "filesystem.read"].includes(
+      item.tool_name,
+    ),
+  );
+  assert.deepEqual(
+    relevantAudits.slice(0, 3).map((item) => item.tool_name).sort(),
+    ["filesystem.exists", "filesystem.read", "filesystem.write"],
+    "Durable filesystem audit evidence is incomplete.",
+  );
+  assert.equal(
+    relevantAudits.some((item) =>
+      JSON.stringify(item).includes("AI OS REAL EXECUTION VERIFIED"),
+    ),
+    false,
+    "Filesystem content leaked into audit payloads.",
+  );
+  unlinkSync(createdFile);
+  rmdirSync(ownerWorkspace);
+
   assert.equal(
     await page.evaluate(async () => {
       const cacheNames = await caches.keys();
@@ -354,7 +439,7 @@ try {
   );
   await context.close();
   console.log(
-    "browser/PWA E2E: install, connect, feature registry, communication boundary, current user, conversation, chat, cache isolation, and logout passed",
+    "browser/PWA E2E: install, connect, authenticated chat tool execution, real file read-back, audit, cleanup, cache isolation, and logout passed",
   );
 } finally {
   accessToken = "";

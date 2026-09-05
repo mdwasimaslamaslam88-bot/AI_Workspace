@@ -43,6 +43,15 @@ browser, data, vision, RAG and automation. Image, voice, tools and workflows use
 their existing specialized endpoints and runtimes. The generic agent API does
 not pretend that an unregistered image/voice/verifier specialist executed.
 
+Normal authenticated chat reuses the task model router and the authoritative
+`ToolService`; it does not introduce a second tool registry, permission model,
+or audit store. Intent selection exposes only relevant structured schemas to a
+locally admitted tool-capable model. Calls are owner- and conversation-scoped,
+permissions are checked immediately before execution, results are returned to
+the model, and a bounded continuation produces the response. Filesystem writes
+receive independent exists/read exact-match verification. The UI renders only
+the returned execution trace and cannot invent `Done`.
+
 The public create-run endpoint always replaces client permissions with
 `model_inference`. Profiles document possible internal permissions, but no
 terminal/filesystem/browser capability is currently delegated through this

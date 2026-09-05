@@ -17,16 +17,25 @@ from app.services.tool import (
 )
 
 
-def _execution(owner_id, *, status=ToolExecutionStatus.RUNNING, result=None):
+def _execution(
+    owner_id,
+    *,
+    status=ToolExecutionStatus.RUNNING,
+    result=None,
+    tool_name="calculator",
+    permission="utility",
+    initiator="explicit_user",
+    arguments_json='{"expression":"2+3*4"}',
+):
     now = datetime(2026, 8, 22, tzinfo=timezone.utc)
     return ToolExecution(
         id=uuid4(),
         owner_id=owner_id,
-        tool_name="calculator",
-        permission="utility",
+        tool_name=tool_name,
+        permission=permission,
         status=status,
-        initiator="explicit_user",
-        arguments_json='{"expression":"2+3*4"}',
+        initiator=initiator,
+        arguments_json=arguments_json,
         result_json=json.dumps(result) if result is not None else None,
         error_code=None,
         started_at=now,
@@ -42,17 +51,35 @@ def test_registry_is_fixed_and_contains_no_dangerous_capabilities():
         "document_search",
         "conversation_search",
         "memory_search",
+        "filesystem.write",
+        "filesystem.read",
+        "filesystem.exists",
+        "filesystem.list",
+        "filesystem.stat",
     }
     serialized = json.dumps(
         [definition.public_schema() for definition in TOOL_REGISTRY.values()]
     ).lower()
     assert "shell" not in serialized
-    assert "filesystem" not in serialized
     assert "network" not in serialized
     assert all(
-        definition.max_output_characters <= 12_000
+        definition.max_output_characters <= 16_384
         and definition.timeout_seconds <= 5
         for definition in TOOL_REGISTRY.values()
+    )
+    assert all(
+        "workflow" not in definition.allowed_initiators
+        for definition in TOOL_REGISTRY.values()
+        if definition.name.startswith("filesystem.")
+    )
+    assert ToolService.definitions(initiator="workflow") == tuple(
+        definition
+        for definition in TOOL_REGISTRY.values()
+        if not definition.name.startswith("filesystem.")
+    )
+    assert not any(
+        definition.name.startswith("filesystem.")
+        for definition in ToolService.definitions(filesystem_available=False)
     )
 
 
@@ -169,6 +196,110 @@ async def test_unknown_or_invalid_tool_never_creates_an_audit_record():
         )
 
     service.repository.create_running.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_permission_denial_is_a_durable_failed_audit_before_invocation():
+    owner_id = uuid4()
+    running = _execution(owner_id)
+    failed = _execution(owner_id, status=ToolExecutionStatus.FAILED)
+    failed.id = running.id
+    failed.error_code = "tool_permission_denied"
+    session = AsyncMock(spec=AsyncSession)
+    repository = Mock(
+        create_running=AsyncMock(return_value=running),
+        finish=AsyncMock(return_value=failed),
+        conversation_exists_for_owner=AsyncMock(return_value=True),
+    )
+    service = ToolService(session)
+    service.repository = repository
+    service._invoke = AsyncMock()
+
+    result = await service.execute_for_owner(
+        owner_id,
+        "calculator",
+        {"expression": "2+2"},
+        initiator="chat_model",
+        allowed_permissions=frozenset({"workspace_read"}),
+    )
+
+    assert result.status is ToolExecutionStatus.FAILED
+    assert result.error_code == "tool_permission_denied"
+    service._invoke.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_filesystem_write_content_and_read_content_are_redacted_from_audit(
+    tmp_path,
+):
+    from app.services.filesystem_tool import OwnerFilesystemWorkspace
+
+    owner_id = uuid4()
+    root = tmp_path / "root"
+    root.mkdir()
+    workspace = OwnerFilesystemWorkspace((root,))
+    session = AsyncMock(spec=AsyncSession)
+    repository = Mock(
+        conversation_exists_for_owner=AsyncMock(return_value=True),
+    )
+    captured_results: list[str] = []
+
+    async def create_running(
+        owner, conversation, tool_name, permission, arguments_json, *, initiator
+    ):
+        return _execution(
+            owner,
+            tool_name=tool_name,
+            permission=permission,
+            initiator=initiator,
+            arguments_json=arguments_json,
+        )
+
+    async def finish(
+        owner, execution_id, status, duration_ms, *, result_json=None, error_code=None
+    ):
+        if result_json is not None:
+            captured_results.append(result_json)
+        completed = _execution(
+            owner,
+            status=status,
+            result=json.loads(result_json) if result_json is not None else None,
+            tool_name="filesystem.read" if len(captured_results) == 2 else "filesystem.write",
+            permission="workspace_read" if len(captured_results) == 2 else "workspace_write",
+            initiator="chat_model",
+            arguments_json="{}",
+        )
+        completed.id = execution_id
+        completed.duration_ms = duration_ms
+        completed.error_code = error_code
+        return completed
+
+    repository.create_running = AsyncMock(side_effect=create_running)
+    repository.finish = AsyncMock(side_effect=finish)
+    service = ToolService(session, filesystem_workspace=workspace)
+    service.repository = repository
+
+    written = await service.execute_for_owner(
+        owner_id,
+        "filesystem.write",
+        {"path": "result.txt", "content": "private but non-secret content"},
+        initiator="chat_model",
+        allowed_permissions=frozenset({"workspace_write"}),
+    )
+    read = await service.execute_for_owner(
+        owner_id,
+        "filesystem.read",
+        {"path": "result.txt"},
+        initiator="chat_verifier",
+        allowed_permissions=frozenset({"workspace_read"}),
+    )
+
+    write_audit_arguments = repository.create_running.await_args_list[0].args[4]
+    assert "private but non-secret content" not in write_audit_arguments
+    assert written.result["status"] == "completed"
+    assert read.result["content"] == "private but non-secret content"
+    assert "private but non-secret content" not in captured_results[1]
+    assert json.loads(captured_results[1])["content_redacted"] is True
 
 
 @pytest.mark.asyncio

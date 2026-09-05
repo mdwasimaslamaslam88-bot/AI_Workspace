@@ -35,7 +35,12 @@ class ToolExecutionResponse(BaseModel):
     tool_name: str
     permission: str
     status: ToolExecutionStatus
-    initiator: Literal["explicit_user", "workflow"]
+    initiator: Literal[
+        "explicit_user",
+        "workflow",
+        "chat_model",
+        "chat_verifier",
+    ]
     arguments: dict[str, Any]
     result: Any | None
     error_code: str | None

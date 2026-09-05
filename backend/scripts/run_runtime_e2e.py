@@ -22,6 +22,7 @@ RUNTIME_SMOKE_MODULES = (
     "scripts.real_finance_smoke",
     "scripts.real_learning_smoke",
     "scripts.real_creative_smoke",
+    "scripts.real_chat_tool_smoke",
     "scripts.real_tools_smoke",
     "scripts.real_workflow_smoke",
 )
@@ -47,7 +48,8 @@ def main() -> None:
     print(
         "real runtime E2E: vision, RAG, memory, image, voice, Agent OS, "
         "connectors, CRM/social/CMS provider protocols, marketing, finance, "
-        "learning, creative experiences, tools, and workflows passed"
+        "learning, creative experiences, authenticated chat tool execution, "
+        "tools, and workflows passed"
     )
 
 

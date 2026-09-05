@@ -301,6 +301,44 @@ textarea {
   background: var(--accent-dark);
 }
 
+.chat-execution {
+  display: grid;
+  gap: 0.65rem;
+  margin: 0.8rem 0;
+  border: 1px solid var(--line);
+  border-radius: 0.8rem;
+  background: var(--card);
+  padding: 0.85rem;
+}
+
+.chat-execution-completed {
+  border-color: rgba(104, 239, 200, 0.35);
+}
+
+.chat-execution-blocked,
+.chat-execution-failed {
+  border-color: rgba(255, 180, 171, 0.35);
+}
+
+.chat-execution-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.chat-execution-states,
+.chat-execution-receipts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.8rem;
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+.chat-execution p {
+  margin: 0;
+}
+
 .inline-error {
   display: flex;
   align-items: center;

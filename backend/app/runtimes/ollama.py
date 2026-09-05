@@ -18,6 +18,8 @@ from app.ai.generation import (
     TextGenerationRequestTooLargeError,
     TextGenerationResult,
     TextGenerationRole,
+    TextGenerationToolCall,
+    TextGenerationToolDefinition,
     TextGenerationRuntimeUnavailableError,
     TextGenerationRuntimeUnsupportedError,
 )
@@ -421,6 +423,7 @@ class OllamaTextGenerationRuntime:
         frequency_penalty: float | None = None,
         stop_sequences: list[str] | None = None,
         thinking: bool | None = None,
+        tools: tuple[TextGenerationToolDefinition, ...] = (),
     ) -> dict[str, Any]:
         if runtime_reference not in self.local_model_allowlist:
             raise TextGenerationRuntimeUnsupportedError(
@@ -469,6 +472,26 @@ class OllamaTextGenerationRuntime:
                     "role": message.role.value,
                     "content": message.content,
                     **({"images": list(message.images)} if message.images else {}),
+                    **(
+                        {
+                            "tool_calls": [
+                                {
+                                    "function": {
+                                        "name": call.name,
+                                        "arguments": call.arguments,
+                                    }
+                                }
+                                for call in message.tool_calls
+                            ]
+                        }
+                        if message.tool_calls
+                        else {}
+                    ),
+                    **(
+                        {"tool_name": message.tool_name}
+                        if message.tool_name is not None
+                        else {}
+                    ),
                 }
                 for message in messages
             ],
@@ -483,6 +506,18 @@ class OllamaTextGenerationRuntime:
             # Bound residency so sequential model choices swap instead of
             # accumulating several large models on the GPU.
             payload["keep_alive"] = self.keep_alive_seconds
+        if tools:
+            payload["tools"] = [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": tool.name,
+                        "description": tool.description,
+                        "parameters": tool.parameters,
+                    },
+                }
+                for tool in tools
+            ]
         return payload
 
     async def _request_generation_payload(
@@ -555,6 +590,7 @@ class OllamaTextGenerationRuntime:
         frequency_penalty: float | None = None,
         stop_sequences: list[str] | None = None,
         thinking: bool | None = None,
+        tools: tuple[TextGenerationToolDefinition, ...] = (),
     ) -> None:
         if not messages:
             raise ValueError("generation messages must not be empty")
@@ -574,6 +610,7 @@ class OllamaTextGenerationRuntime:
             frequency_penalty=frequency_penalty,
             stop_sequences=stop_sequences,
             thinking=thinking,
+            tools=tools,
         )
         _measure_bounded_json_request(payload, self.max_request_bytes)
 
@@ -595,6 +632,7 @@ class OllamaTextGenerationRuntime:
         frequency_penalty: float | None = None,
         stop_sequences: list[str] | None = None,
         thinking: bool | None = None,
+        tools: tuple[TextGenerationToolDefinition, ...] = (),
     ) -> TextGenerationResult:
         if temperature is not None:
             if isinstance(temperature, bool) or not isinstance(
@@ -757,6 +795,7 @@ class OllamaTextGenerationRuntime:
             frequency_penalty=frequency_penalty,
             stop_sequences=stop_sequences,
             thinking=thinking,
+            tools=tools,
         )
         try:
             response_payload = await self._request_generation_payload(payload)
@@ -777,6 +816,7 @@ class OllamaTextGenerationRuntime:
                     frequency_penalty=frequency_penalty,
                     stop_sequences=stop_sequences,
                     thinking=False,
+                    tools=tools,
                 )
                 response_payload = await self._request_generation_payload(
                     fallback_payload
@@ -850,11 +890,42 @@ def _parse_generation(payload: Any) -> TextGenerationResult:
             "local text runtime returned an invalid response"
         )
     content = message.get("content")
-    if not isinstance(content, str) or not content.strip():
+    if not isinstance(content, str):
         raise TextGenerationRuntimeUnavailableError(
             "local text runtime returned an invalid response"
         )
-    return TextGenerationResult(content=content)
+    raw_calls = message.get("tool_calls", [])
+    if not isinstance(raw_calls, list) or len(raw_calls) > 8:
+        raise TextGenerationRuntimeUnavailableError(
+            "local text runtime returned an invalid response"
+        )
+    calls: list[TextGenerationToolCall] = []
+    for raw_call in raw_calls:
+        if not isinstance(raw_call, Mapping):
+            raise TextGenerationRuntimeUnavailableError(
+                "local text runtime returned an invalid response"
+            )
+        function = raw_call.get("function")
+        if not isinstance(function, Mapping):
+            raise TextGenerationRuntimeUnavailableError(
+                "local text runtime returned an invalid response"
+            )
+        name = function.get("name")
+        arguments = function.get("arguments")
+        if (
+            not isinstance(name, str)
+            or re.fullmatch(r"[A-Za-z0-9_.-]{1,64}", name) is None
+            or not isinstance(arguments, dict)
+        ):
+            raise TextGenerationRuntimeUnavailableError(
+                "local text runtime returned an invalid response"
+            )
+        calls.append(TextGenerationToolCall(name=name, arguments=arguments))
+    if not content.strip() and not calls:
+        raise TextGenerationRuntimeUnavailableError(
+            "local text runtime returned an invalid response"
+        )
+    return TextGenerationResult(content=content, tool_calls=tuple(calls))
 
 
 def _parse_inventory(

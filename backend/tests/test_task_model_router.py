@@ -100,6 +100,23 @@ def test_router_uses_code_capability_when_runtime_normalizes_coder_family():
     assert code_generation.model_id == qwen3.model_id
 
 
+def test_router_uses_verified_qwen3_profile_for_native_tool_calls():
+    capabilities = (
+        ModelCapability.TEXT_GENERATION,
+        ModelCapability.TOOL_CALLING,
+    )
+    coder = _model(1, "Qwen2.5 Coder 7B", capabilities=capabilities)
+    qwen3 = _model(2, "Qwen3 8B", capabilities=capabilities)
+
+    decision = TaskAwareModelRouter().select(
+        (coder, qwen3),
+        ModelTask.TOOL_CALLING,
+    )
+
+    assert decision.model_id == qwen3.model_id
+    assert coder.model_id in decision.fallback_model_ids
+
+
 def test_router_limits_a_measured_preference_to_its_evidence_backed_task():
     qwen3 = _model(1, "Qwen3 8B", context=40_960)
     gemma = _model(

@@ -397,8 +397,40 @@ class ConversationTextGenerationRequest(BaseModel):
         return value
 
 
+class ChatToolReceiptResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid", from_attributes=True)
+
+    tool: str
+    operation: str
+    status: Literal["completed", "failed", "timed_out", "cancelled"]
+    audit_id: UUID | None
+    path: str | None = None
+    verification: str | None = None
+
+
+class ChatExecutionTraceResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid", from_attributes=True)
+
+    status: Literal["completed", "blocked", "failed"]
+    states: list[
+        Literal[
+            "planning",
+            "selecting_tool",
+            "checking_permission",
+            "executing",
+            "verifying",
+            "done",
+            "blocked",
+            "failed",
+        ]
+    ]
+    receipts: list[ChatToolReceiptResponse]
+    detail: str
+
+
 class ConversationTextGenerationResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     model_id: str
     message: MessageResponse
+    execution: ChatExecutionTraceResponse | None = None

@@ -63,8 +63,9 @@ forwarding are not used.
 ## Content and execution
 
 Uploads are size/type bounded, stored under server-generated identities, and
-downloaded only through authenticated owner checks. Filesystem paths never
-appear in responses. Private media uses `no-store`, safe MIME metadata,
+downloaded only through authenticated owner checks. Host storage paths never
+appear in responses; authorized filesystem-tool responses expose only the
+relative resource path inside that owner's configured workspace. Private media uses `no-store`, safe MIME metadata,
 `nosniff`, attachment disposition, and bounded/non-supported range behavior.
 Conversation duplicate and edit/resend/regenerate actions create immutable,
 owner-scoped forks. The server locks a bounded source snapshot, copies active
@@ -74,8 +75,10 @@ transaction fails. Clients never alias or rewrite an existing message history.
 
 Tool names, arguments, permissions, timeouts, result size, and workflow depth
 come from a fixed server registry. Model output cannot select an arbitrary
-shell command, URL, code evaluation target, or filesystem path. Clients have no
-native shell/process/filesystem permission.
+shell command, URL, code evaluation target, or host filesystem path. The local
+filesystem tools accept relative paths only beneath operator-configured narrow
+roots and isolate each owner in a no-follow workspace. Clients have no native
+shell/process/filesystem permission.
 
 Agent OS plans use fixed typed permission profiles. The authenticated generic
 agent endpoint grants model inference only; model text cannot grant workspace,

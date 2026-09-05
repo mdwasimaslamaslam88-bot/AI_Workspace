@@ -10,6 +10,43 @@ from tests.db.test_initial_domain_migration import (
 
 REVISION_FILENAME = "0007_bounded_tools.py"
 
+_HISTORICAL_TOOL_CONSTRAINTS = {
+    "tool_name_allowed": (
+        "tool_name IN ('calculator', 'local_time', 'document_search', "
+        "'conversation_search', 'memory_search')"
+    ),
+    "permission_allowed": (
+        "permission IN ('utility', 'personal_documents_read', "
+        "'personal_conversations_read', 'personal_memory_read')"
+    ),
+    "initiator_allowed": "initiator = 'explicit_user'",
+    "error_code_allowed": (
+        "error_code IS NULL OR error_code IN ('tool_timed_out', "
+        "'tool_cancelled', 'tool_execution_failed', 'tool_unavailable', "
+        "'server_restarted')"
+    ),
+}
+
+
+def _replace_historical_tool_constraints(
+    table: sa.Table,
+    *,
+    initiator: str,
+) -> None:
+    constraints = dict(_HISTORICAL_TOOL_CONSTRAINTS)
+    constraints["initiator_allowed"] = initiator
+    for suffix, expression in constraints.items():
+        name = f"ck_tool_executions_{suffix}"
+        current = next(
+            constraint
+            for constraint in table.constraints
+            if constraint.name == name
+        )
+        table.constraints.remove(current)
+        table.append_constraint(
+            sa.CheckConstraint(expression, name=suffix)
+        )
+
 
 def _upgrade_predecessors(operations: RecordingOperations) -> None:
     for filename in (
@@ -50,17 +87,9 @@ def test_upgrade_matches_exact_tool_execution_orm_schema():
     expected = Base.metadata.tables["tool_executions"].to_metadata(
         expected_metadata
     )
-    initiator_constraint = next(
-        constraint
-        for constraint in expected.constraints
-        if constraint.name == "ck_tool_executions_initiator_allowed"
-    )
-    expected.constraints.remove(initiator_constraint)
-    expected.append_constraint(
-        sa.CheckConstraint(
-            "initiator = 'explicit_user'",
-            name="initiator_allowed",
-        )
+    _replace_historical_tool_constraints(
+        expected,
+        initiator="initiator = 'explicit_user'",
     )
     assert _table_signature(operations.metadata.tables["tool_executions"]) == (
         _table_signature(expected)

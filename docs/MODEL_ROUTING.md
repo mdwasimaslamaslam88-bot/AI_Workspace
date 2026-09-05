@@ -13,7 +13,11 @@ VRAM cost, and deterministic model ID ordering. A preferred model that becomes
 ineligible is skipped and its admitted fallback is used.
 
 Current production preferences remain structured configuration in
-`OLLAMA_TASK_MODEL_PREFERENCES`; this architecture change does not alter them.
+`OLLAMA_TASK_MODEL_PREFERENCES`. The automatic `tool_calling` score selects the
+installed Qwen3 profile: repeated authenticated execution showed that it emits
+native structured calls while the smaller coder route returned prose. The chat
+orchestrator still retries selection only within a fixed three-attempt bound and
+reports `BLOCKED` if no real call is issued.
 Installing a larger model does not automatically displace a proven smaller model.
 The candidate must be verified, admitted, benchmarked on the complete relevant
 category, stable, and then selected by policy.

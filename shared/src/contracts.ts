@@ -215,7 +215,7 @@ export interface ToolExecution {
   tool_name: string;
   permission: string;
   status: ToolExecutionStatus;
-  initiator: "explicit_user" | "workflow";
+  initiator: "explicit_user" | "workflow" | "chat_model" | "chat_verifier";
   arguments: { [key: string]: JsonValue };
   result: JsonValue;
   error_code: string | null;
@@ -1729,6 +1729,33 @@ export type ModelTask =
 export interface ConversationTextGenerationResponse {
   model_id: string;
   message: Message;
+  execution: ChatExecutionTrace | null;
+}
+
+export type ChatExecutionState =
+  | "planning"
+  | "selecting_tool"
+  | "checking_permission"
+  | "executing"
+  | "verifying"
+  | "done"
+  | "blocked"
+  | "failed";
+
+export interface ChatToolReceipt {
+  tool: string;
+  operation: string;
+  status: "completed" | "failed" | "timed_out" | "cancelled";
+  audit_id: UUID | null;
+  path: string | null;
+  verification: string | null;
+}
+
+export interface ChatExecutionTrace {
+  status: "completed" | "blocked" | "failed";
+  states: ChatExecutionState[];
+  receipts: ChatToolReceipt[];
+  detail: string;
 }
 
 export interface BackendErrorEnvelope {
@@ -3992,6 +4019,57 @@ export function parseGenerationResponse(
   return {
     model_id: stringField(response.model_id),
     message: parseMessage(response.message),
+    execution:
+      response.execution === null || response.execution === undefined
+        ? null
+        : parseChatExecutionTrace(response.execution),
+  };
+}
+
+const CHAT_EXECUTION_STATES = new Set<ChatExecutionState>([
+  "planning",
+  "selecting_tool",
+  "checking_permission",
+  "executing",
+  "verifying",
+  "done",
+  "blocked",
+  "failed",
+]);
+
+function parseChatExecutionTrace(value: unknown): ChatExecutionTrace {
+  const item = record(value);
+  const status = stringField(item.status);
+  if (!["completed", "blocked", "failed"].includes(status)) return invalidResponse();
+  if (!Array.isArray(item.states) || item.states.length > 64) return invalidResponse();
+  const states = item.states.map((state) => {
+    const parsed = stringField(state) as ChatExecutionState;
+    if (!CHAT_EXECUTION_STATES.has(parsed)) return invalidResponse();
+    return parsed;
+  });
+  if (!Array.isArray(item.receipts) || item.receipts.length > 32) {
+    return invalidResponse();
+  }
+  const receipts = item.receipts.map((receipt): ChatToolReceipt => {
+    const parsed = record(receipt);
+    const receiptStatus = stringField(parsed.status);
+    if (!["completed", "failed", "timed_out", "cancelled"].includes(receiptStatus)) {
+      return invalidResponse();
+    }
+    return {
+      tool: stringField(parsed.tool),
+      operation: stringField(parsed.operation),
+      status: receiptStatus as ChatToolReceipt["status"],
+      audit_id: nullableString(parsed.audit_id),
+      path: nullableString(parsed.path),
+      verification: nullableString(parsed.verification),
+    };
+  });
+  return {
+    status: status as ChatExecutionTrace["status"],
+    states,
+    receipts,
+    detail: stringField(item.detail),
   };
 }
 
@@ -4094,7 +4172,7 @@ export function parseToolExecution(value: unknown): ToolExecution {
     status,
     initiator: enumField(
       item.initiator,
-      ["explicit_user", "workflow"] as const,
+      ["explicit_user", "workflow", "chat_model", "chat_verifier"] as const,
     ),
     arguments: argumentsValue,
     result,

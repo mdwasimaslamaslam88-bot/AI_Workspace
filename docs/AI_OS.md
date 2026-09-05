@@ -21,10 +21,12 @@ owner goal
 ```
 
 The agent API is `/api/v1/agent-os`. Browser and mobile Agents surfaces create,
-list, monitor, and cancel owner-scoped runs. The public API deliberately grants
-only `model_inference`; a model cannot turn a request into terminal, filesystem,
-browser, network, or tool authority. Existing bounded tools and durable
-workflows remain the execution boundary for those operations.
+list, monitor, and cancel owner-scoped runs. The generic mission API deliberately
+grants only `model_inference`; a model cannot grant itself terminal, browser,
+network, or tool authority. Authenticated chat can select a relevant fixed-
+registry tool, but execution still crosses the existing owner, permission,
+capability, audit, and verification boundary. It does not receive shell or
+unrestricted filesystem access.
 
 The independent code verifier in `app.agent_os.code_verification` accepts only
 server-owned profiles with fixed absolute executables and test sources. It
@@ -43,7 +45,8 @@ mutation. It never repairs the artifact before scoring.
 - documents and RAG for TXT, PDF, DOCX, CSV and bounded source files
 - explicit conversation/project-like history and owner-controlled memory
 - capability-separated vision, image generation/editing and voice runtimes
-- fixed-registry tools and durable bounded workflows
+- fixed-registry tools, authenticated chat-to-tool orchestration, independently
+  verified owner-workspace file operations, and durable bounded workflows
 - owner-scoped REST, webhook, and loopback API connectors with exact egress,
   path, permission, retry, rate, audit, and revocation policy
 - durable source-grounded marketing campaigns with verified local-agent stages,

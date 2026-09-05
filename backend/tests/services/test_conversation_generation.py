@@ -17,9 +17,12 @@ from app.ai.catalog import (
 from app.ai.generation import (
     TextGenerationRequestTooLargeError,
     TextGenerationResult,
+    TextGenerationToolCall,
+    TextGenerationToolDefinition,
     TextGenerationRuntimeUnavailableError,
     TextGenerationRuntimeUnsupportedError,
 )
+from app.models.tool import ToolExecutionStatus
 from app.ai.routing import ModelTask
 from app.models import Conversation, Message, MessageRole
 from app.models.memory import MemoryCategory
@@ -64,6 +67,8 @@ from app.services.generation_admission import (
     GenerationAdmissionController,
     GenerationAdmissionRejectedError,
 )
+from app.services.filesystem_tool import OwnerFilesystemWorkspace
+from app.services.tool import ToolExecutionRecord, ToolService
 from app.services.vision_input import (
     VisionInputContentUnavailableError,
     VisionInputTooLargeError,
@@ -72,6 +77,34 @@ from app.services.vision_input import (
 
 
 MODEL_ID = f"local-runtime:{'a' * 24}"
+
+
+def _filesystem_write_tool_definition():
+    return TextGenerationToolDefinition(
+        name="filesystem.write",
+        description="Write a UTF-8 file in the owner workspace.",
+        parameters={"type": "object"},
+    )
+
+
+def _tool_record(tool_name, result, *, status=ToolExecutionStatus.COMPLETED):
+    now = datetime(2026, 9, 5, tzinfo=timezone.utc)
+    return ToolExecutionRecord(
+        id=uuid4(),
+        conversation_id=uuid4(),
+        tool_name=tool_name,
+        permission=(
+            "workspace_write" if tool_name == "filesystem.write" else "workspace_read"
+        ),
+        status=status,
+        initiator="chat_model",
+        arguments={},
+        result=result if status is ToolExecutionStatus.COMPLETED else None,
+        error_code=None if status is ToolExecutionStatus.COMPLETED else "tool_execution_failed",
+        started_at=now,
+        completed_at=now,
+        duration_ms=1,
+    )
 
 
 def test_generation_context_injects_only_the_selected_trusted_task_contract():
@@ -100,6 +133,21 @@ def test_generation_context_injects_only_the_selected_trusted_task_contract():
         ),
         ("user", "Reply exactly READY."),
     ]
+
+
+@pytest.mark.parametrize(
+    ("prompt", "expected"),
+    [
+        (
+            "Create result.txt with the requested content.",
+            frozenset({"filesystem.write"}),
+        ),
+        ("Read the file notes.txt.", frozenset({"filesystem.read"})),
+        ("Reply with one ordinary sentence.", frozenset()),
+    ],
+)
+def test_chat_tool_selection_is_intent_scoped(prompt, expected):
+    assert generation_module._requested_chat_tools(prompt) == expected
 
 
 def _conversation(owner_id, conversation_id, next_sequence: int) -> Conversation:
@@ -1108,7 +1156,7 @@ async def test_generation_forwards_exact_valid_stop_sequences(
         False,
         "0.5",
         [],
-        {},
+        {"tools": (_filesystem_write_tool_definition(),)},
         float("nan"),
         float("inf"),
         float("-inf"),
@@ -4154,3 +4202,273 @@ async def test_generation_injects_explicit_memory_below_current_instructions(
         "Detailed answer",
         expected_sequence_number=2,
     )
+
+
+@pytest.mark.asyncio
+async def test_chat_tool_loop_writes_then_independently_reads_back_real_file(
+    monkeypatch,
+    tmp_path,
+):
+    owner_id = uuid4()
+    conversation_id = uuid4()
+    root = tmp_path / "root"
+    root.mkdir()
+    workspace = OwnerFilesystemWorkspace((root,))
+    tool_call = TextGenerationToolCall(
+        name="filesystem.write",
+        arguments={
+            "path": "AI_OS_REAL_TEST.txt",
+            "content": "AI OS REAL EXECUTION VERIFIED",
+        },
+    )
+    router = Mock(
+        generate=AsyncMock(
+            side_effect=(
+                TextGenerationResult(content="", tool_calls=(tool_call,)),
+                TextGenerationResult(content="The requested file was created."),
+            )
+        )
+    )
+
+    async def execute(
+        _service,
+        actual_owner,
+        tool_name,
+        arguments,
+        **_kwargs,
+    ):
+        assert actual_owner == owner_id
+        if tool_name == "filesystem.write":
+            operation = workspace.write(
+                actual_owner,
+                arguments["path"],
+                arguments["content"],
+                root_index=arguments.get("root_index", 0),
+            )
+        elif tool_name == "filesystem.exists":
+            operation = workspace.exists(
+                actual_owner,
+                arguments["path"],
+                root_index=arguments.get("root_index", 0),
+            )
+        else:
+            operation = workspace.read(
+                actual_owner,
+                arguments["path"],
+                root_index=arguments.get("root_index", 0),
+            )
+        result = {
+            "tool": tool_name,
+            "operation": operation.operation,
+            "status": "completed",
+            "path": operation.path,
+            **operation.payload,
+            "audit_id": str(uuid4()),
+        }
+        return _tool_record(tool_name, result)
+
+    monkeypatch.setattr(ToolService, "execute_for_owner", execute)
+    service = ConversationGenerationService(
+        AsyncMock(spec=AsyncSession),
+        Mock(),
+        router,
+        GenerationAdmissionController(1),
+        filesystem_workspace=workspace,
+    )
+
+    response = await service._generate_with_tool_loop(
+        owner_id,
+        conversation_id,
+        _resolved(
+            capabilities=(
+                ModelCapability.TEXT_GENERATION,
+                ModelCapability.TOOL_CALLING,
+            )
+        ),
+        (),
+        {"tools": (_filesystem_write_tool_definition(),)},
+        filesystem_intent=True,
+        filesystem_write_intent=True,
+        tools_enabled=True,
+    )
+
+    assert "AI OS verified execution: completed" in response
+    assert (root / str(owner_id) / "AI_OS_REAL_TEST.txt").read_text() == (
+        "AI OS REAL EXECUTION VERIFIED"
+    )
+    assert service.last_chat_execution is not None
+    assert service.last_chat_execution.status == "completed"
+    assert service.last_chat_execution.states[-2:] == ("verifying", "done")
+    assert [item.tool for item in service.last_chat_execution.receipts] == [
+        "filesystem.write",
+        "filesystem.exists",
+        "filesystem.read",
+    ]
+    assert service.last_chat_execution.receipts[0].verification == (
+        "exact_read_back_passed"
+    )
+    assert router.generate.await_count == 2
+    continuation = router.generate.await_args_list[1].args[1]
+    assert continuation[-1].role.value == "tool"
+    assert "AI OS REAL EXECUTION VERIFIED" not in continuation[-1].content
+
+
+@pytest.mark.asyncio
+async def test_chat_tool_selection_retries_without_executing_prose():
+    call = TextGenerationToolCall(
+        name="filesystem.write",
+        arguments={"path": "result.txt", "content": "verified"},
+    )
+    router = Mock(
+        generate=AsyncMock(
+            side_effect=(
+                TextGenerationResult(content="I cannot access files."),
+                TextGenerationResult(content="", tool_calls=(call,)),
+            )
+        )
+    )
+    service = ConversationGenerationService(
+        AsyncMock(spec=AsyncSession),
+        Mock(),
+        router,
+        GenerationAdmissionController(1),
+    )
+
+    generated = await service._select_initial_tool_call(
+        _resolved(),
+        (),
+        {"tools": (_filesystem_write_tool_definition(),)},
+    )
+
+    assert generated.tool_calls == (call,)
+    assert router.generate.await_count == 2
+    retry_context = router.generate.await_args_list[1].args[1]
+    assert retry_context[0].role.value == "system"
+    assert "native structured tool" in retry_context[0].content
+
+
+@pytest.mark.asyncio
+async def test_chat_tool_selection_exhaustion_remains_blocked():
+    router = Mock(
+        generate=AsyncMock(
+            return_value=TextGenerationResult(content="I cannot access files.")
+        )
+    )
+    service = ConversationGenerationService(
+        AsyncMock(spec=AsyncSession),
+        Mock(),
+        router,
+        GenerationAdmissionController(1),
+    )
+
+    response = await service._generate_with_tool_loop(
+        uuid4(),
+        uuid4(),
+        _resolved(),
+        (),
+        {"tools": (_filesystem_write_tool_definition(),)},
+        filesystem_intent=True,
+        filesystem_write_intent=True,
+        tools_enabled=True,
+    )
+
+    assert response.startswith("BLOCKED:")
+    assert service.last_chat_execution is not None
+    assert service.last_chat_execution.status == "blocked"
+    assert router.generate.await_count == generation_module.MAX_CHAT_TOOL_SELECTION_ATTEMPTS
+
+
+@pytest.mark.asyncio
+async def test_chat_tool_loop_blocks_missing_tool_without_simulated_result(tmp_path):
+    root = tmp_path / "root"
+    root.mkdir()
+    service = ConversationGenerationService(
+        AsyncMock(spec=AsyncSession),
+        Mock(),
+        Mock(
+            generate=AsyncMock(
+                return_value=TextGenerationResult(
+                    content="",
+                    tool_calls=(
+                        TextGenerationToolCall(
+                            name="filesystem.delete",
+                            arguments={"path": "anything.txt"},
+                        ),
+                    ),
+                )
+            )
+        ),
+        GenerationAdmissionController(1),
+        filesystem_workspace=OwnerFilesystemWorkspace((root,)),
+    )
+
+    response = await service._generate_with_tool_loop(
+        uuid4(),
+        uuid4(),
+        _resolved(),
+        (),
+        {"tools": (_filesystem_write_tool_definition(),)},
+        filesystem_intent=True,
+        filesystem_write_intent=False,
+        tools_enabled=True,
+    )
+
+    assert response.startswith("BLOCKED:")
+    assert "No unverified execution was reported as successful" in response
+    assert service.last_chat_execution is not None
+    assert service.last_chat_execution.status == "blocked"
+    assert service.last_chat_execution.receipts == ()
+
+
+@pytest.mark.asyncio
+async def test_chat_tool_loop_fails_closed_on_read_back_mismatch(
+    monkeypatch,
+    tmp_path,
+):
+    root = tmp_path / "root"
+    root.mkdir()
+    workspace = OwnerFilesystemWorkspace((root,))
+    call = TextGenerationToolCall(
+        name="filesystem.write",
+        arguments={"path": "result.txt", "content": "expected"},
+    )
+    router = Mock(
+        generate=AsyncMock(
+            return_value=TextGenerationResult(content="", tool_calls=(call,))
+        )
+    )
+
+    async def mismatch(_service, _owner, tool_name, _arguments, **_kwargs):
+        if tool_name == "filesystem.exists":
+            result = {"path": "result.txt", "exists": True}
+        elif tool_name == "filesystem.read":
+            result = {"path": "result.txt", "content": "wrong", "sha256": "wrong"}
+        else:
+            result = {"path": "result.txt", "bytes_written": 8}
+        return _tool_record(tool_name, result)
+
+    monkeypatch.setattr(ToolService, "execute_for_owner", mismatch)
+    service = ConversationGenerationService(
+        AsyncMock(spec=AsyncSession),
+        Mock(),
+        router,
+        GenerationAdmissionController(1),
+        filesystem_workspace=workspace,
+    )
+
+    response = await service._generate_with_tool_loop(
+        uuid4(),
+        uuid4(),
+        _resolved(),
+        (),
+        {"tools": (_filesystem_write_tool_definition(),)},
+        filesystem_intent=True,
+        filesystem_write_intent=True,
+        tools_enabled=True,
+    )
+
+    assert response.startswith("FAILED:")
+    assert "successful outcome was claimed" in response
+    assert service.last_chat_execution is not None
+    assert service.last_chat_execution.status == "failed"
+    assert "done" not in service.last_chat_execution.states

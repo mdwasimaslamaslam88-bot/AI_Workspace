@@ -302,6 +302,12 @@ class TaskAwareModelRouter:
             score += 100 if qwen3 else 0
             score += 25 if coder else 0
             score += 20 if ModelCapability.CODE in model.capabilities else 0
+        elif task is ModelTask.TOOL_CALLING:
+            # Repeated native-tool execution on the installed 12 GiB profile
+            # verified Qwen3 while the smaller coder returned prose instead of
+            # a structured call. Keep the tool route evidence-backed and
+            # separate from the coding route.
+            score += 100 if qwen3 else 0
         if task is ModelTask.EXACT_OUTPUT:
             # A complete deterministic 34-case exact-output comparison scored
             # Qwen3 97.65 versus 80.97 for the installed 7B coder.  Keep this

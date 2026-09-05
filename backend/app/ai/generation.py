@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 import math
 import re
-from typing import Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 from app.ai.catalog import ModelCapability, ResolvedModel
 
@@ -13,6 +13,7 @@ class TextGenerationRole(StrEnum):
     SYSTEM = "system"
     USER = "user"
     ASSISTANT = "assistant"
+    TOOL = "tool"
 
 
 class TextGenerationRuntimeUnavailableError(RuntimeError):
@@ -28,10 +29,39 @@ class TextGenerationRuntimeUnsupportedError(RuntimeError):
 
 
 @dataclass(frozen=True, slots=True)
+class TextGenerationToolCall:
+    name: str
+    arguments: dict[str, Any]
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.name, str) or not self.name:
+            raise ValueError("tool call name must be nonblank")
+        if not isinstance(self.arguments, dict):
+            raise TypeError("tool call arguments must be an object")
+
+
+@dataclass(frozen=True, slots=True)
+class TextGenerationToolDefinition:
+    name: str
+    description: str
+    parameters: dict[str, Any]
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.name, str) or not self.name:
+            raise ValueError("tool definition name must be nonblank")
+        if not isinstance(self.description, str) or not self.description:
+            raise ValueError("tool definition description must be nonblank")
+        if not isinstance(self.parameters, dict):
+            raise TypeError("tool definition parameters must be an object")
+
+
+@dataclass(frozen=True, slots=True)
 class TextGenerationMessage:
     role: TextGenerationRole
     content: str
     images: tuple[str, ...] = ()
+    tool_calls: tuple[TextGenerationToolCall, ...] = ()
+    tool_name: str | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.role, TextGenerationRole):
@@ -50,16 +80,37 @@ class TextGenerationMessage:
                 or re.fullmatch(r"[A-Za-z0-9+/]*={0,2}", image) is None
             ):
                 raise ValueError("generation message image must be raw base64")
+        if not isinstance(self.tool_calls, tuple) or any(
+            not isinstance(call, TextGenerationToolCall) for call in self.tool_calls
+        ):
+            raise TypeError("generation message tool calls must be a tuple")
+        if self.tool_calls and self.role is not TextGenerationRole.ASSISTANT:
+            raise ValueError("only assistant messages may contain tool calls")
+        if self.tool_name is not None and (
+            self.role is not TextGenerationRole.TOOL
+            or not isinstance(self.tool_name, str)
+            or not self.tool_name
+        ):
+            raise ValueError("tool message names require a tool role")
+        if self.role is TextGenerationRole.TOOL and self.tool_name is None:
+            raise ValueError("tool messages require a tool name")
+        if self.role is TextGenerationRole.TOOL and self.images:
+            raise ValueError("tool messages cannot contain images")
 
 
 @dataclass(frozen=True, slots=True)
 class TextGenerationResult:
     content: str
+    tool_calls: tuple[TextGenerationToolCall, ...] = ()
 
     def __post_init__(self) -> None:
         if not isinstance(self.content, str):
             raise TypeError("generated content must be a string")
-        if not self.content.strip():
+        if not isinstance(self.tool_calls, tuple) or any(
+            not isinstance(call, TextGenerationToolCall) for call in self.tool_calls
+        ):
+            raise TypeError("generated tool calls must be a tuple")
+        if not self.content.strip() and not self.tool_calls:
             raise ValueError("generated content must not be blank")
 
 
@@ -86,6 +137,7 @@ class TextGenerationRuntime(Protocol):
         frequency_penalty: float | None = None,
         stop_sequences: list[str] | None = None,
         thinking: bool | None = None,
+        tools: tuple[TextGenerationToolDefinition, ...] = (),
     ) -> None: ...
 
     async def generate_text(
@@ -106,6 +158,7 @@ class TextGenerationRuntime(Protocol):
         frequency_penalty: float | None = None,
         stop_sequences: list[str] | None = None,
         thinking: bool | None = None,
+        tools: tuple[TextGenerationToolDefinition, ...] = (),
     ) -> TextGenerationResult: ...
 
 
@@ -153,6 +206,7 @@ class TextGenerationRouter:
         frequency_penalty: float | None = None,
         stop_sequences: list[str] | None = None,
         thinking: bool | None = None,
+        tools: tuple[TextGenerationToolDefinition, ...] = (),
     ) -> None:
         runtime = self._runtime_for(model)
         preflight = getattr(runtime, "preflight_text", None)
@@ -176,6 +230,7 @@ class TextGenerationRouter:
             frequency_penalty=frequency_penalty,
             stop_sequences=stop_sequences,
             **({"thinking": thinking} if thinking is not None else {}),
+            **({"tools": tools} if tools else {}),
         )
 
     def _runtime_for(self, model: ResolvedModel) -> TextGenerationRuntime:
@@ -210,6 +265,7 @@ class TextGenerationRouter:
         frequency_penalty: float | None = None,
         stop_sequences: list[str] | None = None,
         thinking: bool | None = None,
+        tools: tuple[TextGenerationToolDefinition, ...] = (),
     ) -> TextGenerationResult:
         if not isinstance(model, ResolvedModel):
             raise TypeError("model must be a ResolvedModel")
@@ -390,4 +446,5 @@ class TextGenerationRouter:
             frequency_penalty=frequency_penalty,
             stop_sequences=stop_sequences,
             **({"thinking": thinking} if thinking is not None else {}),
+            **({"tools": tools} if tools else {}),
         )

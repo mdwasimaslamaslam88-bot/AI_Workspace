@@ -2629,7 +2629,9 @@ def async_generation_api(monkeypatch):
         updated_at=datetime(2026, 8, 13, 1, 1, tzinfo=timezone.utc),
     )
     generate = AsyncMock(return_value=generated_message)
-    service_factory = Mock(return_value=Mock(generate_for_owner=generate))
+    service_factory = Mock(
+        return_value=Mock(generate_for_owner=generate, last_chat_execution=None)
+    )
     monkeypatch.setattr(
         conversations_module,
         "ConversationGenerationService",
@@ -2946,7 +2948,7 @@ def conversation_generation_api(monkeypatch):
         updated_at=datetime(2026, 8, 13, 1, 1, tzinfo=timezone.utc),
     )
     generate = AsyncMock(return_value=generated_message)
-    service = Mock(generate_for_owner=generate)
+    service = Mock(generate_for_owner=generate, last_chat_execution=None)
     service_factory = Mock(return_value=service)
     monkeypatch.setattr(
         conversations_module,
@@ -2991,6 +2993,7 @@ def conversation_generation_api(monkeypatch):
                 "admission": admission_controller,
                 "duration": 73.25,
                 "service_factory": service_factory,
+                "service": service,
                 "generate": generate,
             }
     finally:
@@ -3074,6 +3077,69 @@ def test_authenticated_generation_returns_exact_safe_created_message(
     api["session"].commit.assert_not_awaited()
     api["session"].rollback.assert_not_awaited()
     api["session"].refresh.assert_not_awaited()
+
+
+def test_authenticated_generation_returns_truthful_tool_execution_evidence(
+    conversation_generation_api,
+):
+    from app.services.conversation_generation import (
+        ChatExecutionTrace,
+        ChatToolReceipt,
+    )
+
+    api = conversation_generation_api
+    audit_id = uuid4()
+    api["service"].last_chat_execution = ChatExecutionTrace(
+        status="completed",
+        states=(
+            "planning",
+            "selecting_tool",
+            "checking_permission",
+            "executing",
+            "verifying",
+            "done",
+        ),
+        receipts=(
+            ChatToolReceipt(
+                tool="filesystem.write",
+                operation="write",
+                status="completed",
+                audit_id=audit_id,
+                path="AI_OS_REAL_TEST.txt",
+                verification="exact_read_back_passed",
+            ),
+        ),
+        detail="Real tool execution completed with durable audit evidence.",
+    )
+
+    response = api["client"].post(
+        f"/api/v1/conversations/{api['conversation_id']}/messages/generate",
+        json={"model_id": GENERATION_MODEL_ID},
+    )
+
+    assert response.status_code == 201
+    assert response.json()["execution"] == {
+        "status": "completed",
+        "states": [
+            "planning",
+            "selecting_tool",
+            "checking_permission",
+            "executing",
+            "verifying",
+            "done",
+        ],
+        "receipts": [
+            {
+                "tool": "filesystem.write",
+                "operation": "write",
+                "status": "completed",
+                "audit_id": str(audit_id),
+                "path": "AI_OS_REAL_TEST.txt",
+                "verification": "exact_read_back_passed",
+            }
+        ],
+        "detail": "Real tool execution completed with durable audit evidence.",
+    }
     response_text = response.text.lower()
     for unsafe in (
         "owner_id",

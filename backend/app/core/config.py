@@ -150,6 +150,7 @@ class Settings(BaseSettings):
     EXTERNAL_AI_STATE_ROOT: Path | None = None
     CONNECTOR_STATE_ROOT: Path | None = None
     CONNECTOR_ALLOWED_ORIGINS: list[str] = []
+    FILESYSTEM_TOOL_ROOTS: tuple[Path, ...] = ()
     SELF_UPDATE_STATE_ROOT: Path | None = None
     WORK_STATION_WEB_ROOT: Path | None = None
     REMOTE_GATEWAY_MODE: Literal["local", "tailscale"] = "local"
@@ -513,6 +514,50 @@ class Settings(BaseSettings):
         if len(set(normalized)) != len(normalized):
             raise ValueError("connector origins must be unique")
         return normalized
+
+    @field_validator("FILESYSTEM_TOOL_ROOTS")
+    @classmethod
+    def require_narrow_filesystem_tool_roots(cls, value):
+        if len(value) > 4:
+            raise ValueError("at most four filesystem tool roots may be configured")
+        project_root = Path(__file__).resolve().parents[3]
+        home_root = Path.home().resolve(strict=False)
+        protected = tuple(
+            Path(item)
+            for item in (
+                "/boot",
+                "/dev",
+                "/etc",
+                "/proc",
+                "/root",
+                "/run",
+                "/sys",
+                "/usr",
+                "/var",
+            )
+        )
+        resolved: list[Path] = []
+        for item in value:
+            candidate = Path(item)
+            if not candidate.is_absolute():
+                raise ValueError("filesystem tool roots must be absolute")
+            candidate = candidate.resolve(strict=False)
+            if (
+                candidate == Path("/")
+                or candidate == home_root
+                or candidate in home_root.parents
+                or candidate == project_root
+                or project_root in candidate.parents
+                or any(
+                    candidate == boundary or boundary in candidate.parents
+                    for boundary in protected
+                )
+            ):
+                raise ValueError("filesystem tool roots must be narrow private paths")
+            if candidate in resolved:
+                raise ValueError("filesystem tool roots must be unique")
+            resolved.append(candidate)
+        return tuple(resolved)
 
     @field_validator("WORK_STATION_WEB_ROOT")
     @classmethod

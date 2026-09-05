@@ -1,0 +1,59 @@
+{
+  "schema_version": 1,
+  "date": "2026-09-06",
+  "status": "RUNTIME_PASS",
+  "root_cause": "authenticated_chat_bypassed_authoritative_tool_gateway",
+  "shared_components_reused": [
+    "task_model_router",
+    "text_generation_router",
+    "generation_admission_controller",
+    "tool_service",
+    "tool_repository",
+    "owner_authentication",
+    "postgresql_tool_audit"
+  ],
+  "filesystem_tools": [
+    "filesystem.write",
+    "filesystem.read",
+    "filesystem.exists",
+    "filesystem.list",
+    "filesystem.stat"
+  ],
+  "exact_test": {
+    "prompt_sha256": "880ecfa48df38a0beed91f8c3993575adb983c3e77767e4b775d29e23bd0ae3e",
+    "relative_path": "AI_OS_REAL_TEST.txt",
+    "content_sha256": "96437372e57c6ffab75d47941a1718cd7b3100d2c96f11ee9ea488dbef2b21b3",
+    "model_public_id": "ollama-local:4d78401040148e2da99b8a76",
+    "model_runtime_reference": "qwen3:8b",
+    "bounded_selection_attempts": 3,
+    "model_tool_call": true,
+    "file_created": true,
+    "exists_verified": true,
+    "read_verified": true,
+    "exact_content_verified": true,
+    "audit_count": 3,
+    "ui_verified": true,
+    "cleanup_verified": true,
+    "external_api_used": false
+  },
+  "security": {
+    "default_deny": true,
+    "relative_paths_only": true,
+    "owner_isolation": true,
+    "path_traversal_denied": true,
+    "symlink_escape_denied": true,
+    "bounded_io": true,
+    "protected_paths_denied": true,
+    "audit_content_redacted": true,
+    "workflow_filesystem_permission": false,
+    "shell_permission": false,
+    "root_filesystem_permission": false
+  },
+  "evidence": [
+    "backend focused tool and generation tests",
+    "PostgreSQL integration and migration drift gate",
+    "isolated compiled-PWA browser protocol test",
+    "installed-runtime compiled-PWA authenticated test",
+    "real_chat_tool_smoke"
+  ]
+}

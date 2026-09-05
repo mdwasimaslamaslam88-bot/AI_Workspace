@@ -423,6 +423,7 @@ async def append_message(
 @router.post(
     "/{conversation_id}/messages/generate",
     response_model=ConversationTextGenerationResponse,
+    response_model_exclude_none=True,
     status_code=status.HTTP_201_CREATED,
 )
 async def generate_assistant_message(
@@ -457,6 +458,9 @@ async def generate_assistant_message(
     )
     document_embedding_runtime = getattr(
         request.app.state, "document_embedding_runtime", None
+    )
+    filesystem_workspace = getattr(
+        request.app.state, "filesystem_tool_workspace", None
     )
     if (
         catalog is None
@@ -501,7 +505,7 @@ async def generate_assistant_message(
         name="generation-client-disconnect-watcher",
     )
     try:
-        message = await ConversationGenerationService(
+        generation_service = ConversationGenerationService(
             session,
             catalog,
             generation_router,
@@ -523,7 +527,13 @@ async def generate_assistant_message(
                 else {}
             ),
             memory_enabled=True,
-        ).generate_for_owner(
+            **(
+                {"filesystem_workspace": filesystem_workspace}
+                if filesystem_workspace is not None
+                else {}
+            ),
+        )
+        message = await generation_service.generate_for_owner(
             current_user.id,
             conversation_id,
             selected_model_id,
@@ -638,6 +648,11 @@ async def generate_assistant_message(
     return ConversationTextGenerationResponse(
         model_id=selected_model_id,
         message=MessageResponse.model_validate(message),
+        execution=(
+            generation_service.last_chat_execution
+            if generation_service.last_chat_execution is not None
+            else None
+        ),
     )
 
 

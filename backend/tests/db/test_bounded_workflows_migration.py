@@ -1,5 +1,9 @@
 import app.models  # noqa: F401
+import sqlalchemy as sa
 from app.db.base import Base
+from tests.db.test_bounded_tools_migration import (
+    _replace_historical_tool_constraints,
+)
 from tests.db.test_initial_domain_migration import (
     RecordingOperations,
     _load_revision,
@@ -54,8 +58,16 @@ def test_upgrade_matches_exact_workflow_orm_schema():
         assert _table_signature(operations.metadata.tables[table_name]) == (
             _table_signature(Base.metadata.tables[table_name])
         )
+    expected_metadata = sa.MetaData(naming_convention=Base.metadata.naming_convention)
+    expected_tool_table = Base.metadata.tables["tool_executions"].to_metadata(
+        expected_metadata
+    )
+    _replace_historical_tool_constraints(
+        expected_tool_table,
+        initiator="initiator IN ('explicit_user', 'workflow')",
+    )
     assert _table_signature(operations.metadata.tables["tool_executions"]) == (
-        _table_signature(Base.metadata.tables["tool_executions"])
+        _table_signature(expected_tool_table)
     )
 
 

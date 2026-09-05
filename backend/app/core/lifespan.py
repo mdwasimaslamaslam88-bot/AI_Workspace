@@ -50,6 +50,7 @@ from app.runtimes.ollama import (
 from app.runtimes.ollama_embedding import OllamaEmbeddingRuntime
 from app.runtimes.piper import PiperSpeechSynthesisRuntime
 from app.services.asset import reconcile_asset_storage
+from app.services.filesystem_tool import OwnerFilesystemWorkspace
 from app.services.generation_admission import GenerationAdmissionController
 from app.services.tool import reconcile_tool_executions
 from app.services.workflow import WorkflowRunner, reconcile_workflows
@@ -206,6 +207,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 app.state.db_session_factory, asset_storage
             )
         app.state.asset_storage = asset_storage
+        app.state.filesystem_tool_workspace = (
+            OwnerFilesystemWorkspace(settings.FILESYSTEM_TOOL_ROOTS)
+            if settings.FILESYSTEM_TOOL_ROOTS
+            else None
+        )
         app.state.redis_client = redis_client
         app.state.ollama_client = ollama_client
         app.state.comfyui_client = comfyui_client

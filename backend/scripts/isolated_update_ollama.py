@@ -16,6 +16,9 @@ from typing import Any
 MODEL_REFERENCE = "work-station-update-smoke:latest"
 MAX_REQUEST_BYTES = 1_048_576
 _GENERATION_TEXT = "The isolated browser release smoke test is ready."
+_FILESYSTEM_PROMPT = (
+    "Create AI_OS_REAL_TEST.txt with:\nAI OS REAL EXECUTION VERIFIED"
+)
 
 
 def response_for(
@@ -48,7 +51,7 @@ def response_for(
         return (
             200,
             {
-                "capabilities": ["completion"],
+                "capabilities": ["completion", "tools"],
                 "model_info": {
                     "general.parameter_count": 100_000_000,
                     "workstation.context_length": 8_192,
@@ -56,6 +59,60 @@ def response_for(
             },
         )
     if path == "/api/chat" and _valid_chat_request(payload):
+        messages = payload["messages"]
+        filesystem_user_index = next(
+            (
+                index
+                for index in range(len(messages) - 1, -1, -1)
+                if messages[index].get("role") == "user"
+                and messages[index].get("content") == _FILESYSTEM_PROMPT
+            ),
+            None,
+        )
+        if filesystem_user_index is not None:
+            later_tool_messages = [
+                message
+                for message in messages[filesystem_user_index + 1 :]
+                if message.get("role") == "tool"
+            ]
+            if not later_tool_messages:
+                return (
+                    200,
+                    {
+                        "done": True,
+                        "message": {
+                            "role": "assistant",
+                            "content": "",
+                            "tool_calls": [
+                                {
+                                    "function": {
+                                        "name": "filesystem.write",
+                                        "arguments": {
+                                            "path": "AI_OS_REAL_TEST.txt",
+                                            "content": "AI OS REAL EXECUTION VERIFIED",
+                                        },
+                                    }
+                                }
+                            ],
+                        },
+                    },
+                )
+            tool_result = json.loads(later_tool_messages[-1]["content"])
+            if (
+                tool_result.get("status") != "completed"
+                or tool_result.get("path") != "AI_OS_REAL_TEST.txt"
+            ):
+                return 400, {"error": "invalid isolated tool receipt"}
+            return (
+                200,
+                {
+                    "done": True,
+                    "message": {
+                        "role": "assistant",
+                        "content": "The real file operation completed from its tool receipt.",
+                    },
+                },
+            )
         return (
             200,
             {
@@ -78,9 +135,21 @@ def _valid_chat_request(payload: dict[str, Any]) -> bool:
         and messages
         and all(
             isinstance(message, dict)
-            and message.get("role") in {"system", "user", "assistant"}
+            and message.get("role") in {"system", "user", "assistant", "tool"}
             and isinstance(message.get("content"), str)
             for message in messages
+        )
+        and (
+            "tools" not in payload
+            or (
+                isinstance(payload["tools"], list)
+                and all(
+                    isinstance(tool, dict)
+                    and tool.get("type") == "function"
+                    and isinstance(tool.get("function"), dict)
+                    for tool in payload["tools"]
+                )
+            )
         )
     )
 

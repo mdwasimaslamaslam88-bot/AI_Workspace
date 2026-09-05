@@ -29,6 +29,11 @@ _EXPECTED_TOOLS = {
     "document_search": "personal_documents_read",
     "conversation_search": "personal_conversations_read",
     "memory_search": "personal_memory_read",
+    "filesystem.write": "workspace_write",
+    "filesystem.read": "workspace_read",
+    "filesystem.exists": "workspace_read",
+    "filesystem.list": "workspace_read",
+    "filesystem.stat": "workspace_read",
 }
 
 

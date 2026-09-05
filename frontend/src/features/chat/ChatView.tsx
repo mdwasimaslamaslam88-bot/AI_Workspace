@@ -13,6 +13,7 @@ import type { PresenceState } from "@work-station/shared";
 import type { UploadProgress } from "../../api/client";
 import type {
   Asset,
+  ChatExecutionTrace,
   ConversationCreateRequest,
   ConversationSummary,
   IndexedDocument,
@@ -80,6 +81,7 @@ interface ChatViewProps extends AttachmentActions {
   creatingConversation: boolean;
   generating: boolean;
   notice: SafeNotice | null;
+  execution?: ChatExecutionTrace | null;
   onCreateConversation: (request: ConversationCreateRequest) => Promise<void>;
   onCancelNew: () => void;
   onGenerate: (userMessage?: string, attachmentIds?: string[]) => Promise<void>;
@@ -666,6 +668,7 @@ export function ChatView({
   creatingConversation,
   generating,
   notice,
+  execution = null,
   onCreateConversation,
   onCancelNew,
   onGenerate,
@@ -1231,6 +1234,36 @@ export function ChatView({
       )}
       {voiceNotice !== null && (
         <p className="notice notice-error" role="alert">{voiceNotice}</p>
+      )}
+      {execution !== null && (
+        <section
+          className={`chat-execution chat-execution-${execution.status}`}
+          aria-label="AI OS tool execution"
+        >
+          <div className="chat-execution-heading">
+            <strong>AI OS execution</strong>
+            <span>{execution.status === "completed" ? "Verified" : execution.status}</span>
+          </div>
+          <ol className="chat-execution-states" aria-label="Execution states">
+            {execution.states.map((state, index) => (
+              <li key={`${state}-${index}`}>{state.replaceAll("_", " ")}</li>
+            ))}
+          </ol>
+          {execution.receipts.length > 0 && (
+            <ul className="chat-execution-receipts">
+              {execution.receipts.map((receipt) => (
+                <li key={`${receipt.audit_id ?? "none"}-${receipt.tool}`}>
+                  <code>{receipt.tool}</code>: {receipt.status}
+                  {receipt.path === null ? "" : ` — ${receipt.path}`}
+                  {receipt.verification === null
+                    ? ""
+                    : ` — ${receipt.verification.replaceAll("_", " ")}`}
+                </li>
+              ))}
+            </ul>
+          )}
+          <p>{execution.detail}</p>
+        </section>
       )}
 
       <div className="message-region" aria-live="polite" aria-busy={loadingMessages}>

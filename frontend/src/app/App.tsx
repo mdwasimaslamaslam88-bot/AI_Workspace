@@ -4,6 +4,7 @@ import { resolvePresenceState, type PresenceState } from "@work-station/shared";
 import { ApiClient, ApiError, type UploadProgress } from "../api/client";
 import type {
   Asset,
+  ChatExecutionTrace,
   AgentOSCapabilities,
   AgentRun,
   AgentRunCreateRequest,
@@ -279,6 +280,7 @@ export function App() {
   const [messagesLoadingMore, setMessagesLoadingMore] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [chatNotice, setChatNotice] = useState<SafeNotice | null>(null);
+  const [chatExecution, setChatExecution] = useState<ChatExecutionTrace | null>(null);
   const [memoryOpen, setMemoryOpen] = useState(false);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [workflowsOpen, setWorkflowsOpen] = useState(false);
@@ -327,6 +329,7 @@ export function App() {
     setMessageCursor(null);
     setCreatingNew(false);
     setGenerating(false);
+    setChatExecution(null);
     setMemoryOpen(false);
     setToolsOpen(false);
     setWorkflowsOpen(false);
@@ -594,6 +597,7 @@ export function App() {
       setMessageCursor(null);
       setMessagesLoading(true);
       setChatNotice(null);
+      setChatExecution(null);
       try {
         const [conversation, page] = await Promise.all([
           client.getConversation(summary.id, controller.signal),
@@ -649,6 +653,7 @@ export function App() {
         setMessageCursor(null);
         setCreatingNew(true);
         setChatNotice(null);
+        setChatExecution(null);
       }
     },
     [client, selectedConversation?.id],
@@ -774,6 +779,7 @@ export function App() {
       generationAbort.current = controller;
       setGenerating(true);
       setChatNotice(null);
+      setChatExecution(null);
       try {
         const response = await client.generateResponse(
           conversationId,
@@ -786,6 +792,7 @@ export function App() {
           },
           controller.signal,
         );
+        setChatExecution(response.execution);
         setMessages((current) => mergeMessages(current, [response.message]));
         await refreshMessageSnapshot(conversationId, 2);
         await reloadConversations();
@@ -2586,6 +2593,7 @@ export function App() {
           creatingConversation={creatingConversation}
           generating={generating}
           notice={chatNotice}
+          execution={chatExecution}
           onCreateConversation={createConversation}
           onCancelNew={() => setCreatingNew(false)}
           onGenerate={(message, attachmentIds) =>

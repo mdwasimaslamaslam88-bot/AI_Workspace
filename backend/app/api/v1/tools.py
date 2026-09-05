@@ -40,6 +40,11 @@ def _service(request: Request, session: AsyncSession) -> ToolService:
             if embedding_runtime is not None
             else {}
         ),
+        filesystem_workspace=getattr(
+            request.app.state,
+            "filesystem_tool_workspace",
+            None,
+        ),
     )
 
 
@@ -57,9 +62,11 @@ async def _cancel_on_disconnect(
 
 @router.get("", response_model=ToolDescriptorPageResponse)
 async def list_tools(
+    request: Request,
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> ToolDescriptorPageResponse:
     del current_user
+    workspace = getattr(request.app.state, "filesystem_tool_workspace", None)
     return ToolDescriptorPageResponse(
         items=[
             ToolDescriptorResponse(
@@ -70,7 +77,11 @@ async def list_tools(
                 timeout_seconds=item.timeout_seconds,
                 max_output_characters=item.max_output_characters,
             )
-            for item in ToolService.definitions()
+            for item in ToolService.definitions(
+                filesystem_available=(
+                    workspace is not None and workspace.available
+                )
+            )
         ]
     )
 

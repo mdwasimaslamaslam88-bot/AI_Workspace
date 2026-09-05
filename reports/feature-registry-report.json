@@ -531,6 +531,102 @@
       "ui_entry_point": "/home#image-editing"
     },
     {
+      "backend_capability": "conversation_tool_orchestrator",
+      "category": "Chat execution",
+      "dependencies": [
+        "verified_tool_capable_local_model"
+      ],
+      "description": "Structured chat tool selection exposed through the existing authenticated chat execution capability.",
+      "id": "ai_presence.structured_tool_selection",
+      "layer": "ai_presence",
+      "required_permissions": [
+        "owner_session",
+        "bounded_tool_execution"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_conversation_generation",
+        "backend:test_filesystem_tool",
+        "web:authenticated_chat_tool_e2e",
+        "backend:real_chat_tool_smoke",
+        "web:chat_execution_state"
+      ],
+      "title": "Structured chat tool selection",
+      "ui_entry_point": "/home#structured-tool-selection"
+    },
+    {
+      "backend_capability": "conversation_tool_orchestrator",
+      "category": "Chat execution",
+      "dependencies": [
+        "verified_tool_capable_local_model"
+      ],
+      "description": "Real tool result continuation exposed through the existing authenticated chat execution capability.",
+      "id": "ai_presence.real_tool_result_loop",
+      "layer": "ai_presence",
+      "required_permissions": [
+        "owner_session",
+        "bounded_tool_execution"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_conversation_generation",
+        "backend:test_filesystem_tool",
+        "web:authenticated_chat_tool_e2e",
+        "backend:real_chat_tool_smoke",
+        "web:chat_execution_state"
+      ],
+      "title": "Real tool result continuation",
+      "ui_entry_point": "/home#real-tool-result-loop"
+    },
+    {
+      "backend_capability": "conversation_tool_orchestrator",
+      "category": "Chat execution",
+      "dependencies": [
+        "verified_tool_capable_local_model"
+      ],
+      "description": "Independent tool read-back verification exposed through the existing authenticated chat execution capability.",
+      "id": "ai_presence.tool_read_back_verification",
+      "layer": "ai_presence",
+      "required_permissions": [
+        "owner_session",
+        "bounded_tool_execution"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_conversation_generation",
+        "backend:test_filesystem_tool",
+        "web:authenticated_chat_tool_e2e",
+        "backend:real_chat_tool_smoke",
+        "web:chat_execution_state"
+      ],
+      "title": "Independent tool read-back verification",
+      "ui_entry_point": "/home#tool-read-back-verification"
+    },
+    {
+      "backend_capability": "conversation_tool_orchestrator",
+      "category": "Chat execution",
+      "dependencies": [
+        "verified_tool_capable_local_model"
+      ],
+      "description": "Truthful blocked and failed tool state exposed through the existing authenticated chat execution capability.",
+      "id": "ai_presence.truthful_tool_failure",
+      "layer": "ai_presence",
+      "required_permissions": [
+        "owner_session",
+        "bounded_tool_execution"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_conversation_generation",
+        "backend:test_filesystem_tool",
+        "web:authenticated_chat_tool_e2e",
+        "backend:real_chat_tool_smoke",
+        "web:chat_execution_state"
+      ],
+      "title": "Truthful blocked and failed tool state",
+      "ui_entry_point": "/home#truthful-tool-failure"
+    },
+    {
       "backend_capability": "external_speech_model_contract",
       "category": "Extended speech profiles",
       "dependencies": [
@@ -6133,6 +6229,106 @@
       "backend_capability": "bounded_tools",
       "category": "Local tools",
       "dependencies": [],
+      "description": "Owner workspace file write exposed through the existing authenticated local tools capability.",
+      "id": "apps_hub.filesystem_write",
+      "layer": "apps_hub",
+      "required_permissions": [
+        "owner_session",
+        "bounded_tool_execution"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_tools_api",
+        "web:tool_panel",
+        "mobile:studio"
+      ],
+      "title": "Owner workspace file write",
+      "ui_entry_point": "/apps#filesystem-write"
+    },
+    {
+      "backend_capability": "bounded_tools",
+      "category": "Local tools",
+      "dependencies": [],
+      "description": "Owner workspace file read exposed through the existing authenticated local tools capability.",
+      "id": "apps_hub.filesystem_read",
+      "layer": "apps_hub",
+      "required_permissions": [
+        "owner_session",
+        "bounded_tool_execution"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_tools_api",
+        "web:tool_panel",
+        "mobile:studio"
+      ],
+      "title": "Owner workspace file read",
+      "ui_entry_point": "/apps#filesystem-read"
+    },
+    {
+      "backend_capability": "bounded_tools",
+      "category": "Local tools",
+      "dependencies": [],
+      "description": "Owner workspace existence check exposed through the existing authenticated local tools capability.",
+      "id": "apps_hub.filesystem_exists",
+      "layer": "apps_hub",
+      "required_permissions": [
+        "owner_session",
+        "bounded_tool_execution"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_tools_api",
+        "web:tool_panel",
+        "mobile:studio"
+      ],
+      "title": "Owner workspace existence check",
+      "ui_entry_point": "/apps#filesystem-exists"
+    },
+    {
+      "backend_capability": "bounded_tools",
+      "category": "Local tools",
+      "dependencies": [],
+      "description": "Owner workspace directory list exposed through the existing authenticated local tools capability.",
+      "id": "apps_hub.filesystem_list",
+      "layer": "apps_hub",
+      "required_permissions": [
+        "owner_session",
+        "bounded_tool_execution"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_tools_api",
+        "web:tool_panel",
+        "mobile:studio"
+      ],
+      "title": "Owner workspace directory list",
+      "ui_entry_point": "/apps#filesystem-list"
+    },
+    {
+      "backend_capability": "bounded_tools",
+      "category": "Local tools",
+      "dependencies": [],
+      "description": "Owner workspace file metadata exposed through the existing authenticated local tools capability.",
+      "id": "apps_hub.filesystem_stat",
+      "layer": "apps_hub",
+      "required_permissions": [
+        "owner_session",
+        "bounded_tool_execution"
+      ],
+      "status": "implemented",
+      "test_coverage": [
+        "backend:test_tools_api",
+        "web:tool_panel",
+        "mobile:studio"
+      ],
+      "title": "Owner workspace file metadata",
+      "ui_entry_point": "/apps#filesystem-stat"
+    },
+    {
+      "backend_capability": "bounded_tools",
+      "category": "Local tools",
+      "dependencies": [],
       "description": "Tool audit log exposed through the existing authenticated local tools capability.",
       "id": "apps_hub.tool_audit_log",
       "layer": "apps_hub",
@@ -7037,21 +7233,21 @@
   ],
   "layers": {
     "ai_command_center": 52,
-    "ai_presence": 45,
-    "apps_hub": 47,
+    "ai_presence": 49,
+    "apps_hub": 52,
     "mission_control": 39,
     "universal_workspace": 138
   },
   "product": "AI OS",
-  "registry_sha256": "606eefc6c6193a0757afa6dbfc8608b79426739a26b8b6081e1456bf26e5ada2",
+  "registry_sha256": "24f7603971405d6f8777da685607c9687186809ee4a9cfe66a7023ccee375f2d",
   "schema_version": 1,
   "statuses": {
     "external_dependency": 39,
-    "implemented": 268,
+    "implemented": 277,
     "planned": 0,
     "runtime_dependent": 14
   },
-  "total": 321,
+  "total": 330,
   "validation": {
     "backend_or_boundary_present": true,
     "test_coverage_present": true,
