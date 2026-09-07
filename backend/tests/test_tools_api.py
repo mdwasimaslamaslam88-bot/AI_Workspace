@@ -83,6 +83,18 @@ def test_registry_exposes_schema_permission_timeout_and_output_bound(tools_api):
     )
 
 
+def test_registry_does_not_expose_privileged_orchestrator_tools(tools_api):
+    client, _user, _service = tools_api
+
+    response = client.get("/api/v1/tools")
+
+    assert response.status_code == 200
+    names = {item["name"] for item in response.json()["items"]}
+    assert "filesystem.write" not in names
+    assert "filesystem.read" not in names
+    assert "dex.delegate" not in names
+
+
 def test_execute_passes_authenticated_owner_and_returns_safe_result(tools_api):
     client, user, service = tools_api
     record = _record()

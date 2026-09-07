@@ -8,7 +8,7 @@ import hashlib
 import json
 import math
 import time
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -16,6 +16,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictInt, ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.documents.embedding import EmbeddingRuntime
+from app.dex import DexGateway, DexGatewayError
 from app.models.tool import (
     MAX_TOOL_ARGUMENT_JSON_CHARACTERS,
     MAX_TOOL_RESULT_JSON_CHARACTERS,
@@ -113,6 +114,16 @@ class FilesystemListInput(_StrictInput):
     limit: StrictInt = Field(default=100, ge=1, le=MAX_FILESYSTEM_LIST_ENTRIES)
 
 
+class DexDelegateInput(_StrictInput):
+    request: str = Field(min_length=1, max_length=16_000, pattern=r"\S")
+    capability: Literal["analysis", "diagnosis", "coding", "verification"] = (
+        "analysis"
+    )
+    scope: Literal["repository", "owner_workspace"] = "repository"
+    execution_mode: Literal["read_only", "workspace_write"] = "read_only"
+    require_ai_os_review: bool = True
+
+
 @dataclass(frozen=True, slots=True)
 class ToolDefinition:
     name: str
@@ -193,7 +204,7 @@ TOOL_DEFINITIONS = (
         "workspace_write",
         5.0,
         4_096,
-        frozenset({"explicit_user", "chat_model"}),
+        frozenset({"chat_model", "dex_agent"}),
     ),
     ToolDefinition(
         "filesystem.read",
@@ -202,7 +213,7 @@ TOOL_DEFINITIONS = (
         "workspace_read",
         5.0,
         16_384,
-        frozenset({"explicit_user", "chat_model", "chat_verifier"}),
+        frozenset({"chat_model", "chat_verifier", "dex_agent"}),
     ),
     ToolDefinition(
         "filesystem.exists",
@@ -211,7 +222,7 @@ TOOL_DEFINITIONS = (
         "workspace_read",
         5.0,
         4_096,
-        frozenset({"explicit_user", "chat_model", "chat_verifier"}),
+        frozenset({"chat_model", "chat_verifier", "dex_agent"}),
     ),
     ToolDefinition(
         "filesystem.list",
@@ -220,7 +231,7 @@ TOOL_DEFINITIONS = (
         "workspace_read",
         5.0,
         12_000,
-        frozenset({"explicit_user", "chat_model"}),
+        frozenset({"chat_model", "dex_agent"}),
     ),
     ToolDefinition(
         "filesystem.stat",
@@ -229,7 +240,19 @@ TOOL_DEFINITIONS = (
         "workspace_read",
         5.0,
         4_096,
-        frozenset({"explicit_user", "chat_model"}),
+        frozenset({"chat_model", "dex_agent"}),
+    ),
+    ToolDefinition(
+        "dex.delegate",
+        (
+            "Delegate bounded engineering analysis, diagnosis, coding, or verification "
+            "to the real local DEX (Codex) runtime and independently verify its result."
+        ),
+        DexDelegateInput,
+        "agent_delegation",
+        300.0,
+        16_000,
+        frozenset({"chat_model"}),
     ),
 )
 TOOL_REGISTRY = {definition.name: definition for definition in TOOL_DEFINITIONS}
@@ -380,6 +403,7 @@ class ToolService:
         document_admission: asyncio.Semaphore | None = None,
         document_embedding_runtime: EmbeddingRuntime | None = None,
         filesystem_workspace: OwnerFilesystemWorkspace | None = None,
+        dex_gateway: DexGateway | None = None,
     ) -> None:
         self.session = session
         self.repository = ToolRepository(session)
@@ -387,12 +411,14 @@ class ToolService:
         self.document_admission = document_admission
         self.document_embedding_runtime = document_embedding_runtime
         self.filesystem_workspace = filesystem_workspace
+        self.dex_gateway = dex_gateway
 
     @staticmethod
     def definitions(
         *,
         initiator: str = "explicit_user",
         filesystem_available: bool = False,
+        dex_available: bool = False,
     ) -> tuple[ToolDefinition, ...]:
         return tuple(
             definition
@@ -402,6 +428,7 @@ class ToolService:
                 not definition.name.startswith("filesystem.")
                 or filesystem_available
             )
+            and (definition.name != "dex.delegate" or dex_available)
         )
 
     async def list_for_owner(
@@ -431,6 +458,7 @@ class ToolService:
             "workflow",
             "chat_model",
             "chat_verifier",
+            "dex_agent",
         }:
             raise ValueError("tool initiator is invalid")
         validated_call = validate_tool_call(
@@ -487,7 +515,13 @@ class ToolService:
             )
         try:
             result = await asyncio.wait_for(
-                self._invoke(owner_id, definition, validated),
+                self._invoke(
+                    owner_id,
+                    definition,
+                    validated,
+                    initiator=initiator,
+                    execution_id=execution_id,
+                ),
                 timeout=definition.timeout_seconds,
             )
             if isinstance(result, FilesystemOperationResult):
@@ -536,6 +570,7 @@ class ToolService:
             ToolInputInvalidError,
             _ToolInvocationFailed,
             FilesystemToolError,
+            DexGatewayError,
             ZoneInfoNotFoundError,
         ):
             return await self._finish(
@@ -595,6 +630,9 @@ class ToolService:
         owner_id: UUID,
         definition: ToolDefinition,
         validated: _StrictInput,
+        *,
+        initiator: str = "explicit_user",
+        execution_id: UUID | None = None,
     ) -> Any:
         active_definition = TOOL_REGISTRY.get(definition.name)
         if active_definition is not definition:
@@ -735,6 +773,23 @@ class ToolService:
                     validated.path,
                     root_index=validated.root_index,
                 )
+        if definition.name == "dex.delegate":
+            assert isinstance(validated, DexDelegateInput)
+            gateway = self.dex_gateway
+            if gateway is None or not gateway.available:
+                raise _ToolInvocationFailed("DEX gateway is unavailable")
+            if execution_id is None:  # pragma: no cover - internal invariant
+                raise _ToolInvocationFailed("DEX audit identity is unavailable")
+            return await gateway.delegate(
+                owner_id,
+                execution_id,
+                request=validated.request,
+                capability=validated.capability,
+                scope=validated.scope,
+                execution_mode=validated.execution_mode,
+                require_ai_os_review=validated.require_ai_os_review,
+                initiator=initiator,
+            )
         raise ToolNotFoundError("tool is not registered")
 
     @staticmethod
@@ -742,6 +797,20 @@ class ToolService:
         definition: ToolDefinition,
         arguments: dict[str, Any],
     ) -> str:
+        if definition.name == "dex.delegate":
+            request = arguments["request"]
+            encoded = request.encode("utf-8")
+            return _canonical_json(
+                {
+                    "request_bytes": len(encoded),
+                    "request_sha256": hashlib.sha256(encoded).hexdigest(),
+                    "capability": arguments.get("capability", "analysis"),
+                    "scope": arguments.get("scope", "repository"),
+                    "execution_mode": arguments.get("execution_mode", "read_only"),
+                    "require_ai_os_review": arguments.get("require_ai_os_review", True),
+                },
+                MAX_TOOL_ARGUMENT_JSON_CHARACTERS,
+            )
         if definition.name != "filesystem.write":
             return _canonical_json(arguments, MAX_TOOL_ARGUMENT_JSON_CHARACTERS)
         content = arguments["content"]
@@ -758,6 +827,26 @@ class ToolService:
 
     @staticmethod
     def _audit_result(definition: ToolDefinition, result: Any) -> Any:
+        if definition.name == "dex.delegate" and isinstance(result, dict):
+            dex_result = result.get("result")
+            summary = dex_result.get("summary") if isinstance(dex_result, dict) else None
+            return {
+                key: value
+                for key, value in result.items()
+                if key not in {"result", "timeline"}
+            } | {
+                "result_redacted": True,
+                "summary_sha256": (
+                    hashlib.sha256(summary.encode("utf-8")).hexdigest()
+                    if isinstance(summary, str)
+                    else None
+                ),
+                "timeline_events": (
+                    len(result["timeline"])
+                    if isinstance(result.get("timeline"), list)
+                    else 0
+                ),
+            }
         if definition.name != "filesystem.read" or not isinstance(result, dict):
             return result
         return {

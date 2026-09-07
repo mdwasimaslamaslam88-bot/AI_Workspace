@@ -574,16 +574,23 @@ async def test_migration_creates_exact_expected_postgresql_schema(
         "memory_search",
         "filesystem.write",
         "filesystem.read",
-        "filesystem.exists",
-        "filesystem.list",
-        "filesystem.stat",
-    }
+            "filesystem.exists",
+            "filesystem.list",
+            "filesystem.stat",
+            "dex.delegate",
+        }
     assert set(
         re.findall(
             r"'([^']+)'",
             tool_checks["ck_tool_executions_initiator_allowed"],
         )
-    ) == {"explicit_user", "workflow", "chat_model", "chat_verifier"}
+        ) == {
+            "explicit_user",
+            "workflow",
+            "chat_model",
+            "chat_verifier",
+            "dex_agent",
+        }
     assert set(
         re.findall(
             r"'([^']+)'",
@@ -594,9 +601,10 @@ async def test_migration_creates_exact_expected_postgresql_schema(
         "personal_documents_read",
         "personal_conversations_read",
         "personal_memory_read",
-        "workspace_read",
-        "workspace_write",
-    }
+            "workspace_read",
+            "workspace_write",
+            "agent_delegation",
+        }
     assert "tool_permission_denied" in tool_checks[
         "ck_tool_executions_error_code_allowed"
     ]

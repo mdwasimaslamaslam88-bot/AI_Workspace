@@ -49,6 +49,7 @@ const webOrigin = exactHttpOrigin(
 const filesystemRoot = requiredEnvironment("WORK_STATION_E2E_FILESYSTEM_ROOT");
 assert.ok(filesystemRoot.startsWith("/"), "The filesystem E2E root must be absolute.");
 const authMode = process.env.WORK_STATION_E2E_AUTH_MODE?.trim() || "provision";
+const testDex = process.env.WORK_STATION_E2E_DEX === "true";
 assert.ok(
   ["provision", "existing-session"].includes(authMode),
   "WORK_STATION_E2E_AUTH_MODE must be provision or existing-session.",
@@ -394,6 +395,58 @@ try {
   assert.match(await executionRegion.innerText(), /Verified/i);
   assert.match(await executionRegion.innerText(), /AI_OS_REAL_TEST\.txt/);
   assert.match(await executionRegion.innerText(), /exact read back passed/i);
+
+  if (testDex) {
+    const dexAssistantCount = await page
+      .locator(".message-assistant .markdown-body")
+      .count();
+    await page
+      .getByRole("textbox", { name: "Message", exact: true })
+      .fill("Ask DEX to inspect a harmless repository condition and report its evidence.");
+    const dexGenerationPromise = page.waitForResponse(
+      (response) => {
+        const responseUrl = new URL(response.url());
+        return (
+          response.request().method() === "POST" &&
+          responseUrl.origin === apiOrigin &&
+          responseUrl.pathname.endsWith("/messages/generate")
+        );
+      },
+      { timeout: 300_000 },
+    );
+    await page.getByRole("button", { name: "Send", exact: true }).click();
+    const dexGenerationResponse = await dexGenerationPromise;
+    assert.equal(
+      dexGenerationResponse.status(),
+      201,
+      "Authenticated browser DEX generation failed.",
+    );
+    const dexGeneration = await dexGenerationResponse.json();
+    assert.equal(
+      dexGeneration.execution?.status,
+      "completed",
+      "The browser DEX path did not return a completed verified trace.",
+    );
+    assert.deepEqual(
+      dexGeneration.execution?.receipts.map((receipt) => [
+        receipt.tool,
+        receipt.verification,
+      ]),
+      [["dex.delegate", "dex_result_verified"]],
+      "The browser DEX path omitted its verified audit receipt.",
+    );
+    for (const state of ["asking_dex", "dex_working", "verifying_dex", "done"]) {
+      assert.ok(
+        dexGeneration.execution?.states.includes(state),
+        `The browser DEX trace omitted ${state}.`,
+      );
+    }
+    await waitForNonemptyAssistant(page, dexAssistantCount);
+    assert.match(await executionRegion.innerText(), /asking dex/i);
+    assert.match(await executionRegion.innerText(), /dex working/i);
+    assert.match(await executionRegion.innerText(), /verifying dex/i);
+    assert.match(await executionRegion.innerText(), /dex result verified/i);
+  }
 
   const ownerWorkspace = join(filesystemRoot, ownerId);
   createdFile = join(ownerWorkspace, "AI_OS_REAL_TEST.txt");

@@ -31,6 +31,7 @@ from app.clients.redis import close_redis, create_redis_client
 from app.core.config import Settings, settings
 from app.connectors import ConnectorCredentialBox, ConnectorRuntime
 from app.db.session import create_session_factory
+from app.dex import DexGateway
 from app.hardware import HardwareCapabilityService, detect_hardware
 from app.hardware.planner import GIBIBYTE
 from app.external_ai import EncryptedProviderVault, ExternalAIService
@@ -52,7 +53,8 @@ from app.runtimes.piper import PiperSpeechSynthesisRuntime
 from app.services.asset import reconcile_asset_storage
 from app.services.filesystem_tool import OwnerFilesystemWorkspace
 from app.services.generation_admission import GenerationAdmissionController
-from app.services.tool import reconcile_tool_executions
+from app.models.tool import ToolExecutionStatus
+from app.services.tool import ToolService, reconcile_tool_executions
 from app.services.workflow import WorkflowRunner, reconcile_workflows
 from app.security_events import SecurityEventRecorder
 from app.storage.local import LocalAssetStorage
@@ -212,6 +214,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             if settings.FILESYSTEM_TOOL_ROOTS
             else None
         )
+        app.state.dex_gateway = None
         app.state.redis_client = redis_client
         app.state.ollama_client = ollama_client
         app.state.comfyui_client = comfyui_client
@@ -420,6 +423,95 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             ),
             max_active=2,
         )
+        if (
+            settings.DEX_CODEX_BINARY is not None
+            and settings.DEX_WORKSPACE_ROOT is not None
+        ):
+            settings.DEX_WORKSPACE_ROOT.mkdir(mode=0o700, parents=True, exist_ok=True)
+            dex_filesystem_workspace = OwnerFilesystemWorkspace(
+                (settings.DEX_WORKSPACE_ROOT,)
+            )
+
+            async def execute_dex_callback(
+                owner_id,
+                parent_audit_id,
+                operation,
+            ):
+                if operation.get("tool") != "filesystem.write" or not isinstance(
+                    operation.get("arguments"), dict
+                ):
+                    raise RuntimeError("DEX callback operation is not admitted")
+                arguments = operation["arguments"]
+                async with app.state.db_session_factory() as dex_session:
+                    service = ToolService(
+                        dex_session,
+                        filesystem_workspace=dex_filesystem_workspace,
+                    )
+                    written = await service.execute_for_owner(
+                        owner_id,
+                        "filesystem.write",
+                        arguments,
+                        initiator="dex_agent",
+                        allowed_permissions=frozenset({"workspace_write"}),
+                    )
+                    exists = await service.execute_for_owner(
+                        owner_id,
+                        "filesystem.exists",
+                        {
+                            "path": arguments.get("path"),
+                            "root_index": arguments.get("root_index", 0),
+                        },
+                        initiator="dex_agent",
+                        allowed_permissions=frozenset({"workspace_read"}),
+                    )
+                    read = await service.execute_for_owner(
+                        owner_id,
+                        "filesystem.read",
+                        {
+                            "path": arguments.get("path"),
+                            "root_index": arguments.get("root_index", 0),
+                        },
+                        initiator="dex_agent",
+                        allowed_permissions=frozenset({"workspace_read"}),
+                    )
+                expected_content = arguments.get("content")
+                written_result = written.result if isinstance(written.result, dict) else {}
+                exists_result = exists.result if isinstance(exists.result, dict) else {}
+                read_result = read.result if isinstance(read.result, dict) else {}
+                verified = (
+                    written.status is ToolExecutionStatus.COMPLETED
+                    and exists.status is ToolExecutionStatus.COMPLETED
+                    and read.status is ToolExecutionStatus.COMPLETED
+                    and exists_result.get("exists") is True
+                    and read_result.get("content") == expected_content
+                    and written_result.get("sha256") == read_result.get("sha256")
+                )
+                return {
+                    "status": "VERIFIED" if verified else "FAILED",
+                    "parent_audit_id": str(parent_audit_id),
+                    "tool": "filesystem.write",
+                    "path": written_result.get("path"),
+                    "bytes_written": written_result.get("bytes_written"),
+                    "sha256": written_result.get("sha256"),
+                    "write_audit_id": str(written.id),
+                    "exists_audit_id": str(exists.id),
+                    "read_audit_id": str(read.id),
+                    "exact_read_back": verified,
+                }
+
+            dex_gateway = DexGateway(
+                settings.DEX_CODEX_BINARY,
+                Path(__file__).resolve().parents[3],
+                settings.DEX_WORKSPACE_ROOT,
+                app.state.agent_orchestrator,
+                callback_executor=execute_dex_callback,
+                timeout_seconds=settings.DEX_TIMEOUT_SECONDS,
+                reasoning_effort=settings.DEX_REASONING_EFFORT,
+                max_active=settings.DEX_MAX_ACTIVE_PER_PROCESS,
+            )
+            if dex_gateway.available:
+                app.state.dex_gateway = dex_gateway
+                resource_stack.push_async_callback(dex_gateway.shutdown)
         agent_run_store = (
             DatabaseAgentRunStore(app.state.db_session_factory)
             if app.state.db_session_factory is not None

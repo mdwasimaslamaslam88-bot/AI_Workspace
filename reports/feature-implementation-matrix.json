@@ -757,6 +757,86 @@
     },
     {
       "backend_state": "bound",
+      "category": "DEX cooperation",
+      "code": "runtime_readiness",
+      "dependencies": [
+        "installed_codex_cli",
+        "authenticated_codex_runtime",
+        "postgresql_audit"
+      ],
+      "id": "mission_control.cross_agent_provenance",
+      "layer": "mission_control",
+      "locally_actionable": true,
+      "priority": "P3",
+      "status": "runtime_dependent",
+      "ui_state": "runtime_gated"
+    },
+    {
+      "backend_state": "bound",
+      "category": "DEX cooperation",
+      "code": "runtime_readiness",
+      "dependencies": [
+        "installed_codex_cli",
+        "authenticated_codex_runtime",
+        "postgresql_audit"
+      ],
+      "id": "mission_control.dex_delegation",
+      "layer": "mission_control",
+      "locally_actionable": true,
+      "priority": "P3",
+      "status": "runtime_dependent",
+      "ui_state": "runtime_gated"
+    },
+    {
+      "backend_state": "bound",
+      "category": "DEX cooperation",
+      "code": "runtime_readiness",
+      "dependencies": [
+        "installed_codex_cli",
+        "authenticated_codex_runtime",
+        "postgresql_audit"
+      ],
+      "id": "mission_control.dex_failure_recovery",
+      "layer": "mission_control",
+      "locally_actionable": true,
+      "priority": "P3",
+      "status": "runtime_dependent",
+      "ui_state": "runtime_gated"
+    },
+    {
+      "backend_state": "bound",
+      "category": "DEX cooperation",
+      "code": "runtime_readiness",
+      "dependencies": [
+        "installed_codex_cli",
+        "authenticated_codex_runtime",
+        "postgresql_audit"
+      ],
+      "id": "mission_control.dex_result_verification",
+      "layer": "mission_control",
+      "locally_actionable": true,
+      "priority": "P3",
+      "status": "runtime_dependent",
+      "ui_state": "runtime_gated"
+    },
+    {
+      "backend_state": "bound",
+      "category": "DEX cooperation",
+      "code": "runtime_readiness",
+      "dependencies": [
+        "installed_codex_cli",
+        "authenticated_codex_runtime",
+        "postgresql_audit"
+      ],
+      "id": "mission_control.dex_reverse_review",
+      "layer": "mission_control",
+      "locally_actionable": true,
+      "priority": "P3",
+      "status": "runtime_dependent",
+      "ui_state": "runtime_gated"
+    },
+    {
+      "backend_state": "bound",
       "category": "Local media runtimes",
       "code": "runtime_readiness",
       "dependencies": [
@@ -1837,6 +1917,176 @@
       "ui": {
         "entry_point": "/home#mixed-language-conversation",
         "state": "disabled_until_authorized"
+      }
+    },
+    {
+      "backend": {
+        "capability": "dex_gateway",
+        "state": "bound"
+      },
+      "category": "DEX cooperation",
+      "coverage_modes": [
+        "automated_backend",
+        "automated_web"
+      ],
+      "dependencies": [
+        "installed_codex_cli",
+        "authenticated_codex_runtime",
+        "postgresql_audit"
+      ],
+      "description": "AI OS to DEX delegation using the existing local capability layer; availability follows authenticated runtime and model diagnostics.",
+      "id": "mission_control.dex_delegation",
+      "layer": "mission_control",
+      "permissions": [
+        "owner_session",
+        "agent_delegation"
+      ],
+      "runtime_state": "requires_authenticated_health_probe",
+      "status": "runtime_dependent",
+      "test_coverage": [
+        "backend:test_dex_gateway",
+        "backend:test_dex_mcp_server",
+        "web:authenticated_dex_e2e"
+      ],
+      "ui": {
+        "entry_point": "/home#dex-delegation",
+        "state": "runtime_gated"
+      }
+    },
+    {
+      "backend": {
+        "capability": "dex_gateway",
+        "state": "bound"
+      },
+      "category": "DEX cooperation",
+      "coverage_modes": [
+        "automated_backend",
+        "automated_web"
+      ],
+      "dependencies": [
+        "installed_codex_cli",
+        "authenticated_codex_runtime",
+        "postgresql_audit"
+      ],
+      "description": "DEX to AI OS review using the existing local capability layer; availability follows authenticated runtime and model diagnostics.",
+      "id": "mission_control.dex_reverse_review",
+      "layer": "mission_control",
+      "permissions": [
+        "owner_session",
+        "agent_delegation"
+      ],
+      "runtime_state": "requires_authenticated_health_probe",
+      "status": "runtime_dependent",
+      "test_coverage": [
+        "backend:test_dex_gateway",
+        "backend:test_dex_mcp_server",
+        "web:authenticated_dex_e2e"
+      ],
+      "ui": {
+        "entry_point": "/home#dex-reverse-review",
+        "state": "runtime_gated"
+      }
+    },
+    {
+      "backend": {
+        "capability": "dex_gateway",
+        "state": "bound"
+      },
+      "category": "DEX cooperation",
+      "coverage_modes": [
+        "automated_backend",
+        "automated_web"
+      ],
+      "dependencies": [
+        "installed_codex_cli",
+        "authenticated_codex_runtime",
+        "postgresql_audit"
+      ],
+      "description": "Independent DEX result verification using the existing local capability layer; availability follows authenticated runtime and model diagnostics.",
+      "id": "mission_control.dex_result_verification",
+      "layer": "mission_control",
+      "permissions": [
+        "owner_session",
+        "agent_delegation"
+      ],
+      "runtime_state": "requires_authenticated_health_probe",
+      "status": "runtime_dependent",
+      "test_coverage": [
+        "backend:test_dex_gateway",
+        "backend:test_dex_mcp_server",
+        "web:authenticated_dex_e2e"
+      ],
+      "ui": {
+        "entry_point": "/home#dex-result-verification",
+        "state": "runtime_gated"
+      }
+    },
+    {
+      "backend": {
+        "capability": "dex_gateway",
+        "state": "bound"
+      },
+      "category": "DEX cooperation",
+      "coverage_modes": [
+        "automated_backend",
+        "automated_web"
+      ],
+      "dependencies": [
+        "installed_codex_cli",
+        "authenticated_codex_runtime",
+        "postgresql_audit"
+      ],
+      "description": "Cross-agent result provenance using the existing local capability layer; availability follows authenticated runtime and model diagnostics.",
+      "id": "mission_control.cross_agent_provenance",
+      "layer": "mission_control",
+      "permissions": [
+        "owner_session",
+        "agent_delegation"
+      ],
+      "runtime_state": "requires_authenticated_health_probe",
+      "status": "runtime_dependent",
+      "test_coverage": [
+        "backend:test_dex_gateway",
+        "backend:test_dex_mcp_server",
+        "web:authenticated_dex_e2e"
+      ],
+      "ui": {
+        "entry_point": "/home#cross-agent-provenance",
+        "state": "runtime_gated"
+      }
+    },
+    {
+      "backend": {
+        "capability": "dex_gateway",
+        "state": "bound"
+      },
+      "category": "DEX cooperation",
+      "coverage_modes": [
+        "automated_backend",
+        "automated_web"
+      ],
+      "dependencies": [
+        "installed_codex_cli",
+        "authenticated_codex_runtime",
+        "postgresql_audit"
+      ],
+      "description": "Truthful DEX failure recovery using the existing local capability layer; availability follows authenticated runtime and model diagnostics.",
+      "id": "mission_control.dex_failure_recovery",
+      "layer": "mission_control",
+      "permissions": [
+        "owner_session",
+        "agent_delegation"
+      ],
+      "runtime_state": "requires_authenticated_health_probe",
+      "status": "runtime_dependent",
+      "test_coverage": [
+        "backend:test_dex_gateway",
+        "backend:test_dex_mcp_server",
+        "web:authenticated_dex_e2e"
+      ],
+      "ui": {
+        "entry_point": "/home#dex-failure-recovery",
+        "state": "runtime_gated"
       }
     },
     {
@@ -11598,7 +11848,7 @@
     }
   ],
   "product": "AI OS",
-  "registry_sha256": "24f7603971405d6f8777da685607c9687186809ee4a9cfe66a7023ccee375f2d",
+  "registry_sha256": "4386bcfb53e088d2299e7f85917bb0d77de2102b71dff5d8731203b5f7de2ea8",
   "schema_version": 1,
   "summary": {
     "broken_registry_wiring": 0,
@@ -11607,7 +11857,7 @@
     "missing_coverage_records": 0,
     "missing_ui_paths": 0,
     "planned_gaps": 0,
-    "runtime_gates": 14
+    "runtime_gates": 19
   },
-  "total": 330
+  "total": 335
 }

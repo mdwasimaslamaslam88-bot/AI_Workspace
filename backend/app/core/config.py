@@ -44,6 +44,7 @@ OLLAMA_TASK_MODEL_PREFERENCE_KEYS = frozenset(
 )
 MAX_GENERATION_ACTIVE_PER_PROCESS = 8
 MAX_GENERATION_DURATION_SECONDS = 600.0
+DEX_GENERATION_COMPLETION_RESERVE_SECONDS = 30.0
 MAX_MODEL_LIST_DISCOVERY_SECONDS = 300.0
 MAX_MODEL_LIST_RESPONSE_BYTES = 1_048_576
 MAX_OLLAMA_CATALOG_LIST_MODELS = 256
@@ -78,6 +79,7 @@ _SOURCE_DECODED_STRICT_INTEGER_FIELDS = frozenset(
         "EDGE_AUTH_FAILURE_LIMIT",
         "EDGE_PROVISIONING_LIMIT",
         "EDGE_RATE_LIMIT_WINDOW_SECONDS",
+        "DEX_MAX_ACTIVE_PER_PROCESS",
         "DATABASE_POOL_SIZE",
         "DATABASE_MAX_OVERFLOW",
     }
@@ -151,6 +153,16 @@ class Settings(BaseSettings):
     CONNECTOR_STATE_ROOT: Path | None = None
     CONNECTOR_ALLOWED_ORIGINS: list[str] = []
     FILESYSTEM_TOOL_ROOTS: tuple[Path, ...] = ()
+    DEX_CODEX_BINARY: Path | None = None
+    DEX_WORKSPACE_ROOT: Path | None = None
+    DEX_TIMEOUT_SECONDS: float = Field(
+        default=180.0,
+        ge=10.0,
+        le=300.0,
+        allow_inf_nan=False,
+    )
+    DEX_REASONING_EFFORT: Literal["low", "medium", "high", "xhigh"] = "medium"
+    DEX_MAX_ACTIVE_PER_PROCESS: int = Field(default=1, strict=True, ge=1, le=2)
     SELF_UPDATE_STATE_ROOT: Path | None = None
     WORK_STATION_WEB_ROOT: Path | None = None
     REMOTE_GATEWAY_MODE: Literal["local", "tailscale"] = "local"
@@ -410,6 +422,8 @@ class Settings(BaseSettings):
         "HARDWARE_STATE_PATH",
         "EXTERNAL_AI_STATE_ROOT",
         "CONNECTOR_STATE_ROOT",
+        "DEX_CODEX_BINARY",
+        "DEX_WORKSPACE_ROOT",
         "SELF_UPDATE_STATE_ROOT",
         "WORK_STATION_WEB_ROOT",
         "COMFYUI_BASE_URL",
@@ -487,6 +501,7 @@ class Settings(BaseSettings):
         "EXTERNAL_AI_STATE_ROOT",
         "CONNECTOR_STATE_ROOT",
         "SELF_UPDATE_STATE_ROOT",
+        "DEX_WORKSPACE_ROOT",
     )
     @classmethod
     def require_private_absolute_asset_storage_root(cls, value):
@@ -502,6 +517,19 @@ class Settings(BaseSettings):
                 "private state paths must be outside the project source tree"
             )
         return candidate
+
+    @field_validator("DEX_CODEX_BINARY")
+    @classmethod
+    def require_absolute_dex_binary(cls, value):
+        if value is None:
+            return None
+        candidate = Path(value)
+        if not candidate.is_absolute():
+            raise ValueError("DEX_CODEX_BINARY must be an absolute path")
+        # Keep the installed launcher path rather than resolving it into a
+        # version-specific package directory. Runtime admission still checks
+        # that it is an executable regular file.
+        return candidate.absolute()
 
     @field_validator("CONNECTOR_ALLOWED_ORIGINS")
     @classmethod
@@ -785,6 +813,28 @@ class Settings(BaseSettings):
         ):
             raise ValueError(
                 "Piper binary, voice model, voice config, and voice reference must be configured together"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def require_complete_dex_runtime_group(self):
+        values = (self.DEX_CODEX_BINARY, self.DEX_WORKSPACE_ROOT)
+        if any(value is not None for value in values) and not all(
+            value is not None for value in values
+        ):
+            raise ValueError(
+                "DEX_CODEX_BINARY and DEX_WORKSPACE_ROOT must be configured together"
+            )
+        if self.DEX_CODEX_BINARY is not None and self.DATABASE_URL is None:
+            raise ValueError("DEX delegation requires PostgreSQL audit persistence")
+        if (
+            self.DEX_CODEX_BINARY is not None
+            and self.GENERATION_MAX_DURATION_SECONDS
+            < self.DEX_TIMEOUT_SECONDS + DEX_GENERATION_COMPLETION_RESERVE_SECONDS
+        ):
+            raise ValueError(
+                "GENERATION_MAX_DURATION_SECONDS must reserve at least 30 seconds "
+                "beyond DEX_TIMEOUT_SECONDS for model selection and verified completion"
             )
         return self
 

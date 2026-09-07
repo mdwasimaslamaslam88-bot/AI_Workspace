@@ -12,7 +12,10 @@ from sqlalchemy import text
 
 from app.clients.postgres import create_postgres_engine, dispose_postgres
 from app.core.config import settings
+from app.db.session import create_session_factory
 from app.main import app
+from app.services.filesystem_tool import OwnerFilesystemWorkspace
+from app.services.tool import ToolService
 from scripts.runtime_smoke_safety import select_disposable_runtime_database
 
 
@@ -27,6 +30,39 @@ async def _clean_disposable_database() -> None:
     try:
         async with engine.begin() as connection:
             await connection.execute(text("TRUNCATE TABLE users CASCADE"))
+    finally:
+        await dispose_postgres(engine)
+
+
+async def _verify_foreign_owner_isolation(
+    foreign_owner_id: UUID,
+    filesystem_root: Path,
+) -> str:
+    """Exercise the authoritative executor without relying on model sampling."""
+
+    engine = create_postgres_engine(settings)
+    if engine is None:
+        raise RuntimeError("disposable database engine is unavailable")
+    session_factory = create_session_factory(engine)
+    if session_factory is None:  # pragma: no cover - guarded by the engine check
+        raise RuntimeError("disposable database session factory is unavailable")
+    try:
+        async with session_factory() as session:
+            record = await ToolService(
+                session,
+                filesystem_workspace=OwnerFilesystemWorkspace((filesystem_root,)),
+            ).execute_for_owner(
+                foreign_owner_id,
+                "filesystem.exists",
+                {"path": "AI_OS_REAL_TEST.txt"},
+                initiator="chat_verifier",
+                allowed_permissions=frozenset({"workspace_read"}),
+            )
+        if record.status.value != "completed":
+            raise RuntimeError("foreign owner isolation check did not complete")
+        if record.result is None or record.result.get("exists") is not False:
+            raise RuntimeError("filesystem state crossed its owner boundary")
+        return str(record.id)
     finally:
         await dispose_postgres(engine)
 
@@ -126,20 +162,35 @@ def main() -> None:
             if _CONTENT in str(filesystem_audits):
                 raise RuntimeError("filesystem content leaked into audit history")
 
-            foreign_exists = client.post(
+            direct_foreign_exists = client.post(
                 "/api/v1/tools/filesystem.exists/executions",
                 headers=foreign_headers,
                 json={"arguments": {"path": "AI_OS_REAL_TEST.txt"}},
             )
-            foreign_exists.raise_for_status()
-            if foreign_exists.json()["result"].get("exists") is not False:
-                raise RuntimeError("filesystem state crossed its owner boundary")
+            if direct_foreign_exists.status_code != 404:
+                raise RuntimeError(
+                    "privileged filesystem tool became available through the public API"
+                )
+            foreign_execution_id = asyncio.run(
+                _verify_foreign_owner_isolation(
+                    UUID(foreign.json()["id"]),
+                    filesystem_root,
+                )
+            )
             foreign_history = client.get(
                 "/api/v1/tools/executions", headers=foreign_headers
             )
             foreign_history.raise_for_status()
+            foreign_items = foreign_history.json()["items"]
+            if (
+                len(foreign_items) != 1
+                or foreign_items[0]["tool_name"] != "filesystem.exists"
+                or foreign_items[0]["result"].get("exists") is not False
+                or foreign_items[0]["id"] != foreign_execution_id
+            ):
+                raise RuntimeError("filesystem state crossed its owner boundary")
             if {item["id"] for item in history.json()["items"]} & {
-                item["id"] for item in foreign_history.json()["items"]
+                item["id"] for item in foreign_items
             }:
                 raise RuntimeError("filesystem audit history crossed owners")
 

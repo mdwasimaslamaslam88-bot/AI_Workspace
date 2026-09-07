@@ -6,6 +6,7 @@ from uuid import uuid4
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.dex import DexGatewayError
 from app.models.tool import ToolExecution, ToolExecutionStatus
 from app.services.tool import (
     TOOL_REGISTRY,
@@ -56,15 +57,16 @@ def test_registry_is_fixed_and_contains_no_dangerous_capabilities():
         "filesystem.exists",
         "filesystem.list",
         "filesystem.stat",
+        "dex.delegate",
     }
     serialized = json.dumps(
         [definition.public_schema() for definition in TOOL_REGISTRY.values()]
     ).lower()
     assert "shell" not in serialized
     assert "network" not in serialized
+    assert all(definition.max_output_characters <= 16_384 for definition in TOOL_REGISTRY.values())
     assert all(
-        definition.max_output_characters <= 16_384
-        and definition.timeout_seconds <= 5
+        definition.timeout_seconds <= (300 if definition.name == "dex.delegate" else 5)
         for definition in TOOL_REGISTRY.values()
     )
     assert all(
@@ -75,12 +77,51 @@ def test_registry_is_fixed_and_contains_no_dangerous_capabilities():
     assert ToolService.definitions(initiator="workflow") == tuple(
         definition
         for definition in TOOL_REGISTRY.values()
-        if not definition.name.startswith("filesystem.")
+        if "workflow" in definition.allowed_initiators
+        and not definition.name.startswith("filesystem.")
     )
     assert not any(
         definition.name.startswith("filesystem.")
         for definition in ToolService.definitions(filesystem_available=False)
     )
+    assert "dex.delegate" not in {
+        definition.name for definition in ToolService.definitions(dex_available=False)
+    }
+    assert "dex.delegate" not in {
+        definition.name for definition in ToolService.definitions(dex_available=True)
+    }
+    assert "dex.delegate" in {
+        definition.name
+        for definition in ToolService.definitions(
+            initiator="chat_model",
+            dex_available=True,
+        )
+    }
+    assert {
+        definition.name
+        for definition in ToolService.definitions(
+            filesystem_available=True,
+            dex_available=True,
+        )
+    } == {
+        "calculator",
+        "local_time",
+        "document_search",
+        "conversation_search",
+        "memory_search",
+    }
+
+
+@pytest.mark.asyncio
+async def test_privileged_orchestrator_tools_reject_direct_api_initiator():
+    service = ToolService(AsyncMock(spec=AsyncSession))
+
+    for tool_name, arguments in (
+        ("filesystem.write", {"path": "result.txt", "content": "test"}),
+        ("dex.delegate", {"request": "inspect repository"}),
+    ):
+        with pytest.raises(ToolNotFoundError):
+            await service.execute_for_owner(uuid4(), tool_name, arguments)
 
 
 @pytest.mark.parametrize(
@@ -226,6 +267,117 @@ async def test_permission_denial_is_a_durable_failed_audit_before_invocation():
     assert result.status is ToolExecutionStatus.FAILED
     assert result.error_code == "tool_permission_denied"
     service._invoke.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_dex_delegation_reuses_owner_audit_and_redacts_task_and_result():
+    owner_id = uuid4()
+    running = _execution(
+        owner_id,
+        tool_name="dex.delegate",
+        permission="agent_delegation",
+        arguments_json="{}",
+    )
+    completed = _execution(
+        owner_id,
+        status=ToolExecutionStatus.COMPLETED,
+        result={"status": "VERIFIED"},
+        tool_name="dex.delegate",
+        permission="agent_delegation",
+        arguments_json="{}",
+    )
+    completed.id = running.id
+    session = AsyncMock(spec=AsyncSession)
+    repository = Mock(
+        create_running=AsyncMock(return_value=running),
+        finish=AsyncMock(return_value=completed),
+        conversation_exists_for_owner=AsyncMock(return_value=True),
+    )
+    gateway = Mock(available=True)
+    gateway.delegate = AsyncMock(
+        return_value={
+            "task_id": str(running.id),
+            "correlation_id": str(uuid4()),
+            "owner_id": str(owner_id),
+            "status": "VERIFIED",
+            "result": {"summary": "private task result"},
+            "verification": {"status": "VERIFIED"},
+            "timeline": [{"status": "VERIFIED"}],
+        }
+    )
+    service = ToolService(session, dex_gateway=gateway)
+    service.repository = repository
+
+    result = await service.execute_for_owner(
+        owner_id,
+        "dex.delegate",
+        {
+            "request": "inspect private repository state",
+            "capability": "verification",
+            "scope": "repository",
+            "execution_mode": "read_only",
+            "require_ai_os_review": True,
+        },
+        initiator="chat_model",
+        allowed_permissions=frozenset({"agent_delegation"}),
+    )
+
+    assert result.result["status"] == "VERIFIED"
+    audit_arguments = repository.create_running.await_args.args[4]
+    assert "inspect private repository state" not in audit_arguments
+    assert json.loads(audit_arguments)["request_sha256"]
+    audit_result = repository.finish.await_args.kwargs["result_json"]
+    assert "private task result" not in audit_result
+    assert json.loads(audit_result)["result_redacted"] is True
+    gateway.delegate.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_dex_write_request_from_chat_fails_closed_after_durable_audit():
+    owner_id = uuid4()
+    running = _execution(
+        owner_id,
+        tool_name="dex.delegate",
+        permission="agent_delegation",
+        initiator="chat_model",
+        arguments_json="{}",
+    )
+    failed = _execution(
+        owner_id,
+        status=ToolExecutionStatus.FAILED,
+        tool_name="dex.delegate",
+        permission="agent_delegation",
+        initiator="chat_model",
+        arguments_json="{}",
+    )
+    failed.id = running.id
+    failed.error_code = "tool_execution_failed"
+    repository = Mock(
+        create_running=AsyncMock(return_value=running),
+        finish=AsyncMock(return_value=failed),
+        conversation_exists_for_owner=AsyncMock(return_value=True),
+    )
+    gateway = Mock(available=True)
+    gateway.delegate = AsyncMock(
+        side_effect=DexGatewayError("DEX workspace writes require an explicit user action")
+    )
+    service = ToolService(AsyncMock(spec=AsyncSession), dex_gateway=gateway)
+    service.repository = repository
+
+    result = await service.execute_for_owner(
+        owner_id,
+        "dex.delegate",
+        {
+            "request": "write",
+            "scope": "owner_workspace",
+            "execution_mode": "workspace_write",
+        },
+        initiator="chat_model",
+        allowed_permissions=frozenset({"agent_delegation"}),
+    )
+
+    assert result.status is ToolExecutionStatus.FAILED
+    assert result.error_code == "tool_execution_failed"
 
 
 @pytest.mark.asyncio

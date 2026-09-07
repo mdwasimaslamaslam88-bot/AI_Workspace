@@ -2,10 +2,10 @@
 
 This report is generated from the authenticated product registry. It distinguishes working capabilities from runtime gates, external services, and documented implementation gaps; it is not a claim that external or planned features execute locally.
 
-- Registered capabilities: **330**
-- Registry SHA-256: `24f7603971405d6f8777da685607c9687186809ee4a9cfe66a7023ccee375f2d`
+- Registered capabilities: **335**
+- Registry SHA-256: `4386bcfb53e088d2299e7f85917bb0d77de2102b71dff5d8731203b5f7de2ea8`
 - Implemented: **277**
-- Runtime-dependent: **14**
+- Runtime-dependent: **19**
 - External dependency: **39**
 - Planned/documented gap: **0**
 
@@ -14,7 +14,7 @@ This report is generated from the authenticated product registry. It distinguish
 - Ai Command Center: **52**
 - Ai Presence: **49**
 - Apps Hub: **52**
-- Mission Control: **39**
+- Mission Control: **44**
 - Universal Workspace: **138**
 
 ## Validation
@@ -30,6 +30,6 @@ The deterministic `reports/feature-implementation-matrix.json` maps every capabi
 - Missing coverage records: **0**
 - Planned implementation gaps: **0**
 - External boundaries: **39**
-- Runtime gates: **14**
+- Runtime gates: **19**
 
 The complete per-feature source evidence remains in `reports/feature-registry-report.json`.

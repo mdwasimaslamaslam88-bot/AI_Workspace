@@ -40,6 +40,7 @@ class ToolExecutionResponse(BaseModel):
         "workflow",
         "chat_model",
         "chat_verifier",
+        "dex_agent",
     ]
     arguments: dict[str, Any]
     result: Any | None

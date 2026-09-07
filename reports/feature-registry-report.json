@@ -693,6 +693,126 @@
       "ui_entry_point": "/home#mixed-language-conversation"
     },
     {
+      "backend_capability": "dex_gateway",
+      "category": "DEX cooperation",
+      "dependencies": [
+        "installed_codex_cli",
+        "authenticated_codex_runtime",
+        "postgresql_audit"
+      ],
+      "description": "AI OS to DEX delegation using the existing local capability layer; availability follows authenticated runtime and model diagnostics.",
+      "id": "mission_control.dex_delegation",
+      "layer": "mission_control",
+      "required_permissions": [
+        "owner_session",
+        "agent_delegation"
+      ],
+      "status": "runtime_dependent",
+      "test_coverage": [
+        "backend:test_dex_gateway",
+        "backend:test_dex_mcp_server",
+        "web:authenticated_dex_e2e"
+      ],
+      "title": "AI OS to DEX delegation",
+      "ui_entry_point": "/home#dex-delegation"
+    },
+    {
+      "backend_capability": "dex_gateway",
+      "category": "DEX cooperation",
+      "dependencies": [
+        "installed_codex_cli",
+        "authenticated_codex_runtime",
+        "postgresql_audit"
+      ],
+      "description": "DEX to AI OS review using the existing local capability layer; availability follows authenticated runtime and model diagnostics.",
+      "id": "mission_control.dex_reverse_review",
+      "layer": "mission_control",
+      "required_permissions": [
+        "owner_session",
+        "agent_delegation"
+      ],
+      "status": "runtime_dependent",
+      "test_coverage": [
+        "backend:test_dex_gateway",
+        "backend:test_dex_mcp_server",
+        "web:authenticated_dex_e2e"
+      ],
+      "title": "DEX to AI OS review",
+      "ui_entry_point": "/home#dex-reverse-review"
+    },
+    {
+      "backend_capability": "dex_gateway",
+      "category": "DEX cooperation",
+      "dependencies": [
+        "installed_codex_cli",
+        "authenticated_codex_runtime",
+        "postgresql_audit"
+      ],
+      "description": "Independent DEX result verification using the existing local capability layer; availability follows authenticated runtime and model diagnostics.",
+      "id": "mission_control.dex_result_verification",
+      "layer": "mission_control",
+      "required_permissions": [
+        "owner_session",
+        "agent_delegation"
+      ],
+      "status": "runtime_dependent",
+      "test_coverage": [
+        "backend:test_dex_gateway",
+        "backend:test_dex_mcp_server",
+        "web:authenticated_dex_e2e"
+      ],
+      "title": "Independent DEX result verification",
+      "ui_entry_point": "/home#dex-result-verification"
+    },
+    {
+      "backend_capability": "dex_gateway",
+      "category": "DEX cooperation",
+      "dependencies": [
+        "installed_codex_cli",
+        "authenticated_codex_runtime",
+        "postgresql_audit"
+      ],
+      "description": "Cross-agent result provenance using the existing local capability layer; availability follows authenticated runtime and model diagnostics.",
+      "id": "mission_control.cross_agent_provenance",
+      "layer": "mission_control",
+      "required_permissions": [
+        "owner_session",
+        "agent_delegation"
+      ],
+      "status": "runtime_dependent",
+      "test_coverage": [
+        "backend:test_dex_gateway",
+        "backend:test_dex_mcp_server",
+        "web:authenticated_dex_e2e"
+      ],
+      "title": "Cross-agent result provenance",
+      "ui_entry_point": "/home#cross-agent-provenance"
+    },
+    {
+      "backend_capability": "dex_gateway",
+      "category": "DEX cooperation",
+      "dependencies": [
+        "installed_codex_cli",
+        "authenticated_codex_runtime",
+        "postgresql_audit"
+      ],
+      "description": "Truthful DEX failure recovery using the existing local capability layer; availability follows authenticated runtime and model diagnostics.",
+      "id": "mission_control.dex_failure_recovery",
+      "layer": "mission_control",
+      "required_permissions": [
+        "owner_session",
+        "agent_delegation"
+      ],
+      "status": "runtime_dependent",
+      "test_coverage": [
+        "backend:test_dex_gateway",
+        "backend:test_dex_mcp_server",
+        "web:authenticated_dex_e2e"
+      ],
+      "title": "Truthful DEX failure recovery",
+      "ui_entry_point": "/home#dex-failure-recovery"
+    },
+    {
       "backend_capability": "external_realtime_connector",
       "category": "Realtime communications",
       "dependencies": [
@@ -7235,19 +7355,19 @@
     "ai_command_center": 52,
     "ai_presence": 49,
     "apps_hub": 52,
-    "mission_control": 39,
+    "mission_control": 44,
     "universal_workspace": 138
   },
   "product": "AI OS",
-  "registry_sha256": "24f7603971405d6f8777da685607c9687186809ee4a9cfe66a7023ccee375f2d",
+  "registry_sha256": "4386bcfb53e088d2299e7f85917bb0d77de2102b71dff5d8731203b5f7de2ea8",
   "schema_version": 1,
   "statuses": {
     "external_dependency": 39,
     "implemented": 277,
     "planned": 0,
-    "runtime_dependent": 14
+    "runtime_dependent": 19
   },
-  "total": 330,
+  "total": 335,
   "validation": {
     "backend_or_boundary_present": true,
     "test_coverage_present": true,

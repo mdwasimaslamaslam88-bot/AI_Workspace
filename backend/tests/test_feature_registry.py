@@ -101,6 +101,23 @@ def test_learning_registry_exposes_persistent_learning_without_promoting_pronunc
     assert pronunciation.dependencies == ("pronunciation_scoring_provider",)
 
 
+def test_dex_registry_is_runtime_dependent_and_audited():
+    records = {feature.id: feature for feature in FEATURE_REGISTRY}
+    for identifier in (
+        "mission_control.dex_delegation",
+        "mission_control.dex_reverse_review",
+        "mission_control.dex_result_verification",
+        "mission_control.cross_agent_provenance",
+        "mission_control.dex_failure_recovery",
+    ):
+        feature = records[identifier]
+        assert feature.status == "runtime_dependent"
+        assert feature.backend_capability == "dex_gateway"
+        assert "agent_delegation" in feature.required_permissions
+        assert "postgresql_audit" in feature.dependencies
+        assert "web:authenticated_dex_e2e" in feature.test_coverage
+
+
 def test_creative_registry_exposes_verified_text_experiences_without_promoting_media():
     records = {feature.id: feature for feature in FEATURE_REGISTRY}
     for identifier in (

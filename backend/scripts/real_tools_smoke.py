@@ -29,11 +29,14 @@ _EXPECTED_TOOLS = {
     "document_search": "personal_documents_read",
     "conversation_search": "personal_conversations_read",
     "memory_search": "personal_memory_read",
-    "filesystem.write": "workspace_write",
-    "filesystem.read": "workspace_read",
-    "filesystem.exists": "workspace_read",
-    "filesystem.list": "workspace_read",
-    "filesystem.stat": "workspace_read",
+}
+_PRIVILEGED_ORCHESTRATOR_TOOLS = {
+    "filesystem.write",
+    "filesystem.read",
+    "filesystem.exists",
+    "filesystem.list",
+    "filesystem.stat",
+    "dex.delegate",
 }
 
 
@@ -136,6 +139,8 @@ def main() -> None:
             observed = {item["name"]: item["permission"] for item in descriptors}
             if observed != _EXPECTED_TOOLS:
                 raise RuntimeError("the public tool registry is not the fixed registry")
+            if _PRIVILEGED_ORCHESTRATOR_TOOLS & set(observed):
+                raise RuntimeError("a privileged orchestrator tool became public")
             if any(
                 not item["input_schema"]
                 or item["timeout_seconds"] <= 0
@@ -336,6 +341,7 @@ def main() -> None:
 
     print("REAL_TOOLS_SMOKE=passed")
     print("FIXED_REGISTRY_SCHEMA_PERMISSION_AND_BOUNDS=passed")
+    print("PRIVILEGED_ORCHESTRATOR_TOOLS_NOT_PUBLIC=passed")
     print("OWNER_SCOPED_PERSONAL_SEARCH_AND_AUDIT=passed")
     print("NO_SHELL_CODE_OR_UNRESTRICTED_NETWORK=passed")
 

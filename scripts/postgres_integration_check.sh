@@ -27,7 +27,8 @@ the same disposable database before exercising real clients and runtimes.
   --with-browser  Add real compiled-PWA browser E2E.
   --runtime-only  Skip integration and run real AI runtime E2E.
   --browser-only  Skip integration and run real browser E2E.
-  --benchmark     Skip integration and run the full real-HTTP AI benchmark.
+  --benchmark     Skip integration and run the canonical and massive AI benchmarks.
+  --canonical-benchmark  Run only the canonical real-HTTP AI benchmark.
   --massive-benchmark  Run only the disposable adaptive massive benchmark.
   --model-candidate-benchmark  Run one isolated real-HTTP model comparison.
   --chat-tool-only  Run only the installed-model authenticated chat tool smoke.
@@ -41,6 +42,7 @@ for argument in "$@"; do
     --runtime-only) run_integration=false; run_runtime=true ;;
     --browser-only) run_integration=false; run_browser=true ;;
     --benchmark) run_integration=false; run_benchmark=true; run_massive_benchmark=true ;;
+    --canonical-benchmark) run_integration=false; run_benchmark=true ;;
     --massive-benchmark) run_integration=false; run_massive_benchmark=true ;;
     --model-candidate-benchmark) run_integration=false; run_model_candidate_benchmark=true ;;
     --chat-tool-only) run_integration=false; run_chat_tool=true ;;
@@ -191,6 +193,11 @@ fi
 if [[ "${run_integration}" == true ]]; then
   (
     export DATABASE_SSL_MODE=disable
+    # Database integration owns a disposable audit store and deliberately does
+    # not start external runtimes. Do not inherit an operator's local DEX
+    # executable configuration into migration-only Settings construction.
+    export DEX_CODEX_BINARY=""
+    export DEX_WORKSPACE_ROOT=""
     export RUN_DATABASE_INTEGRATION_TESTS=true
     export WORK_STATION_EPHEMERAL_TEST_DATABASE_URL="${ephemeral_url}"
     cd backend
@@ -198,6 +205,8 @@ if [[ "${run_integration}" == true ]]; then
   )
   (
     export DATABASE_SSL_MODE=disable
+    export DEX_CODEX_BINARY=""
+    export DEX_WORKSPACE_ROOT=""
     export RUN_DATABASE_INTEGRATION_TESTS=true
     export TEST_DATABASE_URL="${ephemeral_url}"
     cd backend
@@ -491,7 +500,11 @@ fi
 if [[ "${run_chat_tool}" == true ]]; then
   echo "ephemeral PostgreSQL validation: authenticated installed-model chat tool smoke passed"
 elif [[ "${run_benchmark}" == true ]]; then
-  echo "ephemeral PostgreSQL validation: real-HTTP AI and massive benchmarks passed"
+  if [[ "${run_massive_benchmark}" == true ]]; then
+    echo "ephemeral PostgreSQL validation: canonical real-HTTP AI and massive benchmarks passed"
+  else
+    echo "ephemeral PostgreSQL validation: canonical real-HTTP AI benchmark passed"
+  fi
 elif [[ "${run_model_candidate_benchmark}" == true ]]; then
   echo "ephemeral PostgreSQL validation: isolated model candidate benchmark passed"
 elif [[ "${run_massive_benchmark}" == true ]]; then

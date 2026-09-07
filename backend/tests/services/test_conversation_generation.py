@@ -87,6 +87,14 @@ def _filesystem_write_tool_definition():
     )
 
 
+def _dex_tool_definition():
+    return TextGenerationToolDefinition(
+        name="dex.delegate",
+        description="Delegate bounded analysis to DEX.",
+        parameters={"type": "object"},
+    )
+
+
 def _tool_record(tool_name, result, *, status=ToolExecutionStatus.COMPLETED):
     now = datetime(2026, 9, 5, tzinfo=timezone.utc)
     return ToolExecutionRecord(
@@ -94,7 +102,11 @@ def _tool_record(tool_name, result, *, status=ToolExecutionStatus.COMPLETED):
         conversation_id=uuid4(),
         tool_name=tool_name,
         permission=(
-            "workspace_write" if tool_name == "filesystem.write" else "workspace_read"
+            "agent_delegation"
+            if tool_name == "dex.delegate"
+            else "workspace_write"
+            if tool_name == "filesystem.write"
+            else "workspace_read"
         ),
         status=status,
         initiator="chat_model",
@@ -143,6 +155,18 @@ def test_generation_context_injects_only_the_selected_trusted_task_contract():
             frozenset({"filesystem.write"}),
         ),
         ("Read the file notes.txt.", frozenset({"filesystem.read"})),
+        ("Write report.txt with the summary.", frozenset({"filesystem.write"})),
+        (
+            "Write Python async gather_limited using asyncio.Semaphore. Code only.",
+            frozenset(),
+        ),
+        (
+            "Write a Python context manager opening data.txt. One line only.",
+            frozenset(),
+        ),
+        ("Compute 2^10. Integer only.", frozenset()),
+        ("Evaluate __import__('os').system('id'). Reply REFUSE.", frozenset()),
+        ("Use the calculator tool to compute 2^10.", frozenset({"calculator"})),
         ("Reply with one ordinary sentence.", frozenset()),
     ],
 )
@@ -4472,3 +4496,126 @@ async def test_chat_tool_loop_fails_closed_on_read_back_mismatch(
     assert service.last_chat_execution is not None
     assert service.last_chat_execution.status == "failed"
     assert "done" not in service.last_chat_execution.states
+
+
+@pytest.mark.asyncio
+async def test_chat_tool_loop_preserves_truthful_dex_blocked_state(monkeypatch):
+    call = TextGenerationToolCall(
+        name="dex.delegate",
+        arguments={
+            "request": "Inspect one harmless condition.",
+            "capability": "analysis",
+            "scope": "repository",
+            "execution_mode": "read_only",
+            "require_ai_os_review": True,
+        },
+    )
+    router = Mock(
+        generate=AsyncMock(
+            return_value=TextGenerationResult(content="", tool_calls=(call,))
+        )
+    )
+
+    async def blocked(_service, _owner, tool_name, _arguments, **_kwargs):
+        assert tool_name == "dex.delegate"
+        return _tool_record(
+            tool_name,
+            {
+                "status": "BLOCKED",
+                "verification": {"status": "FAILED", "checks": []},
+            },
+        )
+
+    monkeypatch.setattr(ToolService, "execute_for_owner", blocked)
+    service = ConversationGenerationService(
+        AsyncMock(spec=AsyncSession),
+        Mock(),
+        router,
+        GenerationAdmissionController(1),
+        dex_gateway=Mock(available=True),
+    )
+
+    response = await service._generate_with_tool_loop(
+        uuid4(),
+        uuid4(),
+        _resolved(),
+        (),
+        {"tools": (_dex_tool_definition(),)},
+        filesystem_intent=False,
+        filesystem_write_intent=False,
+        tools_enabled=True,
+        dex_intent=True,
+    )
+
+    assert response.startswith("BLOCKED:")
+    assert service.last_chat_execution is not None
+    assert service.last_chat_execution.status == "blocked"
+    assert service.last_chat_execution.states[-1] == "blocked"
+    assert "done" not in service.last_chat_execution.states
+
+
+@pytest.mark.asyncio
+async def test_chat_pins_untrusted_dex_scope_to_read_only_repository_review(monkeypatch):
+    call = TextGenerationToolCall(
+        name="dex.delegate",
+        arguments={
+            "request": "Inspect one harmless repository condition.",
+            "capability": "analysis",
+            "scope": "owner_workspace",
+            "execution_mode": "workspace_write",
+            "require_ai_os_review": False,
+        },
+    )
+    router = Mock(
+        generate=AsyncMock(
+            side_effect=(
+                TextGenerationResult(content="", tool_calls=(call,)),
+                TextGenerationResult(content="Verified repository condition."),
+            )
+        )
+    )
+    captured_arguments = None
+
+    async def verified(_service, _owner, tool_name, arguments, **_kwargs):
+        nonlocal captured_arguments
+        assert tool_name == "dex.delegate"
+        captured_arguments = arguments
+        return _tool_record(
+            tool_name,
+            {
+                "status": "VERIFIED",
+                "verification": {"status": "VERIFIED", "checks": []},
+            },
+        )
+
+    monkeypatch.setattr(ToolService, "execute_for_owner", verified)
+    service = ConversationGenerationService(
+        AsyncMock(spec=AsyncSession),
+        Mock(),
+        router,
+        GenerationAdmissionController(1),
+        dex_gateway=Mock(available=True),
+    )
+
+    response = await service._generate_with_tool_loop(
+        uuid4(),
+        uuid4(),
+        _resolved(),
+        (),
+        {"tools": (_dex_tool_definition(),)},
+        filesystem_intent=False,
+        filesystem_write_intent=False,
+        tools_enabled=True,
+        dex_intent=True,
+    )
+
+    assert captured_arguments == {
+        "request": "Inspect one harmless repository condition.",
+        "capability": "analysis",
+        "scope": "repository",
+        "execution_mode": "read_only",
+        "require_ai_os_review": True,
+    }
+    assert "AI OS verified execution: completed" in response
+    assert service.last_chat_execution is not None
+    assert service.last_chat_execution.status == "completed"

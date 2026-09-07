@@ -462,6 +462,7 @@ async def generate_assistant_message(
     filesystem_workspace = getattr(
         request.app.state, "filesystem_tool_workspace", None
     )
+    dex_gateway = getattr(request.app.state, "dex_gateway", None)
     if (
         catalog is None
         or generation_router is None
@@ -532,6 +533,7 @@ async def generate_assistant_message(
                 if filesystem_workspace is not None
                 else {}
             ),
+            **({"dex_gateway": dex_gateway} if dex_gateway is not None else {}),
         )
         message = await generation_service.generate_for_owner(
             current_user.id,

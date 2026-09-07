@@ -1,0 +1,16 @@
+[mcp_servers.ai_os]
+command = "python3"
+args = ["scripts/ai_os_mcp_server.py"]
+env_vars = [
+  "AI_OS_DEX_SOCKET_PATH",
+  "AI_OS_DEX_CAPABILITY_TOKEN",
+  "AI_OS_DEX_TASK_ID",
+  "AI_OS_DEX_CORRELATION_ID",
+  "AI_OS_DEX_OWNER_ID",
+  "AI_OS_DEX_CALLBACK_MODE",
+]
+required = true
+startup_timeout_sec = 5
+tool_timeout_sec = 65
+enabled_tools = ["ai_os_analyze", "ai_os_execute_and_review"]
+default_tools_approval_mode = "approve"

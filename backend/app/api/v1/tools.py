@@ -45,6 +45,7 @@ def _service(request: Request, session: AsyncSession) -> ToolService:
             "filesystem_tool_workspace",
             None,
         ),
+        dex_gateway=getattr(request.app.state, "dex_gateway", None),
     )
 
 
@@ -67,6 +68,7 @@ async def list_tools(
 ) -> ToolDescriptorPageResponse:
     del current_user
     workspace = getattr(request.app.state, "filesystem_tool_workspace", None)
+    dex_gateway = getattr(request.app.state, "dex_gateway", None)
     return ToolDescriptorPageResponse(
         items=[
             ToolDescriptorResponse(
@@ -80,7 +82,10 @@ async def list_tools(
             for item in ToolService.definitions(
                 filesystem_available=(
                     workspace is not None and workspace.available
-                )
+                ),
+                dex_available=(
+                    dex_gateway is not None and dex_gateway.available
+                ),
             )
         ]
     )

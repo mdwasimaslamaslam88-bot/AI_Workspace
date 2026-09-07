@@ -28,7 +28,11 @@ vi.mock("../src/platform/desktop", async (importOriginal) => {
 
 import { App } from "../src/app/App";
 import { readSessionToken, writeSessionToken } from "../src/auth/session";
-import type { Workflow, WorkflowStatus } from "../src/api/contracts";
+import type {
+  ChatExecutionTrace,
+  Workflow,
+  WorkflowStatus,
+} from "../src/api/contracts";
 import {
   conversation,
   errorEnvelope,
@@ -93,6 +97,7 @@ function installWorkspaceFetch(options: {
   generationStatus?: 201 | 409 | "pending";
   models?: Array<typeof model>;
   workflowOutcome?: Extract<WorkflowStatus, "completed" | "failed">;
+  execution?: ChatExecutionTrace;
 } = {}) {
   let generated = false;
   let messageReads = 0;
@@ -225,6 +230,7 @@ function installWorkspaceFetch(options: {
         {
           model_id: model.model_id,
           message: message(3, "assistant", "answer"),
+          execution: options.execution ?? null,
         },
         201,
       );
@@ -540,6 +546,48 @@ describe("App integration", () => {
       user_message: "next",
     });
     expect(workspace.messageReads()).toBeGreaterThanOrEqual(2);
+  });
+
+  it("keeps a verified DEX execution trace after history reconciliation", async () => {
+    writeSessionToken(token);
+    installWorkspaceFetch({
+      execution: {
+        status: "completed",
+        states: [
+          "planning",
+          "selecting_tool",
+          "asking_dex",
+          "dex_working",
+          "verifying_dex",
+          "done",
+        ],
+        receipts: [
+          {
+            tool: "dex.delegate",
+            operation: "delegate",
+            status: "completed",
+            audit_id: "88888888-8888-4888-8888-888888888888",
+            path: null,
+            verification: "dex_result_verified",
+          },
+        ],
+        detail: "Real DEX execution completed with durable audit evidence.",
+      },
+    });
+    render(<App />);
+
+    await userEvent.click(await screen.findByRole("button", { name: /Local chat/ }));
+    await screen.findByText("hello");
+    await userEvent.type(screen.getByLabelText("Message"), "Ask DEX to inspect.");
+    await userEvent.click(screen.getByRole("button", { name: "Send" }));
+
+    const execution = await screen.findByRole("region", {
+      name: "AI OS tool execution",
+    });
+    expect(execution).toHaveTextContent("asking dex");
+    expect(execution).toHaveTextContent("dex working");
+    expect(execution).toHaveTextContent("verifying dex");
+    expect(execution).toHaveTextContent("dex result verified");
   });
 
   it("refreshes history before showing a safe 409 diagnostic", async () => {

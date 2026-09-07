@@ -29,8 +29,11 @@ def test_activation_baseline_remains_a_valid_historical_feature_authority():
     assert authority["total"] == 245
     assert feature_report["total"] >= authority["total"]
     assert feature_report["statuses"]["implemented"] >= authority["statuses"]["implemented"]
+    # The immutable Phase A report is a historical lower bound. Later releases
+    # may register additional truthful runtime/external capabilities, but must
+    # never erase the dependency classifications that the baseline recorded.
     for status in ("runtime_dependent", "external_dependency"):
-        assert feature_report["statuses"][status] == authority["statuses"][status]
+        assert feature_report["statuses"][status] >= authority["statuses"][status]
     assert feature_report["statuses"]["planned"] <= authority["statuses"]["planned"]
     assert feature_report["validation"] == authority["validation"]
     assert sum(authority["statuses"].values()) == authority["total"]

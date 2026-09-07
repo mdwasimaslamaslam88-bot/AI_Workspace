@@ -150,6 +150,27 @@ _GROUPS = (
         ),
     ),
     _Group(
+        "mission_control",
+        "DEX cooperation",
+        "/home",
+        "dex_gateway",
+        "runtime_dependent",
+        ("owner_session", "agent_delegation"),
+        ("installed_codex_cli", "authenticated_codex_runtime", "postgresql_audit"),
+        (
+            "backend:test_dex_gateway",
+            "backend:test_dex_mcp_server",
+            "web:authenticated_dex_e2e",
+        ),
+        _features(
+            ("dex_delegation", "AI OS to DEX delegation"),
+            ("dex_reverse_review", "DEX to AI OS review"),
+            ("dex_result_verification", "Independent DEX result verification"),
+            ("cross_agent_provenance", "Cross-agent result provenance"),
+            ("dex_failure_recovery", "Truthful DEX failure recovery"),
+        ),
+    ),
+    _Group(
         "ai_presence",
         "Realtime communications",
         "/home",

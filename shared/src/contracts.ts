@@ -1737,7 +1737,10 @@ export type ChatExecutionState =
   | "selecting_tool"
   | "checking_permission"
   | "executing"
+  | "asking_dex"
+  | "dex_working"
   | "verifying"
+  | "verifying_dex"
   | "done"
   | "blocked"
   | "failed";
@@ -1789,6 +1792,10 @@ function stringField(value: unknown): string {
 
 function nullableString(value: unknown): string | null {
   return value === null ? null : stringField(value);
+}
+
+function optionalNullableString(value: unknown): string | null {
+  return value === undefined || value === null ? null : stringField(value);
 }
 
 function integerOrNull(value: unknown): number | null {
@@ -4031,7 +4038,10 @@ const CHAT_EXECUTION_STATES = new Set<ChatExecutionState>([
   "selecting_tool",
   "checking_permission",
   "executing",
+  "asking_dex",
+  "dex_working",
   "verifying",
+  "verifying_dex",
   "done",
   "blocked",
   "failed",
@@ -4061,8 +4071,8 @@ function parseChatExecutionTrace(value: unknown): ChatExecutionTrace {
       operation: stringField(parsed.operation),
       status: receiptStatus as ChatToolReceipt["status"],
       audit_id: nullableString(parsed.audit_id),
-      path: nullableString(parsed.path),
-      verification: nullableString(parsed.verification),
+      path: optionalNullableString(parsed.path),
+      verification: optionalNullableString(parsed.verification),
     };
   });
   return {

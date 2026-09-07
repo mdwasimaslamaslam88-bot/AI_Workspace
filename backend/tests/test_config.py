@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 from app.core.config import (
+    DEX_GENERATION_COMPLETION_RESERVE_SECONDS,
     MAX_GENERATION_ACTIVE_PER_PROCESS,
     MAX_GENERATION_DURATION_SECONDS,
     MAX_MODEL_LIST_DISCOVERY_SECONDS,
@@ -88,6 +89,7 @@ def test_settings_preserve_application_defaults():
     assert settings.OLLAMA_GENERATION_TIMEOUT_SECONDS == 120.0
     assert settings.GENERATION_MAX_ACTIVE_PER_PROCESS == 1
     assert settings.GENERATION_MAX_DURATION_SECONDS == 180.0
+    assert settings.DEX_REASONING_EFFORT == "medium"
     assert settings.REQUEST_MAX_BODY_BYTES == 262_144
     assert settings.USER_PROVISIONING_TOKEN_DIGEST is None
     assert settings.WORK_STATION_WEB_ROOT is None
@@ -95,6 +97,30 @@ def test_settings_preserve_application_defaults():
     assert settings.EDGE_AUTH_FAILURE_LIMIT == 120
     assert settings.EDGE_PROVISIONING_LIMIT == 10
     assert settings.EDGE_RATE_LIMIT_WINDOW_SECONDS == 60
+
+
+def test_dex_runtime_requires_generation_completion_reserve(tmp_path):
+    dex_binary = tmp_path / "codex"
+    workspace_root = tmp_path / "dex-workspaces"
+    common = {
+        "_env_file": None,
+        "DATABASE_URL": "postgresql+asyncpg://user:password@localhost/database",
+        "DEX_CODEX_BINARY": dex_binary,
+        "DEX_WORKSPACE_ROOT": workspace_root,
+        "DEX_TIMEOUT_SECONDS": 180.0,
+    }
+
+    with pytest.raises(ValidationError, match="reserve at least 30 seconds"):
+        Settings(**common, GENERATION_MAX_DURATION_SECONDS=209.0)
+
+    configured = Settings(
+        **common,
+        GENERATION_MAX_DURATION_SECONDS=(
+            180.0 + DEX_GENERATION_COMPLETION_RESERVE_SECONDS
+        ),
+    )
+
+    assert configured.GENERATION_MAX_DURATION_SECONDS == 210.0
 
 
 @pytest.mark.parametrize(

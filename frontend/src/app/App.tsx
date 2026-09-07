@@ -792,10 +792,14 @@ export function App() {
           },
           controller.signal,
         );
-        setChatExecution(response.execution);
         setMessages((current) => mergeMessages(current, [response.message]));
         await refreshMessageSnapshot(conversationId, 2);
         await reloadConversations();
+        // Keep the verified execution trace authoritative after the message and
+        // conversation snapshots finish reconciling. Long-running delegated
+        // tasks can otherwise briefly render and then lose their trace during
+        // the asynchronous post-generation refresh.
+        setChatExecution(response.execution);
       } catch (error) {
         if (error instanceof ApiError && error.kind === "authentication") return;
         const reconciled = await refreshMessageSnapshot(conversationId, 2);

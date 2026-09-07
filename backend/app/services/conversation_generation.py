@@ -32,6 +32,7 @@ from app.ai.generation import (
 )
 from app.ai.routing import ModelTask, task_system_instruction
 from app.documents.embedding import EmbeddingRuntime
+from app.dex import DexGateway
 from app.models.message import (
     Message,
     MessageContentTooLargeError,
@@ -96,11 +97,23 @@ call now. If the required arguments are genuinely unavailable, return no tool ca
 AI OS will report the request as blocked."""
 _FILESYSTEM_INTENT = re.compile(
     r"(?is)\b(?:create|write|save|make|read|list|check|inspect|stat)\b"
-    r".{0,180}\b(?:file|directory|folder|path|[a-z0-9_-]+\.[a-z0-9_-]+)\b"
+    r"(?:.{0,48}\b(?:file|directory|folder|path)\b"
+    r"|(?:\s+(?:a|the))?\s+[a-z0-9_-]+\.[a-z0-9_-]+\b)"
 )
 _FILESYSTEM_WRITE_INTENT = re.compile(
     r"(?is)\b(?:create|write|save|make)\b"
-    r".{0,180}\b(?:file|[a-z0-9_-]+\.[a-z0-9_-]+)\b"
+    r"(?:.{0,48}\bfile\b"
+    r"|(?:\s+(?:a|the))?\s+[a-z0-9_-]+\.[a-z0-9_-]+\b)"
+)
+_CALCULATOR_TOOL_INTENT = re.compile(
+    r"(?is)(?:\b(?:use|run|invoke)\b.{0,24}\bcalculator\b"
+    r"|\b(?:calculate|compute|evaluate)\b.{0,100}\b(?:using|with)\b"
+    r".{0,16}\bcalculator\b)"
+)
+_DEX_INTENT = re.compile(
+    r"(?is)\b(?:dex|codex|engineering agent|coding agent)\b"
+    r".{0,220}\b(?:analy[sz]e|diagnos|inspect|verify|review|solve|fix|delegate|help)\w*\b"
+    r"|\b(?:ask|delegate|send)\w*\b.{0,100}\b(?:dex|codex)\b"
 )
 
 
@@ -117,7 +130,7 @@ def _requested_chat_tools(prompt: str) -> frozenset[str]:
             names.add("filesystem.exists")
         if re.search(r"(?i)\b(?:stat|metadata)\b", prompt) is not None:
             names.add("filesystem.stat")
-    if re.search(r"(?i)\b(?:calculate|compute|evaluate)\b", prompt) is not None:
+    if _CALCULATOR_TOOL_INTENT.search(prompt) is not None:
         names.add("calculator")
     if re.search(r"(?i)\b(?:current|local)\s+time\b", prompt) is not None:
         names.add("local_time")
@@ -136,6 +149,8 @@ def _requested_chat_tools(prompt: str) -> frozenset[str]:
         prompt,
     ) is not None:
         names.add("memory_search")
+    if _DEX_INTENT.search(prompt) is not None:
+        names.add("dex.delegate")
     return frozenset(names)
 
 
@@ -199,6 +214,7 @@ class ConversationGenerationService:
         document_embedding_runtime: EmbeddingRuntime | None = None,
         memory_enabled: bool = False,
         filesystem_workspace: OwnerFilesystemWorkspace | None = None,
+        dex_gateway: DexGateway | None = None,
     ) -> None:
         self.session = session
         self.catalog = catalog
@@ -210,6 +226,7 @@ class ConversationGenerationService:
         self.memory_enabled = memory_enabled
         self.storage = storage
         self.filesystem_workspace = filesystem_workspace
+        self.dex_gateway = dex_gateway
         self.last_chat_execution: ChatExecutionTrace | None = None
 
     async def generate_for_owner(
@@ -592,6 +609,7 @@ class ConversationGenerationService:
             filesystem_write_intent = (
                 _FILESYSTEM_WRITE_INTENT.search(latest_user_text) is not None
             )
+            dex_intent = _DEX_INTENT.search(latest_user_text) is not None
             chat_tool_definitions: tuple[TextGenerationToolDefinition, ...] = ()
             blocked_content: str | None = None
             if enable_chat_tools:
@@ -600,7 +618,21 @@ class ConversationGenerationService:
                     self.filesystem_workspace is not None
                     and self.filesystem_workspace.available
                 )
-                if filesystem_intent and not workspace_available:
+                dex_available = bool(
+                    self.dex_gateway is not None and self.dex_gateway.available
+                )
+                if dex_intent and not dex_available:
+                    blocked_content = (
+                        "BLOCKED: the authenticated AI OS has no admitted DEX runtime. "
+                        "No agent delegation was executed."
+                    )
+                    self.last_chat_execution = ChatExecutionTrace(
+                        status="blocked",
+                        states=("planning", "selecting_tool", "blocked"),
+                        receipts=(),
+                        detail="DEX agent delegation is unavailable.",
+                    )
+                elif filesystem_intent and not workspace_available:
                     blocked_content = (
                         "BLOCKED: the authenticated owner has no configured "
                         "filesystem workspace. No filesystem action was executed."
@@ -635,6 +667,7 @@ class ConversationGenerationService:
                         for item in ToolService.definitions(
                             initiator="chat_model",
                             filesystem_available=workspace_available,
+                            dex_available=dex_available,
                         )
                         if item.name in requested_tools
                     )
@@ -746,6 +779,7 @@ class ConversationGenerationService:
                         generation_options,
                         filesystem_intent=filesystem_intent,
                         filesystem_write_intent=filesystem_write_intent,
+                        dex_intent=dex_intent,
                         tools_enabled=enable_chat_tools,
                     )
                 except TextGenerationRequestTooLargeError as exc:
@@ -793,6 +827,7 @@ class ConversationGenerationService:
         filesystem_intent: bool,
         filesystem_write_intent: bool,
         tools_enabled: bool,
+        dex_intent: bool = False,
     ) -> str:
         generated = await self._select_initial_tool_call(
             model,
@@ -830,6 +865,7 @@ class ConversationGenerationService:
             document_admission=self.document_admission,
             document_embedding_runtime=self.document_embedding_runtime,
             filesystem_workspace=self.filesystem_workspace,
+            dex_gateway=self.dex_gateway,
         )
         allowed_permissions = {
             "utility",
@@ -841,6 +877,8 @@ class ConversationGenerationService:
             allowed_permissions.add("workspace_read")
         if filesystem_write_intent:
             allowed_permissions.add("workspace_write")
+        if dex_intent:
+            allowed_permissions.add("agent_delegation")
 
         states = ["planning", "selecting_tool"]
         receipts: list[ChatToolReceipt] = []
@@ -881,11 +919,28 @@ class ConversationGenerationService:
                         receipts,
                         f"Tool capability {call.name!r} is not admitted for this chat.",
                     )
+                execution_arguments = call.arguments
+                if call.name == "dex.delegate":
+                    # The model may select the bounded DEX request and capability,
+                    # but it is not an authority for filesystem scope, mutation, or
+                    # independent-review policy. Chat delegation is always pinned
+                    # to the repository's read-only surface and requires AI OS
+                    # review; owner-workspace writes remain available only through
+                    # an explicit non-chat owner action.
+                    execution_arguments = {
+                        "request": call.arguments.get("request"),
+                        "capability": call.arguments.get("capability", "analysis"),
+                        "scope": "repository",
+                        "execution_mode": "read_only",
+                        "require_ai_os_review": True,
+                    }
                 try:
+                    if call.name == "dex.delegate":
+                        states.extend(("asking_dex", "dex_working"))
                     record = await tool_service.execute_for_owner(
                         owner_id,
                         call.name,
-                        call.arguments,
+                        execution_arguments,
                         conversation_id=conversation_id,
                         initiator="chat_model",
                         allowed_permissions=frozenset(allowed_permissions),
@@ -916,6 +971,34 @@ class ConversationGenerationService:
                         states,
                         receipts,
                         f"Tool {record.tool_name!r} did not complete successfully.",
+                    )
+
+                if call.name == "dex.delegate":
+                    states.append("verifying_dex")
+                    verification = result.get("verification")
+                    if result.get("status") == "BLOCKED":
+                        return self._blocked_tool_response(
+                            states,
+                            receipts,
+                            "DEX could not complete the delegated request with verified evidence.",
+                        )
+                    if (
+                        result.get("status") != "VERIFIED"
+                        or not isinstance(verification, dict)
+                        or verification.get("status") != "VERIFIED"
+                    ):
+                        return self._failed_tool_response(
+                            states,
+                            receipts,
+                            "DEX delegation did not produce an independently verified result.",
+                        )
+                    receipts[-1] = ChatToolReceipt(
+                        tool=receipts[-1].tool,
+                        operation=receipts[-1].operation,
+                        status=receipts[-1].status,
+                        audit_id=receipts[-1].audit_id,
+                        path=receipts[-1].path,
+                        verification="dex_result_verified",
                     )
 
                 if call.name == "filesystem.write":

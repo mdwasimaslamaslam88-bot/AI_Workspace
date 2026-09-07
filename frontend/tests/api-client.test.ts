@@ -295,6 +295,57 @@ describe("ApiClient", () => {
     });
   });
 
+  it("accepts omitted nullable fields in a verified DEX receipt", async () => {
+    const fetchImplementation = vi.fn(async () =>
+      jsonResponse(
+        {
+          model_id: model.model_id,
+          message: message(2, "assistant", "DEX result verified."),
+          execution: {
+            status: "completed",
+            states: [
+              "planning",
+              "selecting_tool",
+              "asking_dex",
+              "dex_working",
+              "verifying_dex",
+              "done",
+            ],
+            receipts: [
+              {
+                audit_id: "88888888-8888-4888-8888-888888888888",
+                operation: "delegate",
+                status: "completed",
+                tool: "dex.delegate",
+                verification: "dex_result_verified",
+              },
+            ],
+            detail: "Real tool execution completed with durable audit evidence.",
+          },
+        },
+        201,
+      ),
+    );
+    const client = new ApiClient(token, {
+      fetchImplementation: fetchImplementation as typeof fetch,
+    });
+
+    const response = await client.generateResponse(conversation.id, {
+      model_id: model.model_id,
+    });
+
+    expect(response.execution?.receipts).toEqual([
+      {
+        audit_id: "88888888-8888-4888-8888-888888888888",
+        operation: "delegate",
+        status: "completed",
+        tool: "dex.delegate",
+        path: null,
+        verification: "dex_result_verified",
+      },
+    ]);
+  });
+
   it("renames and deletes only the encoded owned conversation route", async () => {
     const calls: Array<{ url: string; method: string; body: unknown }> = [];
     const fetchImplementation = vi.fn(

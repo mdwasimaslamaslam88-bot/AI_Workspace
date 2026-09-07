@@ -22,7 +22,7 @@ def test_feature_implementation_matrix_is_complete_and_prioritized():
     matrix = module._matrix_payload(registry)
 
     assert matrix["registry_sha256"] == registry["registry_sha256"]
-    assert matrix["total"] == registry["total"] == 330
+    assert matrix["total"] == registry["total"] == 335
     assert len(matrix["items"]) == registry["total"]
     assert len({item["id"] for item in matrix["items"]}) == registry["total"]
     assert matrix["summary"] == {
@@ -32,7 +32,7 @@ def test_feature_implementation_matrix_is_complete_and_prioritized():
         "broken_registry_wiring": 0,
         "planned_gaps": 0,
         "external_boundaries": 39,
-        "runtime_gates": 14,
+        "runtime_gates": 19,
     }
     assert [gap["priority"] for gap in matrix["gaps"]] == sorted(
         (gap["priority"] for gap in matrix["gaps"]),

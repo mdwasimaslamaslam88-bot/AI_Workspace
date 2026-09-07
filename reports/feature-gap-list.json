@@ -757,6 +757,86 @@
     },
     {
       "backend_state": "bound",
+      "category": "DEX cooperation",
+      "code": "runtime_readiness",
+      "dependencies": [
+        "installed_codex_cli",
+        "authenticated_codex_runtime",
+        "postgresql_audit"
+      ],
+      "id": "mission_control.cross_agent_provenance",
+      "layer": "mission_control",
+      "locally_actionable": true,
+      "priority": "P3",
+      "status": "runtime_dependent",
+      "ui_state": "runtime_gated"
+    },
+    {
+      "backend_state": "bound",
+      "category": "DEX cooperation",
+      "code": "runtime_readiness",
+      "dependencies": [
+        "installed_codex_cli",
+        "authenticated_codex_runtime",
+        "postgresql_audit"
+      ],
+      "id": "mission_control.dex_delegation",
+      "layer": "mission_control",
+      "locally_actionable": true,
+      "priority": "P3",
+      "status": "runtime_dependent",
+      "ui_state": "runtime_gated"
+    },
+    {
+      "backend_state": "bound",
+      "category": "DEX cooperation",
+      "code": "runtime_readiness",
+      "dependencies": [
+        "installed_codex_cli",
+        "authenticated_codex_runtime",
+        "postgresql_audit"
+      ],
+      "id": "mission_control.dex_failure_recovery",
+      "layer": "mission_control",
+      "locally_actionable": true,
+      "priority": "P3",
+      "status": "runtime_dependent",
+      "ui_state": "runtime_gated"
+    },
+    {
+      "backend_state": "bound",
+      "category": "DEX cooperation",
+      "code": "runtime_readiness",
+      "dependencies": [
+        "installed_codex_cli",
+        "authenticated_codex_runtime",
+        "postgresql_audit"
+      ],
+      "id": "mission_control.dex_result_verification",
+      "layer": "mission_control",
+      "locally_actionable": true,
+      "priority": "P3",
+      "status": "runtime_dependent",
+      "ui_state": "runtime_gated"
+    },
+    {
+      "backend_state": "bound",
+      "category": "DEX cooperation",
+      "code": "runtime_readiness",
+      "dependencies": [
+        "installed_codex_cli",
+        "authenticated_codex_runtime",
+        "postgresql_audit"
+      ],
+      "id": "mission_control.dex_reverse_review",
+      "layer": "mission_control",
+      "locally_actionable": true,
+      "priority": "P3",
+      "status": "runtime_dependent",
+      "ui_state": "runtime_gated"
+    },
+    {
+      "backend_state": "bound",
       "category": "Local media runtimes",
       "code": "runtime_readiness",
       "dependencies": [
@@ -802,7 +882,7 @@
     }
   ],
   "product": "AI OS",
-  "registry_sha256": "24f7603971405d6f8777da685607c9687186809ee4a9cfe66a7023ccee375f2d",
+  "registry_sha256": "4386bcfb53e088d2299e7f85917bb0d77de2102b71dff5d8731203b5f7de2ea8",
   "schema_version": 1,
   "summary": {
     "broken_registry_wiring": 0,
@@ -811,6 +891,6 @@
     "missing_coverage_records": 0,
     "missing_ui_paths": 0,
     "planned_gaps": 0,
-    "runtime_gates": 14
+    "runtime_gates": 19
   }
 }
