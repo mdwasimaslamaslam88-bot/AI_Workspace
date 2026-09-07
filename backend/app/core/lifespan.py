@@ -173,6 +173,14 @@ def _require_user_provisioning_database(configured: Settings) -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     _require_user_provisioning_database(settings)
+    from app.core.runtime_identity import capture_runtime_identity
+
+    app.state.runtime_identity = await asyncio.to_thread(
+        capture_runtime_identity,
+        Path(__file__).resolve().parents[3],
+        settings.WORK_STATION_WEB_ROOT,
+        settings.APP_VERSION,
+    )
     async with AsyncExitStack() as resource_stack:
         hardware_capability_service = HardwareCapabilityService(
             settings.HARDWARE_STATE_PATH,

@@ -8,6 +8,7 @@ import json
 import os
 from pathlib import Path
 import secrets
+import signal
 import stat
 import tempfile
 import time
@@ -160,6 +161,19 @@ class DexGateway:
             execution_mode,
         )
         callback_results: list[dict[str, Any]] = []
+        callback_tasks: set[asyncio.Task[None]] = set()
+
+        def accept_callback(reader, writer) -> None:
+            # Bound even unauthenticated connections, and own every handler's
+            # lifetime so a cancelled delegation cannot leave a late action.
+            if len(callback_tasks) >= 4:
+                writer.close()
+                return
+            handler = asyncio.create_task(self._handle_callback(
+                callback, reader, writer, timeline, callback_results
+            ))
+            callback_tasks.add(handler)
+            handler.add_done_callback(callback_tasks.discard)
 
         async with self._admission:
             started = time.monotonic()
@@ -168,9 +182,7 @@ class DexGateway:
                 os.chmod(temp_root, 0o700)
                 socket_path = temp_root / "callback.sock"
                 server = await asyncio.start_unix_server(
-                    lambda reader, writer: self._handle_callback(
-                        callback, reader, writer, timeline, callback_results
-                    ),
+                    accept_callback,
                     path=socket_path,
                     limit=MAX_DEX_CALLBACK_BYTES,
                 )
@@ -192,6 +204,10 @@ class DexGateway:
                     )
                 finally:
                     server.close()
+                    handlers = tuple(callback_tasks)
+                    for handler in handlers:
+                        handler.cancel()
+                    await asyncio.gather(*handlers, return_exceptions=True)
                     await server.wait_closed()
 
         parsed = self._parse_codex_result(raw)
@@ -255,7 +271,7 @@ class DexGateway:
         owner_root = self.owner_workspace_root / str(owner_id)
         owner_root.mkdir(mode=0o700, exist_ok=True)
         resolved = owner_root.resolve(strict=True)
-        if self.owner_workspace_root not in resolved.parents:
+        if owner_root.is_symlink() or resolved != owner_root:
             raise DexGatewayError("DEX owner workspace escaped its configured root")
         return resolved
 
@@ -343,7 +359,40 @@ class DexGateway:
         )
         command = [
             str(self.binary),
-            "--approve-for-me",
+            "--strict-config",
+            "--ask-for-approval",
+            "never",
+            "-c",
+            'default_permissions="ai_os_dex"',
+            "-c",
+            (
+                'permissions.ai_os_dex.filesystem={":minimal"="read",'
+                '"/proc"="deny",glob_scan_max_depth=8,'
+                + json.dumps(str(target))
+                + '={"."="read",".env"="deny",".env.*"="deny",'
+                '"**/.env"="deny","**/.env.*"="deny",'
+                '"**/*.pem"="deny","**/*.key"="deny"}}'
+            ),
+            "-c",
+            "permissions.ai_os_dex.network.enabled=false",
+            "-c",
+            "features.use_legacy_landlock=false",
+            "-c",
+            "features.apps=false",
+            "-c",
+            "features.plugins=false",
+            "-c",
+            "agents.enabled=false",
+            "-c",
+            'web_search="disabled"',
+            "-c",
+            "allow_login_shell=false",
+            "-c",
+            "features.shell_snapshot=false",
+            "-c",
+            'shell_environment_policy.inherit="none"',
+            "-c",
+            'shell_environment_policy.set={PATH="/usr/bin:/bin",LANG="C.UTF-8"}',
             "-c",
             f'model_reasoning_effort="{self.reasoning_effort}"',
             "-c",
@@ -373,11 +422,10 @@ class DexGateway:
         if allow_non_git:
             command.append("--skip-git-repo-check")
         command.extend([
-            "--sandbox",
-            # Host filesystem mutations are never granted to the DEX process.
-            # Authorized owner-workspace actions use the one-use MCP callback
-            # and the existing owner-scoped ToolService instead.
-            "read-only",
+            # The explicit permission profile above also restricts reads to
+            # this owner's assigned scope. Legacy read-only allows host-wide
+            # reads and cannot enforce this profile. Never auto-escalate when
+            # the host cannot start the required sandbox.
             "--json",
             "-C",
             str(target),
@@ -392,12 +440,18 @@ class DexGateway:
             stderr=asyncio.subprocess.PIPE,
             env=env,
             limit=MAX_DEX_OUTPUT_BYTES,
+            start_new_session=True,
         )
         self._active_processes.add(process)
+        readers = [
+            asyncio.create_task(self._read_bounded(process.stdout, MAX_DEX_OUTPUT_BYTES)),
+            asyncio.create_task(self._read_bounded(process.stderr, MAX_DEX_STDERR_BYTES)),
+            asyncio.create_task(process.wait()),
+        ]
         try:
             try:
-                stdout, stderr = await asyncio.wait_for(
-                    process.communicate(), timeout=self.timeout_seconds
+                stdout, stderr, _ = await asyncio.wait_for(
+                    asyncio.gather(*readers), timeout=self.timeout_seconds
                 )
             except TimeoutError as exc:
                 await self._terminate_process(process)
@@ -408,7 +462,14 @@ class DexGateway:
                 # cleanup so task cancellation cannot interrupt process teardown.
                 await asyncio.shield(self._terminate_process(process))
                 raise
+            except Exception:
+                await self._terminate_process(process)
+                raise
         finally:
+            await asyncio.shield(self._terminate_process(process))
+            for reader in readers:
+                reader.cancel()
+            await asyncio.gather(*readers, return_exceptions=True)
             self._active_processes.discard(process)
         if len(stdout) > MAX_DEX_OUTPUT_BYTES or len(stderr) > MAX_DEX_STDERR_BYTES:
             raise DexGatewayError("DEX process output exceeded its bound")
@@ -417,15 +478,44 @@ class DexGateway:
         return stdout, stderr, int(process.returncode)
 
     @staticmethod
+    async def _read_bounded(reader: asyncio.StreamReader, maximum: int) -> bytes:
+        chunks = bytearray()
+        while True:
+            chunk = await reader.read(min(65_536, maximum - len(chunks) + 1))
+            if not chunk:
+                return bytes(chunks)
+            chunks.extend(chunk)
+            if len(chunks) > maximum:
+                raise DexGatewayError("DEX process output exceeded its bound")
+
+    @staticmethod
     async def _terminate_process(process: asyncio.subprocess.Process) -> None:
-        if process.returncode is not None:
+        process_group = getattr(process, "pid", None)
+
+        def signal_group(value: int) -> None:
+            if isinstance(process_group, int):
+                try:
+                    os.killpg(process_group, value)
+                except ProcessLookupError:
+                    pass
+
+        if process.returncode is not None and not isinstance(process_group, int):
             return
-        process.terminate()
+        if isinstance(process_group, int):
+            signal_group(signal.SIGTERM)
+        elif process.returncode is None:
+            process.terminate()
         try:
             await asyncio.wait_for(process.wait(), timeout=5)
         except TimeoutError:
-            process.kill()
-            await process.wait()
+            if process.returncode is None:
+                process.kill()
+        finally:
+            # The Codex leader can exit before its shell/MCP children. Reap the
+            # entire group even on successful exit, with no late side effects.
+            signal_group(signal.SIGKILL)
+        if process.returncode is None:
+            await asyncio.wait_for(process.wait(), timeout=2)
 
     async def _handle_callback(
         self,
@@ -511,6 +601,13 @@ class DexGateway:
                 )
             )
             response = {
+                "task_id": str(context.task_id),
+                "correlation_id": str(context.correlation_id),
+                "owner_id": str(context.owner_id),
+                "source": "ai_os",
+                "destination": "dex",
+                "capability": "analysis",
+                "timestamp": _now(),
                 "status": "VERIFIED" if result.status is AgentRunStatus.COMPLETED else "FAILED",
                 "output": result.output,
                 "output_sha256": (
@@ -521,6 +618,10 @@ class DexGateway:
                 "failure_code": result.failure_code,
                 "attempts": len(result.attempts),
                 "operation": operation_result,
+                "verification": {
+                    "scope": "response_integrity_only",
+                    "semantic_correctness_verified": False,
+                },
             }
             callback_results[0] = response
             self._event(
@@ -530,6 +631,10 @@ class DexGateway:
                 response["status"],
                 "analysis returned",
             )
+        except asyncio.CancelledError:
+            writer.close()
+            await writer.wait_closed()
+            raise
         except Exception:
             response = {"status": "FAILED", "failure_code": "callback_rejected"}
             self._event(timeline, "ai_os", "dex", "FAILED", "callback rejected")
@@ -575,32 +680,44 @@ class DexGateway:
         callback_results: list[dict[str, Any]],
         returncode: int,
     ) -> tuple[bool, dict[str, Any]]:
+        # Use the authoritative filesystem policy for independent evidence
+        # reads too; result claims cannot grant broader filesystem access.
+        from app.services.filesystem_tool import (
+            FilesystemToolError,
+            MAX_FILESYSTEM_READ_BYTES,
+            OwnerFilesystemWorkspace,
+        )
+
         checks: list[dict[str, Any]] = []
 
         def check(name: str, passed: bool) -> None:
             checks.append({"check": name, "passed": passed})
 
         check("process_exit", returncode == 0)
+        check("result_schema", set(result) == {
+            "status", "summary", "evidence", "ai_os_consulted", "confidence"
+        })
         check("status_schema", result.get("status") in {"VERIFIED", "BLOCKED", "FAILED"})
         summary = result.get("summary")
-        check("summary_present", isinstance(summary, str) and bool(summary.strip()))
+        check("summary_present", isinstance(summary, str) and bool(summary.strip()) and len(summary) <= 8000)
         evidence = result.get("evidence")
         check(
             "evidence_bounded",
             isinstance(evidence, list) and len(evidence) <= MAX_DEX_EVIDENCE_ITEMS,
         )
+        verified_callback_digests = {
+            item.get("output_sha256")
+            for item in callback_results
+            if item.get("status") == "VERIFIED"
+            and isinstance(item.get("output_sha256"), str)
+        }
+        independent_evidence = False
         if require_ai_os_review:
             check("ai_os_review", result.get("ai_os_consulted") is True)
             check(
                 "ai_os_timeline",
                 any(item.get("source") == "dex" and item.get("destination") == "ai_os" for item in timeline),
             )
-            verified_callback_digests = {
-                item.get("output_sha256")
-                for item in callback_results
-                if item.get("status") == "VERIFIED"
-                and isinstance(item.get("output_sha256"), str)
-            }
             reported_ai_os_digests = {
                 item.get("sha256")
                 for item in evidence
@@ -621,7 +738,8 @@ class DexGateway:
                     set(item) == {"kind", "claim", "path", "sha256"}
                     and item.get("kind") in {"analysis", "file", "command", "test", "ai_os"}
                     and isinstance(item.get("claim"), str)
-                    and bool(item["claim"].strip()),
+                    and bool(item["claim"].strip())
+                    and len(item["claim"]) <= 1000,
                 )
                 kind = item.get("kind")
                 path_value = item.get("path")
@@ -637,6 +755,7 @@ class DexGateway:
                         kind == "file"
                         and isinstance(path_value, str)
                         and bool(path_value.strip())
+                        and len(path_value) <= 512
                         and digest_valid
                     )
                     or (
@@ -645,25 +764,27 @@ class DexGateway:
                         and (digest is None or digest_valid)
                     ),
                 )
+                if kind == "ai_os":
+                    matched = digest_valid and digest in verified_callback_digests
+                    check(f"ai_os_evidence_{index}", matched)
+                    independent_evidence |= matched
                 if kind != "file":
                     continue
                 try:
-                    relative = Path(str(path_value))
-                    if relative.is_absolute() or ".." in relative.parts:
-                        raise OSError("evidence path is not relative")
-                    unresolved = target / relative
-                    current = unresolved
-                    while current != target:
-                        if current.is_symlink():
-                            raise OSError("evidence path contains a symlink")
-                        current = current.parent
-                    candidate = unresolved.resolve(strict=True)
-                    scoped = candidate == target or target in candidate.parents
-                    regular = candidate.is_file()
-                    actual = hashlib.sha256(candidate.read_bytes()).hexdigest() if scoped and regular else None
-                    check(f"file_evidence_{index}", scoped and regular and actual == digest)
-                except (OSError, RuntimeError):
+                    relative = OwnerFilesystemWorkspace._relative_path(path_value)
+                    parent_fd, name = OwnerFilesystemWorkspace._walk_parent(target, relative)
+                    try:
+                        content = OwnerFilesystemWorkspace._read_at(
+                            parent_fd, name, MAX_FILESYSTEM_READ_BYTES
+                        )
+                    finally:
+                        os.close(parent_fd)
+                    matched = hashlib.sha256(content).hexdigest() == digest
+                    check(f"file_evidence_{index}", matched)
+                    independent_evidence |= matched
+                except (OSError, RuntimeError, FilesystemToolError):
                     check(f"file_evidence_{index}", False)
+        check("independently_verifiable_evidence", independent_evidence)
         confidence = result.get("confidence")
         check(
             "confidence_schema",
@@ -677,6 +798,8 @@ class DexGateway:
             passed = False
         return passed, {
             "status": "VERIFIED" if passed else "FAILED",
+            "scope": "evidence_integrity",
+            "semantic_correctness_verified": False,
             "checks": checks,
             "result_sha256": hashlib.sha256(
                 _bounded_json(result, MAX_DEX_RESULT_CHARACTERS).encode("utf-8")

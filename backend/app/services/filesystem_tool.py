@@ -251,7 +251,9 @@ class OwnerFilesystemWorkspace:
 
     @staticmethod
     def _read_at(parent_fd: int, name: str, maximum: int) -> bytes:
-        flags = os.O_RDONLY
+        # A FIFO/device must reach the regular-file check without blocking
+        # open(), including when an entry is replaced immediately before open.
+        flags = os.O_RDONLY | os.O_NONBLOCK
         if hasattr(os, "O_NOFOLLOW"):
             flags |= os.O_NOFOLLOW
         file_fd = os.open(name, flags, dir_fd=parent_fd)

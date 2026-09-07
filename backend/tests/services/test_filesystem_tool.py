@@ -1,5 +1,7 @@
 import os
 from pathlib import Path
+import subprocess
+import sys
 from uuid import uuid4
 
 import pytest
@@ -16,6 +18,29 @@ def workspace(tmp_path: Path) -> OwnerFilesystemWorkspace:
     root = tmp_path / "configured-root"
     root.mkdir(mode=0o700)
     return OwnerFilesystemWorkspace((root,))
+
+
+def test_special_file_read_is_rejected_without_blocking_open(tmp_path):
+    os.mkfifo(tmp_path / "pipe")
+    subprocess.run(
+        [sys.executable, "-c", """
+import os, sys
+from app.services.filesystem_tool import OwnerFilesystemWorkspace, FilesystemToolError
+fd = os.open(sys.argv[1], os.O_RDONLY | os.O_DIRECTORY)
+try:
+    try:
+        OwnerFilesystemWorkspace._read_at(fd, 'pipe', 100)
+    except FilesystemToolError:
+        pass
+    else:
+        raise AssertionError('special file accepted')
+finally:
+    os.close(fd)
+""", str(tmp_path)],
+        check=True,
+        timeout=3,
+        capture_output=True,
+    )
 
 
 def test_write_read_exists_stat_list_are_real_bounded_and_owner_scoped(

@@ -1,0 +1,462 @@
+{
+  "schema_version": 1,
+  "iteration": 4,
+  "status": "IN_PROGRESS",
+  "updated_at": "2026-09-07T17:18:47.653745+00:00",
+  "current_issue": "ASTER-014",
+  "current_commit": "e648a5bb5ac5637ff697abb4d86fe497ee20772d",
+  "current_runtime": {
+    "backend_dependencies": "READY",
+    "startup_source_identity": "PRECOMMIT_HASH_IDENTIFIED",
+    "evidence": "runtime-identity-precommit.json",
+    "note": "Latest filesystem changes restarted; final commit hash verification pending"
+  },
+  "current_artifact": {
+    "state": "FRESH_BUILD_PRECOMMIT",
+    "desktop": "native AppImage chat, marker recall, database persistence, reload/recovery and scoped cleanup verified",
+    "evidence": "native-chat-precommit.json"
+  },
+  "issues": [
+    {
+      "id": "ASTER-001",
+      "title": "Current master MCP channel rejected",
+      "status": "AUTHENTICATED_HTTP_VERIFIED_MCP_UNAVAILABLE",
+      "root_cause": "One-use task credentials absent in this session",
+      "aster_analysis": "One-use task credentials absent in this session",
+      "ai_os_analysis": null,
+      "disagreement": "AI OS suggests checking length before communicate; ASTER uses bounded streaming because checking only before reading cannot constrain future output.",
+      "chosen_evidence": [
+        "initial-ai-os-review.json"
+      ],
+      "fix": null,
+      "tests": [],
+      "runtime_test": "Owner-authenticated persisted Agent OS run; output hash independently matches; session revoked with HTTP 204.",
+      "regression": null,
+      "security": null,
+      "performance": null
+    },
+    {
+      "id": "ASTER-002",
+      "title": "DEX subprocess output buffered before bounds checked",
+      "status": "FOCUSED_VERIFIED_RELEASE_PENDING",
+      "root_cause": "communicate() buffers complete stdout/stderr",
+      "aster_analysis": "communicate() buffers complete stdout/stderr",
+      "ai_os_analysis": {
+        "task_id": "81e34425-16b3-4ea1-912d-e75f0ec7e495",
+        "sha256": "06da8338cf0bb5dda85d41eec95a64232395322e3919b8403228f965ca86972a"
+      },
+      "disagreement": null,
+      "chosen_evidence": [
+        "dex-baseline-reproduction.log",
+        "dex-focused-1.log",
+        "dex-output-flood.log"
+      ],
+      "fix": "Bound reads during subprocess execution, stop producer on excess output.",
+      "tests": [
+        "8 new cases fail on original source",
+        "30 DEX tests pass after repair",
+        "stdout/stderr flood termination passes"
+      ],
+      "runtime_test": null,
+      "regression": null,
+      "security": null,
+      "performance": null
+    },
+    {
+      "id": "ASTER-003",
+      "title": "DEX active callback lifetime not tied to delegation",
+      "status": "FOCUSED_VERIFIED_RELEASE_PENDING",
+      "root_cause": "Socket listener close does not cancel active handlers",
+      "aster_analysis": "Socket listener close does not cancel active handlers",
+      "ai_os_analysis": {
+        "task_id": "81e34425-16b3-4ea1-912d-e75f0ec7e495",
+        "sha256": "06da8338cf0bb5dda85d41eec95a64232395322e3919b8403228f965ca86972a"
+      },
+      "disagreement": null,
+      "chosen_evidence": [
+        "dex-baseline-reproduction.log",
+        "dex-focused-1.log",
+        "dex-output-flood.log"
+      ],
+      "fix": "Track and join callback handlers before releasing delegation, close cancelled connections.",
+      "tests": [
+        "8 new cases fail on original source",
+        "30 DEX tests pass after repair",
+        "stdout/stderr flood termination passes"
+      ],
+      "runtime_test": null,
+      "regression": null,
+      "security": null,
+      "performance": null
+    },
+    {
+      "id": "ASTER-004",
+      "title": "DEX unsupported success accepted without review",
+      "status": "FOCUSED_VERIFIED_RELEASE_PENDING",
+      "root_cause": "Verifier admits empty/self-reported evidence",
+      "aster_analysis": "Verifier admits empty/self-reported evidence",
+      "ai_os_analysis": {
+        "task_id": "81e34425-16b3-4ea1-912d-e75f0ec7e495",
+        "sha256": "06da8338cf0bb5dda85d41eec95a64232395322e3919b8403228f965ca86972a"
+      },
+      "disagreement": null,
+      "chosen_evidence": [
+        "dex-baseline-reproduction.log",
+        "dex-focused-1.log",
+        "dex-output-flood.log"
+      ],
+      "fix": "Require independently verifiable evidence, enforce missing schema limits, explicitly distinguish evidence integrity from semantic correctness.",
+      "tests": [
+        "8 new cases fail on original source",
+        "30 DEX tests pass after repair",
+        "stdout/stderr flood termination passes"
+      ],
+      "runtime_test": null,
+      "regression": null,
+      "security": null,
+      "performance": null
+    },
+    {
+      "id": "ASTER-005",
+      "title": "Immutable startup runtime identity missing",
+      "status": "RUNTIME_VERIFIED_RELEASE_PENDING",
+      "root_cause": "Readiness endpoint omits build identity",
+      "aster_analysis": "Readiness endpoint omits build identity",
+      "ai_os_analysis": null,
+      "disagreement": null,
+      "chosen_evidence": [
+        "runtime-identity-precommit.json",
+        "identity-dex-focused-2.log"
+      ],
+      "fix": "Authenticated diagnostics runtime-identity endpoint exposes immutable startup commit and bounded backend/PWA hashes.",
+      "tests": [
+        "startup snapshot remains fixed after source and bundle changes",
+        "authentication denial, absent-state 503, symlink rejection, no path disclosure"
+      ],
+      "runtime_test": "Independent source and PWA digests both match the restarted production backend. HEAD is still the precommit base; content hash identifies the uncommitted tested source.",
+      "regression": null,
+      "security": null,
+      "performance": null
+    },
+    {
+      "id": "ASTER-006",
+      "title": "medium-coding-04 partial",
+      "status": "REPRODUCED",
+      "root_cause": "Exact comprehension form mismatch",
+      "aster_analysis": "Exact comprehension form mismatch",
+      "ai_os_analysis": null,
+      "disagreement": null,
+      "chosen_evidence": [
+        "benchmark-targeted-before.json",
+        "benchmark-targeted-before-2.json"
+      ],
+      "fix": null,
+      "tests": [],
+      "runtime_test": "Original prompt, exact model, temperature=0, seed=20260825 reproduce the previous answer.",
+      "regression": null,
+      "security": null,
+      "performance": null
+    },
+    {
+      "id": "ASTER-007",
+      "title": "model-comparison-coder-06 fail",
+      "status": "REPRODUCED",
+      "root_cause": "Recursion terminology mismatch",
+      "aster_analysis": "Recursion terminology mismatch",
+      "ai_os_analysis": null,
+      "disagreement": null,
+      "chosen_evidence": [
+        "benchmark-targeted-before.json",
+        "benchmark-targeted-before-2.json"
+      ],
+      "fix": null,
+      "tests": [],
+      "runtime_test": "Original prompt, exact model, temperature=0, seed=20260825 reproduce the previous answer.",
+      "regression": null,
+      "security": null,
+      "performance": null
+    },
+    {
+      "id": "ASTER-008",
+      "title": "voice-stt-02 partial",
+      "status": "TARGETED_PASS_FULL_BENCHMARK_PENDING",
+      "root_cause": "Literal synthetic checkpoint transcription",
+      "aster_analysis": "Literal synthetic checkpoint transcription",
+      "ai_os_analysis": null,
+      "disagreement": null,
+      "chosen_evidence": [
+        "benchmark-targeted-before-2.json"
+      ],
+      "fix": null,
+      "tests": [],
+      "runtime_test": "Same phrase returned Quartz Harbor, value 47; canonical normalization matched all four checkpoints. Prior Warts result is retained as variability.",
+      "regression": null,
+      "security": null,
+      "performance": null
+    },
+    {
+      "id": "ASTER-009",
+      "title": "DEX read-only mode does not enforce owner read scope",
+      "status": "FAIL_CLOSED_EXTERNAL_HOST_BLOCK",
+      "root_cause": "Legacy read-only allows reading synthetic foreign workspace files. Existing DEX command also enables automatic escalation review. Strict permission profiles require modern sandbox enforcement.",
+      "aster_analysis": "No prompt-only security or broad read-only mode can prove owner isolation. Pin non-escalating execution and enforce scoped read permissions.",
+      "ai_os_analysis": null,
+      "disagreement": null,
+      "chosen_evidence": [
+        "production-dex-strict-scope.json",
+        "codex-profile-probe.json",
+        "sandbox-host-state.json"
+      ],
+      "fix": "Use an explicit scoped read profile, deny environment/private-key paths and proc, prohibit escalation and legacy fallback, disable inherited apps/plugins/agents/web and login-shell configuration.",
+      "tests": [
+        "Modern bwrap sandbox rejects startup with RTM_NEWADDR Operation not permitted.",
+        "Legacy sandbox executes but reads a synthetic file outside cwd.",
+        "Scoped permission profile rejects legacy mode."
+      ],
+      "runtime_test": "Real authenticated chat request resulted in failed UI trace and failed durable owner audit 4ecdc303-c02b-4571-8ed8-4881cd92fd77, with no success claim.",
+      "regression": null,
+      "security": "Scoped execution is now required; a functioning modern host sandbox remains unverified/unavailable.",
+      "performance": null
+    },
+    {
+      "id": "ASTER-010",
+      "title": "Blocked DEX result incorrectly completes ToolService audit",
+      "status": "FOCUSED_VERIFIED_RELEASE_PENDING",
+      "root_cause": "Generic ToolService completion path treated returned BLOCKED envelopes as success.",
+      "aster_analysis": "Tool completion must require both DEX VERIFIED and verifier VERIFIED.",
+      "ai_os_analysis": null,
+      "disagreement": null,
+      "chosen_evidence": [
+        "dex-blocked-audit-reproduction-corrected.log",
+        "affected-final-2.log"
+      ],
+      "fix": "Fail unsuccessful DEX envelopes under the existing audit constraint and retain owner-visible response without claiming completion.",
+      "tests": [
+        "Three negative cases fail on original ToolService implementation and pass after fix."
+      ],
+      "runtime_test": "Production strict-scope DEX action and audit remain failed.",
+      "regression": "Second complete release gate ongoing",
+      "security": "No permission changes; failed audit remains failed",
+      "performance": null
+    },
+    {
+      "id": "ASTER-011",
+      "title": "Cancelled DEX child can perform late filesystem action",
+      "status": "FOCUSED_VERIFIED_RELEASE_PENDING",
+      "root_cause": "Terminating only the process leader leaves child processes alive.",
+      "aster_analysis": "Own a dedicated process group and terminate all its members before completion.",
+      "ai_os_analysis": null,
+      "disagreement": null,
+      "chosen_evidence": [
+        "dex-child-cancellation-before.log",
+        "affected-final-2.log"
+      ],
+      "fix": "Start DEX in its own session; terminate/kill its process group with bounded waits on success, failure and cancellation.",
+      "tests": [
+        "Real child applies a late synthetic effect on original implementation; repaired implementation prevents it."
+      ],
+      "runtime_test": null,
+      "regression": "Second complete release gate ongoing",
+      "security": "Cleanup targets only gateway-owned process group",
+      "performance": null
+    },
+    {
+      "id": "ASTER-012",
+      "title": "Owner workspace root can alias another owner",
+      "status": "VERIFIED_RELEASE_PENDING",
+      "root_cause": "Containment check accepted sibling owner directory after symlink resolution",
+      "aster_analysis": "Containment check accepted sibling owner directory after symlink resolution",
+      "ai_os_analysis": null,
+      "disagreement": null,
+      "chosen_evidence": [
+        "owner-root-symlink-before.json",
+        "dex-scope-evidence-before.log",
+        "affected-scope-final-2.log"
+      ],
+      "fix": "Reject symlinked or identity-changing owner roots",
+      "tests": [
+        "Reproduced original failure; corrected focused checks pass"
+      ],
+      "runtime_test": "Final backend deployed; DEX sandbox remains failed closed",
+      "regression": "3102 passed, 55 skipped; PostgreSQL integration and migration drift passed",
+      "security": "Fail-closed boundaries retained",
+      "performance": null
+    },
+    {
+      "id": "ASTER-013",
+      "title": "Evidence reads bypass filesystem protection and resource bounds",
+      "status": "VERIFIED_RELEASE_PENDING",
+      "root_cause": "Direct read_bytes accepted protected files and arbitrary file size; FIFO open could block",
+      "aster_analysis": "Direct read_bytes accepted protected files and arbitrary file size; FIFO open could block",
+      "ai_os_analysis": null,
+      "disagreement": null,
+      "chosen_evidence": [
+        "dex-scope-evidence-before.log",
+        "affected-scope-final-2.log"
+      ],
+      "fix": "Reuse authoritative relative-path and bounded descriptor read policy; open reads nonblocking before rejecting nonregular files",
+      "tests": [
+        "Reproduced original failure; corrected focused checks pass"
+      ],
+      "runtime_test": "Final backend deployed; DEX sandbox remains failed closed",
+      "regression": "3102 passed, 55 skipped; PostgreSQL integration and migration drift passed",
+      "security": "Fail-closed boundaries retained",
+      "performance": null
+    },
+    {
+      "id": "ASTER-014",
+      "title": "Playwright failure log exposes request credentials",
+      "status": "VERIFIED_RELEASE_PENDING",
+      "root_cause": "Uncaught request errors include authentication headers",
+      "aster_analysis": "Uncaught request errors include authentication headers",
+      "ai_os_analysis": null,
+      "disagreement": null,
+      "chosen_evidence": [
+        "browser-error-redaction.json",
+        "credential-rotation.json",
+        "production-pwa-3.log"
+      ],
+      "fix": "Replace credential values before emitting a new bounded error object; rotate exposed provisioning credential in both dotenv and authoritative service configuration",
+      "tests": [
+        "Reproduced original failure; corrected focused checks pass"
+      ],
+      "runtime_test": "Production PWA passed on restarted final backend",
+      "regression": "3102 passed, 55 skipped; PostgreSQL integration and migration drift passed",
+      "security": "Fail-closed boundaries retained",
+      "performance": null
+    }
+  ],
+  "benchmark_before": {
+    "score": 97.83,
+    "pass": 456,
+    "partial": 2,
+    "fail": 1,
+    "provenance": "historical 459-case run; unchanged raw files located"
+  },
+  "benchmark_after": null,
+  "remaining_failures": [
+    "ASTER-001",
+    "ASTER-002",
+    "ASTER-003",
+    "ASTER-004",
+    "ASTER-005",
+    "ASTER-006",
+    "ASTER-007",
+    "ASTER-008",
+    "ASTER-009",
+    "ASTER-010",
+    "ASTER-011"
+  ],
+  "external_blockers": [
+    {
+      "id": "SANDBOX_HOST",
+      "status": "REPRODUCED",
+      "evidence": "Modern Codex bwrap sandbox: loopback Failed RTM_NEWADDR Operation not permitted. Legacy Landlock cannot enforce scoped profiles.",
+      "owner_action": "Provide administrator-approved AppArmor/user-namespace support for the modern Codex/bubblewrap sandbox. Do not disable security globally or enable unrestricted execution."
+    },
+    {
+      "id": "REMOTE_HOST_DNS",
+      "status": "PARTIAL",
+      "evidence": "Private HTTPS readiness passes through installed Tailscale userspace daemon with certificate verification. Ordinary host DNS returns ENOTFOUND; no second tailnet device is attached.",
+      "owner_action": "Validate authenticated remote PWA from an enrolled peer with tailnet DNS; no public Funnel or DNS bypass enabled."
+    }
+  ],
+  "acceptance": {
+    "master_student": "PARTIAL_AUTHENTICATED_REVIEW",
+    "dex": "FAILED_CLOSED_HOST_SANDBOX_BLOCK",
+    "desktop": "NATIVE_AUTHENTICATED_CHAT_CONTEXT_PERSISTENCE_RECOVERY_PASS",
+    "pwa": "PRODUCTION_AUTHENTICATED_E2E_PASS",
+    "chat": "REAL_RUNTIME_SMOKE_PASSED; final post-push gate pending",
+    "tools": "REAL_RUNTIME_SMOKE_PASSED; final post-push gate pending",
+    "agent_os": "REAL_RUNTIME_SMOKE_PASSED; final post-push gate pending",
+    "missions": "REAL_RUNTIME_SMOKE_PASSED; final post-push gate pending",
+    "workflows": "REAL_RUNTIME_SMOKE_PASSED; final post-push gate pending",
+    "memory": "REAL_RUNTIME_SMOKE_PASSED; final post-push gate pending",
+    "rag": "REAL_RUNTIME_SMOKE_PASSED; final post-push gate pending",
+    "vision": "REAL_RUNTIME_SMOKE_PASSED; final post-push gate pending",
+    "image": "REAL_RUNTIME_SMOKE_PASSED; final post-push gate pending",
+    "voice": "REAL_RUNTIME_SMOKE_PASSED; final post-push gate pending",
+    "learning": "REAL_RUNTIME_SMOKE_PASSED; final post-push gate pending",
+    "finance_paper": "REAL_RUNTIME_SMOKE_PASSED; final post-push gate pending",
+    "private_remote": "PRIVATE_TLS_READY_VERIFIED_VIA_INSTALLED_TAILSCALE; host DNS and remote-peer browser unverified",
+    "security": "Owner scope repaired; DEX host sandbox failed closed; 0 high/critical and 14 moderate dependency findings; provisioning credential rotated after redacted harness failure",
+    "performance": "Historical benchmark mean 7.6864s, P95 15.5711s. Runtime image peak 10940MiB; final canonical measurements pending",
+    "full_regression": "Full release gate 2 passed; after final scope changes backend 3102 passed / 55 skipped, affected 77 passed, PostgreSQL 55 passed; post-push full runtime gate pending",
+    "release": "UNVERIFIED_THIS_RUN",
+    "runtime_identity": "INDEPENDENT_STARTUP_HASH_MATCH_PRECOMMIT"
+  },
+  "evidence_root": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260907",
+  "failed_attempts": [
+    {
+      "action": "initial MCP analysis",
+      "status": "REJECTED",
+      "evidence": "AI OS callback was rejected."
+    },
+    {
+      "action": "initial report creation",
+      "status": "FAILED",
+      "evidence": "Wrong working directory; no file written; corrected before next action."
+    },
+    {
+      "action": "Baseline DEX adversarial regression",
+      "status": "FAILED_AS_EXPECTED",
+      "evidence": "8 failed; proves defects before fixes."
+    },
+    {
+      "action": "Default and restricted Codex sandbox probes",
+      "status": "FAILED",
+      "evidence": "bwrap network namespace setup EPERM; no sandbox bypass used."
+    },
+    {
+      "action": "first runtime release gate",
+      "status": "FAILED",
+      "evidence": "All subsystem smokes passed, but repository worktree changed during the run; overall gate not credited as pass."
+    },
+    {
+      "action": "initial new test fixtures",
+      "status": "FAILED",
+      "evidence": "Missing standalone DB fixture and incorrect ToolService fixture/initiator corrected; subsequent regression reproductions verified actual product failures."
+    },
+    {
+      "action": "production DEX strict scope",
+      "status": "FAILED",
+      "evidence": "Preserved owner audit and failed UI trace in production-dex-strict-scope.json."
+    },
+    {
+      "action": "Additional owner/evidence regression",
+      "status": "FAILED_AS_EXPECTED",
+      "evidence": "Three original security cases fail; repaired cases pass."
+    },
+    {
+      "action": "Private PWA DNS failure",
+      "status": "FAILED",
+      "evidence": "Credential was exposed by Playwright in a private error log and tool output. Rotated in authoritative service configuration; stored evidence redacted; raw credential no longer valid."
+    },
+    {
+      "action": "Native reload during backend restart",
+      "status": "FAILED_THEN_RECOVERED",
+      "evidence": "UI honestly reported refresh failure; retry after readiness cleared error, then database and native history were verified."
+    },
+    {
+      "action": "Provisioning credential rotation first retry",
+      "status": "FAILED",
+      "evidence": "First updated dotenv but service override remained; then corrected authoritative backend.env. Next immediate attempt was connection refused during startup; redaction worked; readiness-gated retry passed."
+    }
+  ],
+  "tests": {
+    "full_release": "release-precommit-2.log",
+    "backend_final": "backend-final-regression.log",
+    "affected_final": "affected-scope-final-2.log",
+    "database": "postgres-final.log",
+    "security": "security-final-2.log",
+    "native": "native-chat-precommit.json",
+    "production_pwa": "production-pwa-3.log"
+  },
+  "ai_os_independent_review": {
+    "task_id": "8a76ac55-a4ad-4014-8ade-71947f0eab57",
+    "output_sha256": "1dcc72c44a58433c8efd92a6a1950cc401f509b09c7a6273097b8107fc2726a1",
+    "status": "completed",
+    "disagreement": "AI OS incorrectly treats original before-repair test failures as current failures and associates filesystem scope with output buffering. ASTER rejects those claims using preserved before/after logs. AI OS correctly rejects overall READY while live DEX and post-push verification are incomplete.",
+    "resolution": "Independent deterministic tests establish repaired behavior. Advisory response is retained without storing its incorrect conclusions as learning."
+  }
+}

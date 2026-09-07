@@ -334,6 +334,45 @@ async def test_dex_delegation_reuses_owner_audit_and_redacts_task_and_result():
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(("agent_status", "verification_status"), [
+    ("BLOCKED", "FAILED"), ("FAILED", "FAILED"), ("VERIFIED", "FAILED"),
+])
+async def test_unverified_dex_result_never_completes_owner_audit(
+    agent_status, verification_status,
+):
+    owner_id = uuid4()
+    running = _execution(owner_id, tool_name="dex.delegate",
+                         permission="agent_delegation", arguments_json="{}")
+    failed = _execution(owner_id, status=ToolExecutionStatus.FAILED,
+                        tool_name="dex.delegate", permission="agent_delegation",
+                        arguments_json="{}")
+    failed.error_code = "tool_execution_failed"
+    failed.id = running.id
+    repository = Mock(
+        create_running=AsyncMock(return_value=running),
+        finish=AsyncMock(return_value=failed),
+        conversation_exists_for_owner=AsyncMock(return_value=True),
+    )
+    payload = {"status": agent_status,
+               "verification": {"status": verification_status},
+               "result": {"summary": "Evidence unavailable."}}
+    gateway = Mock(available=True, delegate=AsyncMock(return_value=payload))
+    service = ToolService(AsyncMock(spec=AsyncSession), dex_gateway=gateway)
+    service.repository = repository
+
+    result = await service.execute_for_owner(
+        owner_id, "dex.delegate", {"request": "Verify one file."},
+        initiator="chat_model",
+    )
+
+    assert repository.finish.await_args.args[2] is ToolExecutionStatus.FAILED
+    assert repository.finish.await_args.kwargs["error_code"] == "tool_execution_failed"
+    assert repository.finish.await_args.kwargs["result_json"] is None
+    assert result.result["status"] == agent_status
+    gateway.delegate.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 async def test_dex_read_only_delegation_retries_once_under_same_owner_audit():
     owner_id = uuid4()
     running = _execution(

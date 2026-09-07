@@ -535,6 +535,23 @@ class ToolService:
                     "audit_id": str(execution_id),
                 }
             response_result = result
+            if definition.name == "dex.delegate" and (
+                not isinstance(result, dict)
+                or result.get("status") != "VERIFIED"
+                or not isinstance(result.get("verification"), dict)
+                or result["verification"].get("status") != "VERIFIED"
+            ):
+                # A BLOCKED envelope is an unsuccessful action even when its
+                # transport completed. Keep its owner-visible explanation, and
+                # obey the existing failed-audit constraint (no result body).
+                return await self._finish(
+                    owner_id,
+                    execution_id,
+                    ToolExecutionStatus.FAILED,
+                    started,
+                    error_code="tool_execution_failed",
+                    response_result=response_result,
+                )
             audit_result = self._audit_result(definition, result)
             encoded = _canonical_json(audit_result, definition.max_output_characters)
             encoded = _canonical_json(

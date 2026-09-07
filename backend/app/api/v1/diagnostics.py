@@ -1,7 +1,7 @@
 import asyncio
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.ai.admission import (
     ModelAdmissionReason,
@@ -16,6 +16,7 @@ from app.clients.postgres import check_postgres
 from app.clients.redis import check_redis
 from app.core.config import settings
 from app.core.logging import get_logger
+from app.core.runtime_identity import RuntimeIdentity
 from app.hardware import HardwareInventory, hardware_class_for_vram, hardware_profile
 from app.models.user import User
 from app.agent_os.contracts import AgentRunStatus
@@ -40,6 +41,19 @@ from app.schemas.diagnostics import (
 
 router = APIRouter(prefix="/diagnostics", tags=["Diagnostics"])
 logger = get_logger(__name__)
+
+
+@router.get("/runtime-identity", response_model=RuntimeIdentity)
+async def read_runtime_identity(
+    request: Request,
+    _current_user: Annotated[User, Depends(get_current_user)],
+) -> RuntimeIdentity:
+    identity = getattr(request.app.state, "runtime_identity", None)
+    if not isinstance(identity, RuntimeIdentity):
+        raise HTTPException(status_code=503, detail="Runtime identity is unavailable")
+    # Return the startup snapshot, never a fresh Git query that could disguise
+    # an old process after the source checkout changes beneath it.
+    return identity
 
 
 async def _probe(client: object | None, probe) -> DiagnosticStatus:

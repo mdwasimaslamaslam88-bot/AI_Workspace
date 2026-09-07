@@ -526,6 +526,14 @@ try {
   console.log(
     "browser/PWA E2E: install, connect, authenticated chat tool execution, real file read-back, audit, cleanup, cache isolation, and logout passed",
   );
+} catch (error) {
+  // Playwright network failures include request headers in their call log.
+  // Never let that error object reach Node's uncaught-exception formatter.
+  let message = error instanceof Error ? error.message : String(error);
+  for (const credential of [pipedCredential, accessToken]) {
+    if (credential) message = message.replaceAll(credential, "[redacted]");
+  }
+  throw new Error(message);
 } finally {
   if (createdConversationId && accessToken) {
     await apiRequest.delete(`api/v1/conversations/${createdConversationId}`, {
