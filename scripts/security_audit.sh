@@ -42,5 +42,6 @@ backend/.venv/bin/python scripts/self_update_tool.py --help >/dev/null
 backend/.venv/bin/python scripts/technology_watcher.py --help >/dev/null
 
 backend/.venv/bin/python -m pip check
+node scripts/dependency_security_check.mjs
 npm audit --audit-level=high
 echo "security audit: tracked secrets, client artifacts, CSP, and dependency gates passed"
