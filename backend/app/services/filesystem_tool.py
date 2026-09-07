@@ -99,13 +99,20 @@ class OwnerFilesystemWorkspace:
             raise FilesystemToolError("filesystem root is unavailable")
         root = self._roots[root_index]
         owner_root = root / str(owner_id)
+        if not hasattr(os, "O_NOFOLLOW") or not hasattr(os, "O_DIRECTORY"):
+            raise FilesystemToolError("safe filesystem directory access is unavailable")
         try:
             owner_root.mkdir(mode=0o700, exist_ok=True)
-            os.chmod(owner_root, 0o700)
+            if owner_root.is_symlink() or owner_root.resolve(strict=True).parent != root:
+                raise FilesystemToolError("filesystem owner workspace is unsafe")
+            owner_fd = os.open(owner_root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+            try:
+                # Apply permissions to the checked directory, even if its path changes.
+                os.fchmod(owner_fd, 0o700)
+            finally:
+                os.close(owner_fd)
         except OSError as exc:
             raise FilesystemToolError("filesystem owner workspace is unavailable") from exc
-        if owner_root.is_symlink() or owner_root.resolve(strict=True).parent != root:
-            raise FilesystemToolError("filesystem owner workspace is unsafe")
         return owner_root
 
     @staticmethod

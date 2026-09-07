@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+import stat
 import subprocess
 import sys
 from uuid import uuid4
@@ -107,6 +108,52 @@ def test_symlink_parent_and_target_escape_are_denied(
         workspace.read(owner, "escape/data.txt")
     with pytest.raises(FilesystemToolError):
         workspace.read(owner, "linked.txt")
+
+
+@pytest.mark.parametrize("foreign_location", ["configured-root", "outside"])
+def test_denied_owner_root_alias_preserves_foreign_directory_permissions(
+    workspace: OwnerFilesystemWorkspace,
+    tmp_path: Path,
+    foreign_location: str,
+):
+    foreign = tmp_path / foreign_location / str(uuid4())
+    foreign.mkdir(parents=True)
+    foreign.chmod(0o750)
+    owner = uuid4()
+    (tmp_path / "configured-root" / str(owner)).symlink_to(foreign)
+
+    with pytest.raises(FilesystemToolError):
+        workspace.exists(owner, "synthetic.txt")
+
+    assert stat.S_IMODE(foreign.stat().st_mode) == 0o750
+
+
+def test_owner_root_swap_cannot_redirect_permission_change(
+    workspace: OwnerFilesystemWorkspace,
+    tmp_path: Path,
+    monkeypatch,
+):
+    owner = uuid4()
+    owner_root = tmp_path / "configured-root" / str(owner)
+    owner_root.mkdir(mode=0o750)
+    foreign = tmp_path / "foreign"
+    foreign.mkdir(mode=0o750)
+    retained = tmp_path / "retained-owner"
+    original_open = os.open
+
+    def swap_after_open(path, flags, *args, **kwargs):
+        descriptor = original_open(path, flags, *args, **kwargs)
+        if path == owner_root and not retained.exists():
+            owner_root.rename(retained)
+            owner_root.symlink_to(foreign)
+        return descriptor
+
+    monkeypatch.setattr(os, "open", swap_after_open)
+    with pytest.raises(FilesystemToolError):
+        workspace.exists(owner, "synthetic.txt")
+
+    assert stat.S_IMODE(foreign.stat().st_mode) == 0o750
+    assert stat.S_IMODE(retained.stat().st_mode) == 0o700
 
 
 def test_large_or_secret_shaped_content_is_denied(

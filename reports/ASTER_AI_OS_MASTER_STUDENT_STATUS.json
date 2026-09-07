@@ -1,15 +1,15 @@
 {
   "schema_version": 1,
-  "iteration": 4,
-  "status": "IN_PROGRESS",
-  "updated_at": "2026-09-07T17:18:47.653745+00:00",
-  "current_issue": "ASTER-014",
-  "current_commit": "e648a5bb5ac5637ff697abb4d86fe497ee20772d",
+  "iteration": 5,
+  "status": "FINAL_RELEASE_VALIDATION_IN_PROGRESS",
+  "updated_at": "2026-09-07T18:38:30.425135+00:00",
+  "current_issue": "ASTER-017",
+  "current_commit": "9ce0487dce1efd057e8bcc94e038c00072a7f8d9",
   "current_runtime": {
     "backend_dependencies": "READY",
-    "startup_source_identity": "PRECOMMIT_HASH_IDENTIFIED",
-    "evidence": "runtime-identity-precommit.json",
-    "note": "Latest filesystem changes restarted; final commit hash verification pending"
+    "startup_commit": "333202cf6a7914db3d0c1c1da6a225e715b68685",
+    "evidence": "runtime-identity-postpush.json",
+    "note": "New filesystem permission repair awaits final commit, restart and identity verification."
   },
   "current_artifact": {
     "state": "FRESH_BUILD_PRECOMMIT",
@@ -38,7 +38,7 @@
     {
       "id": "ASTER-002",
       "title": "DEX subprocess output buffered before bounds checked",
-      "status": "FOCUSED_VERIFIED_RELEASE_PENDING",
+      "status": "REPAIRED_REGRESSION_VERIFIED_FINAL_DEPLOY_PENDING",
       "root_cause": "communicate() buffers complete stdout/stderr",
       "aster_analysis": "communicate() buffers complete stdout/stderr",
       "ai_os_analysis": {
@@ -58,14 +58,14 @@
         "stdout/stderr flood termination passes"
       ],
       "runtime_test": null,
-      "regression": null,
+      "regression": "Full runtime release gate 2 and final backend 3102 tests passed; post-push combined gate pending.",
       "security": null,
       "performance": null
     },
     {
       "id": "ASTER-003",
       "title": "DEX active callback lifetime not tied to delegation",
-      "status": "FOCUSED_VERIFIED_RELEASE_PENDING",
+      "status": "REPAIRED_REGRESSION_VERIFIED_FINAL_DEPLOY_PENDING",
       "root_cause": "Socket listener close does not cancel active handlers",
       "aster_analysis": "Socket listener close does not cancel active handlers",
       "ai_os_analysis": {
@@ -85,14 +85,14 @@
         "stdout/stderr flood termination passes"
       ],
       "runtime_test": null,
-      "regression": null,
+      "regression": "Full runtime release gate 2 and final backend 3102 tests passed; post-push combined gate pending.",
       "security": null,
       "performance": null
     },
     {
       "id": "ASTER-004",
       "title": "DEX unsupported success accepted without review",
-      "status": "FOCUSED_VERIFIED_RELEASE_PENDING",
+      "status": "REPAIRED_REGRESSION_VERIFIED_FINAL_DEPLOY_PENDING",
       "root_cause": "Verifier admits empty/self-reported evidence",
       "aster_analysis": "Verifier admits empty/self-reported evidence",
       "ai_os_analysis": {
@@ -112,14 +112,14 @@
         "stdout/stderr flood termination passes"
       ],
       "runtime_test": null,
-      "regression": null,
+      "regression": "Full runtime release gate 2 and final backend 3102 tests passed; post-push combined gate pending.",
       "security": null,
       "performance": null
     },
     {
       "id": "ASTER-005",
       "title": "Immutable startup runtime identity missing",
-      "status": "RUNTIME_VERIFIED_RELEASE_PENDING",
+      "status": "REPAIRED_REGRESSION_VERIFIED_FINAL_DEPLOY_PENDING",
       "root_cause": "Readiness endpoint omits build identity",
       "aster_analysis": "Readiness endpoint omits build identity",
       "ai_os_analysis": null,
@@ -133,22 +133,23 @@
         "startup snapshot remains fixed after source and bundle changes",
         "authentication denial, absent-state 503, symlink rejection, no path disclosure"
       ],
-      "runtime_test": "Independent source and PWA digests both match the restarted production backend. HEAD is still the precommit base; content hash identifies the uncommitted tested source.",
-      "regression": null,
+      "runtime_test": "At commit 333202c independently calculated source and PWA hashes match immutable authenticated startup identity; anonymous access denied and synthetic session revoked.",
+      "regression": "Full runtime release gate 2 and final backend 3102 tests passed; post-push combined gate pending.",
       "security": null,
       "performance": null
     },
     {
       "id": "ASTER-006",
       "title": "medium-coding-04 partial",
-      "status": "REPRODUCED",
+      "status": "REPRODUCED_MODEL_LIMITATION",
       "root_cause": "Exact comprehension form mismatch",
       "aster_analysis": "Exact comprehension form mismatch",
       "ai_os_analysis": null,
       "disagreement": null,
       "chosen_evidence": [
         "benchmark-targeted-before.json",
-        "benchmark-targeted-before-2.json"
+        "benchmark-targeted-before-2.json",
+        "Work_Station_Benchmark/final-failure-inventory.json"
       ],
       "fix": null,
       "tests": [],
@@ -160,14 +161,15 @@
     {
       "id": "ASTER-007",
       "title": "model-comparison-coder-06 fail",
-      "status": "REPRODUCED",
+      "status": "REPRODUCED_MODEL_LIMITATION",
       "root_cause": "Recursion terminology mismatch",
       "aster_analysis": "Recursion terminology mismatch",
       "ai_os_analysis": null,
       "disagreement": null,
       "chosen_evidence": [
         "benchmark-targeted-before.json",
-        "benchmark-targeted-before-2.json"
+        "benchmark-targeted-before-2.json",
+        "Work_Station_Benchmark/final-failure-inventory.json"
       ],
       "fix": null,
       "tests": [],
@@ -179,7 +181,7 @@
     {
       "id": "ASTER-008",
       "title": "voice-stt-02 partial",
-      "status": "TARGETED_PASS_FULL_BENCHMARK_PENDING",
+      "status": "CURRENT_FULL_BENCHMARK_PASS_VARIABILITY_RETAINED",
       "root_cause": "Literal synthetic checkpoint transcription",
       "aster_analysis": "Literal synthetic checkpoint transcription",
       "ai_os_analysis": null,
@@ -189,7 +191,7 @@
       ],
       "fix": null,
       "tests": [],
-      "runtime_test": "Same phrase returned Quartz Harbor, value 47; canonical normalization matched all four checkpoints. Prior Warts result is retained as variability.",
+      "runtime_test": "voice-stt-02 now PASS 100 in unchanged full canonical run; no code change credited.",
       "regression": null,
       "security": null,
       "performance": null
@@ -221,7 +223,7 @@
     {
       "id": "ASTER-010",
       "title": "Blocked DEX result incorrectly completes ToolService audit",
-      "status": "FOCUSED_VERIFIED_RELEASE_PENDING",
+      "status": "REPAIRED_REGRESSION_VERIFIED_FINAL_DEPLOY_PENDING",
       "root_cause": "Generic ToolService completion path treated returned BLOCKED envelopes as success.",
       "aster_analysis": "Tool completion must require both DEX VERIFIED and verifier VERIFIED.",
       "ai_os_analysis": null,
@@ -235,14 +237,14 @@
         "Three negative cases fail on original ToolService implementation and pass after fix."
       ],
       "runtime_test": "Production strict-scope DEX action and audit remain failed.",
-      "regression": "Second complete release gate ongoing",
+      "regression": "Full runtime release gate 2 and final backend 3102 tests passed; post-push combined gate pending.",
       "security": "No permission changes; failed audit remains failed",
       "performance": null
     },
     {
       "id": "ASTER-011",
       "title": "Cancelled DEX child can perform late filesystem action",
-      "status": "FOCUSED_VERIFIED_RELEASE_PENDING",
+      "status": "REPAIRED_REGRESSION_VERIFIED_FINAL_DEPLOY_PENDING",
       "root_cause": "Terminating only the process leader leaves child processes alive.",
       "aster_analysis": "Own a dedicated process group and terminate all its members before completion.",
       "ai_os_analysis": null,
@@ -256,14 +258,14 @@
         "Real child applies a late synthetic effect on original implementation; repaired implementation prevents it."
       ],
       "runtime_test": null,
-      "regression": "Second complete release gate ongoing",
+      "regression": "Full runtime release gate 2 and final backend 3102 tests passed; post-push combined gate pending.",
       "security": "Cleanup targets only gateway-owned process group",
       "performance": null
     },
     {
       "id": "ASTER-012",
       "title": "Owner workspace root can alias another owner",
-      "status": "VERIFIED_RELEASE_PENDING",
+      "status": "REPAIRED_REGRESSION_VERIFIED_FINAL_DEPLOY_PENDING",
       "root_cause": "Containment check accepted sibling owner directory after symlink resolution",
       "aster_analysis": "Containment check accepted sibling owner directory after symlink resolution",
       "ai_os_analysis": null,
@@ -278,14 +280,14 @@
         "Reproduced original failure; corrected focused checks pass"
       ],
       "runtime_test": "Final backend deployed; DEX sandbox remains failed closed",
-      "regression": "3102 passed, 55 skipped; PostgreSQL integration and migration drift passed",
+      "regression": "Full runtime release gate 2 and final backend 3102 tests passed; post-push combined gate pending.",
       "security": "Fail-closed boundaries retained",
       "performance": null
     },
     {
       "id": "ASTER-013",
       "title": "Evidence reads bypass filesystem protection and resource bounds",
-      "status": "VERIFIED_RELEASE_PENDING",
+      "status": "REPAIRED_REGRESSION_VERIFIED_FINAL_DEPLOY_PENDING",
       "root_cause": "Direct read_bytes accepted protected files and arbitrary file size; FIFO open could block",
       "aster_analysis": "Direct read_bytes accepted protected files and arbitrary file size; FIFO open could block",
       "ai_os_analysis": null,
@@ -299,14 +301,14 @@
         "Reproduced original failure; corrected focused checks pass"
       ],
       "runtime_test": "Final backend deployed; DEX sandbox remains failed closed",
-      "regression": "3102 passed, 55 skipped; PostgreSQL integration and migration drift passed",
+      "regression": "Full runtime release gate 2 and final backend 3102 tests passed; post-push combined gate pending.",
       "security": "Fail-closed boundaries retained",
       "performance": null
     },
     {
       "id": "ASTER-014",
       "title": "Playwright failure log exposes request credentials",
-      "status": "VERIFIED_RELEASE_PENDING",
+      "status": "REPAIRED_REGRESSION_VERIFIED_FINAL_DEPLOY_PENDING",
       "root_cause": "Uncaught request errors include authentication headers",
       "aster_analysis": "Uncaught request errors include authentication headers",
       "ai_os_analysis": null,
@@ -321,8 +323,75 @@
         "Reproduced original failure; corrected focused checks pass"
       ],
       "runtime_test": "Production PWA passed on restarted final backend",
-      "regression": "3102 passed, 55 skipped; PostgreSQL integration and migration drift passed",
+      "regression": "Full runtime release gate 2 and final backend 3102 tests passed; post-push combined gate pending.",
       "security": "Fail-closed boundaries retained",
+      "performance": null
+    },
+    {
+      "id": "ASTER-015",
+      "title": "Vulnerable UUID resolved by Xcode dependency",
+      "status": "REPAIRED_FULL_BUILD_GATE_VERIFIED",
+      "root_cause": "Xcode resolves UUID 7.0.3 with missing v3/v5 output-buffer bounds checks. npm 11 workspace override resolution can silently retain it.",
+      "aster_analysis": "Xcode resolves UUID 7.0.3 with missing v3/v5 output-buffer bounds checks. npm 11 workspace override resolution can silently retain it.",
+      "ai_os_analysis": null,
+      "disagreement": null,
+      "chosen_evidence": [
+        "dependency-repair-assessment.json",
+        "uuid-security-before.log",
+        "uuid-security-after.log",
+        "dependency-full-release-gate-2.log"
+      ],
+      "fix": "Narrow xcode UUID 11.1.1 override and minimal lock entry; mandatory regression checks the actual Xcode consumer and UUID buffer rejection.",
+      "tests": [
+        "Clean npm install, consumer regression, full backend/web/mobile/Rust/PostgreSQL/build/native launch gate passed"
+      ],
+      "runtime_test": null,
+      "regression": null,
+      "security": null,
+      "performance": null
+    },
+    {
+      "id": "ASTER-016",
+      "title": "Remaining malformed URI decoder denial of service advisory",
+      "status": "UNRESOLVED_UPSTREAM_COMPATIBILITY",
+      "root_cause": "Expo Router uses CommonJS query-string 7, which calls the decoder as a function. The patched decoder 0.5.0 is ESM default-only; a direct override breaks the consumer.",
+      "aster_analysis": "Expo Router uses CommonJS query-string 7, which calls the decoder as a function. The patched decoder 0.5.0 is ESM default-only; a direct override breaks the consumer.",
+      "ai_os_analysis": null,
+      "disagreement": null,
+      "chosen_evidence": [
+        "decoder-advisory-assessment.json",
+        "query-string-module-assessment.json"
+      ],
+      "fix": "No incompatible override or dependency downgrade applied.",
+      "tests": [
+        "900-byte malformed input: installed decoder 1332.7 ms; patched decoder 0.4882 ms; direct consumer call fails TypeError with patched module shape"
+      ],
+      "runtime_test": null,
+      "regression": null,
+      "security": null,
+      "performance": null
+    },
+    {
+      "id": "ASTER-017",
+      "title": "Denied owner-root alias changes foreign directory permissions",
+      "status": "REPAIRED_AFFECTED_TESTS_VERIFIED",
+      "root_cause": "Path-based chmod happened before owner-root symlink validation, allowing a denied request to alter a foreign directory mode.",
+      "aster_analysis": "Path-based chmod happened before owner-root symlink validation, allowing a denied request to alter a foreign directory mode.",
+      "ai_os_analysis": null,
+      "disagreement": null,
+      "chosen_evidence": [
+        "owner-root-permission-before.json",
+        "owner-root-permission-before-corrected.log",
+        "owner-root-permission-affected-final.log"
+      ],
+      "fix": "Validate before mutation, open directory with O_NOFOLLOW and O_DIRECTORY, and fchmod the open descriptor; fail closed where safe directory access is unavailable.",
+      "tests": [
+        "Both original alias cases fail with mode 0750 changed to 0700",
+        "82 affected tests pass including in-root/outside aliases and swap race"
+      ],
+      "runtime_test": null,
+      "regression": null,
+      "security": null,
       "performance": null
     }
   ],
@@ -333,19 +402,235 @@
     "fail": 1,
     "provenance": "historical 459-case run; unchanged raw files located"
   },
-  "benchmark_after": null,
+  "benchmark_after": {
+    "status": "BENCHMARK COMPLETE",
+    "product": "WORK STATION",
+    "system_version": "0.1.0",
+    "git_commit": "333202cf6a7914db3d0c1c1da6a225e715b68685",
+    "models": [
+      {
+        "display_name": "Faster Whisper Small English",
+        "runtime_id": "faster_whisper",
+        "capabilities": [
+          "speech_recognition"
+        ],
+        "context_window": null,
+        "quantization": null,
+        "runnable_now": true
+      },
+      {
+        "display_name": "FLUX.2 Klein Base 4B FP8",
+        "runtime_id": "comfyui",
+        "capabilities": [
+          "image_editing",
+          "image_generation"
+        ],
+        "context_window": null,
+        "quantization": "FP8",
+        "runnable_now": true
+      },
+      {
+        "display_name": "gemma4 11.9B",
+        "runtime_id": "ollama-local",
+        "capabilities": [
+          "text_generation",
+          "tool_calling",
+          "vision_input"
+        ],
+        "context_window": 262144,
+        "quantization": "Q4_K_M",
+        "runnable_now": true
+      },
+      {
+        "display_name": "nomic-bert 137M",
+        "runtime_id": "ollama-local",
+        "capabilities": [
+          "embeddings"
+        ],
+        "context_window": 2048,
+        "quantization": "F16",
+        "runnable_now": true
+      },
+      {
+        "display_name": "Piper Lessac Medium",
+        "runtime_id": "piper",
+        "capabilities": [
+          "speech_synthesis"
+        ],
+        "context_window": null,
+        "quantization": null,
+        "runnable_now": true
+      },
+      {
+        "display_name": "qwen2 7.6B",
+        "runtime_id": "ollama-local",
+        "capabilities": [
+          "code",
+          "text_generation",
+          "tool_calling"
+        ],
+        "context_window": 32768,
+        "quantization": "Q4_K_M",
+        "runnable_now": true
+      },
+      {
+        "display_name": "qwen25vl 8.3B",
+        "runtime_id": "ollama-local",
+        "capabilities": [
+          "text_generation",
+          "vision_input"
+        ],
+        "context_window": 128000,
+        "quantization": "Q4_K_M",
+        "runnable_now": true
+      },
+      {
+        "display_name": "qwen3 8.2B",
+        "runtime_id": "ollama-local",
+        "capabilities": [
+          "text_generation",
+          "tool_calling"
+        ],
+        "context_window": 40960,
+        "quantization": "Q4_K_M",
+        "runnable_now": true
+      }
+    ],
+    "gpu": "NVIDIA GeForce RTX 3060, 12288 MiB, 580.173.02",
+    "number_of_tests": 459,
+    "total_score": 97.8,
+    "pass_rate": 99.56,
+    "partial_rate": 0.22,
+    "failure_rate": 0.22,
+    "hallucination_rate": 0.0,
+    "safety_failure_rate": 0.0,
+    "safety_rate": 100.0,
+    "citation_accuracy": 100.0,
+    "rag_score": 99.5,
+    "memory_score": 99.84,
+    "vision_score": 99.11,
+    "image_score": 99.42,
+    "voice_score": 100.0,
+    "tool_score": 100.0,
+    "workflow_score": 100.0,
+    "coding_score": 98.08,
+    "code_generation_score": 98.29,
+    "code_generation_success_rate": 100.0,
+    "reasoning_score": 96.1,
+    "mathematics_score": 97.12,
+    "long_context_score": 99.38,
+    "deep_chat_score": 99.38,
+    "failure_recovery_score": 99.94,
+    "tool_selection_accuracy": 100.0,
+    "memory_recall_accuracy": 99.58,
+    "rag_retrieval_accuracy": 100.0,
+    "stt_accuracy": 100.0,
+    "stt_word_error_rate": 0.0,
+    "stt_character_error_rate": 0.0,
+    "stt_punctuation_accuracy": 61.11,
+    "workflow_success_rate": 100.0,
+    "image_task_success_rate": 100.0,
+    "average_latency_seconds": 8.3351,
+    "p95_latency_seconds": 16.8283,
+    "category_scores": {
+      "advanced_algorithms": 96.5,
+      "advanced_coding": 99.42,
+      "algebra_reasoning": 95.75,
+      "algorithm_reasoning": 94.75,
+      "ambiguous_resolvable": 98.65,
+      "arbitrary_code": 98.75,
+      "architecture_design": 97.75,
+      "arithmetic": 98.65,
+      "artifact_cleanup": 100.0,
+      "code_generation": 98.29,
+      "coding": 95.9,
+      "comparison_decision": 98.12,
+      "complex_math": 97.75,
+      "complex_planning": 97.28,
+      "concurrency": 97.75,
+      "conflicting_documents": 99.5,
+      "context_following": 99.2,
+      "contradiction_detection": 92.65,
+      "contradictory_instructions": 98.75,
+      "cross_document_reasoning": 96.35,
+      "database_design": 96.5,
+      "debugging": 98.65,
+      "deep_chat": 99.38,
+      "difficult_debugging": 98.33,
+      "discrete_math": 97.95,
+      "distributed_systems": 97.75,
+      "fabricated_citation": 98.75,
+      "factual": 96.12,
+      "failure_recovery": 99.94,
+      "image_editing": 99.38,
+      "image_generation": 99.46,
+      "impossible_request": 98.75,
+      "instruction_following": 98.97,
+      "large_codebase_reasoning": 97.75,
+      "long_context_reasoning": 98.75,
+      "long_horizon_planning": 97.75,
+      "malicious_file": 98.75,
+      "memory": 99.82,
+      "memory_security": 100.0,
+      "misleading_context": 99.5,
+      "missing_information": 98.75,
+      "model_comparison": 96.25,
+      "multi_document_synthesis": 98.75,
+      "multi_file_planning": 97.75,
+      "multi_step_reasoning": 97.25,
+      "multi_turn_long_context": 100.0,
+      "owner_isolation": 98.75,
+      "performance_analysis": 97.75,
+      "probability_reasoning": 96.45,
+      "prompt_injection": 98.75,
+      "rag_conflict": 98.75,
+      "rag_ingestion": 100.0,
+      "rag_missing_information": 98.75,
+      "rag_retrieval": 100.0,
+      "rag_security": 100.0,
+      "rag_synthesis": 96.5,
+      "readiness": 100.0,
+      "rewriting": 98.03,
+      "security": 99.81,
+      "security_analysis": 98.75,
+      "security_reasoning": 92.35,
+      "simple_reasoning": 97.25,
+      "statistics_reasoning": 96.75,
+      "structured_data": 98.9,
+      "summarization": 98.55,
+      "systems_reasoning": 92.65,
+      "tool_misuse": 98.75,
+      "tools": 100.0,
+      "unauthorized_data": 98.75,
+      "vision": 99.11,
+      "voice": 100.0,
+      "voice_stt": 100.0,
+      "voice_tts": 100.0,
+      "workflows": 100.0
+    },
+    "counts": {
+      "PASS": 457,
+      "PARTIAL": 1,
+      "FAIL": 1
+    },
+    "unavailable_capabilities": [],
+    "duration_seconds": 3860.01,
+    "initial_score": null,
+    "score_delta": null,
+    "quality_engine_baseline_score": 95.67,
+    "quality_engine_baseline_tests": 421,
+    "quality_engine_score_delta": 2.13,
+    "model_discovery_baseline_score": 96.84,
+    "model_discovery_score_delta": 0.96,
+    "quality_push_v2_baseline_score": 97.23,
+    "quality_push_v2_score_delta": 0.57
+  },
   "remaining_failures": [
     "ASTER-001",
-    "ASTER-002",
-    "ASTER-003",
-    "ASTER-004",
-    "ASTER-005",
     "ASTER-006",
     "ASTER-007",
-    "ASTER-008",
     "ASTER-009",
-    "ASTER-010",
-    "ASTER-011"
+    "ASTER-016"
   ],
   "external_blockers": [
     {
@@ -357,8 +642,14 @@
     {
       "id": "REMOTE_HOST_DNS",
       "status": "PARTIAL",
-      "evidence": "Private HTTPS readiness passes through installed Tailscale userspace daemon with certificate verification. Ordinary host DNS returns ENOTFOUND; no second tailnet device is attached.",
+      "evidence": "Actual private TLS authentication, state continuation, owner isolation, cleanup and revocation pass over installed Tailscale Serve. Ordinary host DNS returns ENOTFOUND; no second tailnet browser is attached.",
       "owner_action": "Validate authenticated remote PWA from an enrolled peer with tailnet DNS; no public Funnel or DNS bypass enabled."
+    },
+    {
+      "id": "DECODER_UPSTREAM_COMPATIBILITY",
+      "status": "UNRESOLVED",
+      "evidence": "3 moderate npm findings from one malformed URI decoder advisory; patched module shape breaks installed Expo query-string consumer. Evidence: decoder-advisory-assessment.json and query-string-module-assessment.json.",
+      "owner_action": "Adopt a compatible patched Expo/query-string dependency release when available; validate routing and malformed URI behavior before release."
     }
   ],
   "acceptance": {
@@ -378,12 +669,12 @@
     "voice": "REAL_RUNTIME_SMOKE_PASSED; final post-push gate pending",
     "learning": "REAL_RUNTIME_SMOKE_PASSED; final post-push gate pending",
     "finance_paper": "REAL_RUNTIME_SMOKE_PASSED; final post-push gate pending",
-    "private_remote": "PRIVATE_TLS_READY_VERIFIED_VIA_INSTALLED_TAILSCALE; host DNS and remote-peer browser unverified",
-    "security": "Owner scope repaired; DEX host sandbox failed closed; 0 high/critical and 14 moderate dependency findings; provisioning credential rotated after redacted harness failure",
-    "performance": "Historical benchmark mean 7.6864s, P95 15.5711s. Runtime image peak 10940MiB; final canonical measurements pending",
+    "private_remote": "PRIVATE_TLS_AUTH_STATE_OWNER_ISOLATION_REVOCATION_PASS; off-device browser unverified",
+    "security": "0 high/critical, 3 moderate; owner boundary and audit regressions pass; DEX fails closed; full readiness not established",
+    "performance": "Mean 8.3351s / P95 16.8283s, peak VRAM 11185 MiB / GPU 79 C; observed latency higher than baseline",
     "full_regression": "Full release gate 2 passed; after final scope changes backend 3102 passed / 55 skipped, affected 77 passed, PostgreSQL 55 passed; post-push full runtime gate pending",
     "release": "UNVERIFIED_THIS_RUN",
-    "runtime_identity": "INDEPENDENT_STARTUP_HASH_MATCH_PRECOMMIT"
+    "runtime_identity": "333202c independently verified; newest filesystem code awaits final deployment"
   },
   "evidence_root": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260907",
   "failed_attempts": [
@@ -441,6 +732,31 @@
       "action": "Provisioning credential rotation first retry",
       "status": "FAILED",
       "evidence": "First updated dotenv but service override remained; then corrected authoritative backend.env. Next immediate attempt was connection refused during startup; redaction worked; readiness-gated retry passed."
+    },
+    {
+      "action": "Private protocol probe first fixture",
+      "status": "FAILED_THEN_CORRECTED",
+      "evidence": "Missing initial_message; two discarded synthetic sessions revoked with exact owner/session/creation guards. private-probe-failed-attempt-cleanup.json"
+    },
+    {
+      "action": "Dependency override attempts",
+      "status": "REJECTED",
+      "evidence": "npm 11 ignored override, lock deletion omitted dependency, root pin retained nested vulnerable copy, fresh resolution caused unrelated churn. Only verified minimal UUID entry accepted; dependency-repair-assessment.json"
+    },
+    {
+      "action": "First isolated dependency release gate",
+      "status": "FAILED",
+      "evidence": "Database safety guard rejected missing application DATABASE_URL. Corrected ignored environment and full second gate passed."
+    },
+    {
+      "action": "Owner permission regression first invocation",
+      "status": "HARNESS_FAILED",
+      "evidence": "Wrong working directory caused import error; corrected invocation reproduces two actual failures before repair."
+    },
+    {
+      "action": "Owner permission baseline",
+      "status": "FAILED_AS_EXPECTED",
+      "evidence": "owner-root-permission-before-corrected.log: 2 failed; foreign directory mode changed despite request denial."
     }
   ],
   "tests": {
@@ -450,7 +766,19 @@
     "database": "postgres-final.log",
     "security": "security-final-2.log",
     "native": "native-chat-precommit.json",
-    "production_pwa": "production-pwa-3.log"
+    "production_pwa": "production-pwa-3.log",
+    "final_owner_permission": {
+      "backend": "3105 passed, 55 skipped, 75.67 seconds",
+      "affected": "82 passed",
+      "postgres": "55 passed; migrations roundtrip and no drift",
+      "security": "gate passed; 3 moderate npm advisories remain",
+      "evidence": [
+        "backend-owner-permission-final.log",
+        "owner-root-permission-affected-final.log",
+        "postgres-owner-permission-final.log",
+        "security-owner-permission-final.log"
+      ]
+    }
   },
   "ai_os_independent_review": {
     "task_id": "8a76ac55-a4ad-4014-8ade-71947f0eab57",
@@ -458,5 +786,75 @@
     "status": "completed",
     "disagreement": "AI OS incorrectly treats original before-repair test failures as current failures and associates filesystem scope with output buffering. ASTER rejects those claims using preserved before/after logs. AI OS correctly rejects overall READY while live DEX and post-push verification are incomplete.",
     "resolution": "Independent deterministic tests establish repaired behavior. Advisory response is retained without storing its incorrect conclusions as learning."
+  },
+  "benchmark_comparison": {
+    "before": 97.83,
+    "after": 97.8,
+    "counts_before": {
+      "PASS": 456,
+      "PARTIAL": 2,
+      "FAIL": 1
+    },
+    "counts_after": {
+      "PASS": 457,
+      "PARTIAL": 1,
+      "FAIL": 1
+    },
+    "contract_unchanged": true,
+    "evidence": [
+      "benchmark-before-after-comparison.json",
+      "benchmark-contract-integrity.json",
+      "Work_Station_Benchmark/final-failure-inventory.json"
+    ],
+    "explanation": "Only voice-stt-02 changed status, PARTIAL to PASS. The 47 other score changes are latency-only. Weighted mean score changed by -0.036492; models, routes, prompts and checkers were not changed. CPU-only validation and compilation overlapped part of the run, so latency is observed, not a controlled causal comparison.",
+    "limits": "Normalized STT WER/CER 0; punctuation accuracy 61.11%. This is not global voice accuracy."
+  },
+  "issue_counts": {
+    "discovered": 17,
+    "repairs_implemented": 11,
+    "historical_partial_now_pass_without_code_fix": 1,
+    "remaining_issue_records": 5,
+    "note": "DEX repairs have deterministic regression evidence; successful real DEX execution is still blocked by the host sandbox. Counts do not imply READY."
+  },
+  "performance": {
+    "benchmark_mean_seconds": 8.3351,
+    "benchmark_p95_seconds": 16.8283,
+    "before_mean_seconds": 7.6864,
+    "before_p95_seconds": 15.5711,
+    "samples": 761,
+    "peak_vram_mib": 11185,
+    "peak_gpu_temperature_c": 79,
+    "peak_gpu_power_w": 169.54,
+    "minimum_available_ram_gib": 58.892,
+    "production_dex_failed_roundtrip_seconds": 84.45,
+    "successful_dex_callback_latency": "UNAVAILABLE_HOST_SANDBOX_BLOCK",
+    "evidence": [
+      "benchmark-performance.json",
+      "production-dex-strict-scope.json",
+      "backend-resource-boundaries.json"
+    ]
+  },
+  "security": {
+    "npm_before_moderate": 14,
+    "npm_after_moderate": 3,
+    "npm_high": 0,
+    "npm_critical": 0,
+    "decoder_advisory": "https://github.com/advisories/GHSA-vcc3-ghjq-m6fr",
+    "uuid_advisory": "https://github.com/advisories/GHSA-w5hq-g745-h8pq",
+    "production_private_auth_isolation_revocation": "PASS",
+    "dex": "FAIL_CLOSED_HOST_SANDBOX",
+    "credential_incident": "Provisioning credential leaked in harness failure output, then rotated in both dotenv and authoritative systemd environment, service restarted and verified. Saved evidence redacted. Existing owner sessions were preserved.",
+    "credential_evidence": [
+      "credential-rotation.json",
+      "browser-error-redaction.json",
+      "evidence-credential-scan.json"
+    ]
+  },
+  "validated_learning": {
+    "existing_owner_memory_id": "5980c0f7-a304-4c44-90bc-5d104a3c14de",
+    "method": "Existing native Memory UI, explicit project context, exact owner and content digest independently checked",
+    "evidence": "validated-learning-memory.json",
+    "content_sha256": "fd43b10e398c4a3864ee55eb56afeb5d55bbfc58de4eab3025fc443c5249ef82",
+    "no_secrets_or_unverified_model_claims": true
   }
 }
