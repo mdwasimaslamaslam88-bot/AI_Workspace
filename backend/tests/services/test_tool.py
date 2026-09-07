@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime, timezone
 import json
 from unittest.mock import AsyncMock, Mock
@@ -333,6 +334,130 @@ async def test_dex_delegation_reuses_owner_audit_and_redacts_task_and_result():
 
 
 @pytest.mark.asyncio
+async def test_dex_read_only_delegation_retries_once_under_same_owner_audit():
+    owner_id = uuid4()
+    running = _execution(
+        owner_id,
+        tool_name="dex.delegate",
+        permission="agent_delegation",
+        arguments_json="{}",
+    )
+    completed = _execution(
+        owner_id,
+        status=ToolExecutionStatus.COMPLETED,
+        result={"status": "VERIFIED"},
+        tool_name="dex.delegate",
+        permission="agent_delegation",
+        arguments_json="{}",
+    )
+    completed.id = running.id
+    repository = Mock(
+        create_running=AsyncMock(return_value=running),
+        finish=AsyncMock(return_value=completed),
+        conversation_exists_for_owner=AsyncMock(return_value=True),
+    )
+    gateway = Mock(available=True)
+    gateway.delegate = AsyncMock(
+        side_effect=[
+            DexGatewayError("DEX result failed independent verification"),
+            {
+                "task_id": str(running.id),
+                "correlation_id": str(uuid4()),
+                "owner_id": str(owner_id),
+                "status": "VERIFIED",
+                "result": {"summary": "verified on bounded retry"},
+                "verification": {"status": "VERIFIED"},
+                "timeline": [{"status": "VERIFIED"}],
+            },
+        ]
+    )
+    service = ToolService(AsyncMock(spec=AsyncSession), dex_gateway=gateway)
+    service.repository = repository
+
+    result = await service.execute_for_owner(
+        owner_id,
+        "dex.delegate",
+        {
+            "request": "inspect one harmless repository condition",
+            "capability": "analysis",
+            "scope": "repository",
+            "execution_mode": "read_only",
+            "require_ai_os_review": True,
+        },
+        initiator="chat_model",
+        allowed_permissions=frozenset({"agent_delegation"}),
+    )
+
+    assert result.status is ToolExecutionStatus.COMPLETED
+    assert result.result["delegation_attempts"] == 2
+    assert gateway.delegate.await_count == 2
+    assert repository.create_running.await_count == 1
+    assert repository.finish.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_dex_read_only_timeout_retries_once_under_same_owner_audit():
+    owner_id = uuid4()
+    running = _execution(
+        owner_id,
+        tool_name="dex.delegate",
+        permission="agent_delegation",
+        arguments_json="{}",
+    )
+    completed = _execution(
+        owner_id,
+        status=ToolExecutionStatus.COMPLETED,
+        result={"status": "VERIFIED"},
+        tool_name="dex.delegate",
+        permission="agent_delegation",
+        arguments_json="{}",
+    )
+    completed.id = running.id
+    repository = Mock(
+        create_running=AsyncMock(return_value=running),
+        finish=AsyncMock(return_value=completed),
+        conversation_exists_for_owner=AsyncMock(return_value=True),
+    )
+    gateway = Mock(available=True)
+    gateway.delegate = AsyncMock(
+        side_effect=[
+            asyncio.TimeoutError(),
+            {
+                "task_id": str(running.id),
+                "correlation_id": str(uuid4()),
+                "owner_id": str(owner_id),
+                "status": "VERIFIED",
+                "result": {"summary": "verified after bounded timeout retry"},
+                "verification": {"status": "VERIFIED"},
+                "timeline": [{"status": "VERIFIED"}],
+            },
+        ]
+    )
+    service = ToolService(AsyncMock(spec=AsyncSession), dex_gateway=gateway)
+    service.repository = repository
+
+    result = await service.execute_for_owner(
+        owner_id,
+        "dex.delegate",
+        {
+            "request": "inspect one harmless repository condition",
+            "capability": "analysis",
+            "scope": "repository",
+            "execution_mode": "read_only",
+            "require_ai_os_review": True,
+        },
+        initiator="chat_model",
+        allowed_permissions=frozenset({"agent_delegation"}),
+    )
+
+    assert result.status is ToolExecutionStatus.COMPLETED
+    assert result.result["delegation_attempts"] == 2
+    assert gateway.delegate.await_count == 2
+    assert repository.create_running.await_count == 1
+    assert repository.finish.await_count == 1
+
+
+@pytest.mark.asyncio
 async def test_dex_write_request_from_chat_fails_closed_after_durable_audit():
     owner_id = uuid4()
     running = _execution(
@@ -378,6 +503,7 @@ async def test_dex_write_request_from_chat_fails_closed_after_durable_audit():
 
     assert result.status is ToolExecutionStatus.FAILED
     assert result.error_code == "tool_execution_failed"
+    gateway.delegate.assert_awaited_once()
 
 
 @pytest.mark.asyncio

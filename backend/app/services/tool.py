@@ -16,7 +16,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictInt, ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.documents.embedding import EmbeddingRuntime
-from app.dex import DexGateway, DexGatewayError
+from app.dex import DexGateway, DexGatewayError, DexGatewayUnavailableError
 from app.models.tool import (
     MAX_TOOL_ARGUMENT_JSON_CHARACTERS,
     MAX_TOOL_RESULT_JSON_CHARACTERS,
@@ -38,6 +38,7 @@ from app.services.memory import MemoryService
 
 MAX_CALCULATOR_AST_NODES = 64
 MAX_CALCULATOR_DEPTH = 16
+DEX_READ_ONLY_RETRY_RESERVE_SECONDS = 40.0
 MAX_CALCULATOR_ABSOLUTE_VALUE = 1e100
 MAX_CALCULATOR_INTEGER_BITS = 256
 
@@ -780,16 +781,43 @@ class ToolService:
                 raise _ToolInvocationFailed("DEX gateway is unavailable")
             if execution_id is None:  # pragma: no cover - internal invariant
                 raise _ToolInvocationFailed("DEX audit identity is unavailable")
-            return await gateway.delegate(
-                owner_id,
-                execution_id,
-                request=validated.request,
-                capability=validated.capability,
-                scope=validated.scope,
-                execution_mode=validated.execution_mode,
-                require_ai_os_review=validated.require_ai_os_review,
-                initiator=initiator,
+            # DEX is a model-backed verifier and can occasionally return an
+            # unusable schema/evidence set. Retry one read-only delegation under
+            # ToolService's existing hard deadline. Mutations are never retried:
+            # their exact effect may have occurred before a transport failure.
+            attempt_limit = 2 if validated.execution_mode == "read_only" else 1
+            attempt_timeout = (
+                (definition.timeout_seconds - DEX_READ_ONLY_RETRY_RESERVE_SECONDS)
+                / attempt_limit
+                if attempt_limit > 1
+                else None
             )
+            for attempt in range(1, attempt_limit + 1):
+                try:
+                    delegation = gateway.delegate(
+                        owner_id,
+                        execution_id,
+                        request=validated.request,
+                        capability=validated.capability,
+                        scope=validated.scope,
+                        execution_mode=validated.execution_mode,
+                        require_ai_os_review=validated.require_ai_os_review,
+                        initiator=initiator,
+                    )
+                    result = (
+                        await asyncio.wait_for(delegation, timeout=attempt_timeout)
+                        if attempt_timeout is not None
+                        else await delegation
+                    )
+                    return result | {"delegation_attempts": attempt}
+                except DexGatewayUnavailableError:
+                    raise
+                except (DexGatewayError, asyncio.TimeoutError) as exc:
+                    if attempt == attempt_limit:
+                        raise DexGatewayError(
+                            "DEX read-only delegation exhausted its bounded attempts"
+                        ) from exc
+            raise _ToolInvocationFailed("DEX retry state is invalid")  # pragma: no cover
         raise ToolNotFoundError("tool is not registered")
 
     @staticmethod

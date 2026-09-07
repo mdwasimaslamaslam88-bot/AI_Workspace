@@ -777,6 +777,7 @@ class ConversationGenerationService:
                         model,
                         context,
                         generation_options,
+                        owner_request=latest_user_text,
                         filesystem_intent=filesystem_intent,
                         filesystem_write_intent=filesystem_write_intent,
                         dex_intent=dex_intent,
@@ -824,6 +825,7 @@ class ConversationGenerationService:
         context: tuple[TextGenerationMessage, ...],
         generation_options: dict[str, Any],
         *,
+        owner_request: str | None = None,
         filesystem_intent: bool,
         filesystem_write_intent: bool,
         tools_enabled: bool,
@@ -922,13 +924,15 @@ class ConversationGenerationService:
                 execution_arguments = call.arguments
                 if call.name == "dex.delegate":
                     # The model may select the bounded DEX request and capability,
-                    # but it is not an authority for filesystem scope, mutation, or
-                    # independent-review policy. Chat delegation is always pinned
-                    # to the repository's read-only surface and requires AI OS
-                    # review; owner-workspace writes remain available only through
-                    # an explicit non-chat owner action.
+                    # but it is not an authority for the authenticated owner's task,
+                    # filesystem scope, mutation, or independent-review policy. Keep
+                    # the exact owner-authored request instead of delegating a model
+                    # paraphrase that can change intent or make execution unstable.
+                    # Chat delegation is always pinned to the repository's read-only
+                    # surface and requires AI OS review; owner-workspace writes remain
+                    # available only through an explicit non-chat owner action.
                     execution_arguments = {
-                        "request": call.arguments.get("request"),
+                        "request": owner_request or call.arguments.get("request"),
                         "capability": call.arguments.get("capability", "analysis"),
                         "scope": "repository",
                         "execution_mode": "read_only",

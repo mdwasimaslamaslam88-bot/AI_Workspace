@@ -4603,6 +4603,7 @@ async def test_chat_pins_untrusted_dex_scope_to_read_only_repository_review(monk
         _resolved(),
         (),
         {"tools": (_dex_tool_definition(),)},
+        owner_request="Ask DEX to inspect the owner-requested repository condition.",
         filesystem_intent=False,
         filesystem_write_intent=False,
         tools_enabled=True,
@@ -4610,7 +4611,7 @@ async def test_chat_pins_untrusted_dex_scope_to_read_only_repository_review(monk
     )
 
     assert captured_arguments == {
-        "request": "Inspect one harmless repository condition.",
+        "request": "Ask DEX to inspect the owner-requested repository condition.",
         "capability": "analysis",
         "scope": "repository",
         "execution_mode": "read_only",
