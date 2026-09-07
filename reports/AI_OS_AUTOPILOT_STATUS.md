@@ -1,177 +1,144 @@
 # AI OS Autopilot Production Validation
 
-Date: 2026-09-06
-Scope: connect, test, diagnose, repair, rebuild, verify, and release the current
-locally achievable WORK STATION runtime.
-Result: **LOCAL PASS / RUNTIME PASS**, with third-party and physical-device
-capabilities kept at their explicit external boundaries.
+Date: 2026-09-07
 
-## Outcome
+Validated application commit: `401cf40df17d40c554021c0c77672b9a65b058a0`
+Result: **LOCAL PASS / RUNTIME PASS**, with unconfigured providers and unavailable
+platform/device environments preserved as explicit external boundaries.
 
-The authenticated compiled PWA now invokes the authoritative AI OS tool
-gateway in the real installed backend. The exact filesystem request was
-executed by the local Qwen3/Ollama route, independently checked with
-`filesystem.exists` and `filesystem.read`, rendered as verified in the UI,
-recorded in PostgreSQL audit history, and cleaned up. No simulated tool result
-was accepted as evidence.
+## Current outcome
 
-The originally reported BLOCKED response was not a defect in bridge commit
-`1ac670b915944be07e84d8ebfe9f1843275a7d5a`; the running backend and database
-predated it. The production database was backed up, migrated from
-`0018_connector_activation` through `0023_chat_filesystem_tools`, and the
-backend was restarted from the current checkout. The old desktop release was
-also replaced by a newly built AppImage that contains both the GStreamer app
-plugin and its version-matched plugin-scanner helper.
+The real authenticated compiled PWA and Linux desktop now run the validated AI
+OS source and artifact set. Chat uses the local Ollama route, can execute real
+owner-scoped filesystem tools, and can bidirectionally cooperate with the
+installed DEX runtime. Tool actions, DEX evidence, callback provenance, UI
+states, PostgreSQL audits, exact file bytes, cleanup, and revoked-session denial
+were independently checked. No mock or simulated result is counted as runtime
+evidence.
 
-## Runtime discovery and repairs
+The full DEX architecture, tasks, audit IDs, negative cases, benchmark result,
+and artifact hashes are recorded in
+`reports/DEX_AI_OS_INTEGRATION_STATUS.md` and its JSON counterpart.
 
-| Finding | Classification | Resolution | Verification |
+## Root causes fixed in this cycle
+
+| Finding | Classification | Fix | Runtime proof |
 |---|---|---|---|
-| Backend process predated the chat-tool bridge | STALE PROCESS / DEPLOYMENT BUG | Restarted `work-station-backend.service` from the current checkout | Loopback readiness and authenticated compiled-PWA execution passed |
-| Production database stopped at migration 0018 | DATABASE/MIGRATION BUG | Created an integrity-checked backup and upgraded to 0023 | Fresh upgrade, latest downgrade/re-upgrade, drift check, and 55 PostgreSQL tests passed |
-| User-launched desktop artifact predated the bridge | STALE ARTIFACT | Built and launch-validated a new AppImage/DEB | Native window and sustained AppImage launch passed |
-| AppImage omitted GStreamer `appsink`/`appsrc` | RUNTIME/DEPENDENCY BUG | Bundled the version-matched plugin and notices | Media initialization guard and sustained launch passed |
-| AppImage omitted GStreamer's external scanner | RUNTIME/DEPENDENCY BUG | Bundled the helper, set `GST_PLUGIN_SCANNER`, and made loader warnings fatal | Scanner-enabled AppImage launch passed without the prior warning |
-| Pinned Playwright browser was absent | TEST/ENVIRONMENT ISSUE | Installed the pinned browser under the managed runtime root | Both isolated and installed-runtime Chromium PWA tests passed |
-| Existing-session E2E cleanup followed logout | TEST/ENVIRONMENT ISSUE | Moved owned-resource cleanup before session revocation | Real UI test cleaned the file/conversation and then proved logout denial |
+| Chat model paraphrased the owner's DEX task | Model/tool routing integration | Pin DEX to the exact authenticated owner request | PWA audit `26cd6a9f-832f-4c4c-b34d-b6c4e0661426` used the exact request hash |
+| One 240-second DEX attempt exhausted the browser budget | Timeout/recovery defect | Two bounded 130-second read-only attempts plus 40-second finalization reserve | Real path completed in one 111,563 ms attempt; timeout retry tests passed |
+| Retrying writes could duplicate effects | Safety risk | Keep workspace writes single-attempt and non-retryable | Negative regression passed |
+| Prior AppImage held the desktop single-instance identity | Stale runtime/artifact | Stop only the stale unit, rebuild, and launch the current AppImage | Current transient unit and native window verified |
 
-No duplicate agent, permission, audit, memory, or tool subsystem was created.
-The chat path reuses the task/model router, generation admission controller,
-ToolService, owner authentication, PostgreSQL audit repository, and existing
-filesystem executor.
+The earlier cancelled audit
+`9fd72cf8-63d2-4e57-8af9-dde8c6857fd6` remains cancelled with
+`tool_cancelled`; it was not relabeled.
 
-## Real authenticated user path
+## Real user paths
 
-Prompt target: `AI_OS_REAL_TEST.txt` with exact content
-`AI OS REAL EXECUTION VERIFIED`.
+- Ordinary authenticated chat: local Qwen3/Ollama response, persistence, and
+  conversation cleanup passed.
+- Chat → filesystem: actual write, exists, read, exact SHA/content verification,
+  PostgreSQL audits, verified UI result, cleanup, logout, and post-logout denial
+  passed.
+- AI OS → DEX: authenticated compiled PWA selected `dex.delegate`; DEX performed
+  a real repository inspection and returned structured evidence.
+- DEX → AI OS: one-use Unix-socket MCP callback invoked the real existing Agent
+  Orchestrator; the returned digest was bound to DEX evidence and verified.
+- DEX workspace action: exact 35-byte test file, one callback, three filesystem
+  audits, gateway digest verification, and cleanup passed.
+- Agent disagreement: incorrect digest/evidence and missing AI OS provenance
+  were rejected; corrected current evidence was accepted.
+- Failure recovery: unavailable runtime, timeout, cancellation, malformed
+  result, wrong owner, invalid capability, callback replay, missing/symlink
+  evidence, and unknown MCP tool remain truthful blocked/failed states.
 
-- Model route: public ID `ollama-local:4d78401040148e2da99b8a76`, mapped to
-  installed `qwen3:8b`; no external API was used.
-- `filesystem.write`: audit
-  `8ee2cc4f-f2c5-4f23-a429-3a925d59f07c`, 29 bytes written.
-- `filesystem.exists`: audit
-  `010df69a-e5c4-4076-9f09-2887f2f3407f`, existence verified.
-- `filesystem.read`: audit
-  `da52eb47-347e-4e02-9d19-b70502a36887`, 29 bytes read.
-- Exact content SHA-256:
-  `96437372e57c6ffab75d47941a1718cd7b3100d2c96f11ee9ea488dbef2b21b3`.
-- UI evidence: execution state reached `done` only after verification; the
-  conversation rendered `Verified`, the affected path, and exact read-back.
-- Cleanup: file and test conversation removed; session revoked; reuse of the
-  revoked session returned HTTP 401.
+## Accumulated runtime matrix
 
-## Fail-closed tool evidence
-
-- Unknown `shell` capability: rejected with 404.
-- Relative traversal and absolute protected paths: denied.
-- Payload above 262,144 bytes: rejected with 413.
-- Symlink escape toward `/etc`: denied and audited.
-- Repeated identical writes: one exact final file; no duplicate side effect.
-- Tool audit data remained owner-isolated and did not contain file content or
-  the protected target path.
-- Revoked sessions and unavailable capabilities could not produce successful
-  execution evidence.
-
-## Runtime matrix
-
-| Path | Evidence | Status |
+| Subsystem | Evidence | State |
 |---|---|---|
-| Chat and history | Authenticated compiled PWA, local model response, persistence and cleanup | RUNTIME PASS |
-| Chat to real tools | Model tool call, permission/path checks, write/exists/read, verification, audit and UI state | RUNTIME PASS |
-| Memory | Persistence, cross-conversation retrieval, forgetting, and owner isolation | RUNTIME PASS |
-| RAG | Nomic 768D embeddings, citation grounding, unsupported-source behavior, deletion and log redaction | RUNTIME PASS |
-| Agent/Mission | Persistent plan/execution/verification, controls, recovery and SSE state; one attempt, 17,243 ms | RUNTIME PASS |
-| Workflow/tools | Bounded execution, actual effects, verification and audit | RUNTIME PASS |
-| Vision | Admitted `qwen2.5vl:7b`, real inference and owner isolation; approximately 8,532 MiB peak GPU use | RUNTIME PASS |
-| Image | FLUX.2 Klein Base 4B FP8 generation, editing/inpainting, provenance and cleanup; approximately 10,972 MiB peak GPU use | RUNTIME PASS |
-| Voice | Piper TTS, 22,050 Hz mono/4.180 s, and Faster-Whisper STT; approximately 1,132 MiB peak GPU use | RUNTIME PASS |
-| Learning | Teacher/adaptation, progress/mastery, spaced repetition, recovery, analytics and audit | RUNTIME PASS |
-| Finance | Grounded research, deterministic backtest, paper trade, portfolio/risk/alert/journal | LOCAL/PAPER PASS |
-| Connectors/communications/marketing | Lifecycle, scopes, approval, loopback protocols and grounded local agents | LOCAL PASS; EXTERNAL BLOCKED |
-| Private remote path | Tailnet TLS/auth, two-way desktop/mobile workflow continuation, revocation and monitoring | RUNTIME PASS |
+| Chat / history | Authenticated compiled PWA, local model, persistence | RUNTIME PASS |
+| Tool execution | Real owner-scoped write/exists/read and verification | RUNTIME PASS |
+| DEX cooperation | Real two-way subprocess + STDIO MCP callback | RUNTIME PASS |
+| Agent OS / missions | Persistent plan/execution/verification and SSE | RUNTIME PASS |
+| Workflows | Bounded tool effects, verification, audit | RUNTIME PASS |
+| Memory | Persistence, retrieval, forgetting, owner isolation | RUNTIME PASS |
+| RAG | Nomic 768D embeddings, citations, unsupported-source handling | RUNTIME PASS |
+| Vision | Real `qwen2.5vl:7b` inference | RUNTIME PASS |
+| Image | FLUX.2 Klein Base FP8 generation/editing/inpainting | RUNTIME PASS |
+| Voice | Piper TTS and Faster-Whisper STT | RUNTIME PASS |
+| Learning | Teaching, adaptation, mastery, revision, recovery, audit | RUNTIME PASS |
+| Finance | Grounded research, backtest, paper trading, portfolio/risk | LOCAL/PAPER PASS |
+| Connectors / marketing | Secure lifecycle and local protocols | LOCAL PASS / EXTERNAL BLOCKED |
+| Private remote | Authenticated tailnet gateway and continuation | RUNTIME PASS |
 
-External provider success, real telephony, email send, calendar/CRM/social
-writes, live market data, broker execution, push delivery, and advanced hosted
-media were not claimed.
+## Tests and release gate
 
-## Test and release gates
-
-- Feature registry: 330 records; 277 implemented, 14 runtime-dependent, 39
-  external-dependent, zero planned; uniqueness/UI/backend-or-boundary/coverage
-  validation passed. Registry file SHA-256:
-  `e83a13bdf2c4e08e99ea0dd819a1f72ed754440cac270dd351f1375d33e56f5f`.
-- Backend: 3,045 passed, 55 intentional environment/runtime skips, zero failed.
-- Web: 204 passed across 36 files; typecheck, lint and production build passed;
-  505,008-byte initial entry and 11 lazy workspaces passed the bundle guard.
-- Mobile: 64 passed across 19 files; typecheck, lint, static Android/iOS bundles,
-  Expo Doctor 21/21, native Android debug package identity/signing/alignment and
-  artifact checks passed.
-- Desktop: two Rust tests; production binary, AppImage and DEB builds; real X11
-  binary/AppImage launches; GStreamer media-runtime guards passed.
-- PostgreSQL: 55 passed; migrations 0001 through 0023, downgrade/re-upgrade and
+- DEX boundary: 22 passed.
+- DEX/ToolService/chat focused integration: 308 passed.
+- Backend: 3,083 passed, 55 intentional skips, zero failed.
+- Web: 206 passed across 36 files; typecheck, lint, production build, bundle
+  guard, and compiled-PWA E2E passed.
+- Mobile/shared: 64 passed across 19 files; typecheck, lint, static Android/iOS
+  bundles, and Expo Doctor 21/21 passed.
+- Desktop: two Rust tests; production binary, AppImage, DEB, sustained native
+  binary launch, and sustained AppImage launch passed.
+- PostgreSQL: 55 passed; migrations 0001→0024, downgrade/re-upgrade, and empty
   schema drift passed.
-- Browser/PWA: isolated provisioning and installed-runtime existing-session
-  Chromium paths passed, including the real chat tool loop.
 - Runtime E2E: vision, RAG, memory, image, voice, Agent OS, connectors,
-  marketing, finance, learning, creative, tools and workflows passed.
-- Remote/private gateway: authenticated tailnet health, cross-device state,
-  revocation and cleanup passed.
-- Release gate: backend/web/mobile/Android/desktop/database/browser/security and
-  artifact validation passed.
+  communications, CRM/social/CMS, marketing, finance, learning, creative,
+  authenticated chat tools, tools, and workflows passed.
+- Security, private gateway, systemd, tracked-secret, client-secret, dependency,
+  CSP, egress, artifact, and release checks passed.
 
-Security found no critical or high issue. Fourteen moderate transitive Expo
-build-tool advisories remain recorded (`decode-uri-component` and `uuid`
-dependency paths); the available automated remedies require breaking package
-downgrades, so they were not forced into this validated release. Secret,
-credential, CSP, owner-isolation, path, egress, source and artifact gates passed.
+Security has zero critical/high findings. Fourteen moderate transitive Expo
+build-tool advisories (`decode-uri-component` and `uuid` dependency paths)
+remain documented because automated fixes require breaking dependency changes.
 
-## Hardware and services
+## Hardware and performance
 
-- NVIDIA RTX 3060 12 GiB; post-runtime-test observation: about 355 MiB used,
-  11,554 MiB free, 44 C and 17% utilization.
-- RAM: 84,250,804,224 bytes total, approximately 77.9 GiB available at the
-  final observation.
-- PostgreSQL, Redis, Ollama, and the backend listen on loopback only.
-- The Tailscale userspace daemon and authenticated private gateway path passed;
-  public unauthenticated exposure was not enabled.
-- The production route set and canonical benchmark contracts were unchanged.
+- NVIDIA RTX 3060 12 GiB; admission, VRAM reserve, concurrency, timeout, and
+  local-first routing controls remained unchanged.
+- Runtime peaks: vision 8,534 MiB; image 11,040 MiB; STT 1,097 MiB.
+- Persistent Agent OS mission: one attempt, 7,934 ms.
+- Compiled-PWA DEX round trip: one attempt, 111,563 ms.
+- Exact DEX workspace action: 91,681 ms.
 
-## Release artifacts
+## Canonical AI quality
 
-Directory: `/home/md-wasim/AI_Workspace_Data/releases/autopilot-5c3e2e2`
+The newest complete 459-case run measured **97.83/100**: 456 PASS, 2 PARTIAL,
+1 FAIL, Safety 100%, hallucination rate 0%, executable code 24/24, 7.6864 s
+average latency, and 15.5711 s p95. The delta from the previously reported
+97.88 score is -0.05.
 
-| Artifact | Source provenance | SHA-256 |
+Remaining non-passes are `medium-coding-04` (exact comprehension form),
+`model-comparison-coder-06` (exact term `base case`), and `voice-stt-02`
+(literal synthetic checkpoint transcription). They remain honestly classified
+as installed-model limitations. No expected answer, checker, route, or model
+output was modified to improve the score.
+
+## Current release
+
+Directory: `/home/md-wasim/AI_Workspace_Data/releases/dex-ai-os-401cf40`
+
+| Artifact | SHA-256 | Status |
 |---|---|---|
-| `Work_Station_Ubuntu.AppImage` | `4c349ae0facb9ef967ea27180dd2fc6ab247f8cf` | `c1e50b79718912106f37b6e6ca27de41e49b5544e954884f1576dd280d1f6d03` |
-| `Work_Station_Ubuntu.deb` | `4c349ae0facb9ef967ea27180dd2fc6ab247f8cf` | `7acba18d51624533806e647bfa0760b251c31fe76201ab92927936c2a1cc8f92` |
-| `Work_Station_Android_ARM64.apk` | `5c3e2e2569e541f0b40f5c47b38122910fd09626` | `872cdf98a136be6783d4b75c2ed9c9e5bc538bfaaeba5999c613f59b2a907d36` |
-| `Work_Station_Web_PWA.tar.gz` | `5c3e2e2569e541f0b40f5c47b38122910fd09626` | `6d4e05c6244b0e975aff7668afe1269bdd2f3da0e835fa69644e05cf38f2444f` |
+| `Work_Station_Ubuntu.AppImage` | `0f7b92d50436e2ee89f1417d0ca96f842bd3cf4b7e32329c4b0b8c8d763f2cf3` | launched, native window verified |
+| `Work_Station_Ubuntu.deb` | `bed0206e21d09b4500e9e371b04d074588c081ad336ab874b4d3b92e0c7de055` | package verified |
+| `Work_Station_Web_PWA.tar.gz` | `e23d124e8c1bad1ea03bb10b748916b8778a1e3d08eab7baf2e4bba74e7f007c` | Chromium E2E verified |
 
-The Linux artifacts contain the final desktop packaging repairs. Android and
-PWA were not rebuilt merely for later desktop-only changes; their exact source
-trees were unchanged. Windows/macOS artifacts in the prior release remain
-valid evidence for their older source commit, not current-release artifacts;
-native Windows/macOS rebuild and signing/notarization require their respective
-hosts and owner credentials.
+`work-station-backend.service` was restarted from the validated checkout and
+reports PostgreSQL, Redis, and Ollama ready. The current desktop unit is
+`work-station-desktop-dex-ai-os-401cf40.service` and launches the exact AppImage
+listed above.
 
-## Preserved AI quality
+## Registry and external boundaries
 
-No model route, expected answer, checker, benchmark prompt, or generated output
-was changed. The latest canonical evidence remains 459 cases, 97.88/100, 457
-PASS, one PARTIAL, one FAIL, Safety 100%, hallucination zero, and executable
-code 24/24. No 100/100 claim is made.
+The registry validates 335 unique features: 277 implemented, 19
+runtime-dependent, 39 external-dependent, and zero planned. DEX is correctly
+runtime-dependent on an installed authenticated Codex runtime.
 
-## External and owner boundaries
-
-- Legitimate credentials, consent, approved origins/scopes, billing and bounded
-  test destinations are required for telephony, email, calendar/meetings, CRM,
-  social/CMS, external marketing, licensed market data and push providers.
-- Broker KYC/MFA, owner risk policy and explicit live-trading authorization are
-  required; no real-money order was attempted.
-- An owner Android ARM64 device is required for physical install/permission
-  validation.
-- Native current-source Windows and macOS rebuild hosts are required; trusted
-  signing, Apple notarization and iOS provisioning require owner credentials
-  and Apple hardware/account access.
-
-These are explicit external boundaries, not locally simulated passes.
+Still external/owner-controlled: provider credentials/consent/origins/scopes
+for telephony, email/calendar/CRM/social, licensed market data, brokers, push,
+and hosted media; broker KYC/MFA and live-trading authorization; current-source
+native Android/Windows/macOS environments; physical-device tests; trusted
+signing, Apple notarization, and iOS provisioning. None is reported live.

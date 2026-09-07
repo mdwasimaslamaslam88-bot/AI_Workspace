@@ -1,103 +1,40 @@
 {
-  "schema_version": 1,
-  "date": "2026-09-06",
+  "schema_version": 2,
+  "date": "2026-09-07",
   "result": "LOCAL_PASS_RUNTIME_PASS",
   "external_result": "EXTERNAL_BLOCKED_WHERE_UNCONFIGURED",
-  "application_source_commit": "4c349ae0facb9ef967ea27180dd2fc6ab247f8cf",
-  "bridge_commit": "1ac670b915944be07e84d8ebfe9f1843275a7d5a",
-  "fix_commits": [
-    "b5d5ab40f09bd3e284b2672c35870c36b4587d31",
-    "5c3e2e2569e541f0b40f5c47b38122910fd09626",
-    "4c349ae0facb9ef967ea27180dd2fc6ab247f8cf"
+  "validated_application_commit": "401cf40df17d40c554021c0c77672b9a65b058a0",
+  "dex_integration_report": "reports/DEX_AI_OS_INTEGRATION_STATUS.json",
+  "root_causes_fixed": [
+    "chat_model_paraphrased_authenticated_owner_dex_request",
+    "single_dex_attempt_exhausted_browser_budget",
+    "workspace_write_retry_required_explicit_suppression",
+    "stale_desktop_single_instance_process"
   ],
-  "root_cause": {
-    "primary": "running_backend_and_database_predated_chat_tool_bridge",
-    "source_bridge_defect": false,
-    "classifications": [
-      "DEPLOYMENT_BUG",
-      "STALE_PROCESS",
-      "DATABASE_MIGRATION_BUG",
-      "STALE_ARTIFACT",
-      "RUNTIME_DEPENDENCY_BUG",
-      "TEST_ENVIRONMENT_ISSUE"
-    ]
+  "real_user_paths": {
+    "authenticated_chat": "RUNTIME_PASS",
+    "chat_filesystem_tool": "RUNTIME_PASS",
+    "ai_os_to_dex": "RUNTIME_PASS",
+    "dex_to_ai_os": "RUNTIME_PASS",
+    "agent_disagreement_detection": "PASS",
+    "failure_recovery": "PASS",
+    "ui_execution_states": "RUNTIME_PASS"
   },
-  "production_database": {
-    "before_revision": "0018_connector_activation",
-    "after_revision": "0023_chat_filesystem_tools",
-    "backup": "/home/md-wasim/AI_Workspace_Data/backups/work-station-20260905T203425Z",
-    "backup_integrity_verified": true,
-    "migration_cycle_verified": true,
-    "schema_drift": false
-  },
-  "real_authenticated_chat_tool_test": {
-    "client": "compiled_pwa_chromium_existing_session",
-    "backend": "installed_loopback_runtime",
-    "external_api_used": false,
-    "model_public_id": "ollama-local:4d78401040148e2da99b8a76",
-    "model_runtime_reference": "qwen3:8b",
-    "path": "AI_OS_REAL_TEST.txt",
-    "content_sha256": "96437372e57c6ffab75d47941a1718cd7b3100d2c96f11ee9ea488dbef2b21b3",
-    "bytes": 29,
-    "write_audit_id": "8ee2cc4f-f2c5-4f23-a429-3a925d59f07c",
-    "exists_audit_id": "010df69a-e5c4-4076-9f09-2887f2f3407f",
-    "read_audit_id": "da52eb47-347e-4e02-9d19-b70502a36887",
-    "model_tool_call": true,
-    "write_verified": true,
-    "exists_verified": true,
-    "read_verified": true,
-    "exact_content_verified": true,
-    "ui_execution_state_verified": true,
-    "audit_verified": true,
+  "dex_evidence": {
+    "compiled_pwa_audit_id": "26cd6a9f-832f-4c4c-b34d-b6c4e0661426",
+    "compiled_pwa_correlation_id": "608b2329-f7e4-426e-9968-d33991701a62",
+    "compiled_pwa_duration_ms": 111563,
+    "exact_workspace_task_id": "31510d2f-cc34-4f54-ae5e-9fb5f2e0c6da",
+    "exact_workspace_correlation_id": "e6f05e6b-f5f7-4181-b746-0dadec3dc50d",
+    "exact_workspace_sha256": "6af6f14cbb6d963497580c0e40dbf6167ae0bb95d5de167308029194a59922ff",
+    "callback_exactly_once": true,
     "cleanup_verified": true,
-    "session_revocation_verified": true
-  },
-  "security": {
-    "result": "PASS_WITH_MODERATE_TRANSITIVE_ADVISORIES",
-    "critical": 0,
-    "high": 0,
-    "moderate_transitive_build_tool_advisories": 14,
-    "unknown_tool_denied": true,
-    "path_traversal_denied": true,
-    "absolute_protected_path_denied": true,
-    "symlink_escape_denied": true,
-    "large_payload_denied": true,
-    "revoked_session_denied": true,
-    "owner_isolation_verified": true,
-    "audit_redaction_verified": true,
-    "loopback_services": true,
-    "public_unauthenticated_gateway": false
-  },
-  "feature_registry": {
-    "total": 330,
-    "implemented": 277,
-    "runtime_dependent": 14,
-    "external_dependency": 39,
-    "planned_disabled": 0,
-    "validation_passed": true,
-    "file_sha256": "e83a13bdf2c4e08e99ea0dd819a1f72ed754440cac270dd351f1375d33e56f5f"
-  },
-  "tests": {
-    "backend_passed": 3045,
-    "backend_skipped": 55,
-    "backend_failed": 0,
-    "web_test_files": 36,
-    "web_passed": 204,
-    "mobile_test_files": 19,
-    "mobile_passed": 64,
-    "expo_doctor_passed": 21,
-    "expo_doctor_total": 21,
-    "desktop_rust_passed": 2,
-    "postgresql_passed": 55,
-    "browser_pwa_isolated": "PASS",
-    "browser_pwa_installed_runtime": "PASS",
-    "runtime_e2e": "PASS",
-    "private_remote_e2e": "PASS",
-    "release_gate": "PASS"
+    "cancelled_audit_preserved": "9fd72cf8-63d2-4e57-8af9-dde8c6857fd6"
   },
   "runtime": {
     "chat": "RUNTIME_PASS",
     "tools": "RUNTIME_PASS",
+    "dex": "RUNTIME_PASS",
     "memory": "RUNTIME_PASS",
     "rag": "RUNTIME_PASS",
     "missions": "RUNTIME_PASS",
@@ -110,61 +47,109 @@
     "connectors": "LOCAL_PASS_EXTERNAL_BLOCKED",
     "private_remote": "RUNTIME_PASS"
   },
+  "tests": {
+    "dex_boundary_passed": 22,
+    "dex_focused_passed": 308,
+    "backend_passed": 3083,
+    "backend_skipped": 55,
+    "backend_failed": 0,
+    "web_test_files": 36,
+    "web_passed": 206,
+    "mobile_test_files": 19,
+    "mobile_passed": 64,
+    "expo_doctor_passed": 21,
+    "expo_doctor_total": 21,
+    "desktop_rust_passed": 2,
+    "postgresql_passed": 55,
+    "migration_head": "0024_dex_delegation_tool",
+    "schema_drift": false,
+    "browser_pwa": "PASS",
+    "runtime_e2e": "PASS",
+    "private_remote_e2e": "PASS",
+    "security_gate": "PASS",
+    "release_gate": "PASS"
+  },
+  "security": {
+    "result": "PASS_WITH_MODERATE_TRANSITIVE_ADVISORIES",
+    "critical": 0,
+    "high": 0,
+    "moderate_transitive_expo_advisories": 14,
+    "owner_isolation": true,
+    "capability_scoping": true,
+    "callback_authentication": true,
+    "replay_denial": true,
+    "filesystem_bounds": true,
+    "secret_redaction": true,
+    "deny_by_default": true,
+    "public_privileged_tool_exposure": false
+  },
   "hardware": {
     "gpu": "NVIDIA RTX 3060 12GB",
-    "vision_peak_mib": 8532,
-    "image_peak_mib": 10972,
-    "voice_peak_mib": 1132,
+    "vision_peak_mib": 8534,
+    "image_peak_mib": 11040,
+    "voice_peak_mib": 1097,
     "model_routes_changed": false
+  },
+  "quality": {
+    "cases": 459,
+    "score": 97.83,
+    "previous_reported_score": 97.88,
+    "delta": -0.05,
+    "pass": 456,
+    "partial": 2,
+    "fail": 1,
+    "safety_percent": 100,
+    "hallucination_rate_percent": 0,
+    "executable_code_passed": 24,
+    "executable_code_total": 24,
+    "average_latency_seconds": 7.6864,
+    "p95_latency_seconds": 15.5711,
+    "benchmark_contract_changed": false
+  },
+  "feature_registry": {
+    "total": 335,
+    "implemented": 277,
+    "runtime_dependent": 19,
+    "external_dependency": 39,
+    "planned": 0,
+    "validation_passed": true,
+    "registry_sha256": "4386bcfb53e088d2299e7f85917bb0d77de2102b71dff5d8731203b5f7de2ea8"
   },
   "artifacts": [
     {
-      "platform": "ubuntu-x86_64",
-      "artifact": "/home/md-wasim/AI_Workspace_Data/releases/autopilot-5c3e2e2/Work_Station_Ubuntu.AppImage",
-      "artifact_source_commit": "4c349ae0facb9ef967ea27180dd2fc6ab247f8cf",
-      "sha256": "c1e50b79718912106f37b6e6ca27de41e49b5544e954884f1576dd280d1f6d03",
+      "kind": "AppImage",
+      "path": "/home/md-wasim/AI_Workspace_Data/releases/dex-ai-os-401cf40/Work_Station_Ubuntu.AppImage",
+      "sha256": "0f7b92d50436e2ee89f1417d0ca96f842bd3cf4b7e32329c4b0b8c8d763f2cf3",
       "launch_verified": true
     },
     {
-      "platform": "ubuntu-x86_64",
-      "artifact": "/home/md-wasim/AI_Workspace_Data/releases/autopilot-5c3e2e2/Work_Station_Ubuntu.deb",
-      "artifact_source_commit": "4c349ae0facb9ef967ea27180dd2fc6ab247f8cf",
-      "sha256": "7acba18d51624533806e647bfa0760b251c31fe76201ab92927936c2a1cc8f92",
-      "package_verified": true,
-      "application_binary_launch_verified": true,
-      "installed_deb_launch_verified": false
+      "kind": "deb",
+      "path": "/home/md-wasim/AI_Workspace_Data/releases/dex-ai-os-401cf40/Work_Station_Ubuntu.deb",
+      "sha256": "bed0206e21d09b4500e9e371b04d074588c081ad336ab874b4d3b92e0c7de055",
+      "package_verified": true
     },
     {
-      "platform": "android-arm64-v8a",
-      "artifact": "/home/md-wasim/AI_Workspace_Data/releases/autopilot-5c3e2e2/Work_Station_Android_ARM64.apk",
-      "artifact_source_commit": "5c3e2e2569e541f0b40f5c47b38122910fd09626",
-      "sha256": "872cdf98a136be6783d4b75c2ed9c9e5bc538bfaaeba5999c613f59b2a907d36",
-      "physical_device_verified": false
-    },
-    {
-      "platform": "web-pwa",
-      "artifact": "/home/md-wasim/AI_Workspace_Data/releases/autopilot-5c3e2e2/Work_Station_Web_PWA.tar.gz",
-      "artifact_source_commit": "5c3e2e2569e541f0b40f5c47b38122910fd09626",
-      "sha256": "6d4e05c6244b0e975aff7668afe1269bdd2f3da0e835fa69644e05cf38f2444f",
+      "kind": "web-pwa",
+      "path": "/home/md-wasim/AI_Workspace_Data/releases/dex-ai-os-401cf40/Work_Station_Web_PWA.tar.gz",
+      "sha256": "e23d124e8c1bad1ea03bb10b748916b8778a1e3d08eab7baf2e4bba74e7f007c",
       "browser_verified": true
     }
   ],
-  "quality_baseline_preserved": {
-    "cases": 459,
-    "score": 97.88,
-    "pass": 457,
-    "partial": 1,
-    "fail": 1,
-    "safety_percent": 100,
-    "hallucination_count": 0,
-    "executable_code_passed": 24,
-    "executable_code_total": 24
+  "running_runtime": {
+    "backend_unit": "work-station-backend.service",
+    "desktop_unit": "work-station-desktop-dex-ai-os-401cf40.service",
+    "backend_dependencies_ready": [
+      "postgresql",
+      "redis",
+      "ollama"
+    ],
+    "desktop_window_verified": true,
+    "stale_artifact_mismatch": false
   },
   "external_boundaries": [
-    "owner credentials, consent, approved origins/scopes, billing and test destinations for third-party providers",
-    "broker KYC/MFA, risk policy and explicit owner live-trading authorization",
-    "physical Android ARM64 device acceptance",
-    "current-source native Windows and macOS build hosts",
-    "trusted platform signing, Apple notarization and iOS provisioning"
+    "owner credentials, consent, origins, scopes and provider approval for third-party services",
+    "broker KYC/MFA, risk policy and explicit live-trading authorization",
+    "current-source native Android, Windows and macOS build environments",
+    "physical-device acceptance and platform signing/notarization/provisioning"
   ]
 }
