@@ -232,9 +232,9 @@ if [[ "${launch_mode}" == "skip" ]]; then
   exit 0
 fi
 
-if [[ -z "${DISPLAY:-}" ]] || ! command -v xwininfo >/dev/null; then
+if [[ -z "${DISPLAY:-}" ]] || ! command -v xwininfo >/dev/null || ! command -v xprop >/dev/null; then
   if [[ "${launch_mode}" == "required" ]]; then
-    echo "Desktop launch validation requires an X11 DISPLAY and xwininfo." >&2
+    echo "Desktop launch validation requires an X11 DISPLAY, xwininfo, and xprop." >&2
     exit 1
   fi
   echo "desktop launch smoke: skipped because no inspectable X11 session is available"
@@ -279,6 +279,30 @@ cleanup_desktop_launch() {
 }
 trap 'cleanup_desktop_launch; cleanup_work_root' EXIT
 
+desktop_window_is_owned() {
+  local window_id="$1"
+  local window_pid window_pgid
+  [[ "${window_id}" =~ ^0x[0-9a-fA-F]+$ ]] || return 1
+  window_pid="$(xprop -id "${window_id}" _NET_WM_PID 2>/dev/null |
+    awk -F ' = ' '/^_NET_WM_PID\(CARDINAL\) = [0-9]+$/ {print $2}' || true)"
+  [[ "${window_pid}" =~ ^[1-9][0-9]*$ ]] || return 1
+  window_pgid="$(ps -o pgid= -p "${window_pid}" 2>/dev/null | tr -d ' ' || true)"
+  [[ -n "${desktop_pgid}" && "${window_pgid}" == "${desktop_pgid}" ]] || return 1
+  xwininfo -id "${window_id}" -stats 2>/dev/null | rg -q 'Map State: IsViewable'
+}
+
+find_owned_desktop_window() {
+  local window_id
+  while read -r window_id; do
+    if desktop_window_is_owned "${window_id}"; then
+      printf '%s\n' "${window_id}"
+      return 0
+    fi
+  done < <(xwininfo -root -tree 2>/dev/null |
+    awk '/"WORK STATION".*"work-station-desktop"/ {print $1}' || true)
+  return 1
+}
+
 launch_and_verify() {
   local label="$1"
   shift
@@ -291,19 +315,18 @@ launch_and_verify() {
     echo "Could not establish an isolated process group for ${label}." >&2
     return 1
   fi
-  local window_found=false
+  local desktop_window=""
   for _attempt in {1..60}; do
     if ! desktop_pid_is_owned; then
       break
     fi
-    window_tree="$(xwininfo -root -tree 2>/dev/null || true)"
-    if rg -q '"WORK STATION".*"work-station-desktop"' <<<"${window_tree}"; then
-      window_found=true
+    desktop_window="$(find_owned_desktop_window || true)"
+    if [[ -n "${desktop_window}" ]]; then
       break
     fi
     sleep 0.25
   done
-  if [[ "${window_found}" != true ]]; then
+  if [[ -z "${desktop_window}" ]]; then
     echo "${label} did not open its expected native window." >&2
     return 1
   fi
@@ -313,6 +336,10 @@ launch_and_verify() {
   for _attempt in {1..20}; do
     if ! desktop_pid_is_owned; then
       echo "${label} exited during sustained launch validation." >&2
+      return 1
+    fi
+    if ! desktop_window_is_owned "${desktop_window}"; then
+      echo "${label} lost its owned visible native window during sustained launch validation." >&2
       return 1
     fi
     sleep 0.25

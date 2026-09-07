@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import ast
 import asyncio
+from contextvars import copy_context
 from dataclasses import dataclass, replace
 from datetime import datetime
 import hashlib
@@ -28,6 +29,8 @@ from app.services.document import DocumentService
 from app.services.filesystem_tool import (
     FilesystemOperationResult,
     FilesystemToolError,
+    FilesystemWriteControl,
+    FilesystemWriteInterrupted,
     MAX_FILESYSTEM_LIST_ENTRIES,
     MAX_FILESYSTEM_PATH_CHARACTERS,
     MAX_FILESYSTEM_READ_BYTES,
@@ -41,6 +44,8 @@ MAX_CALCULATOR_DEPTH = 16
 DEX_READ_ONLY_RETRY_RESERVE_SECONDS = 40.0
 MAX_CALCULATOR_ABSOLUTE_VALUE = 1e100
 MAX_CALCULATOR_INTEGER_BITS = 256
+FILESYSTEM_CLEANUP_SECONDS = 5.0
+_RETAINED_FILESYSTEM_TASKS: set[asyncio.Future] = set()
 
 
 class ToolNotFoundError(RuntimeError):
@@ -53,6 +58,46 @@ class ToolInputInvalidError(ValueError):
 
 class ToolConversationNotFoundError(RuntimeError):
     """The optional conversation is not owned by the current user."""
+
+
+class ToolExecutionUncertainError(RuntimeError):
+    """A worker or audit could not be contained; no safe terminal claim exists."""
+
+    execution_uncertain = True
+
+    def __init__(self, message: str, *, cancellation_requested: bool = False) -> None:
+        super().__init__(message)
+        self.cancellation_requested = cancellation_requested
+
+
+class ToolExecutionUncertainCancellation(asyncio.CancelledError):
+    """Preserve caller cancellation without losing an uncertain child effect."""
+
+    execution_uncertain = True
+    cancellation_requested = True
+
+
+def _retain_filesystem_task(task: asyncio.Future) -> None:
+    _RETAINED_FILESYSTEM_TASKS.add(task)
+
+    def finished(completed: asyncio.Future) -> None:
+        _RETAINED_FILESYSTEM_TASKS.discard(completed)
+        if not completed.cancelled():
+            completed.exception()
+
+    task.add_done_callback(finished)
+
+
+async def _drain_filesystem_task(task: asyncio.Future, seconds: float) -> tuple[bool, bool]:
+    """One deadline bounds cleanup even if the caller is cancelled repeatedly."""
+    deadline = time.monotonic() + seconds
+    cancelled = False
+    while not task.done() and time.monotonic() < deadline:
+        try:
+            await asyncio.wait({task}, timeout=max(0.0, deadline - time.monotonic()))
+        except asyncio.CancelledError:
+            cancelled = True
+    return task.done(), cancelled
 
 
 class _ToolInvocationFailed(RuntimeError):
@@ -514,6 +559,13 @@ class ToolService:
                 started,
                 error_code="tool_permission_denied",
             )
+        if definition.name == "filesystem.write":
+            assert isinstance(validated, FilesystemWriteInput)
+            # A thread cannot be stopped by cancelling its asyncio awaiter.
+            # Keep mutation lifetime and audit settlement in the same adapter.
+            return await self._execute_filesystem_write(
+                owner_id, execution_id, definition, validated, started
+            )
         try:
             result = await asyncio.wait_for(
                 self._invoke(
@@ -565,6 +617,13 @@ class ToolService:
                 result_json=encoded,
                 response_result=response_result,
             )
+        except ToolExecutionUncertainError as exc:
+            # Gateways carry ordinary uncertainty through wait_for, whose
+            # timeout handling can normalize a CancelledError subclass. Only
+            # at this outer boundary do we restore caller cancellation.
+            if exc.cancellation_requested:
+                raise ToolExecutionUncertainCancellation(str(exc)) from exc
+            raise
         except asyncio.TimeoutError:
             return await self._finish(
                 owner_id,
@@ -573,7 +632,9 @@ class ToolService:
                 started,
                 error_code="tool_timed_out",
             )
-        except asyncio.CancelledError:
+        except asyncio.CancelledError as exc:
+            if isinstance(exc, ToolExecutionUncertainCancellation):
+                raise
             await asyncio.shield(
                 self._finish(
                     owner_id,
@@ -607,6 +668,122 @@ class ToolService:
                 started,
                 error_code="tool_unavailable",
             )
+
+    async def _execute_filesystem_write(
+        self,
+        owner_id: UUID,
+        execution_id: UUID,
+        definition: ToolDefinition,
+        validated: FilesystemWriteInput,
+        started: float,
+    ) -> ToolExecutionRecord:
+        workspace = self.filesystem_workspace
+        if (
+            TOOL_REGISTRY.get(definition.name) is not definition
+            or workspace is None
+            or not workspace.available
+            or not workspace.reserve_write()
+        ):
+            return await self._finish(
+                owner_id, execution_id, ToolExecutionStatus.FAILED, started,
+                error_code="tool_unavailable",
+            )
+        control = FilesystemWriteControl(started + definition.timeout_seconds)
+
+        def invoke() -> FilesystemOperationResult:
+            try:
+                return workspace.write(
+                    owner_id, validated.path, validated.content,
+                    root_index=validated.root_index, control=control,
+                )
+            finally:
+                # Release only on actual thread exit, never on awaiter exit.
+                workspace.release_write()
+
+        # Use the same default executor as to_thread, preserving its context.
+        # A bare Future is not cancelled by process-wide Task cancellation;
+        # cancelling a to_thread wrapper would falsely appear to stop its thread.
+        worker = asyncio.get_running_loop().run_in_executor(None, copy_context().run, invoke)
+        _retain_filesystem_task(worker)
+        cancelled = False
+        timed_out = False
+        try:
+            await asyncio.wait({worker}, timeout=max(0.0, control.deadline - time.monotonic()))
+        except asyncio.CancelledError:
+            cancelled = True
+        if not worker.done():
+            timed_out = not cancelled
+            control.cancelled.set()
+            contained, cancelled_again = await _drain_filesystem_task(worker, FILESYSTEM_CLEANUP_SECONDS)
+            cancelled |= cancelled_again
+            if not contained:
+                # The retained thread still owns its workspace admission slot.
+                # It never accesses this request's database session. A blocked
+                # OS syscall cannot be killed safely in Python: leave RUNNING
+                # for existing process-restart reconciliation, not false safety.
+                if cancelled:
+                    raise ToolExecutionUncertainCancellation("filesystem worker containment is uncertain")
+                raise ToolExecutionUncertainError("filesystem worker containment is uncertain")
+
+        result_json = None
+        response_result = None
+        try:
+            result = worker.result()
+        except BaseException as exc:
+            if control.published:
+                # Publication succeeded but cleanup/read-back did not prove a
+                # completed operation. Preserve uncertainty and the actual file.
+                if cancelled:
+                    raise ToolExecutionUncertainCancellation("filesystem published effect is uncertain") from exc
+                raise ToolExecutionUncertainError("filesystem published effect is uncertain") from exc
+            if cancelled:
+                status, error_code = ToolExecutionStatus.CANCELLED, "tool_cancelled"
+            elif timed_out or isinstance(exc, FilesystemWriteInterrupted):
+                status, error_code = ToolExecutionStatus.TIMED_OUT, "tool_timed_out"
+            else:
+                status = ToolExecutionStatus.FAILED
+                error_code = "tool_execution_failed" if isinstance(exc, FilesystemToolError) else "tool_unavailable"
+        else:
+            status, error_code = ToolExecutionStatus.COMPLETED, None
+            response_result = {
+                "tool": definition.name, "operation": result.operation,
+                "status": "completed", "path": result.path,
+                **result.payload, "audit_id": str(execution_id),
+            }
+            if cancelled:
+                response_result["cancellation_requested"] = True
+            if timed_out:
+                response_result["deadline_exceeded"] = True
+            result_json = _canonical_json(response_result, definition.max_output_characters)
+
+        audit = asyncio.create_task(self._finish(
+            owner_id, execution_id, status, started, result_json=result_json,
+            response_result=response_result, error_code=error_code,
+        ))
+        _retain_filesystem_task(audit)
+        settled, cancelled_again = await _drain_filesystem_task(audit, FILESYSTEM_CLEANUP_SECONDS)
+        cancelled |= cancelled_again
+        if not settled:
+            audit.cancel()
+            if cancelled:
+                raise ToolExecutionUncertainCancellation("filesystem audit settlement is uncertain")
+            raise ToolExecutionUncertainError("filesystem audit settlement is uncertain")
+        try:
+            audited_result = audit.result()
+        except BaseException as exc:
+            # A finished task can contain a failed or cancelled database write.
+            # The published effect remains real even when its audit is uncertain.
+            if cancelled:
+                raise ToolExecutionUncertainCancellation(
+                    "filesystem audit settlement is uncertain"
+                ) from exc
+            raise ToolExecutionUncertainError(
+                "filesystem audit settlement is uncertain"
+            ) from exc
+        if cancelled:
+            # Only an independently settled audit permits ordinary cancellation.
+            raise asyncio.CancelledError
+        return audited_result
 
     async def _finish(
         self,
@@ -748,15 +925,6 @@ class ToolService:
             workspace = self.filesystem_workspace
             if workspace is None or not workspace.available:
                 raise _ToolInvocationFailed("filesystem workspace is unavailable")
-            if definition.name == "filesystem.write":
-                assert isinstance(validated, FilesystemWriteInput)
-                return await asyncio.to_thread(
-                    workspace.write,
-                    owner_id,
-                    validated.path,
-                    validated.content,
-                    root_index=validated.root_index,
-                )
             if definition.name == "filesystem.read":
                 assert isinstance(validated, FilesystemReadInput)
                 return await asyncio.to_thread(

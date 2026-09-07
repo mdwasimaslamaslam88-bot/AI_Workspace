@@ -1,0 +1,1138 @@
+{
+  "schema_version": 1,
+  "updated_at": "2026-09-07T21:36:06.147913+00:00",
+  "authoritative_report": "reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.json",
+  "purpose": "Derived machine-readable issue ledger; uses the existing report issue identities, not a second issue service",
+  "allowed_statuses": [
+    "OPEN",
+    "INVESTIGATING",
+    "REPRODUCED",
+    "FIXED",
+    "VERIFYING",
+    "VERIFIED",
+    "REGRESSION",
+    "BLOCKED_EXTERNAL",
+    "REOPENED",
+    "CLOSED"
+  ],
+  "issues": [
+    {
+      "id": "ASTER-001",
+      "severity": "MEDIUM",
+      "component": "Existing AI OS subsystem",
+      "description": "Current master MCP channel rejected",
+      "reproduction": null,
+      "expected": null,
+      "actual": null,
+      "root_cause": "One-use task credentials absent in this session",
+      "ASTER_analysis": "One-use task credentials absent in this session",
+      "AI_OS_analysis": null,
+      "cross_agent_findings": null,
+      "disagreement": "AI OS suggests checking length before communicate; ASTER uses bounded streaming because checking only before reading cannot constrain future output.",
+      "fix": null,
+      "focused_test": null,
+      "integration_test": null,
+      "security_test": null,
+      "runtime_test": "Owner-authenticated persisted Agent OS run; output hash independently matches; session revoked with HTTP 204.",
+      "regression": null,
+      "performance": null,
+      "status": "BLOCKED_EXTERNAL",
+      "evidence": [
+        "initial-ai-os-review.json"
+      ],
+      "commit": null,
+      "artifact": null,
+      "runtime_identity": "current-discovery.json",
+      "status_history": [
+        {
+          "timestamp": "2026-09-07T20:12:22.733892+00:00",
+          "from": "AUTHENTICATED_HTTP_VERIFIED_MCP_UNAVAILABLE",
+          "to": "BLOCKED_EXTERNAL",
+          "reason": "Normalize queue status while retaining exact prior claim and its scoped evidence."
+        }
+      ]
+    },
+    {
+      "id": "ASTER-002",
+      "severity": "HIGH",
+      "component": "Existing AI OS subsystem",
+      "description": "DEX subprocess output buffered before bounds checked",
+      "reproduction": null,
+      "expected": null,
+      "actual": null,
+      "root_cause": "communicate() buffers complete stdout/stderr",
+      "ASTER_analysis": "communicate() buffers complete stdout/stderr",
+      "AI_OS_analysis": {
+        "task_id": "81e34425-16b3-4ea1-912d-e75f0ec7e495",
+        "sha256": "06da8338cf0bb5dda85d41eec95a64232395322e3919b8403228f965ca86972a"
+      },
+      "cross_agent_findings": null,
+      "disagreement": null,
+      "fix": "Bound reads during subprocess execution, stop producer on excess output.",
+      "focused_test": null,
+      "integration_test": null,
+      "security_test": null,
+      "runtime_test": "Code deployed at application commit 97d0d0b. Full runtime regression passed. Successful DEX delegation remains unverified because the strict host sandbox cannot start.",
+      "regression": "Post-push full gate: 3105 backend, 55 PostgreSQL, 206 web, 64 shared/mobile, 2 Rust tests; all 15 real runtime suites passed.",
+      "performance": null,
+      "status": "VERIFIED",
+      "evidence": [
+        "dex-baseline-reproduction.log",
+        "dex-focused-1.log",
+        "dex-output-flood.log",
+        "release-postpush.log"
+      ],
+      "commit": null,
+      "artifact": null,
+      "runtime_identity": "current-discovery.json",
+      "status_history": [
+        {
+          "timestamp": "2026-09-07T20:12:22.733892+00:00",
+          "from": "FIX_VERIFIED_AND_DEPLOYED_LIVE_DEX_SUCCESS_BLOCKED",
+          "to": "VERIFIED",
+          "reason": "Normalize queue status while retaining exact prior claim and its scoped evidence."
+        }
+      ]
+    },
+    {
+      "id": "ASTER-003",
+      "severity": "HIGH",
+      "component": "Existing AI OS subsystem",
+      "description": "DEX active callback lifetime not tied to delegation",
+      "reproduction": null,
+      "expected": null,
+      "actual": null,
+      "root_cause": "Socket listener close does not cancel active handlers",
+      "ASTER_analysis": "Socket listener close does not cancel active handlers",
+      "AI_OS_analysis": {
+        "task_id": "81e34425-16b3-4ea1-912d-e75f0ec7e495",
+        "sha256": "06da8338cf0bb5dda85d41eec95a64232395322e3919b8403228f965ca86972a"
+      },
+      "cross_agent_findings": null,
+      "disagreement": null,
+      "fix": "Track and join callback handlers before releasing delegation, close cancelled connections.",
+      "focused_test": null,
+      "integration_test": null,
+      "security_test": null,
+      "runtime_test": "Code deployed at application commit 97d0d0b. Full runtime regression passed. Successful DEX delegation remains unverified because the strict host sandbox cannot start.",
+      "regression": "Post-push full gate: 3105 backend, 55 PostgreSQL, 206 web, 64 shared/mobile, 2 Rust tests; all 15 real runtime suites passed.",
+      "performance": null,
+      "status": "VERIFIED",
+      "evidence": [
+        "dex-baseline-reproduction.log",
+        "dex-focused-1.log",
+        "dex-output-flood.log",
+        "release-postpush.log"
+      ],
+      "commit": null,
+      "artifact": null,
+      "runtime_identity": "current-discovery.json",
+      "status_history": [
+        {
+          "timestamp": "2026-09-07T20:12:22.733892+00:00",
+          "from": "FIX_VERIFIED_AND_DEPLOYED_LIVE_DEX_SUCCESS_BLOCKED",
+          "to": "VERIFIED",
+          "reason": "Normalize queue status while retaining exact prior claim and its scoped evidence."
+        }
+      ]
+    },
+    {
+      "id": "ASTER-004",
+      "severity": "HIGH",
+      "component": "Existing AI OS subsystem",
+      "description": "DEX unsupported success accepted without review",
+      "reproduction": null,
+      "expected": null,
+      "actual": null,
+      "root_cause": "Verifier admits empty/self-reported evidence",
+      "ASTER_analysis": "Verifier admits empty/self-reported evidence",
+      "AI_OS_analysis": {
+        "task_id": "81e34425-16b3-4ea1-912d-e75f0ec7e495",
+        "sha256": "06da8338cf0bb5dda85d41eec95a64232395322e3919b8403228f965ca86972a"
+      },
+      "cross_agent_findings": null,
+      "disagreement": null,
+      "fix": "Require independently verifiable evidence, enforce missing schema limits, explicitly distinguish evidence integrity from semantic correctness.",
+      "focused_test": null,
+      "integration_test": null,
+      "security_test": null,
+      "runtime_test": "Code deployed at application commit 97d0d0b. Full runtime regression passed. Successful DEX delegation remains unverified because the strict host sandbox cannot start.",
+      "regression": "Post-push full gate: 3105 backend, 55 PostgreSQL, 206 web, 64 shared/mobile, 2 Rust tests; all 15 real runtime suites passed.",
+      "performance": null,
+      "status": "VERIFIED",
+      "evidence": [
+        "dex-baseline-reproduction.log",
+        "dex-focused-1.log",
+        "dex-output-flood.log",
+        "release-postpush.log"
+      ],
+      "commit": null,
+      "artifact": null,
+      "runtime_identity": "current-discovery.json",
+      "status_history": [
+        {
+          "timestamp": "2026-09-07T20:12:22.733892+00:00",
+          "from": "FIX_VERIFIED_AND_DEPLOYED_LIVE_DEX_SUCCESS_BLOCKED",
+          "to": "VERIFIED",
+          "reason": "Normalize queue status while retaining exact prior claim and its scoped evidence."
+        }
+      ]
+    },
+    {
+      "id": "ASTER-005",
+      "severity": "MEDIUM",
+      "component": "Existing AI OS subsystem",
+      "description": "Immutable startup runtime identity missing",
+      "reproduction": null,
+      "expected": null,
+      "actual": null,
+      "root_cause": "Readiness endpoint omits build identity",
+      "ASTER_analysis": "Readiness endpoint omits build identity",
+      "AI_OS_analysis": null,
+      "cross_agent_findings": null,
+      "disagreement": null,
+      "fix": "Authenticated diagnostics runtime-identity endpoint exposes immutable startup commit and bounded backend/PWA hashes.",
+      "focused_test": null,
+      "integration_test": null,
+      "security_test": null,
+      "runtime_test": "Anonymous endpoint denied; authenticated immutable runtime commit and backend/PWA digests independently matched after rebuild/restart; synthetic session revoked.",
+      "regression": "Post-push full gate: 3105 backend, 55 PostgreSQL, 206 web, 64 shared/mobile, 2 Rust tests; all 15 real runtime suites passed.",
+      "performance": null,
+      "status": "CLOSED",
+      "evidence": [
+        "runtime-identity-precommit.json",
+        "identity-dex-focused-2.log",
+        "release-postpush.log"
+      ],
+      "commit": null,
+      "artifact": null,
+      "runtime_identity": "current-discovery.json",
+      "status_history": [
+        {
+          "timestamp": "2026-09-07T20:12:22.733892+00:00",
+          "from": "FIX_VERIFIED_AND_DEPLOYED",
+          "to": "CLOSED",
+          "reason": "Normalize queue status while retaining exact prior claim and its scoped evidence."
+        }
+      ]
+    },
+    {
+      "id": "ASTER-006",
+      "severity": "MEDIUM",
+      "component": "Existing AI OS subsystem",
+      "description": "medium-coding-04 partial",
+      "reproduction": null,
+      "expected": null,
+      "actual": null,
+      "root_cause": "Exact comprehension form mismatch",
+      "ASTER_analysis": "Exact comprehension form mismatch",
+      "AI_OS_analysis": null,
+      "cross_agent_findings": null,
+      "disagreement": null,
+      "fix": null,
+      "focused_test": null,
+      "integration_test": null,
+      "security_test": null,
+      "runtime_test": "Original prompt, exact model, temperature=0, seed=20260825 reproduce the previous answer.",
+      "regression": null,
+      "performance": null,
+      "status": "REPRODUCED",
+      "evidence": [
+        "benchmark-targeted-before.json",
+        "benchmark-targeted-before-2.json",
+        "Work_Station_Benchmark/final-failure-inventory.json"
+      ],
+      "commit": null,
+      "artifact": null,
+      "runtime_identity": "current-discovery.json",
+      "status_history": [
+        {
+          "timestamp": "2026-09-07T20:12:22.733892+00:00",
+          "from": "REPRODUCED_MODEL_LIMITATION",
+          "to": "REPRODUCED",
+          "reason": "Normalize queue status while retaining exact prior claim and its scoped evidence."
+        }
+      ]
+    },
+    {
+      "id": "ASTER-007",
+      "severity": "MEDIUM",
+      "component": "Existing AI OS subsystem",
+      "description": "model-comparison-coder-06 fail",
+      "reproduction": null,
+      "expected": null,
+      "actual": null,
+      "root_cause": "Recursion terminology mismatch",
+      "ASTER_analysis": "Recursion terminology mismatch",
+      "AI_OS_analysis": null,
+      "cross_agent_findings": null,
+      "disagreement": null,
+      "fix": null,
+      "focused_test": null,
+      "integration_test": null,
+      "security_test": null,
+      "runtime_test": "Original prompt, exact model, temperature=0, seed=20260825 reproduce the previous answer.",
+      "regression": null,
+      "performance": null,
+      "status": "REPRODUCED",
+      "evidence": [
+        "benchmark-targeted-before.json",
+        "benchmark-targeted-before-2.json",
+        "Work_Station_Benchmark/final-failure-inventory.json"
+      ],
+      "commit": null,
+      "artifact": null,
+      "runtime_identity": "current-discovery.json",
+      "status_history": [
+        {
+          "timestamp": "2026-09-07T20:12:22.733892+00:00",
+          "from": "REPRODUCED_MODEL_LIMITATION",
+          "to": "REPRODUCED",
+          "reason": "Normalize queue status while retaining exact prior claim and its scoped evidence."
+        }
+      ]
+    },
+    {
+      "id": "ASTER-008",
+      "severity": "MEDIUM",
+      "component": "Existing AI OS subsystem",
+      "description": "voice-stt-02 partial",
+      "reproduction": null,
+      "expected": null,
+      "actual": null,
+      "root_cause": "Literal synthetic checkpoint transcription",
+      "ASTER_analysis": "Literal synthetic checkpoint transcription",
+      "AI_OS_analysis": null,
+      "cross_agent_findings": null,
+      "disagreement": null,
+      "fix": null,
+      "focused_test": null,
+      "integration_test": null,
+      "security_test": null,
+      "runtime_test": "voice-stt-02 now PASS 100 in unchanged full canonical run; no code change credited.",
+      "regression": null,
+      "performance": null,
+      "status": "CLOSED",
+      "evidence": [
+        "benchmark-targeted-before-2.json"
+      ],
+      "commit": null,
+      "artifact": null,
+      "runtime_identity": "current-discovery.json",
+      "status_history": [
+        {
+          "timestamp": "2026-09-07T20:12:22.733892+00:00",
+          "from": "CURRENT_FULL_BENCHMARK_PASS_VARIABILITY_RETAINED",
+          "to": "CLOSED",
+          "reason": "Normalize queue status while retaining exact prior claim and its scoped evidence."
+        }
+      ]
+    },
+    {
+      "id": "ASTER-009",
+      "severity": "HIGH",
+      "component": "Existing AI OS subsystem",
+      "description": "DEX read-only mode does not enforce owner read scope",
+      "reproduction": null,
+      "expected": null,
+      "actual": null,
+      "root_cause": "Legacy read-only allows reading synthetic foreign workspace files. Existing DEX command also enables automatic escalation review. Strict permission profiles require modern sandbox enforcement.",
+      "ASTER_analysis": "No prompt-only security or broad read-only mode can prove owner isolation. Pin non-escalating execution and enforce scoped read permissions.",
+      "AI_OS_analysis": null,
+      "cross_agent_findings": null,
+      "disagreement": null,
+      "fix": "Use an explicit scoped read profile, deny environment/private-key paths and proc, prohibit escalation and legacy fallback, disable inherited apps/plugins/agents/web and login-shell configuration.",
+      "focused_test": null,
+      "integration_test": null,
+      "security_test": null,
+      "runtime_test": "Real authenticated chat request resulted in failed UI trace and failed durable owner audit 4ecdc303-c02b-4571-8ed8-4881cd92fd77, with no success claim.",
+      "regression": null,
+      "performance": null,
+      "status": "BLOCKED_EXTERNAL",
+      "evidence": [
+        "production-dex-strict-scope.json",
+        "codex-profile-probe.json",
+        "sandbox-host-state.json"
+      ],
+      "commit": null,
+      "artifact": null,
+      "runtime_identity": "current-discovery.json",
+      "status_history": [
+        {
+          "timestamp": "2026-09-07T20:12:22.733892+00:00",
+          "from": "STRICT_SCOPE_ENFORCED_FAIL_CLOSED_HOST_BLOCKED",
+          "to": "BLOCKED_EXTERNAL",
+          "reason": "Normalize queue status while retaining exact prior claim and its scoped evidence."
+        }
+      ]
+    },
+    {
+      "id": "ASTER-010",
+      "severity": "HIGH",
+      "component": "Existing AI OS subsystem",
+      "description": "Blocked DEX result incorrectly completes ToolService audit",
+      "reproduction": null,
+      "expected": null,
+      "actual": null,
+      "root_cause": "Generic ToolService completion path treated returned BLOCKED envelopes as success.",
+      "ASTER_analysis": "Tool completion must require both DEX VERIFIED and verifier VERIFIED.",
+      "AI_OS_analysis": null,
+      "cross_agent_findings": null,
+      "disagreement": null,
+      "fix": "Fail unsuccessful DEX envelopes under the existing audit constraint and retain owner-visible response without claiming completion.",
+      "focused_test": null,
+      "integration_test": null,
+      "security_test": null,
+      "runtime_test": "Code deployed at application commit 97d0d0b. Full runtime regression passed. Successful DEX delegation remains unverified because the strict host sandbox cannot start.",
+      "regression": "Post-push full gate: 3105 backend, 55 PostgreSQL, 206 web, 64 shared/mobile, 2 Rust tests; all 15 real runtime suites passed.",
+      "performance": null,
+      "status": "VERIFIED",
+      "evidence": [
+        "dex-blocked-audit-reproduction-corrected.log",
+        "affected-final-2.log",
+        "release-postpush.log"
+      ],
+      "commit": null,
+      "artifact": null,
+      "runtime_identity": "current-discovery.json",
+      "status_history": [
+        {
+          "timestamp": "2026-09-07T20:12:22.733892+00:00",
+          "from": "FIX_VERIFIED_AND_DEPLOYED_LIVE_DEX_SUCCESS_BLOCKED",
+          "to": "VERIFIED",
+          "reason": "Normalize queue status while retaining exact prior claim and its scoped evidence."
+        }
+      ]
+    },
+    {
+      "id": "ASTER-011",
+      "severity": "HIGH",
+      "component": "Existing AI OS subsystem",
+      "description": "Cancelled DEX child can perform late filesystem action",
+      "reproduction": "Three cancellations25ms apart while synthetic subprocess group ignores SIGTERM; plain cancellation returns at75.6ms, child writes later.",
+      "expected": null,
+      "actual": null,
+      "root_cause": "Terminating only the process leader leaves child processes alive.",
+      "ASTER_analysis": "asyncio.shield prevents cancellation of the teardown task but cannot prevent caller await interruption; one retained cleanup deadline must contain repeated cancellation before terminalization.",
+      "AI_OS_analysis": null,
+      "cross_agent_findings": [
+        {
+          "agent": "architect",
+          "evidence": "architect-final/repeated-process-cancel-probe.json",
+          "verification": "Real synthetic subprocess and actual gateway method; no production CLI sandbox escape claimed."
+        },
+        {
+          "agent": "architect",
+          "evidence": "architect-parent-final/parent-falsifier-result.json",
+          "verification": "Final source hash matches at load/completion; real admitted parent cancellation and timeout preserve uncertain audit, admission blocking and recovery."
+        }
+      ],
+      "disagreement": {
+        "prior_claim": "Cancelled child effects are contained before terminal return.",
+        "new_claim": "Repeated cancellation escapes both awaited shields while child remains alive.",
+        "resolution": "Prior verification scope insufficient. Reopened and stopped release gate; interop assigned bounded retained teardown repair."
+      },
+      "fix": "One retained bounded subprocess teardown survives repeated caller cancellation, preserves process/readers until containment, fails admission closed while uncertain, and retains marked process uncertainty through delegation finally.",
+      "focused_test": "152 cross-component master tests pass; original resistant child replay waits5.006s before terminal return; pre-return synthetic effect is retained honestly.",
+      "integration_test": "Independent admitted read-only ToolService parent to real synthetic subprocess: marked uncertainty, zero terminal audit calls, one cleanup task, blocked admission then verified recovery.",
+      "security_test": null,
+      "runtime_test": "Code deployed at application commit 97d0d0b. Full runtime regression passed. Successful DEX delegation remains unverified because the strict host sandbox cannot start.",
+      "regression": "Post-push full gate: 3105 backend, 55 PostgreSQL, 206 web, 64 shared/mobile, 2 Rust tests; all 15 real runtime suites passed.",
+      "performance": null,
+      "status": "VERIFYING",
+      "evidence": [
+        "dex-child-cancellation-before.log",
+        "affected-final-2.log",
+        "release-postpush.log",
+        "architect-final/findings.json",
+        "release-precommit-interrupted.json"
+      ],
+      "commit": null,
+      "artifact": null,
+      "runtime_identity": "current-discovery.json",
+      "status_history": [
+        {
+          "timestamp": "2026-09-07T20:12:22.733892+00:00",
+          "from": "FIX_VERIFIED_AND_DEPLOYED_LIVE_DEX_SUCCESS_BLOCKED",
+          "to": "VERIFIED",
+          "reason": "Normalize queue status while retaining exact prior claim and its scoped evidence."
+        },
+        {
+          "timestamp": "2026-09-07T20:56:30.139897+00:00",
+          "from": "VERIFIED",
+          "to": "REOPENED",
+          "reason": "Third reviewer real SIGTERM-resistant child applies late marker after three rapid cancellations escape shielded teardown. Prior single-cancel proof does not establish repeated-cancel safety."
+        },
+        {
+          "timestamp": "2026-09-07T21:14:17.961420+00:00",
+          "from": "REOPENED",
+          "to": "VERIFYING",
+          "reason": "Retained teardown and preserved parent uncertainty pass affected suite; final independent parent review pending."
+        }
+      ]
+    },
+    {
+      "id": "ASTER-012",
+      "severity": "HIGH",
+      "component": "Existing AI OS subsystem",
+      "description": "Owner workspace root can alias another owner",
+      "reproduction": null,
+      "expected": null,
+      "actual": null,
+      "root_cause": "Containment check accepted sibling owner directory after symlink resolution",
+      "ASTER_analysis": "Containment check accepted sibling owner directory after symlink resolution",
+      "AI_OS_analysis": null,
+      "cross_agent_findings": null,
+      "disagreement": null,
+      "fix": "Reject symlinked or identity-changing owner roots",
+      "focused_test": null,
+      "integration_test": null,
+      "security_test": null,
+      "runtime_test": "Code deployed at application commit 97d0d0b. Full runtime regression passed. Successful DEX delegation remains unverified because the strict host sandbox cannot start.",
+      "regression": "Post-push full gate: 3105 backend, 55 PostgreSQL, 206 web, 64 shared/mobile, 2 Rust tests; all 15 real runtime suites passed.",
+      "performance": null,
+      "status": "VERIFIED",
+      "evidence": [
+        "owner-root-symlink-before.json",
+        "dex-scope-evidence-before.log",
+        "affected-scope-final-2.log",
+        "release-postpush.log"
+      ],
+      "commit": null,
+      "artifact": null,
+      "runtime_identity": "current-discovery.json",
+      "status_history": [
+        {
+          "timestamp": "2026-09-07T20:12:22.733892+00:00",
+          "from": "FIX_VERIFIED_AND_DEPLOYED_LIVE_DEX_SUCCESS_BLOCKED",
+          "to": "VERIFIED",
+          "reason": "Normalize queue status while retaining exact prior claim and its scoped evidence."
+        }
+      ]
+    },
+    {
+      "id": "ASTER-013",
+      "severity": "HIGH",
+      "component": "Existing AI OS subsystem",
+      "description": "Evidence reads bypass filesystem protection and resource bounds",
+      "reproduction": null,
+      "expected": null,
+      "actual": null,
+      "root_cause": "Direct read_bytes accepted protected files and arbitrary file size; FIFO open could block",
+      "ASTER_analysis": "Direct read_bytes accepted protected files and arbitrary file size; FIFO open could block",
+      "AI_OS_analysis": null,
+      "cross_agent_findings": null,
+      "disagreement": null,
+      "fix": "Reuse authoritative relative-path and bounded descriptor read policy; open reads nonblocking before rejecting nonregular files",
+      "focused_test": null,
+      "integration_test": null,
+      "security_test": null,
+      "runtime_test": "Code deployed at application commit 97d0d0b. Full runtime regression passed. Successful DEX delegation remains unverified because the strict host sandbox cannot start.",
+      "regression": "Post-push full gate: 3105 backend, 55 PostgreSQL, 206 web, 64 shared/mobile, 2 Rust tests; all 15 real runtime suites passed.",
+      "performance": null,
+      "status": "VERIFIED",
+      "evidence": [
+        "dex-scope-evidence-before.log",
+        "affected-scope-final-2.log",
+        "release-postpush.log"
+      ],
+      "commit": null,
+      "artifact": null,
+      "runtime_identity": "current-discovery.json",
+      "status_history": [
+        {
+          "timestamp": "2026-09-07T20:12:22.733892+00:00",
+          "from": "FIX_VERIFIED_AND_DEPLOYED_LIVE_DEX_SUCCESS_BLOCKED",
+          "to": "VERIFIED",
+          "reason": "Normalize queue status while retaining exact prior claim and its scoped evidence."
+        }
+      ]
+    },
+    {
+      "id": "ASTER-014",
+      "severity": "HIGH",
+      "component": "Existing AI OS subsystem",
+      "description": "Playwright failure log exposes request credentials",
+      "reproduction": null,
+      "expected": null,
+      "actual": null,
+      "root_cause": "Uncaught request errors include authentication headers",
+      "ASTER_analysis": "Uncaught request errors include authentication headers",
+      "AI_OS_analysis": null,
+      "cross_agent_findings": null,
+      "disagreement": null,
+      "fix": "Replace credential values before emitting a new bounded error object; rotate exposed provisioning credential in both dotenv and authoritative service configuration",
+      "focused_test": null,
+      "integration_test": null,
+      "security_test": null,
+      "runtime_test": "Production PWA on final package passes. Native owner session preserved. Revoked provisioning credential remains invalid; current exact credential scan recorded separately.",
+      "regression": "Post-push full gate: 3105 backend, 55 PostgreSQL, 206 web, 64 shared/mobile, 2 Rust tests; all 15 real runtime suites passed.",
+      "performance": null,
+      "status": "CLOSED",
+      "evidence": [
+        "browser-error-redaction.json",
+        "credential-rotation.json",
+        "production-pwa-3.log",
+        "release-postpush.log"
+      ],
+      "commit": null,
+      "artifact": null,
+      "runtime_identity": "current-discovery.json",
+      "status_history": [
+        {
+          "timestamp": "2026-09-07T20:12:22.733892+00:00",
+          "from": "FIX_VERIFIED_AND_DEPLOYED",
+          "to": "CLOSED",
+          "reason": "Normalize queue status while retaining exact prior claim and its scoped evidence."
+        }
+      ]
+    },
+    {
+      "id": "ASTER-015",
+      "severity": "MEDIUM",
+      "component": "Existing AI OS subsystem",
+      "description": "Vulnerable UUID resolved by Xcode dependency",
+      "reproduction": null,
+      "expected": null,
+      "actual": null,
+      "root_cause": "Xcode resolves UUID 7.0.3 with missing v3/v5 output-buffer bounds checks. npm 11 workspace override resolution can silently retain it.",
+      "ASTER_analysis": "Xcode resolves UUID 7.0.3 with missing v3/v5 output-buffer bounds checks. npm 11 workspace override resolution can silently retain it.",
+      "AI_OS_analysis": null,
+      "cross_agent_findings": null,
+      "disagreement": null,
+      "fix": "Narrow xcode UUID 11.1.1 override and minimal lock entry; mandatory regression checks the actual Xcode consumer and UUID buffer rejection.",
+      "focused_test": null,
+      "integration_test": null,
+      "security_test": null,
+      "runtime_test": "Clean install and actual Xcode consumer regression pass in final release gate; narrow UUID override remains resolved to 11.1.1.",
+      "regression": "Post-push full gate: 3105 backend, 55 PostgreSQL, 206 web, 64 shared/mobile, 2 Rust tests; all 15 real runtime suites passed.",
+      "performance": null,
+      "status": "CLOSED",
+      "evidence": [
+        "dependency-repair-assessment.json",
+        "uuid-security-before.log",
+        "uuid-security-after.log",
+        "dependency-full-release-gate-2.log",
+        "release-postpush.log"
+      ],
+      "commit": null,
+      "artifact": null,
+      "runtime_identity": "current-discovery.json",
+      "status_history": [
+        {
+          "timestamp": "2026-09-07T20:12:22.733892+00:00",
+          "from": "FIX_VERIFIED_AND_DEPLOYED",
+          "to": "CLOSED",
+          "reason": "Normalize queue status while retaining exact prior claim and its scoped evidence."
+        }
+      ]
+    },
+    {
+      "id": "ASTER-016",
+      "severity": "MEDIUM",
+      "component": "Existing AI OS subsystem",
+      "description": "Remaining malformed URI decoder denial of service advisory",
+      "reproduction": null,
+      "expected": null,
+      "actual": null,
+      "root_cause": "Expo Router uses CommonJS query-string 7, which calls the decoder as a function. The patched decoder 0.5.0 is ESM default-only; a direct override breaks the consumer.",
+      "ASTER_analysis": "Expo Router uses CommonJS query-string 7, which calls the decoder as a function. The patched decoder 0.5.0 is ESM default-only; a direct override breaks the consumer.",
+      "AI_OS_analysis": null,
+      "cross_agent_findings": [
+        {
+          "agent": "architect",
+          "claim": "Tiny CommonJS adapter over the unchanged patched upstream decoder passed isolated actual consumer probes. External-only classification is not justified.",
+          "evidence": "architect/findings.json",
+          "verification": "QA full workspace and master falsification pending"
+        }
+      ],
+      "disagreement": {
+        "prior_claim": "Expo Router uses CommonJS query-string 7, which calls the decoder as a function. The patched decoder 0.5.0 is ESM default-only; a direct override breaks the consumer.",
+        "new_claim": "A local interface adapter may provide a safe internal repair without duplicating the decoding algorithm.",
+        "resolution": "Prior external-only classification falsified. Local upstream adapter cross-verified; full release pending."
+      },
+      "fix": "Patched upstream decoder via CommonJS compatibility adapter;91,968 zero-difference consumer comparisons, clean install, audit0 and bounded malformed-input probe PASS; deployment pending.",
+      "focused_test": null,
+      "integration_test": null,
+      "security_test": null,
+      "runtime_test": null,
+      "regression": null,
+      "performance": null,
+      "status": "VERIFYING",
+      "evidence": [
+        "decoder-advisory-assessment.json",
+        "query-string-module-assessment.json"
+      ],
+      "commit": null,
+      "artifact": null,
+      "runtime_identity": "current-discovery.json",
+      "status_history": [
+        {
+          "timestamp": "2026-09-07T20:12:22.733892+00:00",
+          "from": "UNRESOLVED_UPSTREAM_COMPATIBILITY",
+          "to": "REOPENED",
+          "reason": "Normalize queue status while retaining exact prior claim and its scoped evidence."
+        },
+        {
+          "timestamp": "2026-09-07T20:37:29.378424+00:00",
+          "from": "REOPENED",
+          "to": "VERIFYING",
+          "reason": "Patched upstream decoder via CommonJS compatibility adapter;91,968 zero-difference consumer comparisons, clean install, audit0 and bounded malformed-input probe PASS; deployment pending."
+        }
+      ]
+    },
+    {
+      "id": "ASTER-017",
+      "severity": "HIGH",
+      "component": "Existing AI OS subsystem",
+      "description": "Denied owner-root alias changes foreign directory permissions",
+      "reproduction": null,
+      "expected": null,
+      "actual": null,
+      "root_cause": "Path-based chmod happened before owner-root symlink validation, allowing a denied request to alter a foreign directory mode.",
+      "ASTER_analysis": "Path-based chmod happened before owner-root symlink validation, allowing a denied request to alter a foreign directory mode.",
+      "AI_OS_analysis": {
+        "task_id": "5597b373-e921-4036-b430-f91e36f30842",
+        "output_sha256": "3a61eb77115f79e1790524374b77aae3619bb5d9040ee6edb2f6c869131f9a96",
+        "claim": "Requests proof for chained symlinks, missing safe flags and descriptor cleanup."
+      },
+      "cross_agent_findings": null,
+      "disagreement": "AI OS speculates that checking the immediate parent misses symlink chains. ASTER notes root canonicalization and owner alias rejection; five direct edge-case probes resolve the claim by evidence.",
+      "fix": "Validate before mutation, open directory with O_NOFOLLOW and O_DIRECTORY, and fchmod the open descriptor; fail closed where safe directory access is unavailable.",
+      "focused_test": null,
+      "integration_test": null,
+      "security_test": null,
+      "runtime_test": "Real owner-authenticated chat selected filesystem.write, denied the owner alias without changing foreign permissions, and persisted failed audit 3768f207-63a3-49a4-8e68-bd342cb516c4. Synthetic fixtures cleaned and sessions revoked.",
+      "regression": "Post-push full gate: 3105 backend, 55 PostgreSQL, 206 web, 64 shared/mobile, 2 Rust tests; all 15 real runtime suites passed.",
+      "performance": null,
+      "status": "CLOSED",
+      "evidence": [
+        "owner-root-permission-before.json",
+        "owner-root-permission-before-corrected.log",
+        "owner-root-permission-affected-final.log",
+        "release-postpush.log",
+        "ai-os-boundary-review.json",
+        "permission-boundary-static-review.json",
+        "permission-boundary-independent-verification.json"
+      ],
+      "commit": null,
+      "artifact": null,
+      "runtime_identity": "current-discovery.json",
+      "status_history": [
+        {
+          "timestamp": "2026-09-07T20:12:22.733892+00:00",
+          "from": "FIX_VERIFIED_AND_DEPLOYED",
+          "to": "CLOSED",
+          "reason": "Normalize queue status while retaining exact prior claim and its scoped evidence."
+        }
+      ]
+    },
+    {
+      "id": "ASTER-018",
+      "severity": "HIGH",
+      "component": "ToolService/filesystem cancellation",
+      "description": "Filesystem worker can publish after a terminal cancelled or timed-out audit",
+      "reproduction": "Hold write lock, dispatch actual ToolService write, cancel or let timeout, release lock",
+      "expected": "No filesystem publication after terminal audit",
+      "actual": "Target appears after CANCELLED or TIMED_OUT",
+      "root_cause": "Cancelling asyncio.to_thread awaiter does not stop the synchronous worker",
+      "ASTER_analysis": "Pending independent reproduction and adversarial cross-review",
+      "AI_OS_analysis": null,
+      "cross_agent_findings": [
+        {
+          "agent": "security",
+          "claim": "Filesystem worker can publish after a terminal cancelled or timed-out audit",
+          "evidence": "security/reproduction-results.json",
+          "verification": "CLAIMANT_REPRODUCED"
+        },
+        {
+          "agent": "debugger",
+          "evidence": "debugger/implementation-handoff.json",
+          "verification": "Actual filesystem worker lifecycle cross-verified; initial fix had audit settlement regression."
+        },
+        {
+          "agent": "security",
+          "evidence": "security/audit-corrected-verification-package.json",
+          "verification": "Independent corrected reproduction confirms uncertainty=true and preserved cancellation with publishedfile/RUNNINGaudit."
+        }
+      ],
+      "disagreement": {
+        "initial_nested_claim": "Writable ToolService parent\u2192DEX\u2192filesystem could falsely terminalize parent.",
+        "evidence": "interop/nested-uncertainty-before.log",
+        "resolution": "That production parent initiator path is not admitted. Actual direct authorized gateway callback and separate parent uncertainty contract tested; permission registry unchanged. No production writable parent chain PASS."
+      },
+      "fix": "Actual fsync/publication reproductions independently confirmed; cooperative deadline, retained worker, four admission slots and honest audit settlement implemented. Nested DEX uncertainty still under review.",
+      "focused_test": "Four audit-failure tests failed before correction;70affected master tests and79independent security tests pass after.",
+      "integration_test": null,
+      "security_test": null,
+      "runtime_test": null,
+      "regression": null,
+      "performance": null,
+      "status": "VERIFYING",
+      "evidence": [
+        "security/reproduction-results.json"
+      ],
+      "commit": "da1d0ad41ea96f2a633aa3efdb862c8f0ff9a77f",
+      "artifact": "/home/md-wasim/AI_Workspace_Data/releases/aster-97d0d0b-20260908",
+      "runtime_identity": "current-discovery.json",
+      "status_history": [
+        {
+          "timestamp": "2026-09-07T20:12:22.733892+00:00",
+          "from": "OPEN",
+          "to": "REPRODUCED",
+          "reason": "Claimant synthetic reproduction; independent checks pending"
+        },
+        {
+          "timestamp": "2026-09-07T20:37:29.378424+00:00",
+          "from": "REPRODUCED",
+          "to": "VERIFYING",
+          "reason": "Actual fsync/publication reproductions independently confirmed; cooperative deadline, retained worker, four admission slots and honest audit settlement implemented. Nested DEX uncertainty still under review."
+        },
+        {
+          "timestamp": "2026-09-07T20:50:37.765923+00:00",
+          "from": "VERIFYING",
+          "to": "REGRESSION",
+          "reason": "Independent security falsifier demonstrated failed audit settlement loses uncertainty marker after actual publication."
+        },
+        {
+          "timestamp": "2026-09-07T20:50:37.765923+00:00",
+          "from": "REGRESSION",
+          "to": "VERIFYING",
+          "reason": "Four crossed audit/caller cancellation tests failed before; root correction passed70affected tests and independent security79test/probe review passed."
+        }
+      ]
+    },
+    {
+      "id": "ASTER-019",
+      "severity": "MEDIUM",
+      "component": "Filesystem list resource bounds",
+      "description": "Bounded listing materializes every directory entry",
+      "reproduction": "Create 1001 synthetic entries and call list limit 1 while counting scans",
+      "expected": "Finite enumeration/allocation bound with honest truncation",
+      "actual": "All 1001 entries enumerated for one returned result",
+      "root_cause": "Full scandir materialization before output bound",
+      "ASTER_analysis": "Pending independent reproduction and adversarial cross-review",
+      "AI_OS_analysis": null,
+      "cross_agent_findings": [
+        {
+          "agent": "security",
+          "claim": "Bounded listing materializes every directory entry",
+          "evidence": "security/reproduction-results.json",
+          "verification": "CLAIMANT_REPRODUCED"
+        }
+      ],
+      "disagreement": null,
+      "fix": "Scan bounded at4096 and filtering precedes output limit; affected tests pass; deployment pending.",
+      "focused_test": null,
+      "integration_test": null,
+      "security_test": null,
+      "runtime_test": null,
+      "regression": null,
+      "performance": null,
+      "status": "VERIFYING",
+      "evidence": [
+        "security/reproduction-results.json"
+      ],
+      "commit": "da1d0ad41ea96f2a633aa3efdb862c8f0ff9a77f",
+      "artifact": "/home/md-wasim/AI_Workspace_Data/releases/aster-97d0d0b-20260908",
+      "runtime_identity": "current-discovery.json",
+      "status_history": [
+        {
+          "timestamp": "2026-09-07T20:12:22.733892+00:00",
+          "from": "OPEN",
+          "to": "REPRODUCED",
+          "reason": "Claimant synthetic reproduction; independent checks pending"
+        },
+        {
+          "timestamp": "2026-09-07T20:37:29.378424+00:00",
+          "from": "REPRODUCED",
+          "to": "VERIFYING",
+          "reason": "Scan bounded at4096 and filtering precedes output limit; affected tests pass; deployment pending."
+        }
+      ]
+    },
+    {
+      "id": "ASTER-020",
+      "severity": "MEDIUM_CONDITIONAL",
+      "component": "Filesystem owner isolation",
+      "description": "Preseeded hardlink permits cross-owner content read",
+      "reproduction": "Locally seed a hardlink from owner B file into owner A workspace",
+      "expected": "Declared owner-scoped read should reject aliased foreign content under this threat model",
+      "actual": "Owner A reads owner B synthetic bytes",
+      "root_cause": "Regular file type and path checks do not detect shared inode aliases; ToolService cannot create the link",
+      "ASTER_analysis": "Pending independent reproduction and adversarial cross-review",
+      "AI_OS_analysis": null,
+      "cross_agent_findings": [
+        {
+          "agent": "security",
+          "claim": "Preseeded hardlink permits cross-owner content read",
+          "evidence": "security/reproduction-results.json",
+          "verification": "CLAIMANT_REPRODUCED"
+        }
+      ],
+      "disagreement": null,
+      "fix": "Detectable multi-link aliases rejected on read, write and list. No claim that nlink1 establishes historical inode ownership; local filesystem seeding is outside exposed ToolService capability.",
+      "focused_test": null,
+      "integration_test": null,
+      "security_test": null,
+      "runtime_test": null,
+      "regression": null,
+      "performance": null,
+      "status": "VERIFYING",
+      "evidence": [
+        "security/reproduction-results.json"
+      ],
+      "commit": "da1d0ad41ea96f2a633aa3efdb862c8f0ff9a77f",
+      "artifact": "/home/md-wasim/AI_Workspace_Data/releases/aster-97d0d0b-20260908",
+      "runtime_identity": "current-discovery.json",
+      "status_history": [
+        {
+          "timestamp": "2026-09-07T20:12:22.733892+00:00",
+          "from": "OPEN",
+          "to": "REPRODUCED",
+          "reason": "Claimant synthetic reproduction; independent checks pending"
+        },
+        {
+          "timestamp": "2026-09-07T20:37:29.378424+00:00",
+          "from": "INVESTIGATING",
+          "to": "VERIFYING",
+          "reason": "Detectable multi-link aliases rejected on read, write and list. No claim that nlink1 establishes historical inode ownership; local filesystem seeding is outside exposed ToolService capability."
+        }
+      ]
+    },
+    {
+      "id": "ASTER-021",
+      "severity": "HIGH",
+      "component": "Agent OS independent verifier",
+      "description": "Untrusted evidence codes satisfy required objective evidence",
+      "reproduction": "Verify unsupported nonblank output with external-provider or fabricated-code",
+      "expected": "Required objective evidence needs an actual applicable verifier",
+      "actual": "passed true with only nonblank-output check",
+      "root_cause": "evidence_codes are treated as sufficient evidence even without an independent check",
+      "ASTER_analysis": "Pending independent reproduction and adversarial cross-review",
+      "AI_OS_analysis": null,
+      "cross_agent_findings": [
+        {
+          "agent": "architect",
+          "claim": "Untrusted evidence codes satisfy required objective evidence",
+          "evidence": "architect/objective-evidence-probe.json",
+          "verification": "CLAIMANT_REPRODUCED"
+        },
+        {
+          "agent": "qa",
+          "claim": "108-case verifier matrix:8 false passes before,0 after",
+          "evidence": "qa/verifier-matrix.json",
+          "verification": "INDEPENDENTLY_REPRODUCED"
+        }
+      ],
+      "disagreement": null,
+      "fix": "Untrusted labels no longer satisfy required objective evidence; master37tests pass and independent QA108case matrix has zero false passes; deployment pending.",
+      "focused_test": null,
+      "integration_test": null,
+      "security_test": null,
+      "runtime_test": null,
+      "regression": null,
+      "performance": null,
+      "status": "VERIFYING",
+      "evidence": [
+        "architect/objective-evidence-probe.json"
+      ],
+      "commit": "da1d0ad41ea96f2a633aa3efdb862c8f0ff9a77f",
+      "artifact": "/home/md-wasim/AI_Workspace_Data/releases/aster-97d0d0b-20260908",
+      "runtime_identity": "current-discovery.json",
+      "status_history": [
+        {
+          "timestamp": "2026-09-07T20:12:22.733892+00:00",
+          "from": "OPEN",
+          "to": "REPRODUCED",
+          "reason": "Claimant synthetic reproduction; independent checks pending"
+        },
+        {
+          "timestamp": "2026-09-07T20:37:29.378424+00:00",
+          "from": "REPRODUCED",
+          "to": "VERIFYING",
+          "reason": "Untrusted labels no longer satisfy required objective evidence; master37tests pass and independent QA108case matrix has zero false passes; deployment pending."
+        }
+      ]
+    },
+    {
+      "id": "ASTER-022",
+      "severity": "MEDIUM",
+      "component": "Immutable benchmark contract",
+      "description": "Checker accepts and rejects some answers inconsistently with prompt semantics",
+      "reproduction": "Apply unchanged checker to valid alternative comprehensions and verbose recursion explanation",
+      "expected": "Semantic validity and exact-response instruction should both be represented",
+      "actual": "Valid comprehensions can be PARTIAL and verbose base-case answer PASS",
+      "root_cause": "Literal answer-form checks are narrower or looser than portions of the prompt",
+      "ASTER_analysis": "Pending independent reproduction and adversarial cross-review",
+      "AI_OS_analysis": null,
+      "cross_agent_findings": [
+        {
+          "agent": "ai_quality",
+          "claim": "Checker accepts and rejects some answers inconsistently with prompt semantics",
+          "evidence": "ai_quality/benchmark-contract-counterexamples.json",
+          "verification": "CLAIMANT_REPRODUCED"
+        }
+      ],
+      "disagreement": null,
+      "fix": "No checker or expected-answer change authorized. Preserve contract and document the measured limitation separately from actual wrong answers.",
+      "focused_test": null,
+      "integration_test": null,
+      "security_test": null,
+      "runtime_test": null,
+      "regression": null,
+      "performance": null,
+      "status": "REPRODUCED",
+      "evidence": [
+        "ai_quality/benchmark-contract-counterexamples.json"
+      ],
+      "commit": "da1d0ad41ea96f2a633aa3efdb862c8f0ff9a77f",
+      "artifact": "/home/md-wasim/AI_Workspace_Data/releases/aster-97d0d0b-20260908",
+      "runtime_identity": "current-discovery.json",
+      "status_history": [
+        {
+          "timestamp": "2026-09-07T20:12:22.733892+00:00",
+          "from": "OPEN",
+          "to": "REPRODUCED",
+          "reason": "Claimant synthetic reproduction; independent checks pending"
+        }
+      ]
+    },
+    {
+      "id": "ASTER-023",
+      "severity": "MEDIUM",
+      "component": "DEX callback provenance",
+      "description": "Successful callback omits explicit evidence field",
+      "reproduction": "Full authorized UDS envelope requires evidence alongside verification",
+      "expected": "Evidence must bind the actual authorized operation and exact tested source/artifact",
+      "actual": "Response had output digest but no evidence member",
+      "root_cause": "Callback schema omitted explicit evidence object",
+      "ASTER_analysis": "Source independently inspected; false-positive claim accepted only with reproduction evidence",
+      "AI_OS_analysis": null,
+      "cross_agent_findings": [
+        {
+          "agent": "interop",
+          "evidence": "interop/findings.json",
+          "verification": "REPRODUCED"
+        }
+      ],
+      "disagreement": null,
+      "fix": "Added evidence output SHA256 with response-integrity-only scope;34DEX tests and independent19check transport pass",
+      "focused_test": null,
+      "integration_test": null,
+      "security_test": null,
+      "runtime_test": "Pending deployment",
+      "regression": null,
+      "performance": null,
+      "status": "VERIFYING",
+      "evidence": [
+        "interop/findings.json"
+      ],
+      "commit": null,
+      "artifact": null,
+      "runtime_identity": "current-discovery.json",
+      "status_history": [
+        {
+          "timestamp": "2026-09-07T20:37:29.378424+00:00",
+          "from": "OPEN",
+          "to": "VERIFYING",
+          "reason": "Added evidence output SHA256 with response-integrity-only scope;34DEX tests and independent19check transport pass"
+        }
+      ]
+    },
+    {
+      "id": "ASTER-024",
+      "severity": "HIGH",
+      "component": "Release verification",
+      "description": "Release gate can accept source changes during validation",
+      "reproduction": "Mutate tracked or staged source, or advance HEAD during actual control flow",
+      "expected": "Evidence must bind the actual authorized operation and exact tested source/artifact",
+      "actual": "--require-clean returned success despite source changes",
+      "root_cause": "Only initial worktree check and final ref equality checked",
+      "ASTER_analysis": "Source independently inspected; false-positive claim accepted only with reproduction evidence",
+      "AI_OS_analysis": null,
+      "cross_agent_findings": [
+        {
+          "agent": "runtime_release",
+          "evidence": "runtime_release/release-guard-before.json",
+          "verification": "REPRODUCED"
+        },
+        {
+          "agent": "performance",
+          "evidence": "performance/release-guard-cross-review.json",
+          "verification": "Third reviewer six source guard scenarios passed. Transient source edit restored before final check is not detected; source must stay frozen during validation."
+        }
+      ],
+      "disagreement": null,
+      "fix": "Pin initial HEAD and require final full clean worktree;6 scenarios pass in claimant and master runs",
+      "focused_test": null,
+      "integration_test": null,
+      "security_test": null,
+      "runtime_test": "Pending deployment",
+      "regression": null,
+      "performance": null,
+      "status": "VERIFYING",
+      "evidence": [
+        "runtime_release/release-guard-before.json"
+      ],
+      "commit": null,
+      "artifact": null,
+      "runtime_identity": "current-discovery.json",
+      "status_history": [
+        {
+          "timestamp": "2026-09-07T20:37:29.378424+00:00",
+          "from": "OPEN",
+          "to": "VERIFYING",
+          "reason": "Pin initial HEAD and require final full clean worktree;6 scenarios pass in claimant and master runs"
+        }
+      ]
+    },
+    {
+      "id": "ASTER-025",
+      "severity": "HIGH",
+      "component": "Desktop release verification",
+      "description": "Existing unrelated window satisfies new artifact launch test",
+      "reproduction": "Keep existing WORK STATION open and launch sleep30 through actual launch function",
+      "expected": "Evidence must bind the actual authorized operation and exact tested source/artifact",
+      "actual": "Non-GUI process accepted as desktop launch success",
+      "root_cause": "Global title match lacks process ownership",
+      "ASTER_analysis": "Source independently inspected; false-positive claim accepted only with reproduction evidence",
+      "AI_OS_analysis": null,
+      "cross_agent_findings": [
+        {
+          "agent": "runtime_release",
+          "evidence": "runtime_release/desktop-existing-window-reproduction.log",
+          "verification": "REPRODUCED"
+        },
+        {
+          "agent": "performance",
+          "evidence": "performance/release-guard-cross-review.json",
+          "verification": "Third reviewer source hashes and historical AppImage digest match; independently reran eleven guard scenarios."
+        }
+      ],
+      "disagreement": null,
+      "fix": "Require visible window PID in launched process group and recheck throughout sustained validation.",
+      "focused_test": "Five guard scenarios pass in claimant, master and independent third review.",
+      "integration_test": null,
+      "security_test": null,
+      "runtime_test": "Fixed helper rejects non-GUI sleep with existing real window and accepts historical current AppImage. Fresh rebuilt artifact validation pending.",
+      "regression": null,
+      "performance": null,
+      "status": "VERIFYING",
+      "evidence": [
+        "runtime_release/desktop-existing-window-reproduction.log"
+      ],
+      "commit": null,
+      "artifact": null,
+      "runtime_identity": "current-discovery.json",
+      "status_history": [
+        {
+          "timestamp": "2026-09-07T20:37:29.378424+00:00",
+          "from": "OPEN",
+          "to": "REPRODUCED",
+          "reason": "Window PID/process-group ownership repair assigned"
+        }
+      ]
+    }
+  ]
+}

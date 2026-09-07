@@ -26,6 +26,9 @@ MAX_DEX_STDERR_BYTES = 65_536
 MAX_DEX_CALLBACK_BYTES = 16_384
 MAX_DEX_RESULT_CHARACTERS = 16_000
 MAX_DEX_EVIDENCE_ITEMS = 16
+MAX_DEX_CALLBACK_CLEANUP_SECONDS = 12.0
+DEX_PROCESS_TERMINATION_GRACE_SECONDS = 5.0
+MAX_DEX_PROCESS_CLEANUP_SECONDS = 8.0
 
 
 class DexGatewayError(RuntimeError):
@@ -98,9 +101,14 @@ class DexGateway:
         self.reasoning_effort = reasoning_effort
         self._admission = asyncio.Semaphore(max_active)
         self._active_processes: set[asyncio.subprocess.Process] = set()
+        self._process_readers: dict[asyncio.subprocess.Process, tuple[asyncio.Task, ...]] = {}
+        self._process_cleanups: dict[asyncio.subprocess.Process, asyncio.Task[None]] = {}
+        self._uncertain_callbacks: set[asyncio.Task[None]] = set()
 
     @property
     def available(self) -> bool:
+        if self._uncertain_callbacks or self._process_cleanups:
+            return False
         try:
             mode = self.binary.stat().st_mode
         except OSError:
@@ -110,10 +118,19 @@ class DexGateway:
     async def shutdown(self) -> None:
         processes = tuple(self._active_processes)
         if processes:
-            await asyncio.gather(
-                *(self._terminate_process(process) for process in processes),
-                return_exceptions=True,
+            cleanups = {self._begin_process_cleanup(process) for process in processes}
+            pending, cancelled = await self._drain_process_cleanups(
+                cleanups, MAX_DEX_PROCESS_CLEANUP_SECONDS,
             )
+            if pending or any(task.cancelled() or task.exception() is not None for task in cleanups):
+                from app.services.tool import ToolExecutionUncertainError
+
+                raise ToolExecutionUncertainError(
+                    "DEX process shutdown containment is uncertain",
+                    cancellation_requested=cancelled,
+                )
+            if cancelled:
+                raise asyncio.CancelledError
 
     async def delegate(
         self,
@@ -161,7 +178,12 @@ class DexGateway:
             execution_mode,
         )
         callback_results: list[dict[str, Any]] = []
-        callback_tasks: set[asyncio.Task[None]] = set()
+        callback_tasks: dict[asyncio.Task[None], asyncio.StreamWriter] = {}
+
+        def callback_finished(handler: asyncio.Task[None]) -> None:
+            callback_tasks.pop(handler, None)
+            if not handler.cancelled():
+                handler.exception()
 
         def accept_callback(reader, writer) -> None:
             # Bound even unauthenticated connections, and own every handler's
@@ -172,10 +194,12 @@ class DexGateway:
             handler = asyncio.create_task(self._handle_callback(
                 callback, reader, writer, timeline, callback_results
             ))
-            callback_tasks.add(handler)
-            handler.add_done_callback(callback_tasks.discard)
+            callback_tasks[handler] = writer
+            handler.add_done_callback(callback_finished)
 
         async with self._admission:
+            if self._uncertain_callbacks or self._process_cleanups:
+                raise DexGatewayUnavailableError("DEX execution containment remains uncertain")
             started = time.monotonic()
             with tempfile.TemporaryDirectory(prefix="ai-os-dex-") as temp_name:
                 temp_root = Path(temp_name)
@@ -187,6 +211,7 @@ class DexGateway:
                     limit=MAX_DEX_CALLBACK_BYTES,
                 )
                 os.chmod(socket_path, 0o600)
+                run_error: BaseException | None = None
                 try:
                     self._event(timeline, "ai_os", "dex", "WORKING", "DEX started")
                     raw, stderr, returncode = await self._run_codex(
@@ -202,13 +227,76 @@ class DexGateway:
                         correlation_id=correlation_id,
                         owner_id=owner_id,
                     )
+                except BaseException as exc:
+                    run_error = exc
+                    raise
                 finally:
                     server.close()
                     handlers = tuple(callback_tasks)
                     for handler in handlers:
+                        callback_tasks[handler].close()
                         handler.cancel()
-                    await asyncio.gather(*handlers, return_exceptions=True)
-                    await server.wait_closed()
+                    server_closed = asyncio.create_task(server.wait_closed())
+                    pending = {*handlers, server_closed}
+                    cleanup_cancelled = asyncio.current_task().cancelling() > 0
+                    cleanup_deadline = time.monotonic() + MAX_DEX_CALLBACK_CLEANUP_SECONDS
+                    while pending and time.monotonic() < cleanup_deadline:
+                        try:
+                            _, pending = await asyncio.wait(
+                                pending,
+                                timeout=max(0.0, cleanup_deadline - time.monotonic()),
+                            )
+                        except asyncio.CancelledError:
+                            # Repeated caller cancellation cannot skip the
+                            # child uncertainty signal or extend this deadline.
+                            cleanup_cancelled = True
+                    if pending:
+                        # A non-returning callback still owns its possible
+                        # effect. Retain it and fail closed for new delegations.
+                        uncertain_handlers = set(handlers) & pending
+                        self._uncertain_callbacks.update(uncertain_handlers)
+                        for handler in uncertain_handlers:
+                            handler.add_done_callback(self._uncertain_callbacks.discard)
+                        if server_closed in pending:
+                            server_closed.cancel()
+                        self._record_callback_uncertainty(
+                            callback, timeline, callback_results,
+                            cancellation_requested=cleanup_cancelled,
+                        )
+                    for handler in set(handlers) - pending:
+                        if not handler.cancelled():
+                            handler.exception()
+                    uncertainty = next((
+                        result for result in callback_results
+                        if result.get("status") == "UNCERTAIN"
+                    ), None)
+                    if uncertainty is not None:
+                        # Import at execution time to keep ToolService's
+                        # existing gateway import acyclic. An ordinary error
+                        # survives wait_for; a CancelledError may be normalized.
+                        from app.services.tool import ToolExecutionUncertainError
+
+                        raise ToolExecutionUncertainError(
+                            "DEX callback execution containment is uncertain",
+                            cancellation_requested=(
+                                cleanup_cancelled
+                                or uncertainty.get("cancellation_requested") is True
+                                or getattr(run_error, "cancellation_requested", False) is True
+                            ),
+                        ) from run_error
+                    if getattr(run_error, "execution_uncertain", False) is True:
+                        # Keep the process uncertainty that entered this
+                        # finally block. Plain cancellation would erase it at
+                        # the outer wait_for/ToolService audit boundary.
+                        if cleanup_cancelled and not getattr(run_error, "cancellation_requested", False):
+                            from app.services.tool import ToolExecutionUncertainError
+
+                            raise ToolExecutionUncertainError(
+                                "DEX execution containment is uncertain",
+                                cancellation_requested=True,
+                            ) from run_error
+                    elif cleanup_cancelled:
+                        raise asyncio.CancelledError
 
         parsed = self._parse_codex_result(raw)
         verified, verification = self._verify_result(
@@ -448,34 +536,88 @@ class DexGateway:
             asyncio.create_task(self._read_bounded(process.stderr, MAX_DEX_STDERR_BYTES)),
             asyncio.create_task(process.wait()),
         ]
+        self._process_readers[process] = tuple(readers)
+        collected = asyncio.gather(*readers)
         try:
             try:
                 stdout, stderr, _ = await asyncio.wait_for(
-                    asyncio.gather(*readers), timeout=self.timeout_seconds
+                    asyncio.shield(collected), timeout=self.timeout_seconds
                 )
             except TimeoutError as exc:
-                await self._terminate_process(process)
                 raise DexGatewayError("DEX execution timed out") from exc
-            except asyncio.CancelledError:
-                # Cancellation must not orphan a DEX process after ToolService has
-                # already recorded the request as cancelled. Shield the bounded
-                # cleanup so task cancellation cannot interrupt process teardown.
-                await asyncio.shield(self._terminate_process(process))
-                raise
-            except Exception:
-                await self._terminate_process(process)
-                raise
         finally:
-            await asyncio.shield(self._terminate_process(process))
-            for reader in readers:
-                reader.cancel()
-            await asyncio.gather(*readers, return_exceptions=True)
-            self._active_processes.discard(process)
+            cleanup = self._begin_process_cleanup(process)
+            pending, cancelled = await self._drain_process_cleanups(
+                {cleanup}, MAX_DEX_PROCESS_CLEANUP_SECONDS,
+            )
+            if collected.done() and not collected.cancelled():
+                collected.exception()
+            else:
+                collected.add_done_callback(
+                    lambda result: None if result.cancelled() else result.exception()
+                )
+            if pending or cleanup.cancelled() or cleanup.exception() is not None:
+                from app.services.tool import ToolExecutionUncertainError
+
+                raise ToolExecutionUncertainError(
+                    "DEX process execution containment is uncertain",
+                    cancellation_requested=(cancelled or asyncio.current_task().cancelling() > 0),
+                )
+            if cancelled:
+                raise asyncio.CancelledError
         if len(stdout) > MAX_DEX_OUTPUT_BYTES or len(stderr) > MAX_DEX_STDERR_BYTES:
             raise DexGatewayError("DEX process output exceeded its bound")
         if process.returncode != 0:
             raise DexGatewayError("DEX process failed")
         return stdout, stderr, int(process.returncode)
+
+    def _begin_process_cleanup(self, process: asyncio.subprocess.Process) -> asyncio.Task[None]:
+        existing = self._process_cleanups.get(process)
+        if existing is not None and (
+            not existing.done()
+            or (not existing.cancelled() and existing.exception() is None)
+        ):
+            return existing
+
+        async def cleanup() -> None:
+            await self._terminate_process(process)
+            readers = self._process_readers.get(process, ())
+            for reader in readers:
+                reader.cancel()
+            await asyncio.gather(*readers, return_exceptions=True)
+            self._process_readers.pop(process, None)
+            self._active_processes.discard(process)
+
+        task = asyncio.create_task(cleanup())
+        self._process_cleanups[process] = task
+
+        def finished(completed: asyncio.Task[None]) -> None:
+            # Failed or cancelled cleanup retains both process and reader
+            # ownership. A later explicit shutdown may retry containment.
+            if not completed.cancelled() and completed.exception() is None:
+                if self._process_cleanups.get(process) is completed:
+                    self._process_cleanups.pop(process, None)
+
+        task.add_done_callback(finished)
+        return task
+
+    @staticmethod
+    async def _drain_process_cleanups(
+        tasks: set[asyncio.Task[None]], seconds: float,
+    ) -> tuple[set[asyncio.Task[None]], bool]:
+        pending = set(tasks)
+        deadline = time.monotonic() + seconds
+        cancelled = False
+        while pending and time.monotonic() < deadline:
+            try:
+                _, pending = await asyncio.wait(
+                    pending, timeout=max(0.0, deadline - time.monotonic()),
+                )
+            except asyncio.CancelledError:
+                # wait does not cancel the one retained teardown task. One
+                # deadline bounds the drain despite repeated cancellation.
+                cancelled = True
+        return pending, cancelled
 
     @staticmethod
     async def _read_bounded(reader: asyncio.StreamReader, maximum: int) -> bytes:
@@ -506,7 +648,7 @@ class DexGateway:
         elif process.returncode is None:
             process.terminate()
         try:
-            await asyncio.wait_for(process.wait(), timeout=5)
+            await asyncio.wait_for(process.wait(), timeout=DEX_PROCESS_TERMINATION_GRACE_SECONDS)
         except TimeoutError:
             if process.returncode is None:
                 process.kill()
@@ -600,6 +742,11 @@ class DexGateway:
                     allow_external_models=False,
                 )
             )
+            output_digest = (
+                hashlib.sha256(result.output.encode("utf-8")).hexdigest()
+                if result.output is not None
+                else None
+            )
             response = {
                 "task_id": str(context.task_id),
                 "correlation_id": str(context.correlation_id),
@@ -610,14 +757,15 @@ class DexGateway:
                 "timestamp": _now(),
                 "status": "VERIFIED" if result.status is AgentRunStatus.COMPLETED else "FAILED",
                 "output": result.output,
-                "output_sha256": (
-                    hashlib.sha256(result.output.encode("utf-8")).hexdigest()
-                    if result.output is not None
-                    else None
-                ),
+                "output_sha256": output_digest,
                 "failure_code": result.failure_code,
                 "attempts": len(result.attempts),
                 "operation": operation_result,
+                "evidence": {
+                    "output_sha256": output_digest,
+                    "provenance": "agent_os",
+                    "scope": "response_integrity_only",
+                },
                 "verification": {
                     "scope": "response_integrity_only",
                     "semantic_correctness_verified": False,
@@ -631,13 +779,26 @@ class DexGateway:
                 response["status"],
                 "analysis returned",
             )
-        except asyncio.CancelledError:
+        except asyncio.CancelledError as exc:
+            if getattr(exc, "execution_uncertain", False) is True:
+                self._record_callback_uncertainty(
+                    context, timeline, callback_results,
+                    cancellation_requested=True,
+                )
             writer.close()
             await writer.wait_closed()
             raise
-        except Exception:
-            response = {"status": "FAILED", "failure_code": "callback_rejected"}
-            self._event(timeline, "ai_os", "dex", "FAILED", "callback rejected")
+        except Exception as exc:
+            if getattr(exc, "execution_uncertain", False) is True:
+                response = self._record_callback_uncertainty(
+                    context, timeline, callback_results,
+                    cancellation_requested=(
+                        getattr(exc, "cancellation_requested", False) is True
+                    ),
+                )
+            else:
+                response = {"status": "FAILED", "failure_code": "callback_rejected"}
+                self._event(timeline, "ai_os", "dex", "FAILED", "callback rejected")
         encoded = (_bounded_json(response, MAX_DEX_CALLBACK_BYTES - 1) + "\n").encode()
         writer.write(encoded)
         try:
@@ -645,6 +806,41 @@ class DexGateway:
         finally:
             writer.close()
             await writer.wait_closed()
+
+    @staticmethod
+    def _record_callback_uncertainty(
+        context: _CallbackContext,
+        timeline: list[dict[str, Any]],
+        callback_results: list[dict[str, Any]],
+        *,
+        cancellation_requested: bool,
+    ) -> dict[str, Any]:
+        existing = next((
+            result for result in callback_results
+            if result.get("status") == "UNCERTAIN"
+        ), None)
+        if existing is not None:
+            existing["cancellation_requested"] |= cancellation_requested
+            return existing
+        response = {
+            "task_id": str(context.task_id),
+            "correlation_id": str(context.correlation_id),
+            "owner_id": str(context.owner_id),
+            "source": "ai_os",
+            "destination": "dex",
+            "capability": "analysis",
+            "timestamp": _now(),
+            "status": "UNCERTAIN",
+            "failure_code": "callback_execution_uncertain",
+            "cancellation_requested": cancellation_requested,
+            "evidence": {"provenance": "dex_gateway", "scope": "execution_uncertain"},
+            "verification": {"semantic_correctness_verified": False},
+        }
+        # The one-use callback bounds this to its original claim plus one
+        # uncertainty record. Preserve any already-returned effect evidence.
+        callback_results.append(response)
+        DexGateway._event(timeline, "ai_os", "dex", "UNCERTAIN", "callback execution uncertain")
+        return response
 
     @staticmethod
     def _parse_codex_result(raw: bytes) -> dict[str, Any]:

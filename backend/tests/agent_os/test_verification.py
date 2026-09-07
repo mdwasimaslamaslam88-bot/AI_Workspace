@@ -109,6 +109,42 @@ async def test_non_applicable_objective_verifier_does_not_satisfy_evidence():
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("codes", [("external-provider",), ("fabricated-code",)])
+async def test_provenance_labels_cannot_replace_required_objective_verification(codes):
+    async def not_applicable(_step, _execution):
+        return None
+
+    report = await IndependentVerificationEngine(
+        objective_verifiers=(not_applicable,)
+    ).verify(
+        _step(objective=True),
+        AgentExecution(output="2 + 2 = 5", evidence_codes=codes),
+    )
+
+    assert report.passed is False
+    assert report.checks[-1].failure is VerificationFailure.EVIDENCE_MISSING
+
+
+@pytest.mark.asyncio
+async def test_applicable_independent_check_satisfies_required_objective_evidence():
+    async def exact_answer(_step, execution):
+        correct = execution.output == "4"
+        return VerificationCheck(
+            check_id="independent-exact-answer",
+            passed=correct,
+            failure=VerificationFailure.NONE if correct else VerificationFailure.EVIDENCE_MISSING,
+            evidence_sha256=hashlib.sha256(execution.output.encode()).hexdigest(),
+        )
+
+    report = await IndependentVerificationEngine(
+        objective_verifiers=(exact_answer,)
+    ).verify(_step(objective=True), AgentExecution(output="4"))
+
+    assert report.passed is True
+    assert report.checks[-1].check_id == "independent-exact-answer"
+
+
+@pytest.mark.asyncio
 async def test_objective_verifier_does_not_swallow_task_cancellation():
     async def waiting(_step, _execution):
         await asyncio.Future()

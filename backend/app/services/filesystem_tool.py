@@ -1,12 +1,14 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from contextlib import contextmanager
+from dataclasses import dataclass, field
 import hashlib
 import os
 from pathlib import Path, PurePosixPath
 import re
 import stat
-from threading import Lock
+from threading import BoundedSemaphore, Event, Lock
+import time
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -15,6 +17,9 @@ MAX_FILESYSTEM_PATH_CHARACTERS = 512
 MAX_FILESYSTEM_WRITE_BYTES = 65_536
 MAX_FILESYSTEM_READ_BYTES = 65_536
 MAX_FILESYSTEM_LIST_ENTRIES = 200
+MAX_FILESYSTEM_SCAN_ENTRIES = 4096
+MAX_PENDING_FILESYSTEM_WRITES = 4
+FILESYSTEM_WRITE_SECONDS = 5.0
 
 
 class FilesystemToolError(RuntimeError):
@@ -23,6 +28,21 @@ class FilesystemToolError(RuntimeError):
 
 class FilesystemToolVerificationError(FilesystemToolError):
     """A filesystem state did not match the independently read result."""
+
+
+class FilesystemWriteInterrupted(FilesystemToolError):
+    """Cancellation or a deadline prevented a filesystem mutation."""
+
+
+@dataclass(slots=True)
+class FilesystemWriteControl:
+    deadline: float
+    cancelled: Event = field(default_factory=Event)
+    published: bool = False
+
+    def check(self) -> None:
+        if self.cancelled.is_set() or time.monotonic() >= self.deadline:
+            raise FilesystemWriteInterrupted("filesystem write was interrupted")
 
 
 _SENSITIVE_PATH_PARTS = frozenset(
@@ -83,6 +103,28 @@ class OwnerFilesystemWorkspace:
             raise ValueError("at most four filesystem tool roots may be configured")
         self._roots = tuple(validated)
         self._write_lock = Lock()
+        # Capacity belongs to the existing workspace and is held until the
+        # actual thread exits, including when its caller has gone away.
+        self._write_slots = BoundedSemaphore(MAX_PENDING_FILESYSTEM_WRITES)
+
+    def reserve_write(self) -> bool:
+        return self._write_slots.acquire(blocking=False)
+
+    def release_write(self) -> None:
+        self._write_slots.release()
+
+    @contextmanager
+    def _write_admission(self, control: FilesystemWriteControl):
+        while True:
+            control.check()
+            remaining = max(0.0, control.deadline - time.monotonic())
+            if self._write_lock.acquire(timeout=min(0.05, remaining)):
+                break
+        try:
+            control.check()
+            yield
+        finally:
+            self._write_lock.release()
 
     @property
     def available(self) -> bool:
@@ -162,6 +204,8 @@ class OwnerFilesystemWorkspace:
             return None
         if stat.S_ISLNK(details.st_mode):
             raise FilesystemToolError("filesystem symlinks are denied")
+        if stat.S_ISREG(details.st_mode) and details.st_nlink != 1:
+            raise FilesystemToolError("filesystem hardlinks are denied")
         return details
 
     def write(
@@ -171,7 +215,10 @@ class OwnerFilesystemWorkspace:
         content: str,
         *,
         root_index: int = 0,
+        control: FilesystemWriteControl | None = None,
     ) -> FilesystemOperationResult:
+        control = control or FilesystemWriteControl(time.monotonic() + FILESYSTEM_WRITE_SECONDS)
+        control.check()
         if not isinstance(content, str):
             raise FilesystemToolError("filesystem content is invalid")
         encoded = content.encode("utf-8")
@@ -180,9 +227,10 @@ class OwnerFilesystemWorkspace:
         if _contains_secret(content):
             raise FilesystemToolError("credential-like content is denied")
         relative = self._relative_path(path)
-        owner_root = self._owner_root(owner_id, root_index)
         digest = hashlib.sha256(encoded).hexdigest()
-        with self._write_lock:
+        with self._write_admission(control):
+            owner_root = self._owner_root(owner_id, root_index)
+            control.check()
             try:
                 parent_fd, name = self._walk_parent(owner_root, relative)
             except OSError as exc:
@@ -206,6 +254,7 @@ class OwnerFilesystemWorkspace:
                         )
                     raise FilesystemToolError("filesystem target already exists")
 
+                control.check()
                 temporary_name = f".ai-os-{uuid4().hex}.tmp"
                 open_flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
                 if hasattr(os, "O_NOFOLLOW"):
@@ -219,6 +268,7 @@ class OwnerFilesystemWorkspace:
                 try:
                     view = memoryview(encoded)
                     while view:
+                        control.check()
                         written = os.write(file_fd, view)
                         if written <= 0:
                             raise OSError("filesystem write made no progress")
@@ -226,6 +276,7 @@ class OwnerFilesystemWorkspace:
                     os.fsync(file_fd)
                 finally:
                     os.close(file_fd)
+                control.check()
                 os.link(
                     temporary_name,
                     name,
@@ -233,8 +284,13 @@ class OwnerFilesystemWorkspace:
                     dst_dir_fd=parent_fd,
                     follow_symlinks=False,
                 )
+                # After publication, finish cleanup and verification even when
+                # cancellation arrives. Never erase a completed effect.
+                control.published = True
                 os.unlink(temporary_name, dir_fd=parent_fd)
                 temporary_name = None
+                if self._read_at(parent_fd, name, MAX_FILESYSTEM_READ_BYTES) != encoded:
+                    raise FilesystemToolVerificationError("filesystem write verification failed")
                 return FilesystemOperationResult(
                     "write",
                     relative.as_posix(),
@@ -266,6 +322,10 @@ class OwnerFilesystemWorkspace:
         file_fd = os.open(name, flags, dir_fd=parent_fd)
         try:
             details = os.fstat(file_fd)
+            # Defense in depth against detectable preseeded aliases. A single
+            # remaining link cannot establish an inode's historical provenance.
+            if stat.S_ISREG(details.st_mode) and details.st_nlink != 1:
+                raise FilesystemToolError("filesystem hardlinks are denied")
             if not stat.S_ISREG(details.st_mode) or details.st_size > maximum:
                 raise FilesystemToolError("filesystem file exceeded its read bound")
             content = bytearray()
@@ -420,8 +480,12 @@ class OwnerFilesystemWorkspace:
         entries: list[dict[str, Any]] = []
         try:
             with os.scandir(directory_fd) as children:
-                ordered = sorted(children, key=lambda item: item.name.casefold())
-            for item in ordered[:limit]:
+                bounded = []
+                for item in children:
+                    if len(bounded) >= MAX_FILESYSTEM_SCAN_ENTRIES:
+                        raise FilesystemToolError("filesystem directory exceeded its scan bound")
+                    bounded.append(item)
+            for item in sorted(bounded, key=lambda item: item.name.casefold()):
                 if item.is_symlink():
                     continue
                 lowered_name = item.name.casefold()
@@ -433,6 +497,8 @@ class OwnerFilesystemWorkspace:
                     continue
                 details = item.stat(follow_symlinks=False)
                 if not (stat.S_ISREG(details.st_mode) or stat.S_ISDIR(details.st_mode)):
+                    continue
+                if stat.S_ISREG(details.st_mode) and details.st_nlink != 1:
                     continue
                 entries.append(
                     {
@@ -448,5 +514,5 @@ class OwnerFilesystemWorkspace:
         return FilesystemOperationResult(
             "list",
             display_path,
-            {"entries": entries, "truncated": len(ordered) > limit},
+            {"entries": entries[:limit], "truncated": len(entries) > limit},
         )

@@ -31,6 +31,7 @@ while [[ "$#" -gt 0 ]]; do
 done
 
 cd "${repository_root}"
+initial_source_commit="$(git rev-parse HEAD)"
 git diff --check
 npm run report:features
 if [[ "${require_clean}" == true && -n "$(git status --short)" ]]; then
@@ -72,6 +73,8 @@ fi
 
 "${script_directory}/verify_service_units.sh"
 "${script_directory}/test_remote_gateway_check.sh"
+"${backend_python}" "${script_directory}/test_release_source_guard.py"
+"${backend_python}" "${script_directory}/test_desktop_launch_guard.py"
 bash -n scripts/*.sh
 "${backend_python}" scripts/backup_tool.py --help >/dev/null
 
@@ -84,6 +87,14 @@ fi
 
 git diff --check
 if [[ "${require_clean}" == true ]]; then
+  if [[ "$(git rev-parse HEAD)" != "${initial_source_commit}" ]]; then
+    echo "Release verification detected a Git HEAD change during validation." >&2
+    exit 1
+  fi
+  if [[ -n "$(git status --porcelain=v1 --untracked-files=all)" ]]; then
+    echo "Release verification requires a clean Git worktree after validation." >&2
+    exit 1
+  fi
   "${script_directory}/artifact_scan.sh"
   [[ "$(git rev-parse HEAD)" == "$(git rev-parse main)" ]]
   [[ "$(git rev-parse HEAD)" == "$(git rev-parse origin/main)" ]]

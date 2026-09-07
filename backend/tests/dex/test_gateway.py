@@ -544,6 +544,23 @@ async def test_callback_binds_owner_rejects_replay_and_treats_prompt_as_untruste
 
     assert wrong_owner == {"status": "FAILED", "failure_code": "callback_rejected"}
     assert accepted["status"] == "VERIFIED"
+    assert {
+        "task_id", "correlation_id", "owner_id", "source", "destination",
+        "capability", "timestamp", "status", "evidence", "verification",
+    } <= accepted.keys()
+    assert accepted["task_id"] == str(task_id)
+    assert accepted["correlation_id"] == str(correlation_id)
+    assert accepted["owner_id"] == str(owner_id)
+    assert accepted["source"] == "ai_os"
+    assert accepted["destination"] == "dex"
+    actual_digest = hashlib.sha256(accepted["output"].encode("utf-8")).hexdigest()
+    assert accepted["evidence"] == {
+        "output_sha256": actual_digest,
+        "provenance": "agent_os",
+        "scope": "response_integrity_only",
+    }
+    assert accepted["output_sha256"] == actual_digest
+    assert accepted["verification"]["semantic_correctness_verified"] is False
     assert replay == {"status": "FAILED", "failure_code": "callback_rejected"}
     orchestrator.run.assert_awaited_once()
     request = orchestrator.run.await_args.args[0]
@@ -627,6 +644,269 @@ async def test_cancelled_dex_child_cannot_apply_a_late_effect(tmp_path):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("interruption", ["cancel", "repeated_cancel", "sustained_cancel", "timeout", "leader_exit"])
+async def test_resistant_process_group_cannot_act_after_terminal_return(
+    tmp_path, monkeypatch, interruption,
+):
+    import app.dex.gateway as gateway_module
+
+    marker, ready, release = (tmp_path / name for name in ("late-effect", "ready", "release"))
+    executable = tmp_path / "resistant-codex"
+    child = (
+        "import pathlib,time,signal; signal.signal(signal.SIGTERM,signal.SIG_IGN); "
+        f"release=pathlib.Path({str(release)!r}); "
+        "\nwhile not release.exists(): time.sleep(0.005)\n"
+        f"pathlib.Path({str(marker)!r}).touch()\n"
+    )
+    executable.write_text(
+        f"#!{sys.executable}\n"
+        "import signal,subprocess,sys,time,pathlib\n"
+        "signal.signal(signal.SIGTERM,signal.SIG_IGN)\n"
+        f"subprocess.Popen([sys.executable,'-c',{child!r}], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)\n"
+        f"pathlib.Path({str(ready)!r}).touch()\n"
+        + ("sys.exit(0)\n" if interruption == "leader_exit" else "time.sleep(30)\n")
+    )
+    executable.chmod(0o700)
+    gateway = _gateway(tmp_path, binary=executable)
+    # Shorten only the synthetic process grace interval; the real signal,
+    # process group and repeated cancellation boundary remain exercised.
+    monkeypatch.setattr(gateway_module, "DEX_PROCESS_TERMINATION_GRACE_SECONDS", 0.15, raising=False)
+    if interruption == "timeout":
+        gateway.timeout_seconds = 0.05
+    task = asyncio.create_task(gateway._run_codex(
+        request="Exercise owned process containment.", capability="verification",
+        target=gateway.project_root, allow_non_git=False, execution_mode="read_only",
+        require_ai_os_review=False, socket_path=tmp_path / "unused.sock",
+        token="synthetic-unused-token", task_id=uuid4(), correlation_id=uuid4(), owner_id=uuid4(),
+    ))
+    canceller = None
+    try:
+        async with asyncio.timeout(2):
+            while not ready.exists():
+                await asyncio.sleep(0.005)
+        if interruption in {"cancel", "repeated_cancel", "sustained_cancel"}:
+            repetitions = {"cancel": 1, "repeated_cancel": 3, "sustained_cancel": 40}[interruption]
+
+            async def cancel_repeatedly():
+                for _ in range(repetitions):
+                    task.cancel()
+                    await asyncio.sleep(0.01)
+
+            canceller = asyncio.create_task(cancel_repeatedly())
+        done, _ = await asyncio.wait({task}, timeout=8)
+        assert done, "process teardown exceeded its finite bound"
+        if interruption == "leader_exit":
+            assert (await task)[2] == 0
+        elif interruption == "timeout":
+            with pytest.raises(DexGatewayError, match="timed out"):
+                await task
+        else:
+            with pytest.raises(asyncio.CancelledError):
+                await task
+        release.touch()
+        await asyncio.sleep(0.1)
+        assert not marker.exists(), "process group acted after terminal return"
+        assert not gateway._active_processes
+        assert gateway.available is True
+    finally:
+        if canceller is not None:
+            await canceller
+        await gateway.shutdown()
+        await asyncio.gather(task, return_exceptions=True)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("cleanup_failure", ["pending", "failed"])
+async def test_uncertain_process_cleanup_retains_ownership_and_recovers(
+    tmp_path, monkeypatch, cleanup_failure,
+):
+    from app.services.tool import ToolExecutionUncertainError
+    import app.dex.gateway as gateway_module
+
+    ready = tmp_path / "process-ready"
+    executable = tmp_path / "uncertain-codex"
+    executable.write_text(
+        f"#!{sys.executable}\nimport pathlib,time\n"
+        f"pathlib.Path({str(ready)!r}).touch()\ntime.sleep(30)\n"
+    )
+    executable.chmod(0o700)
+    gateway = _gateway(tmp_path, binary=executable)
+    entered, release = asyncio.Event(), asyncio.Event()
+    actual_terminate = gateway._terminate_process
+    cleanup_calls = 0
+
+    async def controlled_cleanup(process):
+        nonlocal cleanup_calls
+        cleanup_calls += 1
+        entered.set()
+        if cleanup_failure == "failed":
+            raise RuntimeError("synthetic termination failure")
+        await release.wait()
+        await actual_terminate(process)
+
+    monkeypatch.setattr(gateway, "_terminate_process", controlled_cleanup)
+    monkeypatch.setattr(gateway_module, "MAX_DEX_PROCESS_CLEANUP_SECONDS", 0.04)
+    task = asyncio.create_task(gateway._run_codex(
+        request="Exercise uncertain process cleanup.", capability="verification",
+        target=gateway.project_root, allow_non_git=False, execution_mode="read_only",
+        require_ai_os_review=False, socket_path=tmp_path / "unused.sock",
+        token="synthetic-unused-token", task_id=uuid4(), correlation_id=uuid4(), owner_id=uuid4(),
+    ))
+    try:
+        async with asyncio.timeout(1):
+            while not ready.exists():
+                await asyncio.sleep(0.002)
+        task.cancel()
+        await asyncio.wait_for(entered.wait(), timeout=1)
+        done, _ = await asyncio.wait({task}, timeout=0.5)
+        assert done
+        with pytest.raises(ToolExecutionUncertainError) as outcome:
+            await task
+        assert outcome.value.cancellation_requested is True
+        assert gateway.available is False
+        assert len(gateway._active_processes) == 1
+        assert len(gateway._process_readers) == 1
+        assert len(gateway._process_cleanups) == 1
+        process = next(iter(gateway._active_processes))
+        assert process.returncode is None
+        assert all(not reader.cancelled() for reader in gateway._process_readers[process])
+        if cleanup_failure == "pending":
+            with pytest.raises(ToolExecutionUncertainError):
+                await gateway.shutdown()
+            assert cleanup_calls == 1, "shutdown started a duplicate teardown"
+    finally:
+        release.set()
+        monkeypatch.setattr(gateway, "_terminate_process", actual_terminate)
+        monkeypatch.setattr(gateway_module, "MAX_DEX_PROCESS_CLEANUP_SECONDS", 8.0)
+        await gateway.shutdown()
+        await asyncio.gather(task, return_exceptions=True)
+    assert not gateway._active_processes
+    assert not gateway._process_readers
+    assert not gateway._process_cleanups
+    assert gateway.available is True
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("interruption", ["cancel", "timeout"])
+async def test_admitted_read_only_parent_preserves_process_uncertainty(
+    tmp_path, monkeypatch, interruption,
+):
+    from dataclasses import replace
+    from datetime import datetime, timezone
+    from sqlalchemy.ext.asyncio import AsyncSession
+    from app.models.tool import ToolExecution, ToolExecutionStatus
+    from app.services.tool import ToolService, TOOL_REGISTRY
+    import app.services.tool as tool_module
+    import app.dex.gateway as gateway_module
+
+    ready = tmp_path / "parent-process-ready"
+    executable = tmp_path / "parent-codex"
+    executable.write_text(
+        f"#!{sys.executable}\nimport pathlib,time\n"
+        f"pathlib.Path({str(ready)!r}).touch()\ntime.sleep(30)\n"
+    )
+    executable.chmod(0o700)
+    gateway = _gateway(tmp_path, binary=executable)
+    release = asyncio.Event()
+    actual_terminate = gateway._terminate_process
+
+    async def delayed_cleanup(process):
+        await release.wait()
+        await actual_terminate(process)
+
+    monkeypatch.setattr(gateway, "_terminate_process", delayed_cleanup)
+    monkeypatch.setattr(gateway_module, "MAX_DEX_PROCESS_CLEANUP_SECONDS", 0.04)
+    if interruption == "timeout":
+        monkeypatch.setitem(TOOL_REGISTRY, "dex.delegate", replace(
+            TOOL_REGISTRY["dex.delegate"], timeout_seconds=1.0))
+        monkeypatch.setattr(tool_module, "DEX_READ_ONLY_RETRY_RESERVE_SECONDS", 0.0)
+    owner = uuid4()
+    record = ToolExecution(
+        id=uuid4(), owner_id=owner, tool_name="dex.delegate", permission="agent_delegation",
+        status=ToolExecutionStatus.RUNNING, initiator="chat_model", arguments_json="{}",
+        result_json=None, error_code=None, started_at=datetime.now(timezone.utc),
+        completed_at=None, duration_ms=None,
+    )
+    service = ToolService(AsyncMock(spec=AsyncSession), dex_gateway=gateway)
+    service.repository = Mock(create_running=AsyncMock(return_value=record),
+                              finish=AsyncMock(return_value=record))
+    task = asyncio.create_task(service.execute_for_owner(
+        owner, "dex.delegate", {"request": "Review one bounded synthetic condition.",
+        "capability": "analysis", "scope": "repository", "execution_mode": "read_only",
+        "require_ai_os_review": True}, initiator="chat_model",
+        allowed_permissions=frozenset({"agent_delegation"}),
+    ))
+    try:
+        async with asyncio.timeout(2):
+            while not ready.exists():
+                await asyncio.sleep(0.002)
+        if interruption == "cancel":
+            task.cancel()
+        done, _ = await asyncio.wait({task}, timeout=2)
+        assert done
+        try:
+            await task
+        except BaseException as exc:
+            assert getattr(exc, "execution_uncertain", False), type(exc)
+        else:
+            pytest.fail("uncertain DEX process produced a terminal tool result")
+        service.repository.finish.assert_not_awaited()
+        assert record.status is ToolExecutionStatus.RUNNING
+        assert len(gateway._active_processes) == 1
+        assert gateway.available is False
+    finally:
+        release.set()
+        monkeypatch.setattr(gateway_module, "MAX_DEX_PROCESS_CLEANUP_SECONDS", 8.0)
+        await gateway.shutdown()
+        await asyncio.gather(task, return_exceptions=True)
+
+
+@pytest.mark.asyncio
+async def test_process_and_callback_uncertainty_retain_both_causes(tmp_path, monkeypatch):
+    from app.services.tool import ToolExecutionUncertainError
+
+    gateway = _gateway(tmp_path, binary=Path(sys.executable))
+    process_error = ToolExecutionUncertainError(
+        "synthetic process containment is uncertain", cancellation_requested=True,
+    )
+
+    async def callback(_owner, _task, _operation):
+        raise ToolExecutionUncertainError("synthetic callback effect is uncertain")
+
+    gateway.callback_executor = callback
+    callback_responses = []
+
+    async def run_codex(**options):
+        reader, writer = await asyncio.open_unix_connection(options["socket_path"])
+        try:
+            payload = {
+                "token": options["token"], "task_id": str(options["task_id"]),
+                "correlation_id": str(options["correlation_id"]),
+                "owner_id": str(options["owner_id"]), "question": "Review a synthetic effect.",
+                "operation": {"tool": "filesystem.write", "arguments": {}},
+            }
+            writer.write((json.dumps(payload) + "\n").encode())
+            await writer.drain()
+            callback_responses.append(json.loads(await reader.readline()))
+            raise process_error
+        finally:
+            writer.close()
+            await writer.wait_closed()
+
+    monkeypatch.setattr(gateway, "_run_codex", run_codex)
+    with pytest.raises(ToolExecutionUncertainError, match="callback execution") as outcome:
+        await gateway.delegate(
+            uuid4(), uuid4(), request="Review combined synthetic uncertainty.", capability="coding",
+            scope="owner_workspace", execution_mode="workspace_write",
+            require_ai_os_review=True, initiator="explicit_user",
+        )
+    assert outcome.value.__cause__ is process_error
+    assert outcome.value.cancellation_requested is True
+    assert callback_responses[0]["status"] == "UNCERTAIN"
+    assert callback_responses[0]["cancellation_requested"] is False
+
+
+@pytest.mark.asyncio
 async def test_delegation_cancellation_joins_active_callback(tmp_path, monkeypatch):
     gateway = _gateway(tmp_path, binary=Path(sys.executable))
     entered = asyncio.Event()
@@ -682,6 +962,244 @@ async def test_delegation_cancellation_joins_active_callback(tmp_path, monkeypat
             writer.close()
             await writer.wait_closed()
         await asyncio.gather(delegation, *handlers, return_exceptions=True)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("interruption", ["cancel", "timeout", "repeated_cancel"])
+async def test_nested_uncontained_write_preserves_callback_uncertainty(
+    tmp_path, monkeypatch, interruption,
+):
+    from datetime import datetime, timezone
+    import threading
+    from sqlalchemy.ext.asyncio import AsyncSession
+    from app.models.tool import ToolExecution, ToolExecutionStatus
+    from app.services.filesystem_tool import OwnerFilesystemWorkspace
+    from app.services.tool import ToolService
+    import app.services.tool as tool_module
+
+    gateway = _gateway(tmp_path, binary=Path(sys.executable))
+    owner = uuid4()
+    workspace = OwnerFilesystemWorkspace((gateway.owner_workspace_root,))
+    target = gateway.owner_workspace_root / str(owner) / "nested.txt"
+    entered, release, exited = threading.Event(), threading.Event(), threading.Event()
+    real_link = os.link
+    actual_write = workspace.write
+    audits = []
+    records = []
+
+    def gated_link(*args, **kwargs):
+        entered.set()
+        assert release.wait(2)
+        return real_link(*args, **kwargs)
+
+    def tracked_write(*args, **kwargs):
+        try:
+            return actual_write(*args, **kwargs)
+        finally:
+            exited.set()
+
+    monkeypatch.setattr(os, "link", gated_link)
+    monkeypatch.setattr(workspace, "write", tracked_write)
+    monkeypatch.setattr(tool_module, "FILESYSTEM_CLEANUP_SECONDS", 0.04)
+
+    def service_for(name, permission, **options):
+        record = ToolExecution(
+            id=uuid4(), owner_id=owner, tool_name=name, permission=permission,
+            status=ToolExecutionStatus.RUNNING, initiator="explicit_user",
+            arguments_json="{}", result_json=None, error_code=None,
+            started_at=datetime.now(timezone.utc), completed_at=None, duration_ms=None,
+        )
+        records.append(record)
+
+        async def finish(_owner, _execution, status, duration_ms, **kwargs):
+            audits.append((name, status, target.exists(), exited.is_set()))
+            record.status = status
+            record.duration_ms = duration_ms
+            record.completed_at = datetime.now(timezone.utc)
+            record.result_json = kwargs.get("result_json")
+            record.error_code = kwargs.get("error_code")
+            return record
+
+        service = ToolService(AsyncMock(spec=AsyncSession), **options)
+        service.repository = Mock(create_running=AsyncMock(return_value=record),
+                                  finish=AsyncMock(side_effect=finish))
+        return service
+
+    child = service_for("filesystem.write", "workspace_write", filesystem_workspace=workspace)
+
+    async def callback(callback_owner, _parent_id, operation):
+        assert callback_owner == owner
+        await child.execute_for_owner(
+            callback_owner, "filesystem.write", operation["arguments"],
+            initiator="dex_agent", allowed_permissions=frozenset({"workspace_write"}),
+        )
+        raise AssertionError("stalled child cannot report a verified callback")
+
+    gateway.callback_executor = callback
+
+    async def run_codex(**options):
+        reader, writer = await asyncio.open_unix_connection(options["socket_path"])
+        try:
+            payload = {
+                "token": options["token"], "task_id": str(options["task_id"]),
+                "correlation_id": str(options["correlation_id"]),
+                "owner_id": str(owner), "question": "Verify the scoped synthetic write.",
+                "operation": {"tool": "filesystem.write", "arguments": {
+                    "path": "nested.txt", "content": "synthetic nested write",
+                }},
+            }
+            writer.write((json.dumps(payload) + "\n").encode())
+            await writer.drain()
+            await reader.readline()
+            raise DexGatewayError("synthetic runtime received no verified callback")
+        finally:
+            writer.close()
+            await writer.wait_closed()
+
+    monkeypatch.setattr(gateway, "_run_codex", run_codex)
+    # Exercise the gateway's explicit-user adapter directly. Production
+    # ToolService currently admits only read-only chat-model delegations.
+    delegation = gateway.delegate(
+        owner, uuid4(), request="Write one bounded synthetic file.", capability="coding",
+        scope="owner_workspace", execution_mode="workspace_write",
+        require_ai_os_review=True, initiator="explicit_user",
+    )
+    task = asyncio.create_task(delegation)
+    try:
+        async with asyncio.timeout(1):
+            while not entered.is_set():
+                await asyncio.sleep(0.002)
+        if interruption == "timeout":
+            # Start the same deadline only after the real syscall gate is
+            # entered; startup scheduling must not choose a different boundary.
+            task = asyncio.create_task(asyncio.wait_for(task, timeout=0.05))
+        else:
+            task.cancel()
+        if interruption == "repeated_cancel":
+            await asyncio.sleep(0.01)
+            task.cancel()
+        done, _ = await asyncio.wait({task}, timeout=1)
+        assert done, "nested uncertainty reporting exceeded its bound"
+        try:
+            await task
+        except BaseException as exc:
+            assert getattr(exc, "execution_uncertain", False), type(exc)
+        else:
+            pytest.fail("uncontained child returned a terminal parent result")
+        assert audits == [], "child falsely terminalized before containment"
+        assert all(record.status is ToolExecutionStatus.RUNNING for record in records)
+        assert not target.exists() and not exited.is_set()
+    finally:
+        release.set()
+        async with asyncio.timeout(1):
+            while not exited.is_set():
+                await asyncio.sleep(0.002)
+        await asyncio.gather(task, return_exceptions=True)
+    assert target.read_text() == "synthetic nested write"
+    assert audits == [], "uncertain late publication must not invent a terminal audit"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure", ["reported_uncertainty", "uncontained_callback"])
+async def test_callback_uncertainty_survives_handler_completion_or_cleanup_deadline(
+    tmp_path, monkeypatch, failure,
+):
+    from app.services.tool import ToolExecutionUncertainError
+    import app.dex.gateway as gateway_module
+
+    gateway = _gateway(tmp_path, binary=Path(sys.executable))
+    entered, release = asyncio.Event(), asyncio.Event()
+    monkeypatch.setattr(gateway_module, "MAX_DEX_CALLBACK_CLEANUP_SECONDS", 0.04)
+
+    async def callback(_owner, _task, _operation):
+        entered.set()
+        if failure == "reported_uncertainty":
+            raise ToolExecutionUncertainError("synthetic published effect is uncertain")
+        while not release.is_set():
+            try:
+                await release.wait()
+            except asyncio.CancelledError:
+                pass
+        raise ToolExecutionUncertainError("synthetic callback remained uncertain")
+
+    gateway.callback_executor = callback
+
+    async def run_codex(**options):
+        reader, writer = await asyncio.open_unix_connection(options["socket_path"])
+        try:
+            payload = {
+                "token": options["token"], "task_id": str(options["task_id"]),
+                "correlation_id": str(options["correlation_id"]),
+                "owner_id": str(options["owner_id"]), "question": "Review a synthetic effect.",
+                "operation": {"tool": "filesystem.write", "arguments": {}},
+            }
+            writer.write((json.dumps(payload) + "\n").encode())
+            await writer.drain()
+            response = json.loads(await reader.readline())
+            assert response["status"] == "UNCERTAIN"
+            await asyncio.sleep(0)  # Let the completed handler leave the active set.
+            raise DexGatewayError("runtime cannot verify an uncertain callback")
+        finally:
+            writer.close()
+            await writer.wait_closed()
+
+    monkeypatch.setattr(gateway, "_run_codex", run_codex)
+    task = asyncio.create_task(gateway.delegate(
+        uuid4(), uuid4(), request="Review a synthetic scoped effect.", capability="coding",
+        scope="owner_workspace", execution_mode="workspace_write",
+        require_ai_os_review=True, initiator="explicit_user",
+    ))
+    queued = None
+    try:
+        await asyncio.wait_for(entered.wait(), timeout=1)
+        if failure == "uncontained_callback":
+            queued = asyncio.create_task(gateway.delegate(
+                uuid4(), uuid4(), request="A second bounded review.", capability="analysis",
+                scope="repository", execution_mode="read_only",
+                require_ai_os_review=True, initiator="explicit_user",
+            ))
+            await asyncio.sleep(0)  # Queue admission before the first task becomes uncertain.
+            task.cancel()
+        done, _ = await asyncio.wait({task}, timeout=0.5)
+        assert done, "callback cleanup has no finite bound"
+        with pytest.raises(ToolExecutionUncertainError) as outcome:
+            await task
+        assert outcome.value.cancellation_requested is (failure == "uncontained_callback")
+        if failure == "uncontained_callback":
+            assert len(gateway._uncertain_callbacks) == 1
+            assert gateway.available is False, "uncertain callbacks admitted another delegation"
+            from app.dex.gateway import DexGatewayUnavailableError
+            with pytest.raises(DexGatewayUnavailableError, match="containment remains uncertain"):
+                await queued
+    finally:
+        release.set()
+        async with asyncio.timeout(1):
+            while gateway._uncertain_callbacks:
+                await asyncio.sleep(0.002)
+        await asyncio.gather(task, return_exceptions=True)
+        if queued is not None:
+            await asyncio.gather(queued, return_exceptions=True)
+    assert gateway.available is True
+
+
+def test_callback_uncertainty_preserves_prior_claim_and_stays_bounded():
+    context = _CallbackContext(uuid4(), uuid4(), uuid4(), "synthetic", "workspace_write")
+    prior_claim = {
+        "status": "VERIFIED", "output_sha256": "a" * 64,
+        "operation": {"status": "VERIFIED", "sha256": "b" * 64},
+    }
+    original = json.loads(json.dumps(prior_claim))
+    results = [prior_claim]
+    timeline = []
+    for cancellation in (False, True, False):
+        DexGateway._record_callback_uncertainty(
+            context, timeline, results, cancellation_requested=cancellation,
+        )
+    assert results[0] == original
+    assert len(results) == 2
+    assert results[1]["status"] == "UNCERTAIN"
+    assert results[1]["cancellation_requested"] is True
+    assert len(timeline) == 1
 
 
 @pytest.mark.parametrize("evidence", [[], [

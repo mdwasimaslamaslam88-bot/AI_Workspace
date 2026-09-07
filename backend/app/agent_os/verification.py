@@ -81,9 +81,8 @@ class IndependentVerificationEngine:
                 )
             objective_checks.append(result)
         checks.extend(objective_checks)
-        if step.requires_objective_evidence and not (
-            execution.evidence_codes or objective_checks
-        ):
+        # Specialist-supplied labels identify provenance; they cannot verify a claim.
+        if step.requires_objective_evidence and not objective_checks:
             checks.append(
                 VerificationCheck(
                     check_id="objective-evidence",

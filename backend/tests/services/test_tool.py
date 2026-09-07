@@ -14,9 +14,46 @@ from app.services.tool import (
     ToolInputInvalidError,
     ToolNotFoundError,
     ToolService,
+    ToolExecutionUncertainError,
     _evaluate_arithmetic,
     reconcile_tool_executions,
 )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("cancellation_requested", [False, True])
+async def test_nested_execution_uncertainty_never_terminalizes_parent(cancellation_requested):
+    owner = uuid4()
+    running = _execution(owner, tool_name="dex.delegate", permission="agent_delegation",
+                         initiator="chat_model")
+    service = ToolService(AsyncMock(spec=AsyncSession))
+
+    async def finish(owner_id, execution_id, status, duration_ms, **kwargs):
+        assert owner_id == owner and execution_id == running.id
+        terminal = _execution(
+            owner, status=status, tool_name="dex.delegate", permission="agent_delegation",
+            initiator="chat_model", result=(json.loads(kwargs["result_json"])
+                                           if kwargs.get("result_json") else None),
+        )
+        terminal.id = execution_id
+        terminal.duration_ms = duration_ms
+        terminal.error_code = kwargs.get("error_code")
+        return terminal
+
+    service.repository = Mock(create_running=AsyncMock(return_value=running),
+                              finish=AsyncMock(side_effect=finish))
+    uncertainty = ToolExecutionUncertainError("synthetic child containment uncertainty")
+    uncertainty.cancellation_requested = cancellation_requested
+    service._invoke = AsyncMock(side_effect=uncertainty)
+
+    exception_type = asyncio.CancelledError if cancellation_requested else ToolExecutionUncertainError
+    with pytest.raises(exception_type) as caught:
+        await service.execute_for_owner(
+            owner, "dex.delegate", {"request": "synthetic scoped review"}, initiator="chat_model",
+            allowed_permissions=frozenset({"agent_delegation"}),
+        )
+    assert caught.value.execution_uncertain is True
+    service.repository.finish.assert_not_awaited()
 
 
 def _execution(

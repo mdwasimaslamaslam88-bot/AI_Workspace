@@ -195,3 +195,62 @@ def test_publish_race_cannot_overwrite_an_existing_target(
 
     assert target.read_text(encoding="utf-8") == "first"
     assert not any(item.name.startswith(".ai-os-") for item in owner_root.iterdir())
+
+
+def test_directory_scan_budget_rejects_before_unbounded_enumeration(workspace, monkeypatch):
+    owner = uuid4()
+    workspace.exists(owner, "seed.txt")
+    consumed = 0
+
+    class InfiniteChildren:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+        def __iter__(self):
+            return self
+
+        def __next__(self):
+            nonlocal consumed
+            consumed += 1
+            # The sentinel turns an unbounded loop into a deterministic failure.
+            if consumed > 4097:
+                raise AssertionError("directory scan exceeded its finite budget")
+            from types import SimpleNamespace
+            return SimpleNamespace(name=f"synthetic-{consumed:05d}")
+
+    monkeypatch.setattr(os, "scandir", lambda _fd: InfiniteChildren())
+    with pytest.raises(FilesystemToolError, match="scan bound"):
+        workspace.list(owner, limit=1)
+    assert consumed == 4097
+
+
+def test_list_filters_before_applying_visible_entry_limit(workspace, tmp_path):
+    owner = uuid4()
+    workspace.write(owner, "visible.txt", "safe")
+    (tmp_path / "configured-root" / str(owner) / ".hidden").write_text("synthetic")
+    result = workspace.list(owner, limit=1)
+    assert result.payload == {
+        "entries": [{"name": "visible.txt", "kind": "file", "size": 4}],
+        "truncated": False,
+    }
+
+
+@pytest.mark.parametrize("operation", ["read", "exists", "stat", "write", "list"])
+def test_detectable_foreign_hardlink_is_denied_consistently(workspace, tmp_path, operation):
+    foreign, owner = uuid4(), uuid4()
+    workspace.write(foreign, "source.txt", "synthetic foreign content")
+    workspace.exists(owner, "alias.txt")
+    roots = tmp_path / "configured-root"
+    os.link(roots / str(foreign) / "source.txt", roots / str(owner) / "alias.txt")
+    assert (roots / str(owner) / "alias.txt").stat().st_nlink == 2
+    if operation == "list":
+        assert workspace.list(owner).payload == {"entries": [], "truncated": False}
+    else:
+        with pytest.raises(FilesystemToolError, match="hardlink"):
+            if operation == "write":
+                workspace.write(owner, "alias.txt", "synthetic foreign content")
+            else:
+                getattr(workspace, operation)(owner, "alias.txt")
