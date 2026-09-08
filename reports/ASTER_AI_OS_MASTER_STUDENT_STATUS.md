@@ -1,6 +1,6 @@
 # ASTER / Personal AI OS master-student status
 
-Iteration 16. Overall acceptance remains **NOT READY**. Current report commit is `504ea8357645972098fe60534761ccd7dad3afbd`; runtime identity is independently attested at the same commit.
+Iteration 17. Overall acceptance remains **NOT READY**. Current report commit is `504ea8357645972098fe60534761ccd7dad3afbd`; runtime identity is independently attested at the same commit.
 
 Canonical benchmark accepted result: **97.74/100**, 456 PASS, 2 PARTIAL, 1 FAIL; mean 8.2534s, P95 16.7391s. Baseline remains 97.80/100, 457 PASS, 1 PARTIAL, 1 FAIL.
 
@@ -17,6 +17,6 @@ Residual internal cases:
 - `voice-stt-01` PARTIAL: transcription missed synthetic checkpoint words.
 - `ASTER-026`, `ASTER-027`, and `ASTER-031` remain unresolved review/model/reporting issues.
 
-ASTER ↔ AI OS transport is authenticated and persisted, but advisory model review remains qualified; parent MCP/reverse callback, live DEX, off-device browser, and the Git remote DNS path remain externally blocked. Security and owner isolation remain fail-closed.
+ASTER ↔ AI OS transport is authenticated and persisted, but advisory model review remains qualified; parent MCP/reverse callback, live DEX, off-device browser,  Security and owner isolation remain fail-closed.
 
 Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-memoryfix2`. Persistent queue: `reports/ASTER_AI_OS_ISSUE_QUEUE.json`.

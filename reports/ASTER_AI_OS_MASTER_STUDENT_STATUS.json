@@ -1,8 +1,8 @@
 {
   "schema_version": 4,
-  "iteration": 16,
+  "iteration": 17,
   "status": "NOT_READY_MEASURED_INTERNAL_LIMITATIONS_AND_EXTERNAL_BLOCKERS",
-  "updated_at": "2026-09-09T00:50:00+05:30",
+  "updated_at": "2026-09-09T01:05:00+05:30",
   "current_issue": [
     "ASTER-006",
     "ASTER-007",
@@ -13,8 +13,8 @@
     "ASTER-001",
     "ASTER-009"
   ],
-  "current_commit": "504ea8357645972098fe60534761ccd7dad3afbd",
-  "current_runtime": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/runtime-identity-decoder-504ea83-retry.json",
+  "current_commit": "71af9735358729b23a5e50be0cbe8281f7c89d0d",
+  "current_runtime": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/runtime-identity-final-71af973.json",
   "current_artifact": "Packaged desktop/PWA cf05844 unchanged; backend b10742a deployed directly",
   "issues": [
     {
@@ -1997,13 +1997,6 @@
       "status": "BLOCKED_EXTERNAL",
       "error": "No enrolled peer browser with working tailnet DNS",
       "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/private-readonly-gateway.json"
-    },
-    {
-      "id": "GIT_REMOTE_DNS",
-      "status": "BLOCKED_EXTERNAL",
-      "error": "git push origin main: Could not resolve host: github.com",
-      "attempted": "git push origin main after local commit 8ca9983",
-      "owner_action": "Restore outbound DNS/network, then push and verify origin/main divergence."
     }
   ],
   "acceptance": {
@@ -2709,5 +2702,11 @@
     "web_tests": "206 passed",
     "mobile_tests": "64 passed",
     "full_regression": "3152 backend passed, 206 web passed, 64 mobile passed"
+  },
+  "release_gate": {
+    "push": "PASS",
+    "fetch": "PASS",
+    "divergence": "0/0",
+    "working_tree_clean": true
   }
 }
