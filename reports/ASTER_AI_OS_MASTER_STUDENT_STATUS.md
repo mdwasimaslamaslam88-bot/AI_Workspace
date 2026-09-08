@@ -1,6 +1,6 @@
 # ASTER / Personal AI OS master-student status
 
-Iteration 15. Overall acceptance remains **NOT READY**. Current report commit is `2cb2335857da32e2b70a1e44748c721392f72235`; runtime identity is independently attested at the same commit.
+Iteration 15. Overall acceptance remains **NOT READY**. Current report commit is `a2172a77cea5477ab464987bd7b64b9c2fde8482`; runtime identity is independently attested at the same commit.
 
 Canonical benchmark accepted result: **97.74/100**, 456 PASS, 2 PARTIAL, 1 FAIL; mean 8.2534s, P95 16.7391s. Baseline remains 97.80/100, 457 PASS, 1 PARTIAL, 1 FAIL.
 
