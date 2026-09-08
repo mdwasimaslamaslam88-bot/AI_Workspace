@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-09-09T01:45:00+05:30",
+  "updated_at": "2026-09-09T03:00:00+05:30",
   "authoritative_report": "reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.json",
   "purpose": "Derived machine-readable issue ledger; uses the existing report issue identities, not a second issue service",
   "allowed_statuses": [
@@ -1176,14 +1176,15 @@
       "integration_test": "Second complete canonical run retains voice-stt-01 PARTIAL; voice score and normalized WER/CER remain measured, not upgraded.",
       "security_test": "Synthetic assets were owner-scoped and deleted with 204/content 404; token scan passed.",
       "runtime_test": "Current voice model IDs and relevant eight source/config hashes unchanged from the prior canonical run.",
-      "regression": "Reproduced failure class; no repair admitted. Future canonical runs must preserve failing WAV bytes before cleanup.",
+      "regression": "Fresh canonical run at current HEAD passed voice-stt-01 and raised voice_score to99.95, but prior exact-WAV replay remains reproducibly partial; retain as model/acoustic variability observation rather than claim fixed.",
       "performance": "No model or runtime parameter change; current canonical mean 8.2534 seconds and P95 16.7391 seconds.",
       "status": "OPEN",
       "evidence": [
         "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/voice-regression/README.md",
         "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/voice-regression/reproduction.json",
         "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/voice-regression/capture-followup/capture.json",
-        "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-memoryfix2/Work_Station_Benchmark/benchmark-results.json"
+        "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-memoryfix2/Work_Station_Benchmark/benchmark-results.json",
+        "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260909-canonical-retry/Work_Station_Benchmark/benchmark-summary.json"
       ],
       "commit": "b10742a340a22e56ff7e315603cc8af19158b49b",
       "artifact": "installed local Piper and faster-whisper runtime",

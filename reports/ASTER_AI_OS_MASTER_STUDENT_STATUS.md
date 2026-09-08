@@ -1,8 +1,8 @@
 # ASTER / Personal AI OS master-student status
 
-Iteration 18. Overall acceptance remains **NOT READY**. Current report commit is `504ea8357645972098fe60534761ccd7dad3afbd`; runtime identity is independently attested at the same commit.
+Iteration 19. Overall acceptance remains **NOT READY**. Current report commit is `504ea8357645972098fe60534761ccd7dad3afbd`; runtime identity is independently attested at the same commit.
 
-Canonical benchmark accepted result: **97.74/100**, 456 PASS, 2 PARTIAL, 1 FAIL; mean 8.2534s, P95 16.7391s. Baseline remains 97.80/100, 457 PASS, 1 PARTIAL, 1 FAIL.
+Latest canonical benchmark: **97.84/100**, 457 PASS, 1 PARTIAL, 1 FAIL; mean 8.0913s, P95 16.6081s. Previous accepted result was 97.74/100, 456 PASS, 2 PARTIAL, 1 FAIL. Baseline remains 97.80/100, 457 PASS, 1 PARTIAL, 1 FAIL.
 
 A bounded qwen3 code-generation routing experiment was fully measured and rejected: the unchanged 459-case benchmark fell to **96.24/100**, 444 PASS, 5 PARTIAL, 10 FAIL. The preference was reverted to `gemma4:12b-it-q4_K_M`; backend restart and runtime identity checks passed. Evidence is retained under `/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-coderfix` and issue `ASTER-031` is recorded as REGRESSION.
 
@@ -14,7 +14,7 @@ Residual internal cases:
 
 - `medium-coding-04` PARTIAL: required `x * x`, `range(5)`.
 - `model-comparison-coder-06` FAIL: required `base case`.
-- `voice-stt-01` PARTIAL: transcription missed synthetic checkpoint words.
+- `voice-stt-01` passed in the latest canonical run; prior exact-WAV replay remains a reproducible acoustic/model variability observation.
 - `ASTER-026`, `ASTER-027`, and `ASTER-031` remain unresolved review/model/reporting issues.
 
 A real authenticated Agent OS request completed through the production API; objective-evidence verification correctly rejected the model-only response. ASTER ↔ AI OS transport is authenticated and persisted, but advisory model review remains qualified; parent MCP/reverse callback, live DEX, off-device browser,  Security and owner isolation remain fail-closed.
