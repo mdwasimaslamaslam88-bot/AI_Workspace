@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-09-08T18:10:00+00:00",
+  "updated_at": "2026-09-09T00:50:00+05:30",
   "authoritative_report": "reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.json",
   "purpose": "Derived machine-readable issue ledger; uses the existing report issue identities, not a second issue service",
   "allowed_statuses": [
@@ -651,21 +651,29 @@
         "new_claim": "A local interface adapter may provide a safe internal repair without duplicating the decoding algorithm.",
         "resolution": "Prior external-only classification falsified. Local upstream adapter cross-verified; full release pending."
       },
-      "fix": "Patched upstream decoder via CommonJS compatibility adapter;91,968 zero-difference consumer comparisons, clean install, audit0 and bounded malformed-input probe PASS; deployment pending.",
-      "focused_test": null,
-      "integration_test": null,
-      "security_test": null,
-      "runtime_test": null,
-      "regression": null,
-      "performance": null,
+      "fix": "Patched upstream decoder via CommonJS compatibility adapter and corrected compatibility package metadata to version 0.2.2, satisfying query-string ^0.2.2.",
+      "focused_test": {
+        "npm_ls": "PASS",
+        "dependency_security": "PASS",
+        "consumer_corpus": "PASS from prior evidence",
+        "web_tests": "206 passed",
+        "mobile_tests": "64 passed"
+      },
+      "integration_test": "Full npm test and production web build passed after metadata fix.",
+      "security_test": "scripts/security_audit.sh passed; malformed-input bound passed.",
+      "runtime_test": "Authenticated runtime identity matches source after commit 504ea83; backend restarted cleanly after transient readiness timeout.",
+      "regression": "No decoder corpus mismatch; prior 3044-mismatch adapter candidate retained as failed historical evidence.",
+      "performance": "No decoder performance regression measured; implementation unchanged.",
       "status": "VERIFIED",
       "evidence": [
-        "decoder-advisory-assessment.json",
-        "query-string-module-assessment.json"
+        "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/decoder-npm-ls-after-20260909.log",
+        "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/master-decoder-security-after.log",
+        "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/qa/decoder-corpus.json",
+        "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/full-regression-decoder-20260909.log"
       ],
-      "commit": "cf05844dbee756ae7377fefe6cbd039cd0e8fcd1",
+      "commit": "504ea8357645972098fe60534761ccd7dad3afbd",
       "artifact": null,
-      "runtime_identity": "current-discovery.json",
+      "runtime_identity": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/runtime-identity-decoder-504ea83-retry.json",
       "status_history": [
         {
           "timestamp": "2026-09-07T20:12:22.733892+00:00",
@@ -678,6 +686,12 @@
           "from": "REOPENED",
           "to": "VERIFYING",
           "reason": "Patched upstream decoder via CommonJS compatibility adapter;91,968 zero-difference consumer comparisons, clean install, audit0 and bounded malformed-input probe PASS; deployment pending."
+        },
+        {
+          "timestamp": "2026-09-09T00:50:00+05:30",
+          "from": "VERIFYING",
+          "to": "VERIFIED",
+          "reason": "Metadata compatibility correction and full regression passed."
         }
       ]
     },

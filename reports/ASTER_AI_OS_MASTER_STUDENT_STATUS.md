@@ -1,10 +1,12 @@
 # ASTER / Personal AI OS master-student status
 
-Iteration 15. Overall acceptance remains **NOT READY**. Current report commit is `a2172a77cea5477ab464987bd7b64b9c2fde8482`; runtime identity is independently attested at the same commit.
+Iteration 16. Overall acceptance remains **NOT READY**. Current report commit is `504ea8357645972098fe60534761ccd7dad3afbd`; runtime identity is independently attested at the same commit.
 
 Canonical benchmark accepted result: **97.74/100**, 456 PASS, 2 PARTIAL, 1 FAIL; mean 8.2534s, P95 16.7391s. Baseline remains 97.80/100, 457 PASS, 1 PARTIAL, 1 FAIL.
 
 A bounded qwen3 code-generation routing experiment was fully measured and rejected: the unchanged 459-case benchmark fell to **96.24/100**, 444 PASS, 5 PARTIAL, 10 FAIL. The preference was reverted to `gemma4:12b-it-q4_K_M`; backend restart and runtime identity checks passed. Evidence is retained under `/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-coderfix` and issue `ASTER-031` is recorded as REGRESSION.
+
+The decoder compatibility metadata defect was fixed: the adapter now declares version 0.2.2, `npm ls` is clean, dependency security passes, and the full regression remains green.
 
 The memory retrieval defect was fixed with a bounded deterministic lexical fallback. Native cross-conversation recall and owner-scoped persistence passed; memory score is 99.84. The exact loopback CORS failure was corrected with an exact allowlist entry while attacker origins remain denied.
 

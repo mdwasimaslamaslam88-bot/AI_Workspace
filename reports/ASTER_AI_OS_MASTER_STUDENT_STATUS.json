@@ -1,8 +1,8 @@
 {
   "schema_version": 4,
-  "iteration": 15,
+  "iteration": 16,
   "status": "NOT_READY_MEASURED_INTERNAL_LIMITATIONS_AND_EXTERNAL_BLOCKERS",
-  "updated_at": "2026-09-08T18:35:00+00:00",
+  "updated_at": "2026-09-09T00:50:00+05:30",
   "current_issue": [
     "ASTER-006",
     "ASTER-007",
@@ -13,8 +13,8 @@
     "ASTER-001",
     "ASTER-009"
   ],
-  "current_commit": "a2172a77cea5477ab464987bd7b64b9c2fde8482",
-  "current_runtime": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/runtime-identity-final-6b26014.json",
+  "current_commit": "504ea8357645972098fe60534761ccd7dad3afbd",
+  "current_runtime": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/runtime-identity-decoder-504ea83-retry.json",
   "current_artifact": "Packaged desktop/PWA cf05844 unchanged; backend b10742a deployed directly",
   "issues": [
     {
@@ -2700,5 +2700,14 @@
     "ASTER-026",
     "ASTER-027",
     "ASTER-031"
-  ]
+  ],
+  "decoder_validation": {
+    "status": "VERIFIED",
+    "package_version": "0.2.2",
+    "npm_ls": "PASS",
+    "dependency_security": "PASS",
+    "web_tests": "206 passed",
+    "mobile_tests": "64 passed",
+    "full_regression": "3152 backend passed, 206 web passed, 64 mobile passed"
+  }
 }
