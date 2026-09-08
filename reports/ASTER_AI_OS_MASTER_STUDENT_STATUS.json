@@ -15,9 +15,9 @@
   ],
   "current_commit": "b10742a340a22e56ff7e315603cc8af19158b49b",
   "current_runtime": {
-    "captured_at": "2026-09-08T14:50:39.854576Z",
+    "captured_at": "2026-09-08T17:17:39.007027Z",
     "version": "0.1.0",
-    "source_commit": "b10742a340a22e56ff7e315603cc8af19158b49b",
+    "source_commit": "56cf5e4bd9ae7c94d105a367916ed72fa3d3669b",
     "backend_source_sha256": "eb699a17b5dcfbaac89b5c9eb9b0bd7e77242c0a04c40e7f23caa41771dc707a",
     "web_bundle_sha256": "5c0075a4636f9d50eac0f543bb67eb424f335ee707926e7ddc7d2b4982172825"
   },
@@ -2541,7 +2541,8 @@
       "strict DEX sandbox",
       "parent MCP callback rejection",
       "off-device browser"
-    ]
+    ],
+    "final_report_tip_attestation": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-memoryfix2/final-release-attestation.json"
   },
   "previous_run": {
     "report_commit": "da1d0ad41ea96f2a633aa3efdb862c8f0ff9a77f",
