@@ -9,7 +9,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.documents.embedding import embed_text
 from app.models.memory import Memory, MemoryCategory
 from app.repositories.memory import MemoryCandidate
-from app.services.memory import MemoryContentInvalidError, MemoryService
+from app.services.memory import (
+    MemoryContentInvalidError,
+    MemoryService,
+    _lexical_relevance,
+)
 
 
 def _memory(owner_id, *, deleted=False):
@@ -177,6 +181,14 @@ def test_retrieval_includes_global_instructions_and_relevant_owned_context():
 
     assert {item.id for item in selected} == {instruction.id, project.id}
     assert sum(len(item.content) for item in selected) <= 4_000
+
+
+def test_lexical_retrieval_fallback_requires_multiple_meaningful_matches():
+    assert _lexical_relevance(
+        "According to the latest saved application commit",
+        "The application commit is cf05844.",
+    ) >= 0.5
+    assert _lexical_relevance("garden roses", "The Apollo project deadline is Friday.") == 0.0
 
 
 @pytest.mark.asyncio

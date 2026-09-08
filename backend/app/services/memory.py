@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+import re
 from uuid import UUID
 
 from sqlalchemy.exc import IntegrityError
@@ -15,6 +16,29 @@ from app.repositories.memory import MemoryCandidate, MemoryRepository
 MAX_RETRIEVED_MEMORIES = 8
 MAX_MEMORY_CONTEXT_CHARACTERS = 4_000
 MIN_MEMORY_RELEVANCE_SCORE = 0.25
+_LEXICAL_STOP_WORDS = frozenset(
+    {
+        "according", "after", "and", "are", "from", "latest", "only",
+        "return", "saved", "the", "this", "what", "with", "your",
+    }
+)
+
+
+def _meaningful_tokens(value: str) -> frozenset[str]:
+    """Return bounded content tokens for deterministic retrieval fallback."""
+    tokens = re.findall(r"[a-z0-9]{3,}", value.casefold())
+    normalized = {token[:-1] if token.endswith("s") else token for token in tokens}
+    return frozenset(token for token in normalized if token not in _LEXICAL_STOP_WORDS)
+
+
+def _lexical_relevance(query: str, content: str) -> float:
+    query_tokens = _meaningful_tokens(query)
+    if not query_tokens:
+        return 0.0
+    overlap = query_tokens & _meaningful_tokens(content)
+    if len(overlap) < 2:
+        return 0.0
+    return len(overlap) / len(query_tokens)
 
 
 class MemoryContentInvalidError(ValueError):
@@ -228,13 +252,17 @@ class MemoryService:
         except BaseException:
             await self.session.rollback()
             raise
-        return self._select(query_embedding.packed, candidates, limit)
+        return self._select(
+            query_embedding.packed, candidates, limit, query_text=query
+        )
 
     @staticmethod
     def _select(
         query_embedding: bytes,
         candidates: tuple[MemoryCandidate, ...],
         limit: int,
+        *,
+        query_text: str | None = None,
     ) -> tuple[RetrievedMemory, ...]:
         scored: list[tuple[float, int, MemoryCandidate]] = []
         for candidate in candidates:
@@ -250,7 +278,18 @@ class MemoryService:
                 similarity < MIN_MEMORY_RELEVANCE_SCORE
                 and not globally_applicable
             ):
-                continue
+                lexical = (
+                    _lexical_relevance(query_text, candidate.content)
+                    if query_text is not None
+                    else 0.0
+                )
+                if lexical < 0.5:
+                    continue
+                # Preserve semantic ordering while rescuing hash-embedding
+                # queries whose wording shares several meaningful terms.
+                similarity = max(similarity, 0.0) + lexical * 0.1
+                if similarity < MIN_MEMORY_RELEVANCE_SCORE:
+                    similarity = MIN_MEMORY_RELEVANCE_SCORE
             score = max(similarity, 0.15 if globally_applicable else 0.0)
             category_priority = (
                 0 if candidate.category is MemoryCategory.INSTRUCTION else 1
