@@ -1,17 +1,21 @@
-# ASTER multi-agent correction status
+# ASTER / Personal AI OS master-student status
 
-Iteration 10: final independent parent-boundary review passed; the full precommit release gate passed. Overall acceptance is not verified.
+Iteration 14. Overall acceptance remains **NOT READY**. Backend commit `b10742a340a22e56ff7e315603cc8af19158b49b` is deployed and runtime identity matches.
 
-All eight requested specialist roles have participated through the existing Agent OS, ToolService and DEX architecture. The queue retains 25 issues: eight newly discovered and two reopened this swarm cycle. Failed claims and failed repair attempts remain in the JSON report and evidence.
+Canonical benchmark BEFORE: **97.80/100**, 457 PASS, 1 PARTIAL, 1 FAIL. Latest AFTER: **97.74/100**, 456 PASS, 2 PARTIAL, 1 FAIL; mean 8.2534s, P95 16.7391s.
 
-The current Git HEAD is `da1d0ad41ea96f2a633aa3efdb862c8f0ff9a77f` with authorized uncommitted repairs. The backend and preserved packaged artifacts are still the previous release; the task-owned validation desktop is stopped for fresh launch verification. Current source repairs are not yet deployed.
+The memory retrieval defect was reproduced through the native UI and fixed with a bounded deterministic lexical fallback. Native cross-conversation recall returned the exact application commit and `0` for the audit count; the synthetic conversation was deleted and the saved owner memory remained. Memory score: 99.84.
 
-The first full gate was stopped after an independent repeated-cancellation failure. Before interruption it passed 3,141 backend tests with 55 skips, 206 web tests, 64 shared/mobile tests and two Rust tests. That gate is not a release pass. After correction, the master cross-component suite passed 152 tests in 5.19 seconds. The second gate has passed 3,151 backend tests, 206 web tests, 64 shared/mobile tests, fresh desktop launch and compiled PWA browser checks. All15installed runtime suites and55PostgreSQL tests passed. Production deployment, current native/PWA owner paths and the unchanged canonical benchmark remain pending.
+The exact loopback CORS failure was corrected in the authoritative backend environment. Allowlisted preflight is 200 with credentials; attacker origin remains denied. The second full canonical run records the exact-origin case as PASS.
 
-The last canonical baseline remains 97.80/100: 457 PASS, one PARTIAL and one FAIL. The candidate prompt was rejected after an instruction-following regression. No model routing, checker or expected-answer changes have been admitted. The patched upstream decoder adapter passes 91,968 compatibility comparisons and the fresh npm audit reports zero vulnerabilities.
+Residual internal cases:
 
-Owner-authenticated persisted AI OS HTTP review exchange and hashes are verified. Semantic review is partial: fabricated execution claims were rejected and retained. The parent MCP call remains rejected; live DEX validation remains blocked by the host sandbox. Private Serve TLS authentication, actual foreign-owner denial and fixture revocation have passed scoped checks; no off-device browser result is claimed.
+- `medium-coding-04` PARTIAL: required:x * x; required:range(5)
+- `model-comparison-coder-06` FAIL: required:base case
+- `voice-stt-01` PARTIAL: transcription missed synthetic checkpoint words
 
-Current details: [JSON status](ASTER_AI_OS_MASTER_STUDENT_STATUS.json) and [issue queue](ASTER_AI_OS_ISSUE_QUEUE.json).
+Voice remains an open measured model/output variability observation. The two coder limitations remain reproduced under the unchanged benchmark contract.
 
-Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm`. Previous report snapshots remain there as `previous-master-status.json` and `previous-master-status.md`; historical evidence stays under `/home/md-wasim/AI_Workspace_Data/aster-evidence/20260907`.
+ASTER ↔ AI OS transport is authenticated and persisted, but model review output is advisory and qualified; parent MCP/reverse callback and live DEX remain externally blocked. Security and owner isolation remain fail-closed.
+
+Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-memoryfix2`. Persistent queue: `reports/ASTER_AI_OS_ISSUE_QUEUE.json`.
