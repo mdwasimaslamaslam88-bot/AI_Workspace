@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-09-09T03:00:00+05:30",
+  "updated_at": "2026-09-09T04:00:00+05:30",
   "authoritative_report": "reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.json",
   "purpose": "Derived machine-readable issue ledger; uses the existing report issue identities, not a second issue service",
   "allowed_statuses": [
@@ -234,7 +234,7 @@
       "integration_test": null,
       "security_test": null,
       "runtime_test": "Original prompt, exact model, temperature=0, seed=20260825 reproduce the previous answer.",
-      "regression": null,
+      "regression": "Current HEAD reproduction and unchanged canonical 20260910 remain PARTIAL; no checker or prompt change.",
       "performance": null,
       "status": "REPRODUCED",
       "evidence": [
@@ -273,7 +273,7 @@
       "integration_test": null,
       "security_test": null,
       "runtime_test": "Original prompt, exact model, temperature=0, seed=20260825 reproduce the previous answer.",
-      "regression": null,
+      "regression": "Current HEAD reproduction and unchanged canonical 20260910 remain FAIL; qwen3 global route remains rejected by measured 96.24 regression.",
       "performance": null,
       "status": "REPRODUCED",
       "evidence": [
@@ -1176,7 +1176,7 @@
       "integration_test": "Second complete canonical run retains voice-stt-01 PARTIAL; voice score and normalized WER/CER remain measured, not upgraded.",
       "security_test": "Synthetic assets were owner-scoped and deleted with 204/content 404; token scan passed.",
       "runtime_test": "Current voice model IDs and relevant eight source/config hashes unchanged from the prior canonical run.",
-      "regression": "Fresh canonical run at current HEAD passed voice-stt-01 and raised voice_score to99.95, but prior exact-WAV replay remains reproducibly partial; retain as model/acoustic variability observation rather than claim fixed.",
+      "regression": "Unchanged canonical 20260910 voice-stt passed; prior exact-WAV replay remains reproducibly variable, so issue remains an OPEN model/acoustic observation.",
       "performance": "No model or runtime parameter change; current canonical mean 8.2534 seconds and P95 16.7391 seconds.",
       "status": "OPEN",
       "evidence": [

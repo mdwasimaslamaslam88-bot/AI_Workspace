@@ -1,8 +1,8 @@
 # ASTER / Personal AI OS master-student status
 
-Iteration 19. Overall acceptance remains **NOT READY**. Current report commit is `504ea8357645972098fe60534761ccd7dad3afbd`; runtime identity is independently attested at the same commit.
+Iteration 20. Overall acceptance remains **NOT READY**. Current report commit is `504ea8357645972098fe60534761ccd7dad3afbd`; runtime identity is independently attested at the same commit.
 
-Latest canonical benchmark: **97.84/100**, 457 PASS, 1 PARTIAL, 1 FAIL; mean 8.0913s, P95 16.6081s. Previous accepted result was 97.74/100, 456 PASS, 2 PARTIAL, 1 FAIL. Baseline remains 97.80/100, 457 PASS, 1 PARTIAL, 1 FAIL.
+Latest canonical benchmark: **97.84/100**, 457 PASS, 1 PARTIAL, 1 FAIL; mean 8.052s, P95 16.6673s.6081s. Previous accepted result was 97.74/100, 456 PASS, 2 PARTIAL, 1 FAIL. Baseline remains 97.80/100, 457 PASS, 1 PARTIAL, 1 FAIL.
 
 A bounded qwen3 code-generation routing experiment was fully measured and rejected: the unchanged 459-case benchmark fell to **96.24/100**, 444 PASS, 5 PARTIAL, 10 FAIL. The preference was reverted to `gemma4:12b-it-q4_K_M`; backend restart and runtime identity checks passed. Evidence is retained under `/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-coderfix` and issue `ASTER-031` is recorded as REGRESSION.
 

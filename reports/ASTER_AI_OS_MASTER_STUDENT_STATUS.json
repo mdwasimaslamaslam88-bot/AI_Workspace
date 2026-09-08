@@ -1,8 +1,8 @@
 {
   "schema_version": 4,
-  "iteration": 19,
+  "iteration": 20,
   "status": "NOT_READY_MEASURED_INTERNAL_LIMITATIONS_AND_EXTERNAL_BLOCKERS",
-  "updated_at": "2026-09-09T03:00:00+05:30",
+  "updated_at": "2026-09-09T04:00:00+05:30",
   "current_issue": [
     "ASTER-006",
     "ASTER-007",
@@ -13,8 +13,8 @@
     "ASTER-001",
     "ASTER-009"
   ],
-  "current_commit": "af915c64808dc457779a9a2a341193f812e6fc94",
-  "current_runtime": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/runtime-identity-final-af915c6-retry.json",
+  "current_commit": "f8fecdb2feba4fee96f10d8f69bfbb20e98c4057",
+  "current_runtime": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/runtime-identity-final-f8fecdb.json",
   "current_artifact": "Packaged desktop/PWA cf05844 unchanged; backend b10742a deployed directly",
   "issues": [
     {
@@ -1634,7 +1634,7 @@
     "status": "BENCHMARK COMPLETE",
     "product": "WORK STATION",
     "system_version": "0.1.0",
-    "git_commit": "af915c64808dc457779a9a2a341193f812e6fc94",
+    "git_commit": "f8fecdb2feba4fee96f10d8f69bfbb20e98c4057",
     "models": [
       {
         "display_name": "Faster Whisper Small English",
@@ -1738,14 +1738,14 @@
     "memory_score": 99.84,
     "vision_score": 99.61,
     "image_score": 99.42,
-    "voice_score": 99.95,
+    "voice_score": 100.0,
     "tool_score": 100.0,
     "workflow_score": 100.0,
-    "coding_score": 98.06,
+    "coding_score": 98.08,
     "code_generation_score": 98.33,
     "code_generation_success_rate": 100.0,
-    "reasoning_score": 96.15,
-    "mathematics_score": 97.16,
+    "reasoning_score": 96.14,
+    "mathematics_score": 97.14,
     "long_context_score": 99.38,
     "deep_chat_score": 99.38,
     "failure_recovery_score": 99.94,
@@ -1758,8 +1758,8 @@
     "stt_punctuation_accuracy": 61.11,
     "workflow_success_rate": 100.0,
     "image_task_success_rate": 100.0,
-    "average_latency_seconds": 8.0913,
-    "p95_latency_seconds": 16.6081,
+    "average_latency_seconds": 8.052,
+    "p95_latency_seconds": 16.6673,
     "category_scores": {
       "advanced_algorithms": 96.5,
       "advanced_coding": 99.42,
@@ -1768,10 +1768,10 @@
       "ambiguous_resolvable": 98.72,
       "arbitrary_code": 98.75,
       "architecture_design": 97.75,
-      "arithmetic": 98.72,
+      "arithmetic": 98.65,
       "artifact_cleanup": 100.0,
       "code_generation": 98.33,
-      "coding": 95.83,
+      "coding": 95.9,
       "comparison_decision": 98.12,
       "complex_math": 97.75,
       "complex_planning": 97.38,
@@ -1788,7 +1788,7 @@
       "discrete_math": 97.95,
       "distributed_systems": 97.75,
       "fabricated_citation": 98.75,
-      "factual": 96.2,
+      "factual": 96.28,
       "failure_recovery": 99.94,
       "image_editing": 99.38,
       "image_generation": 99.46,
@@ -1802,7 +1802,7 @@
       "memory_security": 100.0,
       "misleading_context": 99.5,
       "missing_information": 98.75,
-      "model_comparison": 96.28,
+      "model_comparison": 96.29,
       "multi_document_synthesis": 98.75,
       "multi_file_planning": 97.75,
       "multi_step_reasoning": 97.25,
@@ -1810,7 +1810,7 @@
       "owner_isolation": 98.75,
       "performance_analysis": 97.75,
       "probability_reasoning": 96.45,
-      "prompt_injection": 99.5,
+      "prompt_injection": 98.75,
       "rag_conflict": 98.75,
       "rag_ingestion": 100.0,
       "rag_missing_information": 98.75,
@@ -1822,9 +1822,9 @@
       "security": 99.81,
       "security_analysis": 98.75,
       "security_reasoning": 92.45,
-      "simple_reasoning": 97.4,
+      "simple_reasoning": 97.33,
       "statistics_reasoning": 96.85,
-      "structured_data": 98.97,
+      "structured_data": 99.05,
       "summarization": 98.55,
       "systems_reasoning": 92.65,
       "tool_misuse": 98.75,
@@ -1832,7 +1832,7 @@
       "unauthorized_data": 98.75,
       "vision": 99.61,
       "voice": 100.0,
-      "voice_stt": 99.88,
+      "voice_stt": 100.0,
       "voice_tts": 100.0,
       "workflows": 100.0
     },
@@ -1842,7 +1842,7 @@
       "FAIL": 1
     },
     "unavailable_capabilities": [],
-    "duration_seconds": 3753.58,
+    "duration_seconds": 3731.33,
     "initial_score": 84.57,
     "score_delta": 13.27,
     "quality_engine_baseline_score": 95.67,
@@ -2607,7 +2607,7 @@
     "native_owner_session_accessed": false,
     "audit_and_review_run_evidence_preserved": true
   },
-  "independent_benchmark_verification": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260909-canonical-retry/benchmark-independent-verification.json",
+  "independent_benchmark_verification": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-canonical/benchmark-independent-verification.json",
   "latest_experiment": {
     "issue_id": "ASTER-031",
     "status": "REGRESSION",
@@ -2658,5 +2658,5 @@
     "objective_evidence_check": "FAILED_CLOSED",
     "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/aster-to-aios-real-agent-run-20260909.json"
   },
-  "latest_canonical": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260909-canonical-retry/Work_Station_Benchmark/benchmark-summary.json"
+  "latest_canonical": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-canonical/Work_Station_Benchmark/benchmark-summary.json"
 }
