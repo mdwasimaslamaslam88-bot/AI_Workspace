@@ -15,6 +15,6 @@ Residual internal cases:
 - `voice-stt-01` PARTIAL: transcription missed synthetic checkpoint words.
 - `ASTER-026`, `ASTER-027`, and `ASTER-031` remain unresolved review/model/reporting issues.
 
-ASTER ↔ AI OS transport is authenticated and persisted, but advisory model review remains qualified; parent MCP/reverse callback and live DEX remain externally blocked. Security and owner isolation remain fail-closed.
+ASTER ↔ AI OS transport is authenticated and persisted, but advisory model review remains qualified; parent MCP/reverse callback, live DEX, off-device browser, and the Git remote DNS path remain externally blocked. Security and owner isolation remain fail-closed.
 
 Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-memoryfix2`. Persistent queue: `reports/ASTER_AI_OS_ISSUE_QUEUE.json`.
