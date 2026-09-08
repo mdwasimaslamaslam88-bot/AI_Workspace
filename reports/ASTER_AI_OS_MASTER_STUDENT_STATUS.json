@@ -1,6 +1,6 @@
 {
   "schema_version": 4,
-  "iteration": 14,
+  "iteration": 15,
   "status": "NOT_READY_MEASURED_INTERNAL_LIMITATIONS_AND_EXTERNAL_BLOCKERS",
   "updated_at": "2026-09-08T17:15:52.052265+00:00",
   "current_issue": [
@@ -13,7 +13,7 @@
     "ASTER-001",
     "ASTER-009"
   ],
-  "current_commit": "b10742a340a22e56ff7e315603cc8af19158b49b",
+  "current_commit": "2cb2335857da32e2b70a1e44748c721392f72235",
   "current_runtime": {
     "captured_at": "2026-09-08T17:17:39.007027Z",
     "version": "0.1.0",
@@ -2671,5 +2671,33 @@
       "voice_regression_preserved": true,
       "security_cors_regression_resolved": true
     }
-  }
+  },
+  "latest_experiment": {
+    "issue_id": "ASTER-031",
+    "status": "REGRESSION",
+    "configuration": "OLLAMA_TASK_MODEL_PREFERENCES code_generation=qwen3:8b",
+    "result": {
+      "score": 96.24,
+      "PASS": 444,
+      "PARTIAL": 5,
+      "FAIL": 10
+    },
+    "accepted_baseline": {
+      "score": 97.74,
+      "PASS": 456,
+      "PARTIAL": 2,
+      "FAIL": 1
+    },
+    "rollback_verified": true,
+    "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-coderfix/Work_Station_Benchmark/benchmark-summary.json"
+  },
+  "remaining_internal_issues": [
+    "ASTER-006",
+    "ASTER-007",
+    "ASTER-022",
+    "ASTER-028",
+    "ASTER-026",
+    "ASTER-027",
+    "ASTER-031"
+  ]
 }

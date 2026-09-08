@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-09-08T17:16:31.236139+00:00",
+  "updated_at": "2026-09-08T18:10:00+00:00",
   "authoritative_report": "reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.json",
   "purpose": "Derived machine-readable issue ledger; uses the existing report issue identities, not a second issue service",
   "allowed_statuses": [
@@ -1404,6 +1404,61 @@
       "runtime_identity": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/runtime-identity-postgate.json",
       "external_blocker": false,
       "owner_action": "None; root can complete report generation, review, ordinary commit/push and final external attestation after canonical evidence completes."
+    },
+    {
+      "id": "ASTER-031",
+      "severity": "HIGH",
+      "component": "code-generation model routing",
+      "description": "Experimental qwen3 code-generation preference improved one direct recursion probe but degraded the unchanged canonical benchmark.",
+      "reproduction": "Set OLLAMA_TASK_MODEL_PREFERENCES code_generation=qwen3:8b in both authoritative env files, restart backend, run unchanged canonical benchmark.",
+      "expected": "Routing change must improve or preserve benchmark and fix the targeted failure.",
+      "actual": {
+        "score": 96.24,
+        "counts": {
+          "PASS": 444,
+          "PARTIAL": 5,
+          "FAIL": 10
+        },
+        "baseline_before_experiment": {
+          "score": 97.74,
+          "PASS": 456,
+          "PARTIAL": 2,
+          "FAIL": 1
+        }
+      },
+      "root_cause": "qwen3 direct capability did not generalize across the benchmark code-generation corpus; broad route changed outputs and introduced additional failures.",
+      "ASTER_analysis": "Reject the routing change on measured regression; preserve evidence and revert configuration.",
+      "AI_OS_analysis": {
+        "status": "NOT_USED_FOR_EXECUTION_EVIDENCE"
+      },
+      "cross_agent_findings": [
+        {
+          "agent": "aster_master",
+          "finding": "qwen3 direct recursion probe returned base case, but canonical code_generation_success_rate fell to79.17%."
+        }
+      ],
+      "disagreement": false,
+      "fix": "Reverted both env files to OLLAMA_TASK_MODEL_PREFERENCES={\"code_generation\":\"gemma4:12b-it-q4_K_M\"}; backend restarted successfully.",
+      "focused_test": "Direct probe evidence and full unchanged canonical benchmark retained.",
+      "integration_test": "Canonical real-HTTP benchmark completed 459 cases; regression confirmed.",
+      "security_test": "No security boundary changes; canonical safety100%.",
+      "runtime_test": "Backend active after rollback, NRestarts=0.",
+      "regression": "Keep ASTER031 open/rejected; do not retry identical qwen3 global preference without a new bounded strategy.",
+      "performance": {
+        "mean_seconds": 7.5761,
+        "p95_seconds": 15.0231
+      },
+      "status": "REGRESSION",
+      "evidence": [
+        "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-coderfix/Work_Station_Benchmark/benchmark-summary.json",
+        "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/coder-focused-probe.json",
+        "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/master-command-errors-continuation.json"
+      ],
+      "commit": null,
+      "artifact": "backend runtime configuration",
+      "runtime_identity": null,
+      "external_blocker": false,
+      "owner_action": "Design a bounded routing or output-normalization strategy and rerun the unchanged benchmark; do not alter checker expectations."
     }
   ],
   "current_application_commit": "b10742a340a22e56ff7e315603cc8af19158b49b",
