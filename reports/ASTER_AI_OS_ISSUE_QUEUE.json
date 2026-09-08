@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-09-09T00:50:00+05:30",
+  "updated_at": "2026-09-09T01:45:00+05:30",
   "authoritative_report": "reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.json",
   "purpose": "Derived machine-readable issue ledger; uses the existing report issue identities, not a second issue service",
   "allowed_statuses": [
@@ -230,7 +230,7 @@
       "cross_agent_findings": null,
       "disagreement": null,
       "fix": null,
-      "focused_test": null,
+      "focused_test": "Independent current-HEAD authenticated HTTP reproduction returned fenced [0**2, 1**2, 2**2, 3**2, 4**2] from qwen2.5-coder:7b with temperature0 and seed20260825.",
       "integration_test": null,
       "security_test": null,
       "runtime_test": "Original prompt, exact model, temperature=0, seed=20260825 reproduce the previous answer.",
@@ -240,7 +240,8 @@
       "evidence": [
         "benchmark-targeted-before.json",
         "benchmark-targeted-before-2.json",
-        "Work_Station_Benchmark/final-failure-inventory.json"
+        "Work_Station_Benchmark/final-failure-inventory.json",
+        "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/reproduction-cases-20260909.json"
       ],
       "commit": null,
       "artifact": null,
@@ -268,7 +269,7 @@
       "cross_agent_findings": null,
       "disagreement": null,
       "fix": null,
-      "focused_test": null,
+      "focused_test": "Independent current-HEAD authenticated HTTP reproduction returned Infinite Recursion from qwen2.5-coder:7b with temperature0 and seed20260825; direct qwen3 probe fixes this case but global routing regresses benchmark.",
       "integration_test": null,
       "security_test": null,
       "runtime_test": "Original prompt, exact model, temperature=0, seed=20260825 reproduce the previous answer.",
@@ -278,7 +279,9 @@
       "evidence": [
         "benchmark-targeted-before.json",
         "benchmark-targeted-before-2.json",
-        "Work_Station_Benchmark/final-failure-inventory.json"
+        "Work_Station_Benchmark/final-failure-inventory.json",
+        "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/reproduction-cases-20260909.json",
+        "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-coderfix/Work_Station_Benchmark/benchmark-summary.json"
       ],
       "commit": null,
       "artifact": null,
@@ -1169,7 +1172,7 @@
       ],
       "disagreement": false,
       "fix": null,
-      "focused_test": "Three fresh syntheses initially passed; bounded follow-up stopped on first failure and replayed that exact WAV three times with the same transcript.",
+      "focused_test": "Fresh current-HEAD voice smoke passed Piper TTS, Faster-Whisper CUDA STT, owner isolation, cleanup and redaction; exact canonical/follow-up WAV replay remains partial.",
       "integration_test": "Second complete canonical run retains voice-stt-01 PARTIAL; voice score and normalized WER/CER remain measured, not upgraded.",
       "security_test": "Synthetic assets were owner-scoped and deleted with 204/content 404; token scan passed.",
       "runtime_test": "Current voice model IDs and relevant eight source/config hashes unchanged from the prior canonical run.",
@@ -1324,7 +1327,7 @@
         "resolution": "False execution claim rejected. Third response corrects flag but lacks substantive evidence, so semantic acceptance remains incomplete."
       },
       "fix": "No validated model-quality fix. Existing independent human/ASTER arbitration rejected unsupported claims and preserved evidence; do not mark this issue fixed solely because detection worked.",
-      "focused_test": "Three real model outputs independently hash-verified; semantic failures remain documented. No new model calls during this final coverage audit.",
+      "focused_test": "Real authenticated Agent OS run b32ee14b-5ae4-4f4a-a4ef-930d095fc209 completed through /api/v1/agent-os/runs; output was nonblank but objective-evidence verification correctly failed.",
       "integration_test": "Existing owner-authenticated HTTP request/reply transport completed. This does not prove autonomous reverse delegation.",
       "security_test": "Review runs granted model inference only; no execution was authorized by advisory content. Preserve existing ToolService and owner controls.",
       "runtime_test": "Observed on da1d0ad runtime. Current cf05844 changes verifier/gateway/filesystem/ToolService only, with no generation/model-routing code change; no claim of a fresh model reproduction on current runtime.",
@@ -1334,7 +1337,8 @@
       "evidence": [
         "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/interop/ai-os-request.json",
         "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/interop/ai-os-evidence-review.json",
-        "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/interop/ai-os-challenge-response.json"
+        "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/interop/ai-os-challenge-response.json",
+        "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/aster-to-aios-real-agent-run-20260909.json"
       ],
       "commit": null,
       "artifact": null,

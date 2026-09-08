@@ -1,8 +1,8 @@
 {
   "schema_version": 4,
-  "iteration": 17,
+  "iteration": 18,
   "status": "NOT_READY_MEASURED_INTERNAL_LIMITATIONS_AND_EXTERNAL_BLOCKERS",
-  "updated_at": "2026-09-09T01:05:00+05:30",
+  "updated_at": "2026-09-09T01:45:00+05:30",
   "current_issue": [
     "ASTER-006",
     "ASTER-007",
@@ -13,8 +13,8 @@
     "ASTER-001",
     "ASTER-009"
   ],
-  "current_commit": "71af9735358729b23a5e50be0cbe8281f7c89d0d",
-  "current_runtime": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/runtime-identity-final-71af973.json",
+  "current_commit": "a88ac5bda0fd48c1535d0f209e7ebb98646a99b6",
+  "current_runtime": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/runtime-identity-final-a88ac5b.json",
   "current_artifact": "Packaged desktop/PWA cf05844 unchanged; backend b10742a deployed directly",
   "issues": [
     {
@@ -2708,5 +2708,12 @@
     "fetch": "PASS",
     "divergence": "0/0",
     "working_tree_clean": true
+  },
+  "agent_os_real_run": {
+    "status": "TRANSPORT_COMPLETED_VERIFICATION_FAILED",
+    "run_id": "b32ee14b-5ae4-4f4a-a4ef-930d095fc209",
+    "owner_authenticated": true,
+    "objective_evidence_check": "FAILED_CLOSED",
+    "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/aster-to-aios-real-agent-run-20260909.json"
   }
 }
