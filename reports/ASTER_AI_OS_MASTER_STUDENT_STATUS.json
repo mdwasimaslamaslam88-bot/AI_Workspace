@@ -2,7 +2,7 @@
   "schema_version": 4,
   "iteration": 15,
   "status": "NOT_READY_MEASURED_INTERNAL_LIMITATIONS_AND_EXTERNAL_BLOCKERS",
-  "updated_at": "2026-09-08T18:33:00+00:00",
+  "updated_at": "2026-09-08T18:34:00+00:00",
   "current_issue": [
     "ASTER-006",
     "ASTER-007",
@@ -14,13 +14,7 @@
     "ASTER-009"
   ],
   "current_commit": "2cb2335857da32e2b70a1e44748c721392f72235",
-  "current_runtime": {
-    "captured_at": "2026-09-08T17:17:39.007027Z",
-    "version": "0.1.0",
-    "source_commit": "56cf5e4bd9ae7c94d105a367916ed72fa3d3669b",
-    "backend_source_sha256": "eb699a17b5dcfbaac89b5c9eb9b0bd7e77242c0a04c40e7f23caa41771dc707a",
-    "web_bundle_sha256": "5c0075a4636f9d50eac0f543bb67eb424f335ee707926e7ddc7d2b4982172825"
-  },
+  "current_runtime": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/runtime-identity-final-6b26014.json",
   "current_artifact": "Packaged desktop/PWA cf05844 unchanged; backend b10742a deployed directly",
   "issues": [
     {
