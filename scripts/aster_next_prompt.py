@@ -452,6 +452,7 @@ def load_or_create_state(evidence_root: Path) -> dict[str, Any]:
     value.setdefault("last_prompt", "")
     value.setdefault("last_result", None)
     value.setdefault("last_failure", None)
+    value.setdefault("last_successful_commit", None)
     return value
 
 
@@ -756,6 +757,7 @@ def render_reports(
             "issues_blocked_externally": len(external_blocked),
             "next_prompt": state.get("next_prompt")
             or (build_prompt(selected, observations) if selected else ""),
+            "last_successful_commit": git.get("commit"),
         }
     )
     persist_state(state, evidence_root)
@@ -780,6 +782,7 @@ def render_reports(
                 "iterations_completed": state.get("iterations_completed", 0),
                 "readiness_reason": readiness_reason,
                 "current_action": state.get("current_action"),
+                "last_successful_commit": state.get("last_successful_commit"),
                 "last_result": last_result,
             },
             "issues": queue.get("issues", []),
@@ -865,6 +868,7 @@ def render_reports(
         "performance_p95": benchmark.get("p95"),
         "git_status": git.get("status"),
         "current_commit": git.get("commit"),
+        "last_successful_commit": state.get("last_successful_commit"),
         "report_tip_commit": state.get("report_tip_commit"),
         "last_artifact_verification": status.get("release", {}).get("final_report_tip_attestation"),
         "last_failure": state.get("last_failure"),
