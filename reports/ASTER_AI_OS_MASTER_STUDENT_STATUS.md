@@ -1,8 +1,8 @@
 # ASTER / Personal AI OS master-student status
 
-Iteration 0. Overall readiness is **NOT READY**.
+Iteration 2. Overall readiness is **NOT READY**.
 
-Current source commit: `0394bc714ca15f14385f48da0671fb4b76899930`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
+Current source commit: `368cfef96d94a1b3736a9cb5a07696b675494c72`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
 
 ## Current measured state
 
@@ -10,7 +10,7 @@ Current source commit: `0394bc714ca15f14385f48da0671fb4b76899930`. Evidence root
 - Issues: 7 locally unresolved, 22 fixed/verified, 2 externally blocked.
 - Current issue/action: `ASTER-027` — Reproduce the report-provenance defect against current HEAD. Verify current-source, runtime, artifact, benchmark, security and release evidence by content, preserve historical roots, and implement or verify the smallest guard/report repair.
 - Runtime identity: **PASS**; evidence `/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/runtime-identity-current-0394bc7.json`.
-- Git: **DIRTY** at `0394bc714ca15f14385f48da0671fb4b76899930`.
+- Git: **DIRTY** at `368cfef96d94a1b3736a9cb5a07696b675494c72`.
 
 ## Queue classifications
 

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-09-09T04:00:00+05:30",
+  "updated_at": "2026-09-09T15:00:09.451221+00:00",
   "authoritative_report": "reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.json",
   "purpose": "Derived machine-readable issue ledger; uses the existing report issue identities, not a second issue service",
   "allowed_statuses": [
@@ -774,7 +774,7 @@
         }
       ],
       "disagreement": {
-        "initial_nested_claim": "Writable ToolService parent\u2192DEX\u2192filesystem could falsely terminalize parent.",
+        "initial_nested_claim": "Writable ToolService parent→DEX→filesystem could falsely terminalize parent.",
         "evidence": "interop/nested-uncertainty-before.log",
         "resolution": "That production parent initiator path is not admitted. Actual direct authorized gateway callback and separate parent uncertainty contract tested; permission registry unchanged. No production writable parent chain PASS."
       },
@@ -1422,7 +1422,29 @@
       "artifact": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/final-report-draft",
       "runtime_identity": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/runtime-identity-postgate.json",
       "external_blocker": false,
-      "owner_action": "None; root can complete report generation, review, ordinary commit/push and final external attestation after canonical evidence completes."
+      "owner_action": "None; root can complete report generation, review, ordinary commit/push and final external attestation after canonical evidence completes.",
+      "controller_observations": [
+        {
+          "timestamp": "2026-09-09T15:00:09.320916+00:00",
+          "iteration": 1,
+          "classification": "FAILED",
+          "child_status": "FAILED",
+          "verification": "FAIL",
+          "action": "",
+          "evidence_dir": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/iteration-0001",
+          "queue_status_preserved": true
+        },
+        {
+          "timestamp": "2026-09-09T15:00:09.451211+00:00",
+          "iteration": 2,
+          "classification": "FAILED",
+          "child_status": "FAILED",
+          "verification": "FAIL",
+          "action": "",
+          "evidence_dir": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/iteration-0002",
+          "queue_status_preserved": true
+        }
+      ]
     },
     {
       "id": "ASTER-031",

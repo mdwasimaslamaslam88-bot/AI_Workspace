@@ -663,7 +663,8 @@ def render_reports(
             "issues_remaining": len(local_unresolved),
             "issues_fixed": len(fixed),
             "issues_blocked_externally": len(external_blocked),
-            "next_prompt": build_prompt(selected, observations) if selected else "",
+            "next_prompt": state.get("next_prompt")
+            or (build_prompt(selected, observations) if selected else ""),
         }
     )
     persist_state(state, evidence_root)
@@ -878,8 +879,8 @@ def run_codex_child(prompt: str, iteration_dir: Path, *, timeout_seconds: int, e
         "never",
         "--sandbox",
         "workspace-write",
-        "--ask-for-approval",
-        "never",
+        "--config",
+        'approval_policy="never"',
         "--cd",
         str(REPOSITORY_ROOT),
         "--add-dir",
@@ -1104,7 +1105,14 @@ def iteration_once(
     state["iterations_completed"] = int(state.get("iterations_completed", 0)) + 1
     state["in_progress"] = False
     next_prompt = parsed.get("next_prompt", "")
-    state["next_prompt"] = next_prompt if next_prompt and parsed.get("parsed") else ""
+    state["child_suggested_next_prompt"] = next_prompt if parsed.get("parsed") else ""
+    if next_prompt and parsed.get("parsed") and str(parsed.get("current_issue", "")) == str(selected.get("id")):
+        state["next_prompt"] = next_prompt
+        state["next_prompt_source"] = "child_structured_result"
+    else:
+        next_issue = choose_issue(queue)
+        state["next_prompt"] = build_prompt(next_issue, observations_after) if next_issue else ""
+        state["next_prompt_source"] = "controller_derived"
     state["history"].append(
         {
             "timestamp": result["timestamp"],
@@ -1179,6 +1187,7 @@ def run_controller(args: argparse.Namespace) -> int:
             parsed = result.get("child", {}).get("parsed", {}) if result.get("child") else result
             print("ASTER_LOOP_RESULT")
             print(f"STATUS={result.get('status', 'FAILED')}")
+            print(f"ISSUES_REMAINING={state.get('issues_remaining', '?')}")
             print(f"CURRENT_ISSUE={result.get('issue') or state.get('current_issue') or 'NONE'}")
             print(f"ACTION={result.get('action') or state.get('current_action') or 'none'}")
             print(f"VERIFICATION={result.get('verification', 'FAIL')}")

@@ -1,12 +1,12 @@
 {
   "schema_version": 4,
-  "iteration": 0,
+  "iteration": 2,
   "status": "NOT_READY",
-  "updated_at": "2026-09-09T14:59:44.790049+00:00",
+  "updated_at": "2026-09-09T15:00:09.458246+00:00",
   "current_issue": [
     "ASTER-027"
   ],
-  "current_commit": "0394bc714ca15f14385f48da0671fb4b76899930",
+  "current_commit": "368cfef96d94a1b3736a9cb5a07696b675494c72",
   "current_runtime": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/runtime-identity-final-f8fecdb.json",
   "current_artifact": "Packaged desktop/PWA cf05844 unchanged; backend b10742a deployed directly",
   "issues": [
@@ -1416,7 +1416,29 @@
       "artifact": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/final-report-draft",
       "runtime_identity": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/runtime-identity-postgate.json",
       "external_blocker": false,
-      "owner_action": "None; root can complete report generation, review, ordinary commit/push and final external attestation after canonical evidence completes."
+      "owner_action": "None; root can complete report generation, review, ordinary commit/push and final external attestation after canonical evidence completes.",
+      "controller_observations": [
+        {
+          "timestamp": "2026-09-09T15:00:09.320916+00:00",
+          "iteration": 1,
+          "classification": "FAILED",
+          "child_status": "FAILED",
+          "verification": "FAIL",
+          "action": "",
+          "evidence_dir": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/iteration-0001",
+          "queue_status_preserved": true
+        },
+        {
+          "timestamp": "2026-09-09T15:00:09.451211+00:00",
+          "iteration": 2,
+          "classification": "FAILED",
+          "child_status": "FAILED",
+          "verification": "FAIL",
+          "action": "",
+          "evidence_dir": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/iteration-0002",
+          "queue_status_preserved": true
+        }
+      ]
     },
     {
       "id": "ASTER-031",
@@ -2715,10 +2737,171 @@
   "overall_ready": false,
   "controller_state": "/home/md-wasim/AI_Workspace_Data/aster-evidence/current_state.json",
   "controller": {
-    "iteration": 0,
-    "iterations_completed": 0,
+    "iteration": 2,
+    "iterations_completed": 2,
     "readiness_reason": "UNRESOLVED_LOCAL_OR_REVIEW_ITEMS",
     "current_action": "Reproduce the report-provenance defect against current HEAD. Verify current-source, runtime, artifact, benchmark, security and release evidence by content, preserve historical roots, and implement or verify the smallest guard/report repair.",
-    "last_result": {}
+    "last_result": {
+      "timestamp": "2026-09-09T15:00:09.438205+00:00",
+      "iteration": 2,
+      "issue": "ASTER-027",
+      "status": "FAILED",
+      "action": "",
+      "verification": "FAIL",
+      "classification": "FAILED",
+      "child": {
+        "command": [
+          "codex",
+          "exec",
+          "--json",
+          "--color",
+          "never",
+          "--sandbox",
+          "workspace-write",
+          "--ask-for-approval",
+          "never",
+          "--cd",
+          "/home/md-wasim/Projects/AI_Workspace",
+          "--add-dir",
+          "/home/md-wasim/AI_Workspace_Data/aster-evidence",
+          "--output-last-message",
+          "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/iteration-0002/codex.last-message.txt",
+          "-"
+        ],
+        "cwd": "/home/md-wasim/Projects/AI_Workspace",
+        "exit_code": 2,
+        "duration_seconds": 0.0156,
+        "timed_out": false,
+        "error": null,
+        "stdout_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/iteration-0002/codex.stdout.jsonl",
+        "stderr_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/iteration-0002/codex.stderr.log",
+        "last_message_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/iteration-0002/codex.last-message.txt",
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "c206a405769cb087010d604fab55fd38b0612d2dfc6435797cfba6df5240b7e7",
+        "last_message_sha256": null,
+        "parsed": {
+          "parsed": false,
+          "status": "FAILED",
+          "verification": "FAIL",
+          "classification": "FAILED",
+          "reason": "ASTER_LOOP_RESULT block missing",
+          "next_prompt": ""
+        }
+      },
+      "commit": {
+        "attempted": false,
+        "reason": "child_not_zero_and_verified",
+        "paths": [
+          "reports/ASTER_AI_OS_ISSUE_QUEUE.json",
+          "reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.json",
+          "reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.md",
+          "reports/ASTER_AI_OS_PROGRESS.json",
+          "reports/ASTER_AI_OS_PROGRESS.md"
+        ]
+      },
+      "before_commit": {
+        "branch": "main",
+        "commit": "368cfef96d94a1b3736a9cb5a07696b675494c72",
+        "upstream": "origin/main",
+        "upstream_error": null,
+        "ahead": 1,
+        "behind": 0,
+        "clean": false,
+        "status_porcelain": "M reports/ASTER_AI_OS_ISSUE_QUEUE.json\n M reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.json\n M reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.md\n M reports/ASTER_AI_OS_PROGRESS.json\n M reports/ASTER_AI_OS_PROGRESS.md",
+        "status": "DIRTY"
+      },
+      "after": {
+        "observations": {
+          "timestamp": "2026-09-09T15:00:09.434337+00:00",
+          "git": {
+            "branch": "main",
+            "commit": "368cfef96d94a1b3736a9cb5a07696b675494c72",
+            "upstream": "origin/main",
+            "upstream_error": null,
+            "ahead": 1,
+            "behind": 0,
+            "clean": false,
+            "status_porcelain": "M reports/ASTER_AI_OS_ISSUE_QUEUE.json\n M reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.json\n M reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.md\n M reports/ASTER_AI_OS_PROGRESS.json\n M reports/ASTER_AI_OS_PROGRESS.md",
+            "status": "DIRTY"
+          },
+          "benchmark": {
+            "path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-canonical/Work_Station_Benchmark/benchmark-summary.json",
+            "score": 97.84,
+            "pass": 457,
+            "partial": 1,
+            "fail": 1,
+            "mean": 8.052,
+            "p95": 16.6673
+          },
+          "runtime": {
+            "status": "PASS",
+            "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/runtime-identity-current-0394bc7.json",
+            "source_commit": "0394bc714ca15f14385f48da0671fb4b76899930",
+            "matches": {
+              "source_commit": true,
+              "backend_source_sha256": true,
+              "web_bundle_sha256": true
+            },
+            "health_command": {
+              "command": [
+                "curl",
+                "--fail",
+                "--silent",
+                "--show-error",
+                "--max-time",
+                "3",
+                "http://127.0.0.1:8000/api/v1/health/live"
+              ],
+              "cwd": "/home/md-wasim/Projects/AI_Workspace",
+              "exit_code": 0,
+              "duration_seconds": 0.0087,
+              "stdout": "{\"status\":\"alive\"}",
+              "stderr": "",
+              "stdout_sha256": "bc24b0b5a305d5afc198c725890c8fb91053be2dbd8672779de73cac19a008fa",
+              "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "timed_out": false
+            }
+          },
+          "tests": {
+            "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-canonical/full-regression.log",
+            "backend": {
+              "passed": 3152,
+              "skipped": 55
+            },
+            "web": {
+              "passed": 206
+            },
+            "mobile": {
+              "passed": 64
+            },
+            "status": "PASS",
+            "acceptance_hint": "PENDING_CURRENT_DEPLOYMENT_AND_FINAL_VERIFICATION; prior release evidence retained in previous report snapshot."
+          },
+          "queue": {
+            "total": 31,
+            "unresolved": 7,
+            "local_unresolved": 7
+          }
+        },
+        "git": {
+          "branch": "main",
+          "commit": "368cfef96d94a1b3736a9cb5a07696b675494c72",
+          "upstream": "origin/main",
+          "upstream_error": null,
+          "ahead": 1,
+          "behind": 0,
+          "clean": false,
+          "status_porcelain": "M reports/ASTER_AI_OS_ISSUE_QUEUE.json\n M reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.json\n M reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.md\n M reports/ASTER_AI_OS_PROGRESS.json\n M reports/ASTER_AI_OS_PROGRESS.md",
+          "status": "DIRTY"
+        }
+      },
+      "blocker": {
+        "timestamp": "2026-09-09T15:00:09.438199+00:00",
+        "classification": "FAILED",
+        "exit_code": 2,
+        "timed_out": false,
+        "stderr_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/iteration-0002/codex.stderr.log"
+      }
+    }
   }
 }
