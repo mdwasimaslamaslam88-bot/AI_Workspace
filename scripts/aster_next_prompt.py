@@ -546,6 +546,7 @@ def load_or_create_state(evidence_root: Path) -> dict[str, Any]:
     value.setdefault("last_result", None)
     value.setdefault("last_failure", None)
     value.setdefault("last_successful_commit", None)
+    value.setdefault("last_codex_cli", None)
     return value
 
 
@@ -829,6 +830,9 @@ def render_reports(
     git = observations.get("git", {})
     runtime = observations.get("runtime", {})
     last_result = state.get("last_result") or {}
+    last_child = last_result.get("child") if isinstance(last_result, dict) else None
+    if isinstance(last_child, dict) and isinstance(last_child.get("codex_resolution"), dict):
+        state["last_codex_cli"] = last_child["codex_resolution"]
     # The report is generated from this observed source commit. A later
     # report-only commit is intentionally represented separately by the Git
     # history; this prevents self-referential commit claims.
@@ -876,6 +880,7 @@ def render_reports(
                 "readiness_reason": readiness_reason,
                 "current_action": state.get("current_action"),
                 "last_successful_commit": state.get("last_successful_commit"),
+                "last_codex_cli": state.get("last_codex_cli"),
                 "last_result": last_result,
             },
             "issues": queue.get("issues", []),
@@ -962,6 +967,7 @@ def render_reports(
         "git_status": git.get("status"),
         "current_commit": git.get("commit"),
         "last_successful_commit": state.get("last_successful_commit"),
+        "codex_cli": state.get("last_codex_cli"),
         "report_tip_commit": state.get("report_tip_commit"),
         "last_artifact_verification": status.get("release", {}).get("final_report_tip_attestation"),
         "last_failure": state.get("last_failure"),
