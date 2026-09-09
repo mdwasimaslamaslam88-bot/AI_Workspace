@@ -503,7 +503,9 @@ def discover_latest_benchmark(evidence_root: Path, queue: dict[str, Any]) -> tup
     return (value if isinstance(value, dict) else {}), str(path)
 
 
-def discover_runtime(evidence_root: Path, status: dict[str, Any]) -> dict[str, Any]:
+def discover_runtime(
+    evidence_root: Path, status: dict[str, Any], current_commit: str | None
+) -> dict[str, Any]:
     candidates: list[Path] = []
     configured = status.get("current_runtime")
     if isinstance(configured, str):
@@ -521,12 +523,24 @@ def discover_runtime(evidence_root: Path, status: dict[str, Any]) -> dict[str, A
         return {"status": "INVALID", "evidence": str(path)}
     matches = value.get("matches", {})
     identity_ok = bool(matches) and all(matches.values())
-    return {
-        "status": "PASS" if identity_ok else "FAIL",
-        "evidence": str(path),
-        "source_commit": value.get("runtime", {}).get("source_commit")
+    recorded_source = (
+        value.get("runtime", {}).get("source_commit")
         if isinstance(value.get("runtime"), dict)
-        else value.get("source_commit"),
+        else value.get("source_commit")
+    )
+    source_matches = bool(recorded_source and current_commit and recorded_source == current_commit)
+    if not identity_ok:
+        runtime_status = "FAIL"
+    elif not source_matches:
+        runtime_status = "HISTORICAL_PASS_REQUIRES_CURRENT_ATTESTATION"
+    else:
+        runtime_status = "PASS"
+    return {
+        "status": runtime_status,
+        "evidence": str(path),
+        "source_commit": recorded_source,
+        "current_commit": current_commit,
+        "source_matches_current": source_matches,
         "matches": matches,
     }
 
@@ -581,7 +595,7 @@ def observe(evidence_root: Path) -> dict[str, Any]:
     # pointer is still an uncommitted tracked change.
     git = git_snapshot()
     counts = benchmark.get("counts", {}) if isinstance(benchmark.get("counts"), dict) else {}
-    runtime = discover_runtime(evidence_root, status)
+    runtime = discover_runtime(evidence_root, status, git.get("commit"))
     health = command_record(
         ["curl", "--fail", "--silent", "--show-error", "--max-time", "3", "http://127.0.0.1:8000/api/v1/health/live"],
         REPOSITORY_ROOT,
