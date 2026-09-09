@@ -2,11 +2,11 @@
   "schema_version": 4,
   "iteration": 4,
   "status": "NOT_READY",
-  "updated_at": "2026-09-09T17:07:00.569280+00:00",
+  "updated_at": "2026-09-09T17:07:55.775714+00:00",
   "current_issue": [
     "ASTER-027"
   ],
-  "current_commit": "c08032529f0df6c0ac50b77b45a50b13b70a7165",
+  "current_commit": "8fe5bc2038f7315d9b5e0e3c80fdf80472752d51",
   "current_runtime": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/runtime-identity-final-f8fecdb.json",
   "current_artifact": "Packaged desktop/PWA cf05844 unchanged; backend b10742a deployed directly",
   "issues": [
@@ -2761,6 +2761,7 @@
     "iterations_completed": 4,
     "readiness_reason": "UNRESOLVED_LOCAL_OR_REVIEW_ITEMS",
     "current_action": "Reproduce the report-provenance defect against current HEAD. Verify current-source, runtime, artifact, benchmark, security and release evidence by content, preserve historical roots, and implement or verify the smallest guard/report repair.",
+    "last_successful_commit": "8fe5bc2038f7315d9b5e0e3c80fdf80472752d51",
     "last_result": {
       "timestamp": "2026-09-09T15:31:20.168417+00:00",
       "iteration": 4,
@@ -2924,6 +2925,6 @@
       }
     }
   },
-  "report_generated_from_commit": "c08032529f0df6c0ac50b77b45a50b13b70a7165",
-  "report_tip_commit": "c08032529f0df6c0ac50b77b45a50b13b70a7165"
+  "report_generated_from_commit": "8fe5bc2038f7315d9b5e0e3c80fdf80472752d51",
+  "report_tip_commit": "8fe5bc2038f7315d9b5e0e3c80fdf80472752d51"
 }
