@@ -163,3 +163,20 @@ def test_current_provenance_rejects_stale_commit_claims(tmp_path):
     artifact.write_text(json.dumps(artifact_value) + "\n", encoding="utf-8")
     result = controller.validate_current_provenance(tmp_path, observations, status, commit)
     assert result["components"]["artifact"] == "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE"
+
+
+def test_application_source_commit_walks_consecutive_report_tips():
+    controller = _load_controller()
+    report_tip = _current_commit()
+    parent = subprocess.check_output(
+        ["git", "rev-parse", f"{report_tip}^"], cwd=REPOSITORY_ROOT, text=True
+    ).strip()
+    if report_tip == parent:
+        raise AssertionError("Git report-tip ancestry did not advance")
+    changed = subprocess.check_output(
+        ["git", "diff-tree", "--no-commit-id", "--name-only", "-r", report_tip],
+        cwd=REPOSITORY_ROOT,
+        text=True,
+    ).splitlines()
+    if changed and all(path.startswith("reports/ASTER_AI_OS_") for path in changed):
+        assert controller.application_source_commit(report_tip) == controller.application_source_commit(parent)

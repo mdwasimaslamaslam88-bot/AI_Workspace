@@ -319,6 +319,20 @@ def application_source_commit(head: str | None = None) -> str | None:
         current = result.stdout.strip()
     if not isinstance(current, str) or not COMMIT_PATTERN.fullmatch(current):
         return None
+    files_result = subprocess.run(
+        ["git", "diff-tree", "--no-commit-id", "--name-only", "-r", current],
+        cwd=str(REPOSITORY_ROOT),
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    changed = [line.strip() for line in files_result.stdout.splitlines() if line.strip()]
+    if not changed or not all(
+        any(path.startswith(prefix) for prefix in REPORT_ONLY_PATH_PREFIXES)
+        for path in changed
+    ):
+        return current
     parent_result = subprocess.run(
         ["git", "rev-parse", f"{current}^"],
         cwd=str(REPOSITORY_ROOT),
@@ -330,21 +344,10 @@ def application_source_commit(head: str | None = None) -> str | None:
     parent = parent_result.stdout.strip()
     if not COMMIT_PATTERN.fullmatch(parent):
         return current
-    files_result = subprocess.run(
-        ["git", "diff-tree", "--no-commit-id", "--name-only", "-r", current],
-        cwd=str(REPOSITORY_ROOT),
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        check=False,
-    )
-    changed = [line.strip() for line in files_result.stdout.splitlines() if line.strip()]
-    if changed and all(
-        any(path.startswith(prefix) for prefix in REPORT_ONLY_PATH_PREFIXES)
-        for path in changed
-    ):
-        return parent
-    return current
+    # Multiple report-only commits can be appended while the application
+    # source remains unchanged. Walk the complete report-only ancestry so a
+    # report tip cannot accidentally become the claimed application tip.
+    return application_source_commit(parent)
 
 
 def git_snapshot() -> dict[str, Any]:
