@@ -57,6 +57,7 @@ UNRESOLVED_STATUSES = {
     "REOPENED",
 }
 TERMINAL_QUEUE_STATUSES = {"VERIFIED", "CLOSED", "BLOCKED_EXTERNAL"}
+REPORT_ONLY_PATH_PREFIXES = ("reports/ASTER_AI_OS_",)
 
 
 def utc_now() -> str:
@@ -303,6 +304,49 @@ def command_record(
         }
 
 
+def application_source_commit(head: str | None = None) -> str | None:
+    """Return the source tip, excluding a commit containing only live reports."""
+    current = head
+    if not isinstance(current, str) or not COMMIT_PATTERN.fullmatch(current):
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=str(REPOSITORY_ROOT),
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+        current = result.stdout.strip()
+    if not isinstance(current, str) or not COMMIT_PATTERN.fullmatch(current):
+        return None
+    parent_result = subprocess.run(
+        ["git", "rev-parse", f"{current}^"],
+        cwd=str(REPOSITORY_ROOT),
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    parent = parent_result.stdout.strip()
+    if not COMMIT_PATTERN.fullmatch(parent):
+        return current
+    files_result = subprocess.run(
+        ["git", "diff-tree", "--no-commit-id", "--name-only", "-r", current],
+        cwd=str(REPOSITORY_ROOT),
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    changed = [line.strip() for line in files_result.stdout.splitlines() if line.strip()]
+    if changed and all(
+        any(path.startswith(prefix) for prefix in REPORT_ONLY_PATH_PREFIXES)
+        for path in changed
+    ):
+        return parent
+    return current
+
+
 def git_snapshot() -> dict[str, Any]:
     def run(args: list[str]) -> tuple[int, str, str]:
         result = subprocess.run(
@@ -324,9 +368,10 @@ def git_snapshot() -> dict[str, Any]:
         code, counts, _ = run(["rev-list", "--left-right", "--count", f"HEAD...{upstream}"])
         if code == 0 and len(counts.split()) == 2:
             ahead, behind = (int(item) for item in counts.split())
-    return {
+    snapshot = {
         "branch": branch,
         "commit": commit,
+        "application_source_commit": application_source_commit(commit),
         "upstream": upstream or None,
         "upstream_error": upstream_error or None,
         "ahead": ahead,
@@ -343,6 +388,7 @@ def git_snapshot() -> dict[str, Any]:
             else "DIRTY"
         ),
     }
+    return snapshot
 
 
 def current_status() -> dict[str, Any]:
@@ -511,7 +557,8 @@ def build_prompt(issue: dict[str, Any], observations: dict[str, Any]) -> str:
 
 You are one bounded child execution in the persisted ASTER Master ↔ Personal AI OS loop.
 Repository: {REPOSITORY_ROOT}
-Current source commit at selection: {git.get('commit', 'unknown')}
+Current source commit at selection: {git.get('application_source_commit') or git.get('commit', 'unknown')}
+Current Git report tip at selection: {git.get('commit', 'unknown')}
 Evidence root: {DEFAULT_EVIDENCE_ROOT}
 
 CURRENT ISSUE
@@ -651,11 +698,16 @@ def discover_latest_release_gate(evidence_root: Path) -> tuple[dict[str, Any], s
 
 
 def _provenance_status(
-    *, structural_valid: bool, evidence_commit: Any, current_commit: str | None
+    *,
+    structural_valid: bool,
+    evidence_commit: Any,
+    current_commit: str | None,
+    alternate_commits: tuple[str, ...] = (),
 ) -> str:
     if not structural_valid:
         return "FAIL"
-    if not isinstance(evidence_commit, str) or evidence_commit != current_commit:
+    accepted = {value for value in (current_commit, *alternate_commits) if value}
+    if not isinstance(evidence_commit, str) or evidence_commit not in accepted:
         return "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE"
     return "PASS"
 
@@ -667,6 +719,12 @@ def validate_current_provenance(
     current_commit: str | None,
 ) -> dict[str, Any]:
     """Validate evidence content and identity without trusting file presence."""
+    report_tip_commit = observations.get("git", {}).get("commit")
+    alternate_commits = (
+        (report_tip_commit,)
+        if isinstance(report_tip_commit, str) and report_tip_commit != current_commit
+        else ()
+    )
     benchmark_observation = observations.get("benchmark", {})
     benchmark_path = benchmark_observation.get("path")
     benchmark_summary = read_json(Path(benchmark_path), {}) if isinstance(benchmark_path, str) else {}
@@ -708,6 +766,7 @@ def validate_current_provenance(
         structural_valid=benchmark_structural,
         evidence_commit=benchmark_commit,
         current_commit=current_commit,
+        alternate_commits=alternate_commits,
     )
 
     runtime_observation = observations.get("runtime", {})
@@ -747,6 +806,7 @@ def validate_current_provenance(
         and runtime_content_matches["declared_matches"],
         evidence_commit=recorded_runtime_commit,
         current_commit=current_commit,
+        alternate_commits=alternate_commits,
     )
 
     release_document, release_path = discover_latest_release_gate(evidence_root)
@@ -766,6 +826,7 @@ def validate_current_provenance(
         structural_valid=release_structural,
         evidence_commit=release_commit,
         current_commit=current_commit,
+        alternate_commits=alternate_commits,
     )
     security_check = release_document.get("checks", {}).get("security") if isinstance(release_document.get("checks"), dict) else None
     security_status = release_status if isinstance(security_check, str) and security_check.startswith("PASS") else "FAIL"
@@ -782,6 +843,7 @@ def validate_current_provenance(
         structural_valid=artifact_structural,
         evidence_commit=artifact_commit,
         current_commit=current_commit,
+        alternate_commits=alternate_commits,
     )
 
     component_statuses = {
@@ -929,7 +991,8 @@ def observe(evidence_root: Path) -> dict[str, Any]:
     # pointer is still an uncommitted tracked change.
     git = git_snapshot()
     counts = benchmark.get("counts", {}) if isinstance(benchmark.get("counts"), dict) else {}
-    runtime = discover_runtime(evidence_root, status, git.get("commit"))
+    source_commit = git.get("application_source_commit") or git.get("commit")
+    runtime = discover_runtime(evidence_root, status, source_commit)
     health = command_record(
         ["curl", "--fail", "--silent", "--show-error", "--max-time", "3", "http://127.0.0.1:8000/api/v1/health/live"],
         REPOSITORY_ROOT,
@@ -961,7 +1024,7 @@ def observe(evidence_root: Path) -> dict[str, Any]:
         },
     }
     observations["provenance"] = validate_current_provenance(
-        evidence_root, observations, status, git.get("commit")
+        evidence_root, observations, status, source_commit
     )
     return observations
 
@@ -1114,6 +1177,7 @@ def render_reports(
             "overall_ready": ready,
             "current_issue": [current_issue] if current_issue else [],
             "current_commit": git.get("commit"),
+            "application_source_commit": git.get("application_source_commit"),
             "evidence_root": str(evidence_root),
             "issue_queue": str(QUEUE_JSON.relative_to(REPOSITORY_ROOT)),
             "controller_state": str(evidence_root / "current_state.json"),
@@ -1216,6 +1280,7 @@ def render_reports(
         "performance_p95": benchmark.get("p95"),
         "git_status": git.get("status"),
         "current_commit": git.get("commit"),
+        "application_source_commit": git.get("application_source_commit"),
         "last_successful_commit": state.get("last_successful_commit"),
         "codex_cli": state.get("last_codex_cli"),
         "report_tip_commit": state.get("report_tip_commit"),
