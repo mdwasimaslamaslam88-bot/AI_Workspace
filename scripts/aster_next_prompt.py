@@ -674,7 +674,10 @@ def render_reports(
     git = observations.get("git", {})
     runtime = observations.get("runtime", {})
     last_result = state.get("last_result") or {}
-    state.setdefault("report_tip_commit", git.get("commit"))
+    # The report is generated from this observed source commit. A later
+    # report-only commit is intentionally represented separately by the Git
+    # history; this prevents self-referential commit claims.
+    state["report_tip_commit"] = git.get("commit")
     current_issue = selected.get("id") if selected else None
     state.update(
         {
