@@ -443,6 +443,7 @@ def load_or_create_state(evidence_root: Path) -> dict[str, Any]:
     value.setdefault("iteration", 0)
     value.setdefault("iterations_completed", 0)
     value.setdefault("in_progress", False)
+    value.setdefault("resume_required", False)
     value.setdefault("overall_ready", False)
     value.setdefault("status", "NOT_READY")
     value.setdefault("history", [])
@@ -452,6 +453,31 @@ def load_or_create_state(evidence_root: Path) -> dict[str, Any]:
     value.setdefault("last_result", None)
     value.setdefault("last_failure", None)
     return value
+
+
+def restore_resumable_attempt(state: dict[str, Any]) -> None:
+    """Recover a timeout recorded by an older controller version as resumable."""
+    result = state.get("last_result")
+    child = result.get("child") if isinstance(result, dict) else None
+    if (
+        not state.get("in_progress")
+        and isinstance(result, dict)
+        and isinstance(child, dict)
+        and child.get("timed_out") is True
+        and int(result.get("iteration", -1)) == int(state.get("iteration", -2))
+    ):
+        state["in_progress"] = True
+        state["resume_required"] = True
+        state["resume_recovered_at"] = utc_now()
+        failure = state.get("last_failure")
+        stderr_path = failure.get("stderr_path") if isinstance(failure, dict) else None
+        if isinstance(failure, dict) and not failure.get("error_excerpt") and stderr_path:
+            try:
+                failure["error_excerpt"] = safe_text(
+                    Path(stderr_path).read_text(encoding="utf-8", errors="replace")[-2000:]
+                )
+            except OSError:
+                pass
 
 
 def persist_state(state: dict[str, Any], evidence_root: Path) -> None:
@@ -930,6 +956,7 @@ def run_codex_child(prompt: str, iteration_dir: Path, *, timeout_seconds: int, e
         "error": error,
         "stdout_path": str(stdout_path),
         "stderr_path": str(stderr_path),
+        "stderr_tail": safe_text(stderr[-2000:]),
         "last_message_path": str(last_message_path),
         "stdout_sha256": sha256_file(stdout_path),
         "stderr_sha256": sha256_file(stderr_path),
@@ -1067,14 +1094,17 @@ def iteration_once(
     commit_result = safe_commit_if_validated(child, iteration) if auto_commit else {"attempted": False, "reason": "auto_commit_disabled"}
     observations_after = observe(evidence_root)
     parsed = child.get("parsed", {})
+    temporary_failure = False
     if child.get("exit_code") != 0:
-        classification = "BLOCKED_EXTERNAL" if child.get("timed_out") or child.get("exit_code") == 127 else "FAILED"
+        temporary_failure = bool(child.get("timed_out") or child.get("exit_code") == 127)
+        classification = "BLOCKED_EXTERNAL" if temporary_failure else "FAILED"
         state["last_failure"] = {
             "timestamp": utc_now(),
             "classification": classification,
             "exit_code": child.get("exit_code"),
             "timed_out": child.get("timed_out"),
             "stderr_path": child.get("stderr_path"),
+            "error_excerpt": child.get("stderr_tail"),
         }
     elif not parsed.get("parsed"):
         classification = "FAILED"
@@ -1085,6 +1115,7 @@ def iteration_once(
         }
     else:
         classification = parsed.get("classification", parsed.get("status", "FAILED"))
+        temporary_failure = False
     result = {
         "timestamp": utc_now(),
         "iteration": iteration,
@@ -1102,8 +1133,13 @@ def iteration_once(
     write_json(iteration_dir / "result.json", result)
     update_queue_observation(queue, str(selected.get("id")), iteration, result, iteration_dir)
     state["last_result"] = result
-    state["iterations_completed"] = int(state.get("iterations_completed", 0)) + 1
-    state["in_progress"] = False
+    if not temporary_failure:
+        state["iterations_completed"] = int(state.get("iterations_completed", 0)) + 1
+    # A timeout or unavailable child is a resumable attempt, not permission to
+    # advance the durable iteration counter.  The next controller launch will
+    # reuse this iteration and its exact persisted prompt/evidence directory.
+    state["in_progress"] = temporary_failure
+    state["resume_required"] = temporary_failure
     next_prompt = parsed.get("next_prompt", "")
     state["child_suggested_next_prompt"] = next_prompt if parsed.get("parsed") else ""
     if next_prompt and parsed.get("parsed") and str(parsed.get("current_issue", "")) == str(selected.get("id")):
@@ -1122,6 +1158,7 @@ def iteration_once(
             "verification": result["verification"],
             "classification": classification,
             "evidence": str(iteration_dir),
+            "resumable": temporary_failure,
         }
     )
     persist_state(state, evidence_root)
@@ -1152,6 +1189,7 @@ def print_terminal() -> None:
 def run_controller(args: argparse.Namespace) -> int:
     evidence_root = Path(args.evidence_root).resolve()
     state = load_or_create_state(evidence_root)
+    restore_resumable_attempt(state)
     with controller_lock(evidence_root):
         queue = current_queue()
         observations = observe(evidence_root)
@@ -1194,6 +1232,8 @@ def run_controller(args: argparse.Namespace) -> int:
             print("NEXT_PROMPT_BEGIN")
             print(state.get("next_prompt") or "Controller will derive the next prompt from persisted queue and evidence.")
             print("NEXT_PROMPT_END")
+            if state.get("resume_required"):
+                break
             if result.get("status") == "READY" and state.get("overall_ready"):
                 break
         print_terminal()
