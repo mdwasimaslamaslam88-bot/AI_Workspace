@@ -1321,8 +1321,9 @@ def run_controller(args: argparse.Namespace) -> int:
             print("NEXT_PROMPT_BEGIN")
             print(state.get("next_prompt") or "Controller will derive the next prompt from persisted queue and evidence.")
             print("NEXT_PROMPT_END")
-            if state.get("resume_required"):
-                break
+            # A temporary child failure is retryable, but only within the
+            # caller's explicit bounded budget. The next attempt gets a new
+            # evidence directory while preserving this iteration and prompt.
             if result.get("status") == "READY" and state.get("overall_ready"):
                 break
         print_terminal()
