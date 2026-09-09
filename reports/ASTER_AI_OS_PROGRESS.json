@@ -1,22 +1,22 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-09T19:14:29.037401+00:00",
+  "generated_at": "2026-09-09T19:46:19.844402+00:00",
   "source": {
     "state": "/home/md-wasim/AI_Workspace_Data/aster-evidence/current_state.json",
     "status": "/home/md-wasim/Projects/AI_Workspace/reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.json",
     "queue": "/home/md-wasim/Projects/AI_Workspace/reports/ASTER_AI_OS_ISSUE_QUEUE.json",
     "observations": {
-      "timestamp": "2026-09-09T19:14:29.017805+00:00",
+      "timestamp": "2026-09-09T19:46:19.808517+00:00",
       "git": {
         "branch": "main",
-        "commit": "58aa99e6f8fd78ccb34979e9dd6d9c6626971dda",
+        "commit": "420494b11cdc9010178f1b6f72cdb9eddedab5a7",
         "upstream": "origin/main",
         "upstream_error": null,
         "ahead": 0,
         "behind": 0,
-        "clean": true,
-        "status_porcelain": "",
-        "status": "CLEAN_SYNCED"
+        "clean": false,
+        "status_porcelain": "M reports/ASTER_AI_OS_ISSUE_QUEUE.json\n M reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.json\n M reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.md\n M reports/ASTER_AI_OS_PROGRESS.json\n M reports/ASTER_AI_OS_PROGRESS.md",
+        "status": "DIRTY"
       },
       "benchmark": {
         "path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-canonical-controller/Work_Station_Benchmark/benchmark-summary.json",
@@ -32,7 +32,7 @@
         "status": "HISTORICAL_PASS_REQUIRES_CURRENT_ATTESTATION",
         "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/runtime-identity-current-0394bc7.json",
         "source_commit": "0394bc714ca15f14385f48da0671fb4b76899930",
-        "current_commit": "58aa99e6f8fd78ccb34979e9dd6d9c6626971dda",
+        "current_commit": "420494b11cdc9010178f1b6f72cdb9eddedab5a7",
         "source_matches_current": false,
         "matches": {
           "source_commit": true,
@@ -51,7 +51,7 @@
           ],
           "cwd": "/home/md-wasim/Projects/AI_Workspace",
           "exit_code": 0,
-          "duration_seconds": 0.0062,
+          "duration_seconds": 0.007,
           "stdout": "{\"status\":\"alive\"}",
           "stderr": "",
           "stdout_sha256": "bc24b0b5a305d5afc198c725890c8fb91053be2dbd8672779de73cac19a008fa",
@@ -111,9 +111,9 @@
   "voice": "PARTIAL: ASTER-028 preserves reproducible exact-WAV lexical variability.",
   "performance_mean": 8.1446,
   "performance_p95": 16.6314,
-  "git_status": "CLEAN_SYNCED",
-  "current_commit": "58aa99e6f8fd78ccb34979e9dd6d9c6626971dda",
-  "last_successful_commit": "58aa99e6f8fd78ccb34979e9dd6d9c6626971dda",
+  "git_status": "DIRTY",
+  "current_commit": "420494b11cdc9010178f1b6f72cdb9eddedab5a7",
+  "last_successful_commit": "420494b11cdc9010178f1b6f72cdb9eddedab5a7",
   "codex_cli": {
     "path": "/home/md-wasim/.nvm/versions/node/v24.19.0/lib/node_modules/@openai/codex/bin/codex.js",
     "version": "0.153.4",
@@ -147,15 +147,15 @@
       }
     ]
   },
-  "report_tip_commit": "58aa99e6f8fd78ccb34979e9dd6d9c6626971dda",
+  "report_tip_commit": "420494b11cdc9010178f1b6f72cdb9eddedab5a7",
   "last_artifact_verification": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-memoryfix2/final-release-attestation.json",
   "last_failure": {
-    "timestamp": "2026-09-09T19:13:03.610604+00:00",
+    "timestamp": "2026-09-09T19:46:19.813058+00:00",
     "classification": "BLOCKED_EXTERNAL",
     "exit_code": 124,
     "timed_out": true,
-    "stderr_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/iteration-0004/attempt-0006/codex.stderr.log",
-    "error_excerpt": "2026-09-09T19:12:40.499396Z ERROR codex_models_manager::manager: failed to refresh available models: timeout waiting for child process to exit\n"
+    "stderr_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/iteration-0004/attempt-0008/codex.stderr.log",
+    "error_excerpt": ""
   },
   "next_action": "Reproduce the report-provenance defect against current HEAD. Verify current-source, runtime, artifact, benchmark, security and release evidence by content, preserve historical roots, and implement or verify the smallest guard/report repair.",
   "readiness_reason": "UNRESOLVED_LOCAL_OR_REVIEW_ITEMS"
