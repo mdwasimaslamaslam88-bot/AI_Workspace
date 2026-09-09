@@ -1,22 +1,53 @@
 # ASTER / Personal AI OS master-student status
 
-Iteration 20. Overall acceptance remains **NOT READY**. Current report commit is `504ea8357645972098fe60534761ccd7dad3afbd`; runtime identity is independently attested at the same commit.
+Iteration 0. Overall readiness is **NOT READY**.
 
-Latest canonical benchmark: **97.84/100**, 457 PASS, 1 PARTIAL, 1 FAIL; mean 8.052s, P95 16.6673s.6081s. Previous accepted result was 97.74/100, 456 PASS, 2 PARTIAL, 1 FAIL. Baseline remains 97.80/100, 457 PASS, 1 PARTIAL, 1 FAIL.
+Current source commit: `0394bc714ca15f14385f48da0671fb4b76899930`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
 
-A bounded qwen3 code-generation routing experiment was fully measured and rejected: the unchanged 459-case benchmark fell to **96.24/100**, 444 PASS, 5 PARTIAL, 10 FAIL. The preference was reverted to `gemma4:12b-it-q4_K_M`; backend restart and runtime identity checks passed. Evidence is retained under `/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-coderfix` and issue `ASTER-031` is recorded as REGRESSION.
+## Current measured state
 
-The decoder compatibility metadata defect was fixed: the adapter now declares version 0.2.2, `npm ls` is clean, dependency security passes, and the full regression remains green.
+- Canonical benchmark: **97.84/100**, 457 PASS, 1 PARTIAL, 1 FAIL; mean 8.052s, P95 16.6673s.
+- Issues: 7 locally unresolved, 22 fixed/verified, 2 externally blocked.
+- Current issue/action: `ASTER-027` — Reproduce the report-provenance defect against current HEAD. Verify current-source, runtime, artifact, benchmark, security and release evidence by content, preserve historical roots, and implement or verify the smallest guard/report repair.
+- Runtime identity: **PASS**; evidence `/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/runtime-identity-current-0394bc7.json`.
+- Git: **DIRTY** at `0394bc714ca15f14385f48da0671fb4b76899930`.
 
-The memory retrieval defect was fixed with a bounded deterministic lexical fallback. Native cross-conversation recall and owner-scoped persistence passed; memory score is 99.84. The exact loopback CORS failure was corrected with an exact allowlist entry while attacker origins remain denied.
+## Queue classifications
 
-Residual internal cases:
+| Issue | Queue status | Workflow | Priority |
+| --- | --- | --- | --- |
+| ASTER-001 | BLOCKED_EXTERNAL | BLOCKED_EXTERNAL | P4 |
+| ASTER-002 | VERIFIED | COMPLETE | P3 |
+| ASTER-003 | VERIFIED | COMPLETE | P3 |
+| ASTER-004 | VERIFIED | COMPLETE | P3 |
+| ASTER-005 | CLOSED | COMPLETE | P3 |
+| ASTER-006 | REPRODUCED | REPRODUCED | P2 |
+| ASTER-007 | REPRODUCED | REPRODUCED | P2 |
+| ASTER-008 | CLOSED | COMPLETE | P3 |
+| ASTER-009 | BLOCKED_EXTERNAL | BLOCKED_EXTERNAL | P4 |
+| ASTER-010 | VERIFIED | COMPLETE | P3 |
+| ASTER-011 | VERIFIED | COMPLETE | P3 |
+| ASTER-012 | VERIFIED | COMPLETE | P3 |
+| ASTER-013 | VERIFIED | COMPLETE | P3 |
+| ASTER-014 | CLOSED | COMPLETE | P3 |
+| ASTER-015 | CLOSED | COMPLETE | P3 |
+| ASTER-016 | VERIFIED | COMPLETE | P3 |
+| ASTER-017 | CLOSED | COMPLETE | P3 |
+| ASTER-018 | VERIFIED | COMPLETE | P3 |
+| ASTER-019 | VERIFIED | COMPLETE | P3 |
+| ASTER-020 | VERIFIED | COMPLETE | P3 |
+| ASTER-021 | VERIFIED | COMPLETE | P3 |
+| ASTER-022 | REPRODUCED | REPRODUCED | P2 |
+| ASTER-023 | VERIFIED | COMPLETE | P3 |
+| ASTER-024 | VERIFIED | COMPLETE | P3 |
+| ASTER-025 | VERIFIED | COMPLETE | P3 |
+| ASTER-028 | OPEN | REPRODUCED | P1 |
+| ASTER-029 | VERIFIED | COMPLETE | P3 |
+| ASTER-030 | VERIFIED | COMPLETE | P3 |
+| ASTER-026 | REPRODUCED | REPRODUCED | P1 |
+| ASTER-027 | VERIFYING | VERIFYING | P0 |
+| ASTER-031 | REGRESSION | REGRESSION | P2 |
 
-- `medium-coding-04` PARTIAL: required `x * x`, `range(5)`.
-- `model-comparison-coder-06` FAIL: required `base case`.
-- `voice-stt-01` passed in the latest canonical run; prior exact-WAV replay remains a reproducible acoustic/model variability observation.
-- `ASTER-026`, `ASTER-027`, and `ASTER-031` remain unresolved review/model/reporting issues.
+The issue queue and machine-readable controller state are authoritative. A child model response cannot mark an issue complete without objective evidence.
 
-A real authenticated Agent OS request completed through the production API; objective-evidence verification correctly rejected the model-only response. ASTER ↔ AI OS transport is authenticated and persisted, but advisory model review remains qualified; parent MCP/reverse callback, live DEX, off-device browser,  Security and owner isolation remain fail-closed.
-
-Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-memoryfix2`. Persistent queue: `reports/ASTER_AI_OS_ISSUE_QUEUE.json`.
+Next prompt is persisted at `/home/md-wasim/AI_Workspace_Data/aster-evidence/current_state.json` and is generated from the selected issue and observed evidence.

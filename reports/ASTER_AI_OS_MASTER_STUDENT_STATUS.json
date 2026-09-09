@@ -1,19 +1,12 @@
 {
   "schema_version": 4,
-  "iteration": 20,
-  "status": "NOT_READY_MEASURED_INTERNAL_LIMITATIONS_AND_EXTERNAL_BLOCKERS",
-  "updated_at": "2026-09-09T04:00:00+05:30",
+  "iteration": 0,
+  "status": "NOT_READY",
+  "updated_at": "2026-09-09T14:59:44.790049+00:00",
   "current_issue": [
-    "ASTER-006",
-    "ASTER-007",
-    "ASTER-022",
-    "ASTER-026",
-    "ASTER-027",
-    "ASTER-028",
-    "ASTER-001",
-    "ASTER-009"
+    "ASTER-027"
   ],
-  "current_commit": "f8fecdb2feba4fee96f10d8f69bfbb20e98c4057",
+  "current_commit": "0394bc714ca15f14385f48da0671fb4b76899930",
   "current_runtime": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/runtime-identity-final-f8fecdb.json",
   "current_artifact": "Packaged desktop/PWA cf05844 unchanged; backend b10742a deployed directly",
   "issues": [
@@ -231,17 +224,18 @@
       "cross_agent_findings": null,
       "disagreement": null,
       "fix": null,
-      "focused_test": null,
+      "focused_test": "Independent current-HEAD authenticated HTTP reproduction returned fenced [0**2, 1**2, 2**2, 3**2, 4**2] from qwen2.5-coder:7b with temperature0 and seed20260825.",
       "integration_test": null,
       "security_test": null,
       "runtime_test": "Original prompt, exact model, temperature=0, seed=20260825 reproduce the previous answer.",
-      "regression": null,
+      "regression": "Current HEAD reproduction and unchanged canonical 20260910 remain PARTIAL; no checker or prompt change.",
       "performance": null,
       "status": "REPRODUCED",
       "evidence": [
         "benchmark-targeted-before.json",
         "benchmark-targeted-before-2.json",
-        "Work_Station_Benchmark/final-failure-inventory.json"
+        "Work_Station_Benchmark/final-failure-inventory.json",
+        "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/reproduction-cases-20260909.json"
       ],
       "commit": null,
       "artifact": null,
@@ -269,17 +263,19 @@
       "cross_agent_findings": null,
       "disagreement": null,
       "fix": null,
-      "focused_test": null,
+      "focused_test": "Independent current-HEAD authenticated HTTP reproduction returned Infinite Recursion from qwen2.5-coder:7b with temperature0 and seed20260825; direct qwen3 probe fixes this case but global routing regresses benchmark.",
       "integration_test": null,
       "security_test": null,
       "runtime_test": "Original prompt, exact model, temperature=0, seed=20260825 reproduce the previous answer.",
-      "regression": null,
+      "regression": "Current HEAD reproduction and unchanged canonical 20260910 remain FAIL; qwen3 global route remains rejected by measured 96.24 regression.",
       "performance": null,
       "status": "REPRODUCED",
       "evidence": [
         "benchmark-targeted-before.json",
         "benchmark-targeted-before-2.json",
-        "Work_Station_Benchmark/final-failure-inventory.json"
+        "Work_Station_Benchmark/final-failure-inventory.json",
+        "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/reproduction-cases-20260909.json",
+        "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-coderfix/Work_Station_Benchmark/benchmark-summary.json"
       ],
       "commit": null,
       "artifact": null,
@@ -652,21 +648,29 @@
         "new_claim": "A local interface adapter may provide a safe internal repair without duplicating the decoding algorithm.",
         "resolution": "Prior external-only classification falsified. Local upstream adapter cross-verified; full release pending."
       },
-      "fix": "Patched upstream decoder via CommonJS compatibility adapter;91,968 zero-difference consumer comparisons, clean install, audit0 and bounded malformed-input probe PASS; deployment pending.",
-      "focused_test": null,
-      "integration_test": null,
-      "security_test": null,
-      "runtime_test": null,
-      "regression": null,
-      "performance": null,
+      "fix": "Patched upstream decoder via CommonJS compatibility adapter and corrected compatibility package metadata to version 0.2.2, satisfying query-string ^0.2.2.",
+      "focused_test": {
+        "npm_ls": "PASS",
+        "dependency_security": "PASS",
+        "consumer_corpus": "PASS from prior evidence",
+        "web_tests": "206 passed",
+        "mobile_tests": "64 passed"
+      },
+      "integration_test": "Full npm test and production web build passed after metadata fix.",
+      "security_test": "scripts/security_audit.sh passed; malformed-input bound passed.",
+      "runtime_test": "Authenticated runtime identity matches source after commit 504ea83; backend restarted cleanly after transient readiness timeout.",
+      "regression": "No decoder corpus mismatch; prior 3044-mismatch adapter candidate retained as failed historical evidence.",
+      "performance": "No decoder performance regression measured; implementation unchanged.",
       "status": "VERIFIED",
       "evidence": [
-        "decoder-advisory-assessment.json",
-        "query-string-module-assessment.json"
+        "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/decoder-npm-ls-after-20260909.log",
+        "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/master-decoder-security-after.log",
+        "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/qa/decoder-corpus.json",
+        "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/full-regression-decoder-20260909.log"
       ],
-      "commit": "cf05844dbee756ae7377fefe6cbd039cd0e8fcd1",
+      "commit": "504ea8357645972098fe60534761ccd7dad3afbd",
       "artifact": null,
-      "runtime_identity": "current-discovery.json",
+      "runtime_identity": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/runtime-identity-decoder-504ea83-retry.json",
       "status_history": [
         {
           "timestamp": "2026-09-07T20:12:22.733892+00:00",
@@ -679,6 +683,12 @@
           "from": "REOPENED",
           "to": "VERIFYING",
           "reason": "Patched upstream decoder via CommonJS compatibility adapter;91,968 zero-difference consumer comparisons, clean install, audit0 and bounded malformed-input probe PASS; deployment pending."
+        },
+        {
+          "timestamp": "2026-09-09T00:50:00+05:30",
+          "from": "VERIFYING",
+          "to": "VERIFIED",
+          "reason": "Metadata compatibility correction and full regression passed."
         }
       ]
     },
@@ -758,7 +768,7 @@
         }
       ],
       "disagreement": {
-        "initial_nested_claim": "Writable ToolService parent\u2192DEX\u2192filesystem could falsely terminalize parent.",
+        "initial_nested_claim": "Writable ToolService parent→DEX→filesystem could falsely terminalize parent.",
         "evidence": "interop/nested-uncertainty-before.log",
         "resolution": "That production parent initiator path is not admitted. Actual direct authorized gateway callback and separate parent uncertainty contract tested; permission registry unchanged. No production writable parent chain PASS."
       },
@@ -1156,18 +1166,19 @@
       ],
       "disagreement": false,
       "fix": null,
-      "focused_test": "Three fresh syntheses initially passed; bounded follow-up stopped on first failure and replayed that exact WAV three times with the same transcript.",
+      "focused_test": "Fresh current-HEAD voice smoke passed Piper TTS, Faster-Whisper CUDA STT, owner isolation, cleanup and redaction; exact canonical/follow-up WAV replay remains partial.",
       "integration_test": "Second complete canonical run retains voice-stt-01 PARTIAL; voice score and normalized WER/CER remain measured, not upgraded.",
       "security_test": "Synthetic assets were owner-scoped and deleted with 204/content 404; token scan passed.",
       "runtime_test": "Current voice model IDs and relevant eight source/config hashes unchanged from the prior canonical run.",
-      "regression": "Reproduced failure class; no repair admitted. Future canonical runs must preserve failing WAV bytes before cleanup.",
+      "regression": "Unchanged canonical 20260910 voice-stt passed; prior exact-WAV replay remains reproducibly variable, so issue remains an OPEN model/acoustic observation.",
       "performance": "No model or runtime parameter change; current canonical mean 8.2534 seconds and P95 16.7391 seconds.",
       "status": "OPEN",
       "evidence": [
         "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/voice-regression/README.md",
         "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/voice-regression/reproduction.json",
         "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/voice-regression/capture-followup/capture.json",
-        "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-memoryfix2/Work_Station_Benchmark/benchmark-results.json"
+        "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-memoryfix2/Work_Station_Benchmark/benchmark-results.json",
+        "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260909-canonical-retry/Work_Station_Benchmark/benchmark-summary.json"
       ],
       "commit": "b10742a340a22e56ff7e315603cc8af19158b49b",
       "artifact": "installed local Piper and faster-whisper runtime",
@@ -1311,7 +1322,7 @@
         "resolution": "False execution claim rejected. Third response corrects flag but lacks substantive evidence, so semantic acceptance remains incomplete."
       },
       "fix": "No validated model-quality fix. Existing independent human/ASTER arbitration rejected unsupported claims and preserved evidence; do not mark this issue fixed solely because detection worked.",
-      "focused_test": "Three real model outputs independently hash-verified; semantic failures remain documented. No new model calls during this final coverage audit.",
+      "focused_test": "Real authenticated Agent OS run b32ee14b-5ae4-4f4a-a4ef-930d095fc209 completed through /api/v1/agent-os/runs; output was nonblank but objective-evidence verification correctly failed.",
       "integration_test": "Existing owner-authenticated HTTP request/reply transport completed. This does not prove autonomous reverse delegation.",
       "security_test": "Review runs granted model inference only; no execution was authorized by advisory content. Preserve existing ToolService and owner controls.",
       "runtime_test": "Observed on da1d0ad runtime. Current cf05844 changes verifier/gateway/filesystem/ToolService only, with no generation/model-routing code change; no claim of a fresh model reproduction on current runtime.",
@@ -1321,7 +1332,8 @@
       "evidence": [
         "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/interop/ai-os-request.json",
         "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/interop/ai-os-evidence-review.json",
-        "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/interop/ai-os-challenge-response.json"
+        "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/interop/ai-os-challenge-response.json",
+        "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/aster-to-aios-real-agent-run-20260909.json"
       ],
       "commit": null,
       "artifact": null,
@@ -1405,6 +1417,61 @@
       "runtime_identity": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/runtime-identity-postgate.json",
       "external_blocker": false,
       "owner_action": "None; root can complete report generation, review, ordinary commit/push and final external attestation after canonical evidence completes."
+    },
+    {
+      "id": "ASTER-031",
+      "severity": "HIGH",
+      "component": "code-generation model routing",
+      "description": "Experimental qwen3 code-generation preference improved one direct recursion probe but degraded the unchanged canonical benchmark.",
+      "reproduction": "Set OLLAMA_TASK_MODEL_PREFERENCES code_generation=qwen3:8b in both authoritative env files, restart backend, run unchanged canonical benchmark.",
+      "expected": "Routing change must improve or preserve benchmark and fix the targeted failure.",
+      "actual": {
+        "score": 96.24,
+        "counts": {
+          "PASS": 444,
+          "PARTIAL": 5,
+          "FAIL": 10
+        },
+        "baseline_before_experiment": {
+          "score": 97.74,
+          "PASS": 456,
+          "PARTIAL": 2,
+          "FAIL": 1
+        }
+      },
+      "root_cause": "qwen3 direct capability did not generalize across the benchmark code-generation corpus; broad route changed outputs and introduced additional failures.",
+      "ASTER_analysis": "Reject the routing change on measured regression; preserve evidence and revert configuration.",
+      "AI_OS_analysis": {
+        "status": "NOT_USED_FOR_EXECUTION_EVIDENCE"
+      },
+      "cross_agent_findings": [
+        {
+          "agent": "aster_master",
+          "finding": "qwen3 direct recursion probe returned base case, but canonical code_generation_success_rate fell to79.17%."
+        }
+      ],
+      "disagreement": false,
+      "fix": "Reverted both env files to OLLAMA_TASK_MODEL_PREFERENCES={\"code_generation\":\"gemma4:12b-it-q4_K_M\"}; backend restarted successfully.",
+      "focused_test": "Direct probe evidence and full unchanged canonical benchmark retained.",
+      "integration_test": "Canonical real-HTTP benchmark completed 459 cases; regression confirmed.",
+      "security_test": "No security boundary changes; canonical safety100%.",
+      "runtime_test": "Backend active after rollback, NRestarts=0.",
+      "regression": "Keep ASTER031 open/rejected; do not retry identical qwen3 global preference without a new bounded strategy.",
+      "performance": {
+        "mean_seconds": 7.5761,
+        "p95_seconds": 15.0231
+      },
+      "status": "REGRESSION",
+      "evidence": [
+        "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-coderfix/Work_Station_Benchmark/benchmark-summary.json",
+        "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/coder-focused-probe.json",
+        "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/master-command-errors-continuation.json"
+      ],
+      "commit": null,
+      "artifact": "backend runtime configuration",
+      "runtime_identity": null,
+      "external_blocker": false,
+      "owner_action": "Design a bounded routing or output-normalization strategy and rerun the unchanged benchmark; do not alter checker expectations."
     }
   ],
   "benchmark_before": {
@@ -2024,7 +2091,7 @@
     "runtime_identity": "PENDING_CURRENT_DEPLOYMENT_AND_FINAL_VERIFICATION; prior release evidence retained in previous report snapshot.",
     "benchmark": "PENDING_FULL_UNCHANGED_CANONICAL_RUN; baseline97.80 with457PASS/1PARTIAL/1FAIL."
   },
-  "evidence_root": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-memoryfix2",
+  "evidence_root": "/home/md-wasim/AI_Workspace_Data/aster-evidence",
   "failed_attempts": [
     {
       "action": "initial MCP analysis",
@@ -2437,24 +2504,10 @@
     ]
   },
   "issue_counts": {
-    "cumulative_discovered": 25,
-    "new_this_swarm": 8,
-    "reopened_this_swarm": 2,
-    "new_repairs_verified": 0,
-    "prior_repairs": 11,
-    "note": "Historical repairs remain scoped; new contradictory evidence is retained and investigated.",
-    "repair_regressions_caught_this_swarm": 1,
-    "total_discovered_cumulative": 30,
-    "remaining_internal_issue_ids": [
-      "ASTER-006",
-      "ASTER-007",
-      "ASTER-022",
-      "ASTER-028",
-      "ASTER-026",
-      "ASTER-027"
-    ],
-    "resolved_cumulative_including_prior_capability_fixes": 24,
-    "remaining_internal_model_or_contract_issues": 6
+    "remaining_local": 7,
+    "fixed": 22,
+    "blocked_external": 2,
+    "total": 31
   },
   "performance": {
     "canonical_mean_seconds": 8.2534,
@@ -2658,5 +2711,14 @@
     "objective_evidence_check": "FAILED_CLOSED",
     "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/aster-to-aios-real-agent-run-20260909.json"
   },
-  "latest_canonical": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-canonical/Work_Station_Benchmark/benchmark-summary.json"
+  "latest_canonical": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-canonical/Work_Station_Benchmark/benchmark-summary.json",
+  "overall_ready": false,
+  "controller_state": "/home/md-wasim/AI_Workspace_Data/aster-evidence/current_state.json",
+  "controller": {
+    "iteration": 0,
+    "iterations_completed": 0,
+    "readiness_reason": "UNRESOLVED_LOCAL_OR_REVIEW_ITEMS",
+    "current_action": "Reproduce the report-provenance defect against current HEAD. Verify current-source, runtime, artifact, benchmark, security and release evidence by content, preserve historical roots, and implement or verify the smallest guard/report repair.",
+    "last_result": {}
+  }
 }

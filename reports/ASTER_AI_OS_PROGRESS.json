@@ -1,0 +1,117 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-09-09T14:59:44.795350+00:00",
+  "source": {
+    "state": "/home/md-wasim/AI_Workspace_Data/aster-evidence/current_state.json",
+    "status": "/home/md-wasim/Projects/AI_Workspace/reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.json",
+    "queue": "/home/md-wasim/Projects/AI_Workspace/reports/ASTER_AI_OS_ISSUE_QUEUE.json",
+    "observations": {
+      "timestamp": "2026-09-09T14:59:44.782386+00:00",
+      "git": {
+        "branch": "main",
+        "commit": "0394bc714ca15f14385f48da0671fb4b76899930",
+        "upstream": "origin/main",
+        "upstream_error": null,
+        "ahead": 0,
+        "behind": 0,
+        "clean": false,
+        "status_porcelain": "?? scripts/aster_autonomous_loop.sh\n?? scripts/aster_next_prompt.py",
+        "status": "DIRTY"
+      },
+      "benchmark": {
+        "path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-canonical/Work_Station_Benchmark/benchmark-summary.json",
+        "score": 97.84,
+        "pass": 457,
+        "partial": 1,
+        "fail": 1,
+        "mean": 8.052,
+        "p95": 16.6673
+      },
+      "runtime": {
+        "status": "PASS",
+        "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/runtime-identity-current-0394bc7.json",
+        "source_commit": "0394bc714ca15f14385f48da0671fb4b76899930",
+        "matches": {
+          "source_commit": true,
+          "backend_source_sha256": true,
+          "web_bundle_sha256": true
+        },
+        "health_command": {
+          "command": [
+            "curl",
+            "--fail",
+            "--silent",
+            "--show-error",
+            "--max-time",
+            "3",
+            "http://127.0.0.1:8000/api/v1/health/live"
+          ],
+          "cwd": "/home/md-wasim/Projects/AI_Workspace",
+          "exit_code": 0,
+          "duration_seconds": 0.0081,
+          "stdout": "{\"status\":\"alive\"}",
+          "stderr": "",
+          "stdout_sha256": "bc24b0b5a305d5afc198c725890c8fb91053be2dbd8672779de73cac19a008fa",
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "timed_out": false
+        }
+      },
+      "tests": {
+        "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-canonical/full-regression.log",
+        "backend": {
+          "passed": 3152,
+          "skipped": 55
+        },
+        "web": {
+          "passed": 206
+        },
+        "mobile": {
+          "passed": 64
+        },
+        "status": "PASS",
+        "acceptance_hint": "PENDING_CURRENT_DEPLOYMENT_AND_FINAL_VERIFICATION; prior release evidence retained in previous report snapshot."
+      },
+      "queue": {
+        "total": 31,
+        "unresolved": 7,
+        "local_unresolved": 7
+      }
+    }
+  },
+  "overall_readiness": "NOT READY",
+  "benchmark_score": 97.84,
+  "pass": 457,
+  "partial": 1,
+  "fail": 1,
+  "iterations_completed": 0,
+  "issues_remaining": 7,
+  "issues_fixed": 22,
+  "issues_blocked_externally": 2,
+  "current_issue": "ASTER-027",
+  "current_action": "Reproduce the report-provenance defect against current HEAD. Verify current-source, runtime, artifact, benchmark, security and release evidence by content, preserve historical roots, and implement or verify the smallest guard/report repair.",
+  "last_verification": "NONE",
+  "backend_tests": {
+    "passed": 3152,
+    "skipped": 55
+  },
+  "web_tests": {
+    "passed": 206
+  },
+  "mobile_tests": {
+    "passed": 64
+  },
+  "security_status": "PASS",
+  "runtime_identity_status": "PASS",
+  "aster_to_ai_os": "PARTIAL: current owner-authenticated HTTP exchange and integrity verified; fabricated execution claims rejected. Parent MCP rejected and live reverse DEX blocked.",
+  "ai_os_to_aster": "PARTIAL: current owner-authenticated HTTP exchange and integrity verified; fabricated execution claims rejected. Parent MCP rejected and live reverse DEX blocked.",
+  "dex": "BLOCKED_EXTERNAL: strict host sandbox fails closed with RTM_NEWADDR EPERM; synthetic transport and lifecycle repairs independently verified.",
+  "voice": "PENDING_CURRENT_DEPLOYMENT_AND_FINAL_VERIFICATION; prior release evidence retained in previous report snapshot.",
+  "performance_mean": 8.052,
+  "performance_p95": 16.6673,
+  "git_status": "DIRTY",
+  "current_commit": "0394bc714ca15f14385f48da0671fb4b76899930",
+  "last_artifact_verification": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-memoryfix2/final-release-attestation.json",
+  "last_failure": null,
+  "next_action": "Reproduce the report-provenance defect against current HEAD. Verify current-source, runtime, artifact, benchmark, security and release evidence by content, preserve historical roots, and implement or verify the smallest guard/report repair.",
+  "readiness_reason": "UNRESOLVED_LOCAL_OR_REVIEW_ITEMS"
+}
