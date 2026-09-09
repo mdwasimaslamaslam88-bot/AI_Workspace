@@ -572,7 +572,7 @@ def observe(evidence_root: Path) -> dict[str, Any]:
     synchronize_queue_benchmark(
         queue,
         {
-            "benchmark": {"path": benchmark_path},
+            "benchmark": {"path": benchmark_path, "commit": benchmark.get("git_commit")},
             "git": git,
         },
     )
@@ -593,6 +593,7 @@ def observe(evidence_root: Path) -> dict[str, Any]:
         "git": git,
         "benchmark": {
             "path": benchmark_path,
+            "commit": benchmark.get("git_commit"),
             "score": benchmark.get("total_score"),
             "pass": counts.get("PASS"),
             "partial": counts.get("PARTIAL"),
@@ -670,7 +671,7 @@ def synchronize_queue_benchmark(
     """Keep the queue's benchmark pointer aligned with the latest valid report."""
     benchmark = observations.get("benchmark", {})
     benchmark_path = benchmark.get("path")
-    commit = observations.get("git", {}).get("commit")
+    commit = benchmark.get("commit") or observations.get("git", {}).get("commit")
     if not isinstance(benchmark_path, str) or not benchmark_path:
         return
     changed = False
