@@ -17,7 +17,7 @@ BACKEND        : 3152 PASS
 WEB            : 206 PASS
 MOBILE         : 64 PASS
 PERFORMANCE    : mean 8.1446s / P95 16.6314s
-GIT            : DIRTY
-COMMIT         : e417ec2cd57ae5e9b803b02f729eec08e8ff2dd9
+GIT            : CLEAN_SYNCED
+COMMIT         : c08032529f0df6c0ac50b77b45a50b13b70a7165
 NEXT ACTION    : Reproduce the report-provenance defect against current HEAD. Verify current-source, runtime, artifact, benchmark, security and release evidence by content, preserve historical roots, and implement or verify the smallest guard/report repair.
 ========================================================

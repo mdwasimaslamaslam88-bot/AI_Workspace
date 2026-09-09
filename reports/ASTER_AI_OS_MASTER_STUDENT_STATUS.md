@@ -2,7 +2,7 @@
 
 Iteration 4. Overall readiness is **NOT READY**.
 
-Current source commit: `e417ec2cd57ae5e9b803b02f729eec08e8ff2dd9`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
+Current source commit: `c08032529f0df6c0ac50b77b45a50b13b70a7165`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
 
 ## Current measured state
 
@@ -10,7 +10,7 @@ Current source commit: `e417ec2cd57ae5e9b803b02f729eec08e8ff2dd9`. Evidence root
 - Issues: 7 locally unresolved, 22 fixed/verified, 2 externally blocked.
 - Current issue/action: `ASTER-027` — Reproduce the report-provenance defect against current HEAD. Verify current-source, runtime, artifact, benchmark, security and release evidence by content, preserve historical roots, and implement or verify the smallest guard/report repair.
 - Runtime identity: **HISTORICAL_PASS_REQUIRES_CURRENT_ATTESTATION**; evidence `/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/runtime-identity-current-0394bc7.json`.
-- Git: **DIRTY** at `e417ec2cd57ae5e9b803b02f729eec08e8ff2dd9`.
+- Git: **CLEAN_SYNCED** at `c08032529f0df6c0ac50b77b45a50b13b70a7165`.
 
 ## Queue classifications
 
