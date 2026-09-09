@@ -13,12 +13,12 @@ AI OS→ASTER    : BLOCKED_EXTERNAL: parent MCP/reverse callback is not availabl
 DEX            : BLOCKED_EXTERNAL: strict host sandbox fails closed with RTM_NEWADDR EPERM; synthetic trans
 VOICE          : PARTIAL: ASTER-028 preserves reproducible exact-WAV lexical variability.
 SECURITY       : PASS_WITH_RECORDED_RISK
-PROVENANCE     : PASS
+PROVENANCE     : NOT_PROVEN
 BACKEND        : 3152 PASS
 WEB            : 206 PASS
 MOBILE         : 64 PASS
 PERFORMANCE    : mean 8.0769s / P95 16.5235s
 GIT            : DIRTY
-COMMIT         : 0e604345883da8995a507eb6262be928e7d39976
+COMMIT         : 5f46508f6e0b9e0467325581888137397aa1ad00
 NEXT ACTION    : Re-run the existing authenticated Agent OS advisory-review corpus on the current runtime, verify hashes and permission grants, and determine whether a local model/prompt repair is demonstrated. Model prose is not evidence.
 ========================================================

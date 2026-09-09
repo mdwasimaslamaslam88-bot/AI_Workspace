@@ -1,22 +1,22 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-09T22:31:24.801521+00:00",
+  "generated_at": "2026-09-09T22:46:40.593502+00:00",
   "source": {
     "state": "/home/md-wasim/AI_Workspace_Data/aster-evidence/current_state.json",
     "status": "/home/md-wasim/Projects/AI_Workspace/reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.json",
     "queue": "/home/md-wasim/Projects/AI_Workspace/reports/ASTER_AI_OS_ISSUE_QUEUE.json",
     "observations": {
-      "timestamp": "2026-09-09T22:31:24.694013+00:00",
+      "timestamp": "2026-09-09T22:46:40.486710+00:00",
       "git": {
         "branch": "main",
-        "commit": "0e604345883da8995a507eb6262be928e7d39976",
-        "application_source_commit": "b9681bfdd054e5fe8e9e49e2317335fa87057e34",
+        "commit": "5f46508f6e0b9e0467325581888137397aa1ad00",
+        "application_source_commit": "5f46508f6e0b9e0467325581888137397aa1ad00",
         "upstream": "origin/main",
         "upstream_error": null,
         "ahead": 0,
         "behind": 0,
         "clean": false,
-        "status_porcelain": "M reports/ASTER_AI_OS_ISSUE_QUEUE.json",
+        "status_porcelain": "M reports/ASTER_AI_OS_ISSUE_QUEUE.json\n M reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.json\n M reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.md\n M reports/ASTER_AI_OS_PROGRESS.json\n M reports/ASTER_AI_OS_PROGRESS.md",
         "status": "DIRTY"
       },
       "benchmark": {
@@ -30,11 +30,11 @@
         "p95": 16.5235
       },
       "runtime": {
-        "status": "PASS",
+        "status": "HISTORICAL_PASS_REQUIRES_CURRENT_ATTESTATION",
         "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-canonical-b9681bf/runtime-identity-current.json",
         "source_commit": "b9681bfdd054e5fe8e9e49e2317335fa87057e34",
-        "current_commit": "b9681bfdd054e5fe8e9e49e2317335fa87057e34",
-        "source_matches_current": true,
+        "current_commit": "5f46508f6e0b9e0467325581888137397aa1ad00",
+        "source_matches_current": false,
         "matches": {
           "source_commit": true,
           "backend_source_sha256": true,
@@ -52,7 +52,7 @@
           ],
           "cwd": "/home/md-wasim/Projects/AI_Workspace",
           "exit_code": 0,
-          "duration_seconds": 0.0076,
+          "duration_seconds": 0.0069,
           "stdout": "{\"status\":\"alive\"}",
           "stderr": "",
           "stdout_sha256": "bc24b0b5a305d5afc198c725890c8fb91053be2dbd8672779de73cac19a008fa",
@@ -81,17 +81,17 @@
         "local_unresolved": 6
       },
       "provenance": {
-        "status": "PASS",
-        "current_source_commit": "b9681bfdd054e5fe8e9e49e2317335fa87057e34",
+        "status": "NOT_PROVEN",
+        "current_source_commit": "5f46508f6e0b9e0467325581888137397aa1ad00",
         "components": {
           "source_commit": "PASS",
-          "runtime": "PASS",
+          "runtime": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE",
           "backend_hash": "PASS",
           "web_artifact_hash": "PASS",
-          "benchmark": "PASS",
-          "security": "PASS",
-          "release": "PASS",
-          "artifact": "PASS"
+          "benchmark": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE",
+          "security": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE",
+          "release": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE",
+          "artifact": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE"
         },
         "runtime": {
           "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-canonical-b9681bf/runtime-identity-current.json",
@@ -101,7 +101,7 @@
           "expected_backend_source_sha256": "eb699a17b5dcfbaac89b5c9eb9b0bd7e77242c0a04c40e7f23caa41771dc707a",
           "expected_web_bundle_sha256": "5c0075a4636f9d50eac0f543bb67eb424f335ee707926e7ddc7d2b4982172825",
           "content_matches": {
-            "source_commit": true,
+            "source_commit": false,
             "backend_source_sha256": true,
             "web_bundle_sha256": true,
             "declared_matches": true
@@ -164,7 +164,7 @@
             }
           ]
         },
-        "historical_evidence_rejected": false
+        "historical_evidence_rejected": true
       }
     }
   },
@@ -191,11 +191,11 @@
     "passed": 64
   },
   "security_status": "PASS_WITH_RECORDED_RISK",
-  "runtime_identity_status": "PASS",
-  "evidence_provenance": "PASS",
-  "benchmark_provenance": "PASS",
-  "artifact_provenance": "PASS",
-  "release_provenance": "PASS",
+  "runtime_identity_status": "HISTORICAL_PASS_REQUIRES_CURRENT_ATTESTATION",
+  "evidence_provenance": "NOT_PROVEN",
+  "benchmark_provenance": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE",
+  "artifact_provenance": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE",
+  "release_provenance": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE",
   "aster_to_ai_os": "PARTIAL: current owner-authenticated HTTP exchange and integrity verified; fabricated execution claims rejected. Parent MCP rejected and live reverse DEX blocked.",
   "ai_os_to_aster": "BLOCKED_EXTERNAL: parent MCP/reverse callback is not available; no bidirectional verification claimed.",
   "dex": "BLOCKED_EXTERNAL: strict host sandbox fails closed with RTM_NEWADDR EPERM; synthetic transport and lifecycle repairs independently verified.",
@@ -203,8 +203,8 @@
   "performance_mean": 8.0769,
   "performance_p95": 16.5235,
   "git_status": "DIRTY",
-  "current_commit": "0e604345883da8995a507eb6262be928e7d39976",
-  "application_source_commit": "b9681bfdd054e5fe8e9e49e2317335fa87057e34",
+  "current_commit": "5f46508f6e0b9e0467325581888137397aa1ad00",
+  "application_source_commit": "5f46508f6e0b9e0467325581888137397aa1ad00",
   "last_successful_commit": "b9681bfdd054e5fe8e9e49e2317335fa87057e34",
   "codex_cli": {
     "path": "/home/md-wasim/.nvm/versions/node/v24.19.0/lib/node_modules/@openai/codex/bin/codex.js",
@@ -239,14 +239,14 @@
       }
     ]
   },
-  "report_tip_commit": "0e604345883da8995a507eb6262be928e7d39976",
+  "report_tip_commit": "5f46508f6e0b9e0467325581888137397aa1ad00",
   "last_artifact_verification": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-memoryfix2/final-release-attestation.json",
   "last_failure": {
-    "timestamp": "2026-09-09T19:46:19.813058+00:00",
+    "timestamp": "2026-09-09T22:45:07.086087+00:00",
     "classification": "BLOCKED_EXTERNAL",
     "exit_code": 124,
     "timed_out": true,
-    "stderr_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/iteration-0004/attempt-0008/codex.stderr.log",
+    "stderr_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/iteration-0004/attempt-0010/codex.stderr.log",
     "error_excerpt": ""
   },
   "next_action": "Re-run the existing authenticated Agent OS advisory-review corpus on the current runtime, verify hashes and permission grants, and determine whether a local model/prompt repair is demonstrated. Model prose is not evidence.",

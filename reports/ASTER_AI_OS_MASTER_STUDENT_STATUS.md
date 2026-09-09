@@ -2,15 +2,15 @@
 
 Iteration 4. Overall readiness is **NOT READY**.
 
-Current source commit: `0e604345883da8995a507eb6262be928e7d39976`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
+Current source commit: `5f46508f6e0b9e0467325581888137397aa1ad00`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
 
 ## Current measured state
 
 - Canonical benchmark: **97.84/100**, 457 PASS, 1 PARTIAL, 1 FAIL; mean 8.0769s, P95 16.5235s.
 - Issues: 6 locally unresolved, 23 fixed/verified, 2 externally blocked.
 - Current issue/action: `ASTER-026` — Re-run the existing authenticated Agent OS advisory-review corpus on the current runtime, verify hashes and permission grants, and determine whether a local model/prompt repair is demonstrated. Model prose is not evidence.
-- Runtime identity: **PASS**; evidence `/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-canonical-b9681bf/runtime-identity-current.json`.
-- Git: **DIRTY** at `0e604345883da8995a507eb6262be928e7d39976`.
+- Runtime identity: **HISTORICAL_PASS_REQUIRES_CURRENT_ATTESTATION**; evidence `/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-canonical-b9681bf/runtime-identity-current.json`.
+- Git: **DIRTY** at `5f46508f6e0b9e0467325581888137397aa1ad00`.
 
 ## Queue classifications
 

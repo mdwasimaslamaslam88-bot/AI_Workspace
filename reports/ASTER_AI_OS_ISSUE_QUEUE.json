@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-09-09T22:29:00.137974+00:00",
+  "updated_at": "2026-09-09T22:45:07.103144+00:00",
   "authoritative_report": "reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.json",
   "purpose": "Derived machine-readable issue ledger; uses the existing report issue identities, not a second issue service",
   "allowed_statuses": [
@@ -1352,7 +1352,29 @@
         "ASTER-001"
       ],
       "external_blocker": false,
-      "owner_action": "No owner action is needed to preserve this failure. Retain it as an internal model limitation, require independent evidence for consequential conclusions, and evaluate any future repair with controlled regression evidence."
+      "owner_action": "No owner action is needed to preserve this failure. Retain it as an internal model limitation, require independent evidence for consequential conclusions, and evaluate any future repair with controlled regression evidence.",
+      "controller_observations": [
+        {
+          "timestamp": "2026-09-09T22:40:06.625978+00:00",
+          "iteration": 4,
+          "classification": "BLOCKED_EXTERNAL",
+          "child_status": "FAILED",
+          "verification": "FAIL",
+          "action": "",
+          "evidence_dir": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/iteration-0004/attempt-0009",
+          "queue_status_preserved": true
+        },
+        {
+          "timestamp": "2026-09-09T22:45:07.103132+00:00",
+          "iteration": 4,
+          "classification": "BLOCKED_EXTERNAL",
+          "child_status": "FAILED",
+          "verification": "FAIL",
+          "action": "",
+          "evidence_dir": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/iteration-0004/attempt-0010",
+          "queue_status_preserved": true
+        }
+      ]
     },
     {
       "id": "ASTER-027",
