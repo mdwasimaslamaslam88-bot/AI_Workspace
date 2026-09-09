@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-09-09T15:31:20.182950+00:00",
+  "updated_at": "2026-09-09T17:03:14.037269+00:00",
   "authoritative_report": "reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.json",
   "purpose": "Derived machine-readable issue ledger; uses the existing report issue identities, not a second issue service",
   "allowed_statuses": [
@@ -1522,11 +1522,10 @@
       "owner_action": "Design a bounded routing or output-normalization strategy and rerun the unchanged benchmark; do not alter checker expectations."
     }
   ],
-  "current_application_commit": "b10742a340a22e56ff7e315603cc8af19158b49b",
-  "current_benchmark": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-memoryfix2/Work_Station_Benchmark/benchmark-summary.json",
+  "current_application_commit": "dfb79b5e19b6fc5ee3499233032027fe9ef07979",
+  "current_benchmark": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-canonical-controller/Work_Station_Benchmark/benchmark-summary.json",
   "current_nonpass_ids": [
     "medium-coding-04",
-    "model-comparison-coder-06",
-    "voice-stt-01"
+    "model-comparison-coder-06"
   ]
 }

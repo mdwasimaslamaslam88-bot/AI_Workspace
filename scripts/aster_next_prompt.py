@@ -567,8 +567,19 @@ def parse_test_metrics(evidence_root: Path, status: dict[str, Any]) -> dict[str,
 def observe(evidence_root: Path) -> dict[str, Any]:
     status = current_status()
     queue = current_queue()
-    git = git_snapshot()
     benchmark, benchmark_path = discover_latest_benchmark(evidence_root, queue)
+    git = git_snapshot()
+    synchronize_queue_benchmark(
+        queue,
+        {
+            "benchmark": {"path": benchmark_path},
+            "git": git,
+        },
+    )
+    # Queue synchronization is itself persisted state. Re-read Git after it
+    # so the observation cannot claim CLEAN while a newly selected benchmark
+    # pointer is still an uncommitted tracked change.
+    git = git_snapshot()
     counts = benchmark.get("counts", {}) if isinstance(benchmark.get("counts"), dict) else {}
     runtime = discover_runtime(evidence_root, status)
     health = command_record(
@@ -653,9 +664,44 @@ def update_queue_observation(
     write_json(QUEUE_JSON, queue)
 
 
+def synchronize_queue_benchmark(
+    queue: dict[str, Any], observations: dict[str, Any]
+) -> None:
+    """Keep the queue's benchmark pointer aligned with the latest valid report."""
+    benchmark = observations.get("benchmark", {})
+    benchmark_path = benchmark.get("path")
+    commit = observations.get("git", {}).get("commit")
+    if not isinstance(benchmark_path, str) or not benchmark_path:
+        return
+    changed = False
+    if queue.get("current_benchmark") != benchmark_path:
+        queue["current_benchmark"] = benchmark_path
+        changed = True
+    if isinstance(commit, str) and queue.get("current_application_commit") != commit:
+        queue["current_application_commit"] = commit
+        changed = True
+    results_path = Path(benchmark_path).with_name("benchmark-results.json")
+    results = read_json(results_path, {})
+    if isinstance(results, dict) and isinstance(results.get("results"), list):
+        non_pass = sorted(
+            str(item.get("test_id"))
+            for item in results["results"]
+            if isinstance(item, dict)
+            and item.get("result") != "PASS"
+            and item.get("test_id")
+        )
+        if queue.get("current_nonpass_ids") != non_pass:
+            queue["current_nonpass_ids"] = non_pass
+            changed = True
+    if changed:
+        queue["updated_at"] = utc_now()
+        write_json(QUEUE_JSON, queue)
+
+
 def render_reports(
     state: dict[str, Any], queue: dict[str, Any], observations: dict[str, Any], *, evidence_root: Path
 ) -> dict[str, Any]:
+    synchronize_queue_benchmark(queue, observations)
     selected = choose_issue(queue)
     ready, readiness_reason = readiness(queue, observations)
     local_unresolved = [
