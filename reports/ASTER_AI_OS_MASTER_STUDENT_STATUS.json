@@ -2,11 +2,11 @@
   "schema_version": 4,
   "iteration": 4,
   "status": "NOT_READY",
-  "updated_at": "2026-09-09T19:13:03.635304+00:00",
+  "updated_at": "2026-09-09T19:14:29.031960+00:00",
   "current_issue": [
     "ASTER-027"
   ],
-  "current_commit": "1a4b825ce69faf1dc36a7d9fa5b9eb0ba6185636",
+  "current_commit": "58aa99e6f8fd78ccb34979e9dd6d9c6626971dda",
   "current_runtime": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/runtime-identity-final-f8fecdb.json",
   "current_artifact": "Packaged desktop/PWA cf05844 unchanged; backend b10742a deployed directly",
   "issues": [
@@ -2821,7 +2821,40 @@
     "iterations_completed": 4,
     "readiness_reason": "UNRESOLVED_LOCAL_OR_REVIEW_ITEMS",
     "current_action": "Reproduce the report-provenance defect against current HEAD. Verify current-source, runtime, artifact, benchmark, security and release evidence by content, preserve historical roots, and implement or verify the smallest guard/report repair.",
-    "last_successful_commit": "1a4b825ce69faf1dc36a7d9fa5b9eb0ba6185636",
+    "last_successful_commit": "58aa99e6f8fd78ccb34979e9dd6d9c6626971dda",
+    "last_codex_cli": {
+      "path": "/home/md-wasim/.nvm/versions/node/v24.19.0/lib/node_modules/@openai/codex/bin/codex.js",
+      "version": "0.153.4",
+      "selection": "highest_verified_semver",
+      "candidates": [
+        {
+          "path": "/home/md-wasim/.codex/packages/standalone/releases/0.147.0-x86_64-unknown-linux-musl/bin/codex",
+          "version": "0.147.0",
+          "version_sort_key": [
+            0,
+            147,
+            0
+          ],
+          "status": "VERIFIED"
+        },
+        {
+          "path": "/home/md-wasim/.nvm/versions/node/v24.19.0/lib/node_modules/@openai/codex/bin/codex.js",
+          "version": "0.153.4",
+          "version_sort_key": [
+            0,
+            153,
+            4
+          ],
+          "status": "VERIFIED"
+        },
+        {
+          "path": "/usr/bin/snap",
+          "status": "VERSION_INVALID",
+          "exit_code": 0,
+          "output": "snap          2.76.3\nsnapd         2.76.3\nseries        16\nubuntu        24.04\nkernel        7.0.0-30-generic\narchitecture  amd64"
+        }
+      ]
+    },
     "last_result": {
       "timestamp": "2026-09-09T19:13:03.610611+00:00",
       "iteration": 4,
@@ -3026,6 +3059,6 @@
       }
     }
   },
-  "report_generated_from_commit": "1a4b825ce69faf1dc36a7d9fa5b9eb0ba6185636",
-  "report_tip_commit": "1a4b825ce69faf1dc36a7d9fa5b9eb0ba6185636"
+  "report_generated_from_commit": "58aa99e6f8fd78ccb34979e9dd6d9c6626971dda",
+  "report_tip_commit": "58aa99e6f8fd78ccb34979e9dd6d9c6626971dda"
 }
