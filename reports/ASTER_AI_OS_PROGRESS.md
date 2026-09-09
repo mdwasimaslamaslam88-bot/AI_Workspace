@@ -13,11 +13,12 @@ AI OS→ASTER    : BLOCKED_EXTERNAL: parent MCP/reverse callback is not availabl
 DEX            : BLOCKED_EXTERNAL: strict host sandbox fails closed with RTM_NEWADDR EPERM; synthetic trans
 VOICE          : PARTIAL: ASTER-028 preserves reproducible exact-WAV lexical variability.
 SECURITY       : PASS_WITH_RECORDED_RISK
+PROVENANCE     : NOT_PROVEN
 BACKEND        : 3152 PASS
 WEB            : 206 PASS
 MOBILE         : 64 PASS
-PERFORMANCE    : mean 8.1446s / P95 16.6314s
+PERFORMANCE    : mean 8.2131s / P95 16.8498s
 GIT            : DIRTY
-COMMIT         : 420494b11cdc9010178f1b6f72cdb9eddedab5a7
+COMMIT         : 471ecbc5e253d6dd564c96f52f2956333c0355b4
 NEXT ACTION    : Reproduce the report-provenance defect against current HEAD. Verify current-source, runtime, artifact, benchmark, security and release evidence by content, preserve historical roots, and implement or verify the smallest guard/report repair.
 ========================================================
