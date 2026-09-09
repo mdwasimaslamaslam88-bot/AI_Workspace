@@ -441,6 +441,7 @@ def load_or_create_state(evidence_root: Path) -> dict[str, Any]:
     value.setdefault("repository_root", str(REPOSITORY_ROOT))
     value.setdefault("evidence_root", str(evidence_root))
     value.setdefault("iteration", 0)
+    value.setdefault("attempt", 0)
     value.setdefault("iterations_completed", 0)
     value.setdefault("in_progress", False)
     value.setdefault("resume_required", False)
@@ -1133,8 +1134,17 @@ def iteration_once(
         iteration = int(state.get("iteration", 0)) + 1
         state["iteration"] = iteration
         state["in_progress"] = True
-    iteration_dir = evidence_root / "autonomous-loop" / f"iteration-{iteration:04d}"
+    iteration_root = evidence_root / "autonomous-loop" / f"iteration-{iteration:04d}"
+    iteration_root.mkdir(parents=True, exist_ok=True)
+    previous_result = iteration_root / "result.json"
+    if state.get("in_progress") and previous_result.exists():
+        attempt = int(state.get("attempt", 1) or 1) + 1
+        iteration_dir = iteration_root / f"attempt-{attempt:04d}"
+    else:
+        attempt = 1
+        iteration_dir = iteration_root
     iteration_dir.mkdir(parents=True, exist_ok=True)
+    state["attempt"] = attempt
     prompt = state.get("next_prompt") or build_prompt(selected, observations_before)
     state["last_prompt"] = prompt
     state["current_issue"] = selected.get("id")
@@ -1196,6 +1206,7 @@ def iteration_once(
     result = {
         "timestamp": utc_now(),
         "iteration": iteration,
+        "attempt": attempt,
         "issue": selected.get("id"),
         "status": parsed.get("status", "FAILED"),
         "action": parsed.get("action", ""),
@@ -1230,6 +1241,7 @@ def iteration_once(
         {
             "timestamp": result["timestamp"],
             "iteration": iteration,
+            "attempt": attempt,
             "issue": selected.get("id"),
             "status": result["status"],
             "verification": result["verification"],
