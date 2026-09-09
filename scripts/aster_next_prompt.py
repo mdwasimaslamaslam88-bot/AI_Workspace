@@ -23,6 +23,7 @@ import os
 from pathlib import Path
 import re
 import signal
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -108,6 +109,97 @@ def write_json(path: Path, value: Any, *, mode: int = 0o600) -> None:
 def safe_text(value: Any, limit: int = 4000) -> str:
     text = str(value)
     return text if len(text) <= limit else text[:limit] + "\n...[truncated]"
+
+
+CODEX_VERSION_PATTERN = re.compile(r"codex-cli\s+v?(\d+)\.(\d+)\.(\d+)", re.IGNORECASE)
+
+
+def resolve_codex_cli() -> dict[str, Any]:
+    """Resolve the newest verified Codex CLI visible to this process.
+
+    The child must not inherit an accidental older `codex` earlier in PATH
+    when a newer interactive installation is also available. An explicit
+    ASTER_CODEX_BIN remains authoritative and fails closed if invalid.
+    """
+    explicit = os.environ.get("ASTER_CODEX_BIN", "").strip()
+    raw_candidates: list[str] = []
+    if explicit:
+        raw_candidates.append(explicit)
+    else:
+        for entry in os.environ.get("PATH", "").split(os.pathsep):
+            if entry:
+                raw_candidates.append(str(Path(entry) / "codex"))
+        located = shutil.which("codex")
+        if located:
+            raw_candidates.append(located)
+
+    paths: list[Path] = []
+    seen: set[str] = set()
+    for raw in raw_candidates:
+        candidate = Path(raw)
+        if not candidate.is_absolute():
+            located = shutil.which(raw)
+            if not located:
+                continue
+            candidate = Path(located)
+        try:
+            resolved = candidate.resolve(strict=True)
+        except OSError:
+            continue
+        key = str(resolved)
+        if key in seen or not resolved.is_file() or not os.access(resolved, os.X_OK):
+            continue
+        seen.add(key)
+        paths.append(resolved)
+
+    tested: list[dict[str, Any]] = []
+    for path in paths:
+        try:
+            version_result = subprocess.run(
+                [str(path), "--version"],
+                cwd=str(REPOSITORY_ROOT),
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                timeout=5,
+                check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired) as error:
+            tested.append({"path": str(path), "status": f"VERSION_PROBE_FAILED: {error}"})
+            continue
+        version_output = f"{version_result.stdout}\n{version_result.stderr}".strip()
+        match = CODEX_VERSION_PATTERN.search(version_output)
+        if version_result.returncode != 0 or not match:
+            tested.append(
+                {
+                    "path": str(path),
+                    "status": "VERSION_INVALID",
+                    "exit_code": version_result.returncode,
+                    "output": safe_text(version_output, 500),
+                }
+            )
+            continue
+        version = ".".join(match.groups())
+        tested.append(
+            {
+                "path": str(path),
+                "version": version,
+                "version_sort_key": [int(part) for part in match.groups()],
+                "status": "VERIFIED",
+            }
+        )
+
+    verified = [item for item in tested if item.get("status") == "VERIFIED"]
+    if not verified:
+        mode = "ASTER_CODEX_BIN" if explicit else "PATH"
+        raise RuntimeError(f"no verified Codex CLI executable found via {mode}: {tested}")
+    selected = max(verified, key=lambda item: tuple(item["version_sort_key"]))
+    return {
+        "path": selected["path"],
+        "version": selected["version"],
+        "selection": "explicit" if explicit else "highest_verified_semver",
+        "candidates": tested,
+    }
 
 
 def command_record(
@@ -973,8 +1065,30 @@ def run_codex_child(prompt: str, iteration_dir: Path, *, timeout_seconds: int, e
     stderr_path = iteration_dir / "codex.stderr.log"
     last_message_path = iteration_dir / "codex.last-message.txt"
     atomic_write(prompt_path, prompt, mode=0o600)
+    try:
+        codex_cli = resolve_codex_cli()
+    except RuntimeError as error:
+        atomic_write(stdout_path, "", mode=0o600)
+        atomic_write(stderr_path, f"{type(error).__name__}: {error}\n", mode=0o600)
+        return {
+            "command": [],
+            "cwd": str(REPOSITORY_ROOT),
+            "exit_code": 127,
+            "duration_seconds": 0,
+            "timed_out": False,
+            "error": str(error),
+            "stdout_path": str(stdout_path),
+            "stderr_path": str(stderr_path),
+            "stderr_tail": safe_text(str(error)),
+            "last_message_path": str(last_message_path),
+            "stdout_sha256": sha256_file(stdout_path),
+            "stderr_sha256": sha256_file(stderr_path),
+            "last_message_sha256": None,
+            "codex_resolution": {"status": "FAILED", "error": str(error)},
+            "parsed": parse_result_text(""),
+        }
     command = [
-        "codex",
+        codex_cli["path"],
         "exec",
         "--json",
         "--color",
@@ -1037,6 +1151,9 @@ def run_codex_child(prompt: str, iteration_dir: Path, *, timeout_seconds: int, e
         "stdout_sha256": sha256_file(stdout_path),
         "stderr_sha256": sha256_file(stderr_path),
         "last_message_sha256": sha256_file(last_message_path),
+        "codex_executable": codex_cli["path"],
+        "codex_version": codex_cli["version"],
+        "codex_resolution": codex_cli,
         "parsed": parsed,
     }
 
@@ -1336,7 +1453,22 @@ def self_test() -> int:
     assert parsed["parsed"] and parsed["current_issue"] == "ASTER-006"
     assert parsed["next_prompt"] == "Do the next exact task."
     assert parse_result_text("no structured output")["status"] == "FAILED"
-    print("aster_next_prompt self-test: PASS")
+    codex_cli = resolve_codex_cli()
+    verified = [
+        candidate
+        for candidate in codex_cli["candidates"]
+        if candidate.get("status") == "VERIFIED"
+    ]
+    expected = max(
+        verified,
+        key=lambda candidate: tuple(candidate["version_sort_key"]),
+    )
+    assert codex_cli["path"] == expected["path"]
+    assert codex_cli["version"] == expected["version"]
+    print(
+        "aster_next_prompt self-test: PASS "
+        f"(Codex {codex_cli['version']} at {codex_cli['path']})"
+    )
     return 0
 
 
