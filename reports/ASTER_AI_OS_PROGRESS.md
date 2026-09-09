@@ -6,8 +6,8 @@ BENCHMARK      : 97.84 / 100
 PASS           : 457
 PARTIAL        : 1
 FAIL           : 1
-ISSUES         : 7
-CURRENT        : ASTER-027
+ISSUES         : 6
+CURRENT        : ASTER-026
 ASTER→AI OS    : PARTIAL: current owner-authenticated HTTP exchange and integrity verified; fabricated exec
 AI OS→ASTER    : BLOCKED_EXTERNAL: parent MCP/reverse callback is not available; no bidirectional verificat
 DEX            : BLOCKED_EXTERNAL: strict host sandbox fails closed with RTM_NEWADDR EPERM; synthetic trans
@@ -19,6 +19,6 @@ WEB            : 206 PASS
 MOBILE         : 64 PASS
 PERFORMANCE    : mean 8.0769s / P95 16.5235s
 GIT            : DIRTY
-COMMIT         : b9681bfdd054e5fe8e9e49e2317335fa87057e34
-NEXT ACTION    : Reproduce the report-provenance defect against current HEAD. Verify current-source, runtime, artifact, benchmark, security and release evidence by content, preserve historical roots, and implement or verify the smallest guard/report repair.
+COMMIT         : 0e604345883da8995a507eb6262be928e7d39976
+NEXT ACTION    : Re-run the existing authenticated Agent OS advisory-review corpus on the current runtime, verify hashes and permission grants, and determine whether a local model/prompt repair is demonstrated. Model prose is not evidence.
 ========================================================

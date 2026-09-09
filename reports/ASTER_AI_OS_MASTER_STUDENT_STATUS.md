@@ -2,15 +2,15 @@
 
 Iteration 4. Overall readiness is **NOT READY**.
 
-Current source commit: `b9681bfdd054e5fe8e9e49e2317335fa87057e34`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
+Current source commit: `0e604345883da8995a507eb6262be928e7d39976`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
 
 ## Current measured state
 
 - Canonical benchmark: **97.84/100**, 457 PASS, 1 PARTIAL, 1 FAIL; mean 8.0769s, P95 16.5235s.
-- Issues: 7 locally unresolved, 22 fixed/verified, 2 externally blocked.
-- Current issue/action: `ASTER-027` — Reproduce the report-provenance defect against current HEAD. Verify current-source, runtime, artifact, benchmark, security and release evidence by content, preserve historical roots, and implement or verify the smallest guard/report repair.
+- Issues: 6 locally unresolved, 23 fixed/verified, 2 externally blocked.
+- Current issue/action: `ASTER-026` — Re-run the existing authenticated Agent OS advisory-review corpus on the current runtime, verify hashes and permission grants, and determine whether a local model/prompt repair is demonstrated. Model prose is not evidence.
 - Runtime identity: **PASS**; evidence `/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-canonical-b9681bf/runtime-identity-current.json`.
-- Git: **DIRTY** at `b9681bfdd054e5fe8e9e49e2317335fa87057e34`.
+- Git: **DIRTY** at `0e604345883da8995a507eb6262be928e7d39976`.
 
 ## Queue classifications
 
@@ -45,7 +45,7 @@ Current source commit: `b9681bfdd054e5fe8e9e49e2317335fa87057e34`. Evidence root
 | ASTER-029 | VERIFIED | COMPLETE | P3 |
 | ASTER-030 | VERIFIED | COMPLETE | P3 |
 | ASTER-026 | REPRODUCED | REPRODUCED | P1 |
-| ASTER-027 | VERIFYING | VERIFYING | P0 |
+| ASTER-027 | VERIFIED | COMPLETE | P0 |
 | ASTER-031 | REGRESSION | REGRESSION | P2 |
 
 The issue queue and machine-readable controller state are authoritative. A child model response cannot mark an issue complete without objective evidence.

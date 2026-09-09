@@ -2,11 +2,11 @@
   "schema_version": 4,
   "iteration": 4,
   "status": "NOT_READY",
-  "updated_at": "2026-09-09T22:29:20.989454+00:00",
+  "updated_at": "2026-09-09T22:31:24.795825+00:00",
   "current_issue": [
-    "ASTER-027"
+    "ASTER-026"
   ],
-  "current_commit": "b9681bfdd054e5fe8e9e49e2317335fa87057e34",
+  "current_commit": "0e604345883da8995a507eb6262be928e7d39976",
   "current_runtime": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/runtime-identity-final-f8fecdb.json",
   "current_artifact": "Packaged desktop/PWA cf05844 unchanged; backend b10742a deployed directly",
   "issues": [
@@ -1389,34 +1389,36 @@
       },
       "fix": "Replace current top-level release/runtime/artifact/security state from current evidence, preserve historical snapshot roots, select original root for inherited issue evidence, require explicit positive final proof fields, and record report-tip attestation separately from application commit.",
       "focused_test": {
-        "status": "VERIFIED_HELPER_SCOPE",
+        "status": "VERIFIED_CURRENT_PROVENANCE_AND_HISTORICAL_NEGATIVE_SCOPE",
         "negative_cases": 24,
         "positive_fixture_passed": true,
         "collision_path_selection_passed": true,
-        "evidence": "report-draft-review/guard-before-after-results-corrected.json"
+        "current_provenance_tests": "2 passed",
+        "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-aster-027-current/ASTER-027-current-verification.json"
       },
-      "integration_test": "PENDING actual final report generation after canonical exit and positive proof validation; validate all references and latest claim state before final report-only commit.",
+      "integration_test": "Current 459-case benchmark, authenticated runtime attestation, clean no-display release gate, current artifact hashes, and controller provenance observation all match b9681bfdd054e5fe8e9e49e2317335fa87057e34. Historical invalid evidence remains separately scoped and is not promoted.",
       "security_test": "Failed credential scans, wrong owners, failed revocation, unexpected native-session access and mismatched result hashes all rejected by corrected guard.",
-      "runtime_test": "Product runtime cf05844 identity already verified; reporting fix does not change application code. Exact final report-tip runtime identity must be attested after report-only commit/restart.",
-      "regression": "24 negative fixtures plus positive guard and historical/current path selection; original false acceptance and label correction retained.",
+      "runtime_test": "Current authenticated runtime identity at /home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-canonical-b9681bf/runtime-identity-current.json matches source, backend hash, and web bundle hash.",
+      "regression": "Current provenance tests pass; corrected historical guard rejects all 24 invalid fixtures including wrong-owner, wrong-commit, failed, ambiguous/mismatched, revocation, and scan cases; current release and benchmark remain unchanged in contract and honest score.",
       "performance": "CPU-only synthetic predicate checks; no model/runtime workload.",
-      "status": "VERIFYING",
+      "status": "VERIFIED",
       "evidence": [
         "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/architect-release/findings.json",
         "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/report-draft-review/static-reproduction.json",
         "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/report-draft-review/guard-before-after-results.json",
         "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/report-draft-review/guard-before-after-results-corrected.json",
-        "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/report-draft-review/legacy-guards-reconstruction.py"
+        "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/report-draft-review/legacy-guards-reconstruction.py",
+        "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-aster-027-current/ASTER-027-current-verification.json"
       ],
-      "commit": null,
+      "commit": "b9681bfdd054e5fe8e9e49e2317335fa87057e34",
       "commit_provenance": {
-        "application_base": "cf05844dbee756ae7377fefe6cbd039cd0e8fcd1",
-        "report_fix_commit": "Future report-only commit, exactSHA via external final-release-attestation.json. Do not label cf05844 as containing this later reporting fix."
+        "application_base": "b9681bfdd054e5fe8e9e49e2317335fa87057e34",
+        "report_fix_commit": "Report persistence commit follows after queue/chart update; application source remains b9681bfdd054e5fe8e9e49e2317335fa87057e34."
       },
-      "artifact": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/final-report-draft",
-      "runtime_identity": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/runtime-identity-postgate.json",
+      "artifact": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-current-release-b9681bf/artifact-attestation-current.json",
+      "runtime_identity": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-canonical-b9681bf/runtime-identity-current.json",
       "external_blocker": false,
-      "owner_action": "None; root can complete report generation, review, ordinary commit/push and final external attestation after canonical evidence completes.",
+      "owner_action": "None for ASTER-027; current local provenance is verified. Windows/native Android packaging gaps remain explicitly external in artifact evidence and do not promote historical claims.",
       "controller_observations": [
         {
           "timestamp": "2026-09-09T15:00:09.320916+00:00",
@@ -2626,8 +2628,8 @@
     ]
   },
   "issue_counts": {
-    "remaining_local": 7,
-    "fixed": 22,
+    "remaining_local": 6,
+    "fixed": 23,
     "blocked_external": 2,
     "total": 31
   },
@@ -2840,7 +2842,7 @@
     "iteration": 4,
     "iterations_completed": 4,
     "readiness_reason": "UNRESOLVED_LOCAL_OR_REVIEW_ITEMS",
-    "current_action": "Reproduce the report-provenance defect against current HEAD. Verify current-source, runtime, artifact, benchmark, security and release evidence by content, preserve historical roots, and implement or verify the smallest guard/report repair.",
+    "current_action": "Re-run the existing authenticated Agent OS advisory-review corpus on the current runtime, verify hashes and permission grants, and determine whether a local model/prompt repair is demonstrated. Model prose is not evidence.",
     "last_successful_commit": "b9681bfdd054e5fe8e9e49e2317335fa87057e34",
     "last_codex_cli": {
       "path": "/home/md-wasim/.nvm/versions/node/v24.19.0/lib/node_modules/@openai/codex/bin/codex.js",
@@ -3079,8 +3081,8 @@
       }
     }
   },
-  "report_generated_from_commit": "b9681bfdd054e5fe8e9e49e2317335fa87057e34",
-  "report_tip_commit": "b9681bfdd054e5fe8e9e49e2317335fa87057e34",
+  "report_generated_from_commit": "0e604345883da8995a507eb6262be928e7d39976",
+  "report_tip_commit": "0e604345883da8995a507eb6262be928e7d39976",
   "evidence_provenance": {
     "status": "PASS",
     "current_source_commit": "b9681bfdd054e5fe8e9e49e2317335fa87057e34",
