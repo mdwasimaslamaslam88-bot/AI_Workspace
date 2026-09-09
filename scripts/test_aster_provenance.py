@@ -82,11 +82,26 @@ def _fixture(tmp_path: Path):
         },
     )
     artifact = tmp_path / "final-release-attestation.json"
+    artifact_files = []
+    for name, payload in (("app.bin", b"current app\n"), ("pwa.tar.gz", b"current pwa\n")):
+        artifact_path = tmp_path / "artifacts" / name
+        artifact_path.parent.mkdir(parents=True, exist_ok=True)
+        artifact_path.write_bytes(payload)
+        artifact_files.append(
+            {
+                "artifact": name,
+                "path": str(artifact_path),
+                "sha256": hashlib.sha256(payload).hexdigest(),
+                "exists": True,
+                "hash_verified": True,
+            }
+        )
     _write(
         artifact,
         {
             "final_report_commit": commit,
             "artifact_hashes_verified": {"app": True, "pwa": True},
+            "artifacts": artifact_files,
         },
     )
     observations = {

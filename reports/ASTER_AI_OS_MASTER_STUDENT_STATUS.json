@@ -2,11 +2,11 @@
   "schema_version": 4,
   "iteration": 4,
   "status": "NOT_READY",
-  "updated_at": "2026-09-09T21:03:11.367068+00:00",
+  "updated_at": "2026-09-09T21:17:07.421945+00:00",
   "current_issue": [
     "ASTER-027"
   ],
-  "current_commit": "471ecbc5e253d6dd564c96f52f2956333c0355b4",
+  "current_commit": "f16a4b63dc55fb0bc2a937ca9878a75c8714bda9",
   "current_runtime": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/runtime-identity-final-f8fecdb.json",
   "current_artifact": "Packaged desktop/PWA cf05844 unchanged; backend b10742a deployed directly",
   "issues": [
@@ -2841,7 +2841,7 @@
     "iterations_completed": 4,
     "readiness_reason": "UNRESOLVED_LOCAL_OR_REVIEW_ITEMS",
     "current_action": "Reproduce the report-provenance defect against current HEAD. Verify current-source, runtime, artifact, benchmark, security and release evidence by content, preserve historical roots, and implement or verify the smallest guard/report repair.",
-    "last_successful_commit": "697008330226724d81c34c614cd31c0bc0df8ca9",
+    "last_successful_commit": "471ecbc5e253d6dd564c96f52f2956333c0355b4",
     "last_codex_cli": {
       "path": "/home/md-wasim/.nvm/versions/node/v24.19.0/lib/node_modules/@openai/codex/bin/codex.js",
       "version": "0.153.4",
@@ -3079,8 +3079,8 @@
       }
     }
   },
-  "report_generated_from_commit": "471ecbc5e253d6dd564c96f52f2956333c0355b4",
-  "report_tip_commit": "471ecbc5e253d6dd564c96f52f2956333c0355b4",
+  "report_generated_from_commit": "f16a4b63dc55fb0bc2a937ca9878a75c8714bda9",
+  "report_tip_commit": "f16a4b63dc55fb0bc2a937ca9878a75c8714bda9",
   "evidence_provenance": {
     "status": "NOT_PROVEN",
     "current_source_commit": "471ecbc5e253d6dd564c96f52f2956333c0355b4",
@@ -3090,8 +3090,8 @@
       "backend_hash": "PASS",
       "web_artifact_hash": "PASS",
       "benchmark": "PASS",
-      "security": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE",
-      "release": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE",
+      "security": "PASS",
+      "release": "PASS",
       "artifact": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE"
     },
     "runtime": {
@@ -3122,12 +3122,12 @@
       }
     },
     "release": {
-      "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-controller/release-check-final.json",
-      "recorded_source_commit": "7c53191ef19502b9bc9f73af5c8e7c6eeb72bf21",
-      "log": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-controller/release-check-final.log",
-      "log_sha256": "99867146f232ffe2fc439e268aaf540ecc6279bff118be3f117f20c1cf62e997",
+      "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-current-release-f16a4b6/release-check-current.json",
+      "recorded_source_commit": "f16a4b63dc55fb0bc2a937ca9878a75c8714bda9",
+      "log": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-current-release-f16a4b6/release-check-trace.log",
+      "log_sha256": "e4836f6b6f1f32080ccc5959cabfae5ba16121ce987d10bc521ef419d68230f0",
       "structural_valid": true,
-      "security_check": "PASS; npm audit found 0 vulnerabilities"
+      "security_check": "PASS"
     },
     "artifact": {
       "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-memoryfix2/final-release-attestation.json",

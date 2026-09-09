@@ -697,6 +697,25 @@ def discover_latest_release_gate(evidence_root: Path) -> tuple[dict[str, Any], s
     return (value if isinstance(value, dict) else {}), str(path)
 
 
+def discover_latest_artifact_attestation(
+    evidence_root: Path, configured_path: str | None
+) -> tuple[dict[str, Any], str | None]:
+    candidates: list[Path] = []
+    if isinstance(configured_path, str):
+        candidates.append(Path(configured_path))
+    for pattern in ("**/artifact-attestation*.json", "**/final-release-attestation.json"):
+        try:
+            candidates.extend(evidence_root.glob(pattern))
+        except OSError:
+            pass
+    existing = [path for path in candidates if path.is_file()]
+    if not existing:
+        return {}, None
+    path = max(existing, key=lambda item: item.stat().st_mtime_ns)
+    value = read_json(path, {})
+    return (value if isinstance(value, dict) else {}), str(path)
+
+
 def _provenance_status(
     *,
     structural_valid: bool,
@@ -831,14 +850,62 @@ def validate_current_provenance(
     security_check = release_document.get("checks", {}).get("security") if isinstance(release_document.get("checks"), dict) else None
     security_status = release_status if isinstance(security_check, str) and security_check.startswith("PASS") else "FAIL"
 
-    attestation_path = None
+    configured_attestation_path = None
     configured_release = status.get("release", {})
     if isinstance(configured_release, dict) and isinstance(configured_release.get("final_report_tip_attestation"), str):
-        attestation_path = configured_release["final_report_tip_attestation"]
-    attestation = read_json(Path(attestation_path), {}) if isinstance(attestation_path, str) else {}
+        configured_attestation_path = configured_release["final_report_tip_attestation"]
+    attestation, attestation_path = discover_latest_artifact_attestation(
+        evidence_root, configured_attestation_path
+    )
     artifact_hashes = attestation.get("artifact_hashes_verified") if isinstance(attestation, dict) else None
-    artifact_structural = isinstance(artifact_hashes, dict) and bool(artifact_hashes) and all(artifact_hashes.values())
-    artifact_commit = attestation.get("final_report_commit") if isinstance(attestation, dict) else None
+    artifact_records = attestation.get("artifacts") if isinstance(attestation, dict) else None
+    validated_artifacts: list[dict[str, Any]] = []
+    if isinstance(artifact_records, list):
+        for record in artifact_records:
+            if not isinstance(record, dict):
+                continue
+            artifact_path = record.get("path")
+            expected_hash = record.get("sha256")
+            actual_hash = None
+            path_is_safe = (
+                isinstance(artifact_path, str)
+                and bool(Path(artifact_path).is_absolute())
+                and not Path(artifact_path).is_symlink()
+                and Path(artifact_path).is_file()
+            )
+            if path_is_safe:
+                actual_hash = sha256_file(Path(artifact_path))
+            validated_artifacts.append(
+                {
+                    "artifact": record.get("artifact"),
+                    "path": artifact_path,
+                    "expected_sha256": expected_hash,
+                    "actual_sha256": actual_hash,
+                    "exists": path_is_safe,
+                    "hash_verified": (
+                        record.get("hash_verified") is True
+                        and isinstance(expected_hash, str)
+                        and bool(SHA256_PATTERN.fullmatch(expected_hash))
+                        and actual_hash == expected_hash
+                    ),
+                }
+            )
+    artifact_records_valid = bool(validated_artifacts) and all(
+        item["exists"] and item["hash_verified"] for item in validated_artifacts
+    )
+    artifact_structural = (
+        isinstance(artifact_hashes, dict)
+        and bool(artifact_hashes)
+        and all(value is True for value in artifact_hashes.values())
+        and (artifact_records_valid if artifact_records is not None else True)
+    )
+    artifact_commit = (
+        attestation.get("final_report_commit")
+        if isinstance(attestation, dict)
+        else None
+    )
+    if not artifact_commit and isinstance(attestation, dict):
+        artifact_commit = attestation.get("commit") or attestation.get("source_commit")
     artifact_status = _provenance_status(
         structural_valid=artifact_structural,
         evidence_commit=artifact_commit,
@@ -891,6 +958,7 @@ def validate_current_provenance(
             "recorded_source_commit": artifact_commit,
             "hashes_verified": artifact_hashes,
             "structural_valid": artifact_structural,
+            "artifacts": validated_artifacts,
         },
         "historical_evidence_rejected": any(
             value == "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE"
