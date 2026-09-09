@@ -112,6 +112,43 @@ def safe_text(value: Any, limit: int = 4000) -> str:
 
 
 CODEX_VERSION_PATTERN = re.compile(r"codex-cli\s+v?(\d+)\.(\d+)\.(\d+)", re.IGNORECASE)
+COMMIT_PATTERN = re.compile(r"^[0-9a-f]{40,64}$")
+SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
+
+
+def tree_digest(root: Path, *, suffixes: frozenset[str] | None = None) -> str | None:
+    """Compute the bounded, no-symlink tree digest used by runtime identity."""
+    try:
+        if root.is_symlink() or not root.is_dir():
+            return None
+        paths: list[Path] = []
+        for path in root.rglob("*"):
+            if "__pycache__" in path.parts:
+                continue
+            if path.is_symlink():
+                return None
+            if path.is_file() and (suffixes is None or path.suffix in suffixes):
+                paths.append(path)
+                if len(paths) > 4096:
+                    return None
+        if not paths:
+            return None
+        result = hashlib.sha256()
+        total = 0
+        for path in sorted(paths, key=lambda item: item.relative_to(root).as_posix()):
+            content_digest = hashlib.sha256()
+            descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+            with os.fdopen(descriptor, "rb") as source:
+                while chunk := source.read(65_536):
+                    total += len(chunk)
+                    if total > 64 * 1024 * 1024:
+                        return None
+                    content_digest.update(chunk)
+            result.update(path.relative_to(root).as_posix().encode("utf-8") + b"\0")
+            result.update(content_digest.digest())
+        return result.hexdigest()
+    except (OSError, RuntimeError):
+        return None
 
 
 def resolve_codex_cli() -> dict[str, Any]:
@@ -598,6 +635,208 @@ def discover_latest_benchmark(evidence_root: Path, queue: dict[str, Any]) -> tup
     return (value if isinstance(value, dict) else {}), str(path)
 
 
+def discover_latest_release_gate(evidence_root: Path) -> tuple[dict[str, Any], str | None]:
+    candidates: list[Path] = []
+    for pattern in ("**/release-check-*.json", "**/final-release-gate*.json"):
+        try:
+            candidates.extend(evidence_root.glob(pattern))
+        except OSError:
+            pass
+    existing = [path for path in candidates if path.is_file()]
+    if not existing:
+        return {}, None
+    path = max(existing, key=lambda item: item.stat().st_mtime_ns)
+    value = read_json(path, {})
+    return (value if isinstance(value, dict) else {}), str(path)
+
+
+def _provenance_status(
+    *, structural_valid: bool, evidence_commit: Any, current_commit: str | None
+) -> str:
+    if not structural_valid:
+        return "FAIL"
+    if not isinstance(evidence_commit, str) or evidence_commit != current_commit:
+        return "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE"
+    return "PASS"
+
+
+def validate_current_provenance(
+    evidence_root: Path,
+    observations: dict[str, Any],
+    status: dict[str, Any],
+    current_commit: str | None,
+) -> dict[str, Any]:
+    """Validate evidence content and identity without trusting file presence."""
+    benchmark_observation = observations.get("benchmark", {})
+    benchmark_path = benchmark_observation.get("path")
+    benchmark_summary = read_json(Path(benchmark_path), {}) if isinstance(benchmark_path, str) else {}
+    benchmark_results_path = (
+        Path(benchmark_path).with_name("benchmark-results.json")
+        if isinstance(benchmark_path, str)
+        else None
+    )
+    benchmark_results = read_json(benchmark_results_path, {}) if benchmark_results_path else {}
+    rows = benchmark_results.get("results") if isinstance(benchmark_results, dict) else None
+    counts: dict[str, int] = {}
+    if isinstance(rows, list):
+        for row in rows:
+            if isinstance(row, dict) and row.get("result") in {"PASS", "PARTIAL", "FAIL"}:
+                result = str(row["result"])
+                counts[result] = counts.get(result, 0) + 1
+    reported_counts = benchmark_summary.get("counts") if isinstance(benchmark_summary, dict) else None
+    normalized_reported_counts: dict[str, int] | None = None
+    if isinstance(reported_counts, dict):
+        try:
+            normalized_reported_counts = {
+                key: int(reported_counts.get(key, 0))
+                for key in ("PASS", "PARTIAL", "FAIL")
+            }
+        except (TypeError, ValueError):
+            normalized_reported_counts = None
+    benchmark_structural = (
+        isinstance(benchmark_summary, dict)
+        and benchmark_summary.get("status") == "BENCHMARK COMPLETE"
+        and isinstance(rows, list)
+        and normalized_reported_counts is not None
+        and len(rows) == benchmark_summary.get("number_of_tests")
+        and normalized_reported_counts == {
+            key: counts.get(key, 0) for key in ("PASS", "PARTIAL", "FAIL")
+        }
+    )
+    benchmark_commit = benchmark_summary.get("git_commit") if isinstance(benchmark_summary, dict) else None
+    benchmark_status = _provenance_status(
+        structural_valid=benchmark_structural,
+        evidence_commit=benchmark_commit,
+        current_commit=current_commit,
+    )
+
+    runtime_observation = observations.get("runtime", {})
+    runtime_path = runtime_observation.get("evidence")
+    runtime_document = read_json(Path(runtime_path), {}) if isinstance(runtime_path, str) else {}
+    runtime_payload = runtime_document.get("runtime") if isinstance(runtime_document, dict) else None
+    if not isinstance(runtime_payload, dict):
+        runtime_payload = runtime_document if isinstance(runtime_document, dict) else {}
+    expected_backend = tree_digest(
+        REPOSITORY_ROOT / "backend" / "app", suffixes=frozenset({".py", ".json"})
+    )
+    expected_web = tree_digest(REPOSITORY_ROOT / "frontend" / "dist")
+    recorded_runtime_commit = runtime_payload.get("source_commit")
+    recorded_backend = runtime_payload.get("backend_source_sha256")
+    recorded_web = runtime_payload.get("web_bundle_sha256")
+    stored_matches = runtime_document.get("matches") if isinstance(runtime_document, dict) else {}
+    runtime_structural = (
+        isinstance(recorded_runtime_commit, str)
+        and bool(COMMIT_PATTERN.fullmatch(recorded_runtime_commit))
+        and isinstance(recorded_backend, str)
+        and bool(SHA256_PATTERN.fullmatch(recorded_backend))
+        and isinstance(recorded_web, str)
+        and bool(SHA256_PATTERN.fullmatch(recorded_web))
+        and expected_backend is not None
+        and expected_web is not None
+    )
+    runtime_content_matches = {
+        "source_commit": recorded_runtime_commit == current_commit,
+        "backend_source_sha256": recorded_backend == expected_backend,
+        "web_bundle_sha256": recorded_web == expected_web,
+        "declared_matches": isinstance(stored_matches, dict) and bool(stored_matches) and all(value is True for value in stored_matches.values()),
+    }
+    runtime_status = _provenance_status(
+        structural_valid=runtime_structural
+        and runtime_content_matches["backend_source_sha256"]
+        and runtime_content_matches["web_bundle_sha256"]
+        and runtime_content_matches["declared_matches"],
+        evidence_commit=recorded_runtime_commit,
+        current_commit=current_commit,
+    )
+
+    release_document, release_path = discover_latest_release_gate(evidence_root)
+    release_log = release_document.get("output_path") if isinstance(release_document, dict) else None
+    release_log_hash = sha256_file(Path(release_log)) if isinstance(release_log, str) else None
+    release_structural = (
+        isinstance(release_document, dict)
+        and release_document.get("exit_code") == 0
+        and str(release_document.get("status", "")).startswith("PASS")
+        and isinstance(release_log, str)
+        and Path(release_log).is_file()
+        and isinstance(release_document.get("output_sha256"), str)
+        and release_document.get("output_sha256") == release_log_hash
+    )
+    release_commit = release_document.get("commit") if isinstance(release_document, dict) else None
+    release_status = _provenance_status(
+        structural_valid=release_structural,
+        evidence_commit=release_commit,
+        current_commit=current_commit,
+    )
+    security_check = release_document.get("checks", {}).get("security") if isinstance(release_document.get("checks"), dict) else None
+    security_status = release_status if isinstance(security_check, str) and security_check.startswith("PASS") else "FAIL"
+
+    attestation_path = None
+    configured_release = status.get("release", {})
+    if isinstance(configured_release, dict) and isinstance(configured_release.get("final_report_tip_attestation"), str):
+        attestation_path = configured_release["final_report_tip_attestation"]
+    attestation = read_json(Path(attestation_path), {}) if isinstance(attestation_path, str) else {}
+    artifact_hashes = attestation.get("artifact_hashes_verified") if isinstance(attestation, dict) else None
+    artifact_structural = isinstance(artifact_hashes, dict) and bool(artifact_hashes) and all(artifact_hashes.values())
+    artifact_commit = attestation.get("final_report_commit") if isinstance(attestation, dict) else None
+    artifact_status = _provenance_status(
+        structural_valid=artifact_structural,
+        evidence_commit=artifact_commit,
+        current_commit=current_commit,
+    )
+
+    component_statuses = {
+        "source_commit": "PASS" if isinstance(current_commit, str) and bool(COMMIT_PATTERN.fullmatch(current_commit)) else "FAIL",
+        "runtime": runtime_status,
+        "backend_hash": "PASS" if runtime_content_matches["backend_source_sha256"] else "FAIL",
+        "web_artifact_hash": "PASS" if runtime_content_matches["web_bundle_sha256"] else "FAIL",
+        "benchmark": benchmark_status,
+        "security": security_status,
+        "release": release_status,
+        "artifact": artifact_status,
+    }
+    return {
+        "status": "PASS" if all(value == "PASS" for value in component_statuses.values()) else "NOT_PROVEN",
+        "current_source_commit": current_commit,
+        "components": component_statuses,
+        "runtime": {
+            "evidence": runtime_path,
+            "recorded_source_commit": recorded_runtime_commit,
+            "recorded_backend_source_sha256": recorded_backend,
+            "recorded_web_bundle_sha256": recorded_web,
+            "expected_backend_source_sha256": expected_backend,
+            "expected_web_bundle_sha256": expected_web,
+            "content_matches": runtime_content_matches,
+        },
+        "benchmark": {
+            "evidence": benchmark_path,
+            "results": str(benchmark_results_path) if benchmark_results_path else None,
+            "recorded_source_commit": benchmark_commit,
+            "summary_sha256": sha256_file(Path(benchmark_path)) if isinstance(benchmark_path, str) else None,
+            "results_sha256": sha256_file(benchmark_results_path) if benchmark_results_path else None,
+            "structural_valid": benchmark_structural,
+            "counts": normalized_reported_counts,
+        },
+        "release": {
+            "evidence": release_path,
+            "recorded_source_commit": release_commit,
+            "log": release_log,
+            "log_sha256": release_log_hash,
+            "structural_valid": release_structural,
+            "security_check": security_check,
+        },
+        "artifact": {
+            "evidence": attestation_path,
+            "recorded_source_commit": artifact_commit,
+            "hashes_verified": artifact_hashes,
+            "structural_valid": artifact_structural,
+        },
+        "historical_evidence_rejected": any(
+            value == "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE"
+            for value in component_statuses.values()
+        ),
+    }
+
+
 def discover_runtime(
     evidence_root: Path, status: dict[str, Any], current_commit: str | None
 ) -> dict[str, Any]:
@@ -697,7 +936,7 @@ def observe(evidence_root: Path) -> dict[str, Any]:
         timeout=5,
     )
     runtime["health_command"] = health
-    return {
+    observations = {
         "timestamp": utc_now(),
         "git": git,
         "benchmark": {
@@ -721,6 +960,10 @@ def observe(evidence_root: Path) -> dict[str, Any]:
             ]),
         },
     }
+    observations["provenance"] = validate_current_provenance(
+        evidence_root, observations, status, git.get("commit")
+    )
+    return observations
 
 
 def classify_queue(queue: dict[str, Any]) -> dict[str, dict[str, Any]]:
@@ -742,6 +985,8 @@ def readiness(queue: dict[str, Any], observations: dict[str, Any]) -> tuple[bool
         return False, "UNRESOLVED_LOCAL_OR_REVIEW_ITEMS"
     if benchmark.get("fail", 0) or benchmark.get("partial", 0):
         return False, "CANONICAL_NONPASS_REMAINS"
+    if observations.get("provenance", {}).get("status") != "PASS":
+        return False, "CURRENT_EVIDENCE_PROVENANCE_NOT_PROVEN"
     if observations.get("runtime", {}).get("status") != "PASS":
         return False, "RUNTIME_IDENTITY_NOT_PROVEN"
     if observations.get("git", {}).get("status") != "CLEAN_SYNCED":
@@ -826,6 +1071,7 @@ def render_reports(
         if isinstance(issue, dict) and issue.get("status") in {"VERIFIED", "CLOSED"}
     ]
     benchmark = observations.get("benchmark", {})
+    provenance = observations.get("provenance", {})
     tests = observations.get("tests", {})
     git = observations.get("git", {})
     runtime = observations.get("runtime", {})
@@ -854,7 +1100,6 @@ def render_reports(
             "issues_blocked_externally": len(external_blocked),
             "next_prompt": state.get("next_prompt")
             or (build_prompt(selected, observations) if selected else ""),
-            "last_successful_commit": git.get("commit"),
         }
     )
     persist_state(state, evidence_root)
@@ -874,6 +1119,7 @@ def render_reports(
             "controller_state": str(evidence_root / "current_state.json"),
             "report_generated_from_commit": git.get("commit"),
             "report_tip_commit": state.get("report_tip_commit") or git.get("commit"),
+            "evidence_provenance": provenance,
             "controller": {
                 "iteration": state.get("iteration", 0),
                 "iterations_completed": state.get("iterations_completed", 0),
@@ -955,6 +1201,10 @@ def render_reports(
         "mobile_tests": tests.get("mobile", {}),
         "security_status": "PASS_WITH_RECORDED_RISK" if status.get("security", {}).get("npm_audit_findings") == 0 else "RECORDED",
         "runtime_identity_status": runtime.get("status"),
+        "evidence_provenance": provenance.get("status", "NOT_PROVEN"),
+        "benchmark_provenance": provenance.get("components", {}).get("benchmark", "NOT_PROVEN"),
+        "artifact_provenance": provenance.get("components", {}).get("artifact", "NOT_PROVEN"),
+        "release_provenance": provenance.get("components", {}).get("release", "NOT_PROVEN"),
         "aster_to_ai_os": str(status.get("acceptance", {}).get("master_student", "UNKNOWN")),
         "ai_os_to_aster": "BLOCKED_EXTERNAL: parent MCP/reverse callback is not available; no bidirectional verification claimed.",
         "dex": str(status.get("acceptance", {}).get("dex", "UNKNOWN")),
@@ -993,6 +1243,7 @@ def render_reports(
             f"DEX            : {progress['dex'][:90]}",
             f"VOICE          : {progress['voice'][:90]}",
             f"SECURITY       : {progress['security_status']}",
+            f"PROVENANCE     : {progress['evidence_provenance']}",
             f"BACKEND        : {tests.get('backend', {}).get('passed', '?')} PASS",
             f"WEB            : {tests.get('web', {}).get('passed', '?')} PASS",
             f"MOBILE         : {tests.get('mobile', {}).get('passed', '?')} PASS",
