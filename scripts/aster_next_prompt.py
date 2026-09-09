@@ -674,6 +674,7 @@ def render_reports(
     git = observations.get("git", {})
     runtime = observations.get("runtime", {})
     last_result = state.get("last_result") or {}
+    state.setdefault("report_tip_commit", git.get("commit"))
     current_issue = selected.get("id") if selected else None
     state.update(
         {
@@ -708,6 +709,8 @@ def render_reports(
             "evidence_root": str(evidence_root),
             "issue_queue": str(QUEUE_JSON.relative_to(REPOSITORY_ROOT)),
             "controller_state": str(evidence_root / "current_state.json"),
+            "report_generated_from_commit": git.get("commit"),
+            "report_tip_commit": state.get("report_tip_commit") or git.get("commit"),
             "controller": {
                 "iteration": state.get("iteration", 0),
                 "iterations_completed": state.get("iterations_completed", 0),
@@ -785,16 +788,20 @@ def render_reports(
         "backend_tests": tests.get("backend", {}),
         "web_tests": tests.get("web", {}),
         "mobile_tests": tests.get("mobile", {}),
-        "security_status": "PASS" if "security audit" in str(status.get("security", {})).lower() or status.get("security", {}).get("npm_audit_findings") == 0 else "RECORDED",
+        "security_status": "PASS_WITH_RECORDED_RISK" if status.get("security", {}).get("npm_audit_findings") == 0 else "RECORDED",
         "runtime_identity_status": runtime.get("status"),
         "aster_to_ai_os": str(status.get("acceptance", {}).get("master_student", "UNKNOWN")),
-        "ai_os_to_aster": str(status.get("acceptance", {}).get("master_student", "UNKNOWN")),
+        "ai_os_to_aster": "BLOCKED_EXTERNAL: parent MCP/reverse callback is not available; no bidirectional verification claimed.",
         "dex": str(status.get("acceptance", {}).get("dex", "UNKNOWN")),
-        "voice": str(status.get("acceptance", {}).get("voice", "UNKNOWN")),
+        "voice": "PARTIAL: ASTER-028 preserves reproducible exact-WAV lexical variability." if any(
+            isinstance(issue, dict) and issue.get("id") == "ASTER-028" and issue.get("status") not in {"VERIFIED", "CLOSED"}
+            for issue in queue.get("issues", [])
+        ) else str(status.get("acceptance", {}).get("voice", "UNKNOWN")),
         "performance_mean": benchmark.get("mean"),
         "performance_p95": benchmark.get("p95"),
         "git_status": git.get("status"),
         "current_commit": git.get("commit"),
+        "report_tip_commit": state.get("report_tip_commit"),
         "last_artifact_verification": status.get("release", {}).get("final_report_tip_attestation"),
         "last_failure": state.get("last_failure"),
         "next_action": state.get("current_action"),
@@ -1092,6 +1099,8 @@ def iteration_once(
             },
         }
     commit_result = safe_commit_if_validated(child, iteration) if auto_commit else {"attempted": False, "reason": "auto_commit_disabled"}
+    if commit_result.get("commit"):
+        state["report_tip_commit"] = commit_result["commit"]
     observations_after = observe(evidence_root)
     parsed = child.get("parsed", {})
     temporary_failure = False

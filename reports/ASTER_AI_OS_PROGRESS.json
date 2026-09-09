@@ -1,21 +1,21 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-09T15:34:27.651506+00:00",
+  "generated_at": "2026-09-09T15:35:43.472342+00:00",
   "source": {
     "state": "/home/md-wasim/AI_Workspace_Data/aster-evidence/current_state.json",
     "status": "/home/md-wasim/Projects/AI_Workspace/reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.json",
     "queue": "/home/md-wasim/Projects/AI_Workspace/reports/ASTER_AI_OS_ISSUE_QUEUE.json",
     "observations": {
-      "timestamp": "2026-09-09T15:34:27.636793+00:00",
+      "timestamp": "2026-09-09T15:35:43.457711+00:00",
       "git": {
         "branch": "main",
-        "commit": "c1397d21fda1d21bb556859edf01802ca04603ca",
+        "commit": "89ca983aed0886a35a46cda322047ec1ae104304",
         "upstream": "origin/main",
         "upstream_error": null,
-        "ahead": 3,
+        "ahead": 4,
         "behind": 0,
         "clean": false,
-        "status_porcelain": "M scripts/aster_next_prompt.py",
+        "status_porcelain": "M reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.json\n M reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.md\n M reports/ASTER_AI_OS_PROGRESS.json\n M reports/ASTER_AI_OS_PROGRESS.md\n M scripts/aster_next_prompt.py",
         "status": "DIRTY"
       },
       "benchmark": {
@@ -48,7 +48,7 @@
           ],
           "cwd": "/home/md-wasim/Projects/AI_Workspace",
           "exit_code": 0,
-          "duration_seconds": 0.0079,
+          "duration_seconds": 0.0068,
           "stdout": "{\"status\":\"alive\"}",
           "stderr": "",
           "stdout_sha256": "bc24b0b5a305d5afc198c725890c8fb91053be2dbd8672779de73cac19a008fa",
@@ -100,16 +100,17 @@
   "mobile_tests": {
     "passed": 64
   },
-  "security_status": "PASS",
+  "security_status": "PASS_WITH_RECORDED_RISK",
   "runtime_identity_status": "PASS",
   "aster_to_ai_os": "PARTIAL: current owner-authenticated HTTP exchange and integrity verified; fabricated execution claims rejected. Parent MCP rejected and live reverse DEX blocked.",
-  "ai_os_to_aster": "PARTIAL: current owner-authenticated HTTP exchange and integrity verified; fabricated execution claims rejected. Parent MCP rejected and live reverse DEX blocked.",
+  "ai_os_to_aster": "BLOCKED_EXTERNAL: parent MCP/reverse callback is not available; no bidirectional verification claimed.",
   "dex": "BLOCKED_EXTERNAL: strict host sandbox fails closed with RTM_NEWADDR EPERM; synthetic transport and lifecycle repairs independently verified.",
-  "voice": "PENDING_CURRENT_DEPLOYMENT_AND_FINAL_VERIFICATION; prior release evidence retained in previous report snapshot.",
+  "voice": "PARTIAL: ASTER-028 preserves reproducible exact-WAV lexical variability.",
   "performance_mean": 8.052,
   "performance_p95": 16.6673,
   "git_status": "DIRTY",
-  "current_commit": "c1397d21fda1d21bb556859edf01802ca04603ca",
+  "current_commit": "89ca983aed0886a35a46cda322047ec1ae104304",
+  "report_tip_commit": "89ca983aed0886a35a46cda322047ec1ae104304",
   "last_artifact_verification": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-memoryfix2/final-release-attestation.json",
   "last_failure": {
     "timestamp": "2026-09-09T15:31:20.168409+00:00",
