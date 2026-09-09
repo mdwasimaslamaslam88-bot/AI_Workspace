@@ -1,21 +1,21 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-09T15:33:55.525406+00:00",
+  "generated_at": "2026-09-09T15:34:27.651506+00:00",
   "source": {
     "state": "/home/md-wasim/AI_Workspace_Data/aster-evidence/current_state.json",
     "status": "/home/md-wasim/Projects/AI_Workspace/reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.json",
     "queue": "/home/md-wasim/Projects/AI_Workspace/reports/ASTER_AI_OS_ISSUE_QUEUE.json",
     "observations": {
-      "timestamp": "2026-09-09T15:33:55.510899+00:00",
+      "timestamp": "2026-09-09T15:34:27.636793+00:00",
       "git": {
         "branch": "main",
-        "commit": "5abdcf15c27f961fe21e3b0018ed8b899e356031",
+        "commit": "c1397d21fda1d21bb556859edf01802ca04603ca",
         "upstream": "origin/main",
         "upstream_error": null,
-        "ahead": 2,
+        "ahead": 3,
         "behind": 0,
         "clean": false,
-        "status_porcelain": "M reports/ASTER_AI_OS_ISSUE_QUEUE.json\n M reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.json\n M reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.md\n M reports/ASTER_AI_OS_PROGRESS.json\n M reports/ASTER_AI_OS_PROGRESS.md\n M scripts/aster_next_prompt.py",
+        "status_porcelain": "M scripts/aster_next_prompt.py",
         "status": "DIRTY"
       },
       "benchmark": {
@@ -48,7 +48,7 @@
           ],
           "cwd": "/home/md-wasim/Projects/AI_Workspace",
           "exit_code": 0,
-          "duration_seconds": 0.007,
+          "duration_seconds": 0.0079,
           "stdout": "{\"status\":\"alive\"}",
           "stderr": "",
           "stdout_sha256": "bc24b0b5a305d5afc198c725890c8fb91053be2dbd8672779de73cac19a008fa",
@@ -109,14 +109,15 @@
   "performance_mean": 8.052,
   "performance_p95": 16.6673,
   "git_status": "DIRTY",
-  "current_commit": "5abdcf15c27f961fe21e3b0018ed8b899e356031",
+  "current_commit": "c1397d21fda1d21bb556859edf01802ca04603ca",
   "last_artifact_verification": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-memoryfix2/final-release-attestation.json",
   "last_failure": {
     "timestamp": "2026-09-09T15:31:20.168409+00:00",
     "classification": "BLOCKED_EXTERNAL",
     "exit_code": 124,
     "timed_out": true,
-    "stderr_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/iteration-0004/codex.stderr.log"
+    "stderr_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/iteration-0004/codex.stderr.log",
+    "error_excerpt": "_models_manager::manager: failed to renew cache TTL: missing field `supports_parallel_tool_calls` at line 132 column 5\n2026-09-09T15:29:50.013965Z ERROR codex_models_manager::manager: failed to renew cache TTL: missing field `supports_parallel_tool_calls` at line 132 column 5\n2026-09-09T15:29:57.166307Z ERROR codex_core::tools::router: error=apply_patch verification failed: Failed to read file to update /home/md-wasim/Projects/AI_Workspace/scripts/aster_next_prompt.py: fs sandbox helper failed with status exit status: 1: bwrap: loopback: Failed RTM_NEWADDR: Operation not permitted\n2026-09-09T15:29:57.243894Z ERROR codex_models_manager::manager: failed to renew cache TTL: missing field `supports_parallel_tool_calls` at line 132 column 5\n2026-09-09T15:30:15.582805Z ERROR codex_core::tools::router: error=apply_patch verification failed: Failed to read file to update /home/md-wasim/Projects/AI_Workspace/scripts/aster_next_prompt.py: fs sandbox helper failed with status exit status: 1: bwrap: loopback: Failed RTM_NEWADDR: Operation not permitted\n2026-09-09T15:30:15.605652Z ERROR codex_models_manager::manager: failed to renew cache TTL: missing field `supports_parallel_tool_calls` at line 132 column 5\n2026-09-09T15:30:26.472883Z ERROR codex_models_manager::manager: failed to renew cache TTL: missing field `supports_parallel_tool_calls` at line 132 column 5\n2026-09-09T15:30:34.827393Z ERROR codex_core::tools::router: error=apply_patch verification failed: Failed to read file to update /home/md-wasim/Projects/AI_Workspace/scripts/aster_next_prompt.py: fs sandbox helper failed with status exit status: 1: bwrap: loopback: Failed RTM_NEWADDR: Operation not permitted\n2026-09-09T15:30:34.849490Z ERROR codex_models_manager::manager: failed to renew cache TTL: missing field `supports_parallel_tool_calls` at line 132 column 5\n2026-09-09T15:30:46.547977Z ERROR codex_models_manager::manager: failed to renew cache TTL: missing field `supports_parallel_tool_calls` at line 132 column 5\n"
   },
   "next_action": "Reproduce the report-provenance defect against current HEAD. Verify current-source, runtime, artifact, benchmark, security and release evidence by content, preserve historical roots, and implement or verify the smallest guard/report repair.",
   "readiness_reason": "UNRESOLVED_LOCAL_OR_REVIEW_ITEMS"

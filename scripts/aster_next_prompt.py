@@ -459,6 +459,15 @@ def restore_resumable_attempt(state: dict[str, Any]) -> None:
     """Recover a timeout recorded by an older controller version as resumable."""
     result = state.get("last_result")
     child = result.get("child") if isinstance(result, dict) else None
+    failure = state.get("last_failure")
+    stderr_path = failure.get("stderr_path") if isinstance(failure, dict) else None
+    if isinstance(failure, dict) and not failure.get("error_excerpt") and stderr_path:
+        try:
+            failure["error_excerpt"] = safe_text(
+                Path(stderr_path).read_text(encoding="utf-8", errors="replace")[-2000:]
+            )
+        except OSError:
+            pass
     if (
         not state.get("in_progress")
         and isinstance(result, dict)
@@ -469,15 +478,6 @@ def restore_resumable_attempt(state: dict[str, Any]) -> None:
         state["in_progress"] = True
         state["resume_required"] = True
         state["resume_recovered_at"] = utc_now()
-        failure = state.get("last_failure")
-        stderr_path = failure.get("stderr_path") if isinstance(failure, dict) else None
-        if isinstance(failure, dict) and not failure.get("error_excerpt") and stderr_path:
-            try:
-                failure["error_excerpt"] = safe_text(
-                    Path(stderr_path).read_text(encoding="utf-8", errors="replace")[-2000:]
-                )
-            except OSError:
-                pass
 
 
 def persist_state(state: dict[str, Any], evidence_root: Path) -> None:
