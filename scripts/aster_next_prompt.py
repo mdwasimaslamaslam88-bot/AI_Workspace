@@ -1359,6 +1359,21 @@ def render_reports(
     ]
     atomic_write(STATUS_MD, "\n".join(status_lines), mode=0o644)
 
+    voice_issue = next(
+        (
+            issue
+            for issue in queue.get("issues", [])
+            if isinstance(issue, dict) and issue.get("id") == "ASTER-028"
+        ),
+        None,
+    )
+    if isinstance(voice_issue, dict) and voice_issue.get("status") == "BLOCKED_EXTERNAL":
+        voice_status = "BLOCKED_EXTERNAL: ASTER-028 installed voice-model/acoustic variability is preserved with exact-WAV evidence."
+    elif isinstance(voice_issue, dict) and voice_issue.get("status") not in {"VERIFIED", "CLOSED"}:
+        voice_status = "PARTIAL: ASTER-028 preserves reproducible exact-WAV lexical variability."
+    else:
+        voice_status = str(status.get("acceptance", {}).get("voice", "UNKNOWN"))
+
     progress = {
         "schema_version": 1,
         "generated_at": utc_now(),
@@ -1392,10 +1407,7 @@ def render_reports(
         "aster_to_ai_os": str(status.get("acceptance", {}).get("master_student", "UNKNOWN")),
         "ai_os_to_aster": "BLOCKED_EXTERNAL: parent MCP/reverse callback is not available; no bidirectional verification claimed.",
         "dex": str(status.get("acceptance", {}).get("dex", "UNKNOWN")),
-        "voice": "PARTIAL: ASTER-028 preserves reproducible exact-WAV lexical variability." if any(
-            isinstance(issue, dict) and issue.get("id") == "ASTER-028" and issue.get("status") not in {"VERIFIED", "CLOSED"}
-            for issue in queue.get("issues", [])
-        ) else str(status.get("acceptance", {}).get("voice", "UNKNOWN")),
+        "voice": voice_status,
         "performance_mean": benchmark.get("mean"),
         "performance_p95": benchmark.get("p95"),
         "git_status": git.get("status"),
