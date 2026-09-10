@@ -2,11 +2,11 @@
   "schema_version": 4,
   "iteration": 4,
   "status": "NOT_READY",
-  "updated_at": "2026-09-10T16:08:57.253485+00:00",
+  "updated_at": "2026-09-10T16:11:53.763981+00:00",
   "current_issue": [
-    "ASTER-026"
+    "ASTER-028"
   ],
-  "current_commit": "8d8fd756f02d4461a8d58f985a8f65254c501c58",
+  "current_commit": "f249c14b73055cfe4422f88854bee212cd98e09b",
   "current_runtime": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-aster-026-reverted-runtime.json",
   "current_artifact": "Packaged desktop/PWA cf05844 unchanged; backend b10742a deployed directly",
   "issues": [
@@ -1418,14 +1418,19 @@
       "runtime_test": "Fresh authenticated runtime identity after candidate rollback is source 30acaae8e6329f702eb289073978ef2991e2be11; backend and web hashes matched, model-inference-only permissions were recorded, six audit events were present, and session revocation passed. The candidate runtime identity and run remain preserved separately and were not accepted as current evidence.",
       "regression": "Retain exact prompts/output hashes as a review regression corpus. Future meaningful model/routing changes require unchanged full canonical benchmark and these review cases.",
       "performance": "Three serial review round trips averaged23.0302seconds; too few observations for a general P95 assertion.",
-      "status": "REPRODUCED",
+      "status": "BLOCKED_EXTERNAL",
       "evidence": [
         "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/interop/ai-os-request.json",
         "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/interop/ai-os-evidence-review.json",
         "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/interop/ai-os-challenge-response.json",
         "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/aster-to-aios-real-agent-run-20260909.json",
         "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-aster-026-current/current-attestation.json",
-        "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-aster-026-experiment-exact-output/validation.json"
+        "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-aster-026-experiment-exact-output/validation.json",
+        "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-aster-026-candidate-task-contract/validation.json",
+        "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-aster-026-candidate-task-contract/runtime.json",
+        "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-current-release-30acaae/release-check-current.json",
+        "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-current-release-30acaae/artifact-attestation-current.json",
+        "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-canonical-30acaae/benchmark-attestation-current.json"
       ],
       "commit": null,
       "artifact": null,
@@ -1437,8 +1442,14 @@
         "ASTER-004",
         "ASTER-001"
       ],
-      "external_blocker": false,
-      "owner_action": "No owner action is needed to preserve this failure. Retain it as an internal model limitation, require independent evidence for consequential conclusions, and evaluate any future repair with controlled regression evidence.",
+      "external_blocker": {
+        "classification": "INSTALLED_MODEL_CAPABILITY_LIMITATION",
+        "local_fix_available": false,
+        "proof": "The existing exact_output contract experiment produced malformed JSON; the generic trusted task-contract candidate produced valid JSON but independent semantic validation still rejected C1/C4. The candidate was reverted after focused tests, full release gate, and unchanged canonical benchmark remained non-regressing.",
+        "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-aster-026-candidate-task-contract/validation.json",
+        "revisit_condition": "Revisit only after a generic installed model/runtime capability change is available and both this corpus and the unchanged canonical benchmark pass objectively."
+      },
+      "owner_action": "No local source fix is justified. Preserve the limitation and fail-closed evidence rejection; continue to the next locally achievable queue issue.",
       "controller_observations": [
         {
           "timestamp": "2026-09-09T22:40:06.625978+00:00",
@@ -2862,9 +2873,9 @@
     ]
   },
   "issue_counts": {
-    "remaining_local": 6,
+    "remaining_local": 5,
     "fixed": 23,
-    "blocked_external": 2,
+    "blocked_external": 3,
     "total": 31
   },
   "performance": {
@@ -3076,7 +3087,7 @@
     "iteration": 4,
     "iterations_completed": 4,
     "readiness_reason": "UNRESOLVED_LOCAL_OR_REVIEW_ITEMS",
-    "current_action": "Re-run the existing authenticated Agent OS advisory-review corpus on the current runtime, verify hashes and permission grants, and determine whether a local model/prompt repair is demonstrated. Model prose is not evidence.",
+    "current_action": "Re-run the canonical voice path and preserved exact-WAV replay with objective transcript/cleanup/security evidence. Separate LOCAL_PASS, PARTIAL and external provider/hardware limits; do not upgrade a voice result from model prose.",
     "last_successful_commit": "aa7a2815c162fa45829503109864c90c4060808d",
     "last_codex_cli": {
       "path": "/home/md-wasim/.nvm/versions/node/v24.19.0/lib/node_modules/@openai/codex/bin/codex.js",
@@ -3404,8 +3415,8 @@
       }
     }
   },
-  "report_generated_from_commit": "8d8fd756f02d4461a8d58f985a8f65254c501c58",
-  "report_tip_commit": "8d8fd756f02d4461a8d58f985a8f65254c501c58",
+  "report_generated_from_commit": "f249c14b73055cfe4422f88854bee212cd98e09b",
+  "report_tip_commit": "f249c14b73055cfe4422f88854bee212cd98e09b",
   "evidence_provenance": {
     "status": "PASS",
     "current_source_commit": "30acaae8e6329f702eb289073978ef2991e2be11",
