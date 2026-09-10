@@ -2,11 +2,11 @@
   "schema_version": 4,
   "iteration": 4,
   "status": "NOT_READY",
-  "updated_at": "2026-09-10T06:06:50.133727+00:00",
+  "updated_at": "2026-09-10T06:08:04.301314+00:00",
   "current_issue": [
     "ASTER-026"
   ],
-  "current_commit": "522740179e225274c434a7c9d22fcbd87e785514",
+  "current_commit": "0189394d67346367a8e49e5d275d8d7e3527ffd9",
   "current_runtime": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/runtime-identity-final-f8fecdb.json",
   "current_artifact": "Packaged desktop/PWA cf05844 unchanged; backend b10742a deployed directly",
   "issues": [
@@ -2893,7 +2893,7 @@
       "parent MCP callback rejection",
       "off-device browser"
     ],
-    "final_report_tip_attestation": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-memoryfix2/final-release-attestation.json"
+    "final_report_tip_attestation": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-current-release-aa7a281/artifact-attestation-current.json"
   },
   "previous_run": {
     "report_commit": "da1d0ad41ea96f2a633aa3efdb862c8f0ff9a77f",
@@ -3349,8 +3349,8 @@
       }
     }
   },
-  "report_generated_from_commit": "522740179e225274c434a7c9d22fcbd87e785514",
-  "report_tip_commit": "522740179e225274c434a7c9d22fcbd87e785514",
+  "report_generated_from_commit": "0189394d67346367a8e49e5d275d8d7e3527ffd9",
+  "report_tip_commit": "0189394d67346367a8e49e5d275d8d7e3527ffd9",
   "evidence_provenance": {
     "status": "PASS",
     "current_source_commit": "aa7a2815c162fa45829503109864c90c4060808d",
