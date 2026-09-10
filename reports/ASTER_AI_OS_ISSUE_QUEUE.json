@@ -1327,7 +1327,21 @@
           "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-aster-026-current/current-attestation.json"
         ]
       },
-      "ASTER_analysis": "Separate content-quality failure from ASTER-004 DEX evidence-integrity acceptance. Detection succeeded, but detection does not fix the model limitation. Canonical hallucination metric0 is corpus/checker-specific and cannot negate these observed failures.",
+      "controlled_task_contract_experiment": {
+        "task": "exact_output",
+        "run_id": "add11055-d498-4bae-b992-070c1f2e4d8d",
+        "owner_id": "d42473e2-a80c-4c94-a146-2cbcf6a0dd30",
+        "run_status": "completed",
+        "raw_output_sha256": "e6363b309d694ba767b95e63bdf5f2e6019abce5a63e11a7d79fd2947c4b8151",
+        "engine_output_hash_matched": true,
+        "output_json": false,
+        "objective_semantic_proof": false,
+        "permission_plan": [["model_inference"]],
+        "audit_event_count": 6,
+        "session_revocation": {"delete_status": 204, "after_status": 401},
+        "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-aster-026-experiment-exact-output"
+      },
+      "ASTER_analysis": "Separate content-quality failure from ASTER-004 DEX evidence-integrity acceptance. Detection succeeded, but detection does not fix the model limitation. A controlled exact_output task-contract run also produced malformed JSON with matching engine hash, so no generic local task-routing repair is demonstrated. Canonical hallucination metric0 is corpus/checker-specific and cannot negate these observed failures.",
       "AI_OS_analysis": {
         "raw_claims_preserved": [
           "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/interop/ai-os-request.json",
@@ -1339,6 +1353,12 @@
           "run_id": "2ff8d32d-d4f1-460b-b7dc-3f18d63f1742",
           "validation": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-aster-026-current/current-validation.json",
           "attestation": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-aster-026-current/current-attestation.json"
+        },
+        "controlled_task_contract_experiment": {
+          "run_id": "add11055-d498-4bae-b992-070c1f2e4d8d",
+          "validation": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-aster-026-experiment-exact-output/validation.json",
+          "runtime": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-aster-026-experiment-exact-output/runtime.json",
+          "cleanup": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-aster-026-experiment-exact-output/cleanup.json"
         }
       },
       "cross_agent_findings": [
@@ -1369,7 +1389,8 @@
         "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/interop/ai-os-evidence-review.json",
         "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/interop/ai-os-challenge-response.json",
         "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/aster-to-aios-real-agent-run-20260909.json",
-        "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-aster-026-current/current-attestation.json"
+        "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-aster-026-current/current-attestation.json",
+        "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-aster-026-experiment-exact-output/validation.json"
       ],
       "commit": null,
       "artifact": null,
