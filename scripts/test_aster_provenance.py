@@ -165,6 +165,38 @@ def test_current_provenance_rejects_stale_commit_claims(tmp_path):
     assert result["components"]["artifact"] == "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE"
 
 
+def test_runtime_discovery_accepts_only_bounded_report_tip_alias(tmp_path, monkeypatch):
+    controller = _load_controller()
+    source_commit = "a" * 40
+    report_tip = "b" * 40
+    runtime = tmp_path / "runtime-identity-report-tip.json"
+    _write(
+        runtime,
+        {
+            "runtime": {"source_commit": report_tip},
+            "matches": {
+                "source_commit": True,
+                "backend_source_sha256": True,
+                "web_bundle_sha256": True,
+            },
+        },
+    )
+    monkeypatch.setattr(
+        controller,
+        "report_only_commit_aliases",
+        lambda head, source: (report_tip,)
+        if head == report_tip and source == source_commit
+        else (),
+    )
+
+    result = controller.discover_runtime(
+        tmp_path, {}, source_commit, report_tip
+    )
+
+    assert result["status"] == "PASS"
+    assert result["source_matches_current"] is True
+
+
 def test_application_source_commit_walks_consecutive_report_tips():
     controller = _load_controller()
     report_tip = _current_commit()

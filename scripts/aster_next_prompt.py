@@ -1020,7 +1020,10 @@ def validate_current_provenance(
 
 
 def discover_runtime(
-    evidence_root: Path, status: dict[str, Any], current_commit: str | None
+    evidence_root: Path,
+    status: dict[str, Any],
+    current_commit: str | None,
+    report_tip_commit: str | None = None,
 ) -> dict[str, Any]:
     candidates: list[Path] = []
     configured = status.get("current_runtime")
@@ -1044,7 +1047,15 @@ def discover_runtime(
         if isinstance(value.get("runtime"), dict)
         else value.get("source_commit")
     )
-    source_matches = bool(recorded_source and current_commit and recorded_source == current_commit)
+    accepted_source_commits = {
+        value
+        for value in (
+            current_commit,
+            *report_only_commit_aliases(report_tip_commit, current_commit),
+        )
+        if value
+    }
+    source_matches = bool(recorded_source and recorded_source in accepted_source_commits)
     if not identity_ok:
         runtime_status = "FAIL"
     elif not source_matches:
@@ -1112,7 +1123,12 @@ def observe(evidence_root: Path) -> dict[str, Any]:
     git = git_snapshot()
     counts = benchmark.get("counts", {}) if isinstance(benchmark.get("counts"), dict) else {}
     source_commit = git.get("application_source_commit") or git.get("commit")
-    runtime = discover_runtime(evidence_root, status, source_commit)
+    runtime = discover_runtime(
+        evidence_root,
+        status,
+        source_commit,
+        git.get("commit"),
+    )
     health = command_record(
         ["curl", "--fail", "--silent", "--show-error", "--max-time", "3", "http://127.0.0.1:8000/api/v1/health/live"],
         REPOSITORY_ROOT,
