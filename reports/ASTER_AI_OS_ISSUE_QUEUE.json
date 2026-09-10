@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-09-10T01:06:06.188212+00:00",
+  "updated_at": "2026-09-10T02:19:57.321131+00:00",
   "authoritative_report": "reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.json",
   "purpose": "Derived machine-readable issue ledger; uses the existing report issue identities, not a second issue service",
   "allowed_statuses": [
@@ -1646,8 +1646,8 @@
       "owner_action": "Design a bounded routing or output-normalization strategy and rerun the unchanged benchmark; do not alter checker expectations."
     }
   ],
-  "current_application_commit": "39831f8082446580262832e3fb7d067d87179571",
-  "current_benchmark": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-canonical-5f46508-clean/Work_Station_Benchmark/benchmark-summary.json",
+  "current_application_commit": "aa7a2815c162fa45829503109864c90c4060808d",
+  "current_benchmark": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-canonical-aa7a281/Work_Station_Benchmark/benchmark-summary.json",
   "current_nonpass_ids": [
     "medium-coding-04",
     "model-comparison-coder-06"
