@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-09-10T16:08:13.709413+00:00",
+  "updated_at": "2026-09-10T16:14:18.117541+00:00",
   "authoritative_report": "reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.json",
   "purpose": "Derived machine-readable issue ledger; uses the existing report issue identities, not a second issue service",
   "allowed_statuses": [
@@ -1176,9 +1176,17 @@
       "integration_test": "Second complete canonical run retains voice-stt-01 PARTIAL; voice score and normalized WER/CER remain measured, not upgraded.",
       "security_test": "Synthetic assets were owner-scoped and deleted with 204/content 404; token scan passed.",
       "runtime_test": "Current voice model IDs and relevant eight source/config hashes unchanged from the prior canonical run.",
-      "regression": "Unchanged canonical 20260910 voice-stt passed; prior exact-WAV replay remains reproducibly variable, so issue remains an OPEN model/acoustic observation.",
-      "performance": "No model or runtime parameter change; current canonical mean 8.2534 seconds and P95 16.7391 seconds.",
-      "status": "OPEN",
+      "regression": "Unchanged canonical 20260910 voice-stt passed; prior exact-WAV replay remains reproducibly variable, so the failure class remains an external installed-model/acoustic limitation.",
+      "performance": "No model or runtime parameter change; current canonical mean 8.085 seconds and P95 16.5325 seconds.",
+      "status": "BLOCKED_EXTERNAL",
+      "external_blocker": {
+        "classification": "INSTALLED_LOCAL_VOICE_MODEL_ACOUSTIC_VARIABILITY",
+        "local_fix_available": false,
+        "proof": "Fresh current canonical voice evidence passed the voice cases, while the preserved alternate synthesized WAV reproduced a missed lexical checkpoint across three identical exact-WAV replays. No source, routing, checker, or expected-answer defect was demonstrated; no generic local repair was justified.",
+        "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/voice-regression/capture-followup/capture.json",
+        "current_benchmark": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-canonical-30acaae/benchmark-attestation-current.json",
+        "revisit_condition": "Revisit only after a generic installed voice model/runtime improvement is available and both canonical voice cases and the preserved exact-WAV replay pass objectively."
+      },
       "evidence": [
         "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/voice-regression/README.md",
         "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/voice-regression/reproduction.json",
@@ -1188,7 +1196,29 @@
       ],
       "commit": "b10742a340a22e56ff7e315603cc8af19158b49b",
       "artifact": "installed local Piper and faster-whisper runtime",
-      "runtime_identity": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/runtime-identity-memory-fix.json"
+      "runtime_identity": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/runtime-identity-memory-fix.json",
+      "controller_observations": [
+        {
+          "timestamp": "2026-09-10T16:13:17.452298+00:00",
+          "iteration": 4,
+          "classification": "BLOCKED_EXTERNAL",
+          "child_status": "FAILED",
+          "verification": "FAIL",
+          "action": "",
+          "evidence_dir": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/iteration-0004/attempt-0023",
+          "queue_status_preserved": true
+        },
+        {
+          "timestamp": "2026-09-10T16:14:18.117529+00:00",
+          "iteration": 4,
+          "classification": "BLOCKED_EXTERNAL",
+          "child_status": "FAILED",
+          "verification": "FAIL",
+          "action": "",
+          "evidence_dir": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/iteration-0004/attempt-0024",
+          "queue_status_preserved": true
+        }
+      ]
     },
     {
       "id": "ASTER-029",
