@@ -18,7 +18,7 @@ BACKEND        : 3152 PASS
 WEB            : 206 PASS
 MOBILE         : 64 PASS
 PERFORMANCE    : mean 8.0681s / P95 16.4845s
-GIT            : DIRTY
-COMMIT         : 0189394d67346367a8e49e5d275d8d7e3527ffd9
+GIT            : CLEAN_SYNCED
+COMMIT         : 6925fb55c064fa4f43ef785e612366e6f0acf4a0
 NEXT ACTION    : Re-run the existing authenticated Agent OS advisory-review corpus on the current runtime, verify hashes and permission grants, and determine whether a local model/prompt repair is demonstrated. Model prose is not evidence.
 ========================================================
