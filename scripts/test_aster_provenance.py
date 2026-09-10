@@ -180,3 +180,15 @@ def test_application_source_commit_walks_consecutive_report_tips():
     ).splitlines()
     if changed and all(path.startswith("reports/ASTER_AI_OS_") for path in changed):
         assert controller.application_source_commit(report_tip) == controller.application_source_commit(parent)
+
+
+def test_report_only_commit_aliases_are_bounded_to_current_source():
+    controller = _load_controller()
+    report_tip = _current_commit()
+    source = controller.application_source_commit(report_tip)
+    if source == report_tip:
+        raise AssertionError("fixture requires a report-only tip after the source tip")
+    aliases = controller.report_only_commit_aliases(report_tip, source)
+    assert report_tip in aliases
+    assert source not in aliases
+    assert controller.report_only_commit_aliases(report_tip, "f" * 40) == ()

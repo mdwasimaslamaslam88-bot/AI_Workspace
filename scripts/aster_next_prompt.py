@@ -350,6 +350,59 @@ def application_source_commit(head: str | None = None) -> str | None:
     return application_source_commit(parent)
 
 
+def report_only_commit_aliases(head: str | None, source_commit: str | None) -> tuple[str, ...]:
+    """Return report-only commits between the report tip and source tip.
+
+    Evidence may be captured at a source tip and then have only the live ASTER
+    reports committed afterward. Those report commits do not change the
+    executable source, but they are still real commits that can appear in
+    benchmark/release attestations. Accept only that bounded ancestry; if any
+    application commit occurs before the source tip, return no aliases so old
+    evidence cannot be promoted.
+    """
+    if (
+        not isinstance(head, str)
+        or not COMMIT_PATTERN.fullmatch(head)
+        or not isinstance(source_commit, str)
+        or not COMMIT_PATTERN.fullmatch(source_commit)
+        or head == source_commit
+    ):
+        return ()
+    aliases: list[str] = []
+    current = head
+    seen: set[str] = set()
+    while current != source_commit and current not in seen:
+        seen.add(current)
+        files_result = subprocess.run(
+            ["git", "diff-tree", "--no-commit-id", "--name-only", "-r", current],
+            cwd=str(REPOSITORY_ROOT),
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+        changed = [line.strip() for line in files_result.stdout.splitlines() if line.strip()]
+        if not changed or not all(
+            any(path.startswith(prefix) for prefix in REPORT_ONLY_PATH_PREFIXES)
+            for path in changed
+        ):
+            return ()
+        aliases.append(current)
+        parent_result = subprocess.run(
+            ["git", "rev-parse", f"{current}^"],
+            cwd=str(REPOSITORY_ROOT),
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+        parent = parent_result.stdout.strip()
+        if not COMMIT_PATTERN.fullmatch(parent):
+            return ()
+        current = parent
+    return tuple(aliases) if current == source_commit else ()
+
+
 def git_snapshot() -> dict[str, Any]:
     def run(args: list[str]) -> tuple[int, str, str]:
         result = subprocess.run(
@@ -742,11 +795,7 @@ def validate_current_provenance(
 ) -> dict[str, Any]:
     """Validate evidence content and identity without trusting file presence."""
     report_tip_commit = observations.get("git", {}).get("commit")
-    alternate_commits = (
-        (report_tip_commit,)
-        if isinstance(report_tip_commit, str) and report_tip_commit != current_commit
-        else ()
-    )
+    alternate_commits = report_only_commit_aliases(report_tip_commit, current_commit)
     benchmark_observation = observations.get("benchmark", {})
     benchmark_path = benchmark_observation.get("path")
     benchmark_summary = read_json(Path(benchmark_path), {}) if isinstance(benchmark_path, str) else {}
@@ -1159,7 +1208,7 @@ def synchronize_queue_benchmark(
     """Keep the queue's benchmark pointer aligned with the latest valid report."""
     benchmark = observations.get("benchmark", {})
     benchmark_path = benchmark.get("path")
-    commit = benchmark.get("commit") or observations.get("git", {}).get("commit")
+    commit = benchmark.get("commit") or observations.get("git", {}).get("application_source_commit")
     if not isinstance(benchmark_path, str) or not benchmark_path:
         return
     changed = False
