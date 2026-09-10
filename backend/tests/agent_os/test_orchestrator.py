@@ -7,6 +7,7 @@ from app.agent_os.contracts import (
     AgentExecution,
     AgentKind,
     AgentPermission,
+    AgentPlanStep,
     AgentRunRequest,
     AgentRunStatus,
     VerificationCheck,
@@ -22,6 +23,7 @@ from app.agent_os.orchestrator import (
     RuleBasedAgentPlanner,
 )
 from app.agent_os.verification import IndependentVerificationEngine
+from app.ai.generation import TextGenerationResult, TextGenerationRole
 from app.ai.routing import InferenceMode, ModelTask
 from app.ai.routing import ModelRoutingUnavailableError
 from app.external_ai.contracts import (
@@ -384,3 +386,42 @@ async def test_model_backed_specialist_sends_keyless_messages_to_external_servic
     assert execution.evidence_codes == ("external-provider",)
     messages = external.generate_selected.await_args.args[3]
     assert all("secret" not in message.content for message in messages)
+
+
+@pytest.mark.asyncio
+async def test_model_backed_specialist_applies_existing_task_contract_to_local_generation():
+    catalog = Mock(
+        resolve_model=AsyncMock(return_value=Mock())
+    )
+    generation = Mock(
+        generate=AsyncMock(return_value=TextGenerationResult(content='{"ok":true}'))
+    )
+    specialist = ModelBackedSpecialist(
+        AgentKind.PLANNER,
+        catalog,
+        generation,
+    )
+    step = AgentPlanStep(
+        step_id="execute-goal",
+        agent=AgentKind.PLANNER,
+        task=ModelTask.EXACT_OUTPUT,
+        instruction="Return only the requested JSON value.",
+        permissions=frozenset({AgentPermission.MODEL_INFERENCE}),
+    )
+
+    await specialist.execute(
+        AgentExecutionContext(
+            goal=step.instruction,
+            step=step,
+            model=ModelSelection(MODEL_ONE, InferenceMode.THINKING_DISABLED),
+            attempt=1,
+        )
+    )
+
+    messages = generation.generate.await_args.args[1]
+    assert [message.role for message in messages] == [
+        TextGenerationRole.SYSTEM,
+        TextGenerationRole.SYSTEM,
+        TextGenerationRole.USER,
+    ]
+    assert "exact-output requirement is literal" in messages[1].content
