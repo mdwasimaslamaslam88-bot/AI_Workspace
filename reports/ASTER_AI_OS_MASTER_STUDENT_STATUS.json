@@ -2,9 +2,9 @@
   "schema_version": 4,
   "iteration": 4,
   "status": "NOT_READY",
-  "updated_at": "2026-09-10T18:51:18.561618+00:00",
+  "updated_at": "2026-09-10T19:00:59.806947+00:00",
   "current_issue": [],
-  "current_commit": "9b8451c07839edae6f25d6868a68a7c924c5b579",
+  "current_commit": "21c834772b85460a6fe01a3de6d947e7527fbd9d",
   "current_runtime": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-controller-runtime-bfcd805.json",
   "current_artifact": "Packaged desktop/PWA cf05844 unchanged; backend b10742a deployed directly",
   "issues": [
@@ -3496,20 +3496,20 @@
       }
     }
   },
-  "report_generated_from_commit": "9b8451c07839edae6f25d6868a68a7c924c5b579",
-  "report_tip_commit": "9b8451c07839edae6f25d6868a68a7c924c5b579",
+  "report_generated_from_commit": "21c834772b85460a6fe01a3de6d947e7527fbd9d",
+  "report_tip_commit": "21c834772b85460a6fe01a3de6d947e7527fbd9d",
   "evidence_provenance": {
     "status": "NOT_PROVEN",
-    "current_source_commit": "bfcd805f95569cfad4216855e36a06487defb646",
+    "current_source_commit": "21c834772b85460a6fe01a3de6d947e7527fbd9d",
     "components": {
       "source_commit": "PASS",
-      "runtime": "PASS",
+      "runtime": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE",
       "backend_hash": "PASS",
       "web_artifact_hash": "PASS",
-      "benchmark": "PASS",
+      "benchmark": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE",
       "security": "PASS",
       "release": "PASS",
-      "artifact": "FAIL"
+      "artifact": "PASS"
     },
     "runtime": {
       "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-controller-runtime-bfcd805.json",
@@ -3519,7 +3519,7 @@
       "expected_backend_source_sha256": "eb699a17b5dcfbaac89b5c9eb9b0bd7e77242c0a04c40e7f23caa41771dc707a",
       "expected_web_bundle_sha256": "5c0075a4636f9d50eac0f543bb67eb424f335ee707926e7ddc7d2b4982172825",
       "content_matches": {
-        "source_commit": true,
+        "source_commit": false,
         "backend_source_sha256": true,
         "web_bundle_sha256": true,
         "declared_matches": true
@@ -3539,50 +3539,50 @@
       }
     },
     "release": {
-      "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-current-release-bfcd805/release-check-current.json",
-      "recorded_source_commit": "bafb798e12ad1967be5ab3f967347bf78a6e443f",
-      "log": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-current-release-bfcd805/release-check.log",
-      "log_sha256": "cba5e155e1092259c0a7bb326c1e708e3912e2a3078c3d198464021471dcd4e0",
+      "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260911-release-21c8347/release-check-current.json",
+      "recorded_source_commit": "21c834772b85460a6fe01a3de6d947e7527fbd9d",
+      "log": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260911-release-21c8347/release-check.log",
+      "log_sha256": "83802fe4bd6e3c4e70dad10631255dd0e674a30f5771dbed6649050ba2e44183",
       "structural_valid": true,
       "security_check": "PASS"
     },
     "artifact": {
-      "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-current-release-bfcd805/artifact-attestation-current.json",
-      "recorded_source_commit": "bafb798e12ad1967be5ab3f967347bf78a6e443f",
+      "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260911-release-21c8347/artifact-attestation-current.json",
+      "recorded_source_commit": "21c834772b85460a6fe01a3de6d947e7527fbd9d",
       "hashes_verified": {
         "Work_Station_Ubuntu.AppImage": true,
         "Work_Station_Ubuntu.deb": true,
         "Work_Station_PWA.tar.gz": true
       },
-      "structural_valid": false,
+      "structural_valid": true,
       "artifacts": [
         {
           "artifact": "Work_Station_Ubuntu.AppImage",
           "path": "/home/md-wasim/Projects/AI_Workspace/apps/desktop/src-tauri/target/release/bundle/appimage/WORK STATION_0.1.0_amd64.AppImage",
-          "expected_sha256": "eb792a5e3d3a86bc19128806aea5166e5bd346efce03fca54f732fdbce394382",
-          "actual_sha256": "a493e98703b63fbf7790887e7e1bd1251e4ea1be2f14339d120326c86fedc8f9",
+          "expected_sha256": "2595b5c4feaac10918c89f21a1420aa399151cf49569a004d231a0818b06ceae",
+          "actual_sha256": "2595b5c4feaac10918c89f21a1420aa399151cf49569a004d231a0818b06ceae",
           "exists": true,
-          "hash_verified": false
+          "hash_verified": true
         },
         {
           "artifact": "Work_Station_Ubuntu.deb",
           "path": "/home/md-wasim/Projects/AI_Workspace/apps/desktop/src-tauri/target/release/bundle/deb/WORK STATION_0.1.0_amd64.deb",
-          "expected_sha256": "4933f557ad86a275c4e7279cd30d02cd70abda5cf24ab0bf601a423e9568accd",
-          "actual_sha256": "a705985f646cb1f888312a8e2b5a251acb80dbb45d466d55f66550850534f4fa",
+          "expected_sha256": "4ca923adcf21c78664107ad8a6202dca9e67a34ef5998ecac2648227de1772ae",
+          "actual_sha256": "4ca923adcf21c78664107ad8a6202dca9e67a34ef5998ecac2648227de1772ae",
           "exists": true,
-          "hash_verified": false
+          "hash_verified": true
         },
         {
           "artifact": "Work_Station_PWA.tar.gz",
-          "path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-current-release-bfcd805/Work_Station_PWA.tar.gz",
-          "expected_sha256": "ec2d772c5233dffb137bba744f20497b402b168d8f2d3a91c0c90da1d0bbe308",
-          "actual_sha256": "ec2d772c5233dffb137bba744f20497b402b168d8f2d3a91c0c90da1d0bbe308",
+          "path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260911-release-21c8347/Work_Station_PWA.tar.gz",
+          "expected_sha256": "ea2edcd29abc393a8b859e5c13e80a614e1233dc564f79ec06d7c57708596d39",
+          "actual_sha256": "ea2edcd29abc393a8b859e5c13e80a614e1233dc564f79ec06d7c57708596d39",
           "exists": true,
           "hash_verified": true
         }
       ]
     },
-    "historical_evidence_rejected": false
+    "historical_evidence_rejected": true
   },
-  "application_source_commit": "bfcd805f95569cfad4216855e36a06487defb646"
+  "application_source_commit": "21c834772b85460a6fe01a3de6d947e7527fbd9d"
 }
