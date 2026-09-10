@@ -1,15 +1,15 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-09T22:46:40.593502+00:00",
+  "generated_at": "2026-09-10T00:53:58.040973+00:00",
   "source": {
     "state": "/home/md-wasim/AI_Workspace_Data/aster-evidence/current_state.json",
     "status": "/home/md-wasim/Projects/AI_Workspace/reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.json",
     "queue": "/home/md-wasim/Projects/AI_Workspace/reports/ASTER_AI_OS_ISSUE_QUEUE.json",
     "observations": {
-      "timestamp": "2026-09-09T22:46:40.486710+00:00",
+      "timestamp": "2026-09-10T00:53:57.933759+00:00",
       "git": {
         "branch": "main",
-        "commit": "5f46508f6e0b9e0467325581888137397aa1ad00",
+        "commit": "39831f8082446580262832e3fb7d067d87179571",
         "application_source_commit": "5f46508f6e0b9e0467325581888137397aa1ad00",
         "upstream": "origin/main",
         "upstream_error": null,
@@ -20,21 +20,21 @@
         "status": "DIRTY"
       },
       "benchmark": {
-        "path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-canonical-b9681bf/Work_Station_Benchmark/benchmark-summary.json",
-        "commit": "b9681bfdd054e5fe8e9e49e2317335fa87057e34",
+        "path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-canonical-5f46508-clean/Work_Station_Benchmark/benchmark-summary.json",
+        "commit": "39831f8082446580262832e3fb7d067d87179571",
         "score": 97.84,
         "pass": 457,
         "partial": 1,
         "fail": 1,
-        "mean": 8.0769,
-        "p95": 16.5235
+        "mean": 8.0989,
+        "p95": 16.5164
       },
       "runtime": {
-        "status": "HISTORICAL_PASS_REQUIRES_CURRENT_ATTESTATION",
-        "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-canonical-b9681bf/runtime-identity-current.json",
-        "source_commit": "b9681bfdd054e5fe8e9e49e2317335fa87057e34",
+        "status": "PASS",
+        "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-canonical-5f46508/runtime-identity-current.json",
+        "source_commit": "5f46508f6e0b9e0467325581888137397aa1ad00",
         "current_commit": "5f46508f6e0b9e0467325581888137397aa1ad00",
-        "source_matches_current": false,
+        "source_matches_current": true,
         "matches": {
           "source_commit": true,
           "backend_source_sha256": true,
@@ -81,38 +81,38 @@
         "local_unresolved": 6
       },
       "provenance": {
-        "status": "NOT_PROVEN",
+        "status": "PASS",
         "current_source_commit": "5f46508f6e0b9e0467325581888137397aa1ad00",
         "components": {
           "source_commit": "PASS",
-          "runtime": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE",
+          "runtime": "PASS",
           "backend_hash": "PASS",
           "web_artifact_hash": "PASS",
-          "benchmark": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE",
-          "security": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE",
-          "release": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE",
-          "artifact": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE"
+          "benchmark": "PASS",
+          "security": "PASS",
+          "release": "PASS",
+          "artifact": "PASS"
         },
         "runtime": {
-          "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-canonical-b9681bf/runtime-identity-current.json",
-          "recorded_source_commit": "b9681bfdd054e5fe8e9e49e2317335fa87057e34",
+          "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-canonical-5f46508/runtime-identity-current.json",
+          "recorded_source_commit": "5f46508f6e0b9e0467325581888137397aa1ad00",
           "recorded_backend_source_sha256": "eb699a17b5dcfbaac89b5c9eb9b0bd7e77242c0a04c40e7f23caa41771dc707a",
           "recorded_web_bundle_sha256": "5c0075a4636f9d50eac0f543bb67eb424f335ee707926e7ddc7d2b4982172825",
           "expected_backend_source_sha256": "eb699a17b5dcfbaac89b5c9eb9b0bd7e77242c0a04c40e7f23caa41771dc707a",
           "expected_web_bundle_sha256": "5c0075a4636f9d50eac0f543bb67eb424f335ee707926e7ddc7d2b4982172825",
           "content_matches": {
-            "source_commit": false,
+            "source_commit": true,
             "backend_source_sha256": true,
             "web_bundle_sha256": true,
             "declared_matches": true
           }
         },
         "benchmark": {
-          "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-canonical-b9681bf/Work_Station_Benchmark/benchmark-summary.json",
-          "results": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-canonical-b9681bf/Work_Station_Benchmark/benchmark-results.json",
-          "recorded_source_commit": "b9681bfdd054e5fe8e9e49e2317335fa87057e34",
-          "summary_sha256": "a6f7d6e9ac2368e5169ca1ad6c8b188ca009f10c433f37a2daf810abab3ca78e",
-          "results_sha256": "3aa23a76073f7a3251423a1aabc2b4871c335703ceec292c6419fa8cd9a86ac3",
+          "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-canonical-5f46508-clean/Work_Station_Benchmark/benchmark-summary.json",
+          "results": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-canonical-5f46508-clean/Work_Station_Benchmark/benchmark-results.json",
+          "recorded_source_commit": "39831f8082446580262832e3fb7d067d87179571",
+          "summary_sha256": "a83ce6fa4faa345c583084b2bd362ed3d61f1f82ba23c436726d1b06885fa587",
+          "results_sha256": "351cc439adf5546ef754fc9814ea706470e562f65a63ac1b59a01e05b7de93f9",
           "structural_valid": true,
           "counts": {
             "PASS": 457,
@@ -121,16 +121,16 @@
           }
         },
         "release": {
-          "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-current-release-b9681bf/release-check-current.json",
-          "recorded_source_commit": "b9681bfdd054e5fe8e9e49e2317335fa87057e34",
-          "log": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-current-release-b9681bf/release-check.log",
-          "log_sha256": "1a3bef4481745e105fc8ba9b7939d4ec8a27797714a939b6b07bd4bc2a0957cd",
+          "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-current-release-5f46508/release-check-current.json",
+          "recorded_source_commit": "39831f8082446580262832e3fb7d067d87179571",
+          "log": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-current-release-5f46508/release-check.log",
+          "log_sha256": "b49251ff4eccf7bb065fdfffe9ee0118e95ddaab6421e43017e18ae42a2428fb",
           "structural_valid": true,
           "security_check": "PASS"
         },
         "artifact": {
-          "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-current-release-b9681bf/artifact-attestation-current.json",
-          "recorded_source_commit": "b9681bfdd054e5fe8e9e49e2317335fa87057e34",
+          "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-current-release-5f46508/artifact-attestation-current.json",
+          "recorded_source_commit": "39831f8082446580262832e3fb7d067d87179571",
           "hashes_verified": {
             "Work_Station_Ubuntu.AppImage": true,
             "Work_Station_Ubuntu.deb": true,
@@ -141,30 +141,30 @@
             {
               "artifact": "Work_Station_Ubuntu.AppImage",
               "path": "/home/md-wasim/Projects/AI_Workspace/apps/desktop/src-tauri/target/release/bundle/appimage/WORK STATION_0.1.0_amd64.AppImage",
-              "expected_sha256": "5181dd648dbb76d3a7ff2be6638d4aa90ede923c1844cc499052a66f11a9d276",
-              "actual_sha256": "5181dd648dbb76d3a7ff2be6638d4aa90ede923c1844cc499052a66f11a9d276",
+              "expected_sha256": "88de05c742a1436eb8d6ba0e0d4ecdd994b19703b9559d43bbd3237858ad41f7",
+              "actual_sha256": "88de05c742a1436eb8d6ba0e0d4ecdd994b19703b9559d43bbd3237858ad41f7",
               "exists": true,
               "hash_verified": true
             },
             {
               "artifact": "Work_Station_Ubuntu.deb",
               "path": "/home/md-wasim/Projects/AI_Workspace/apps/desktop/src-tauri/target/release/bundle/deb/WORK STATION_0.1.0_amd64.deb",
-              "expected_sha256": "d2bdf200dca17e81ce3d6ef68c35abcac684cb783710c68535aa423c72e3fffd",
-              "actual_sha256": "d2bdf200dca17e81ce3d6ef68c35abcac684cb783710c68535aa423c72e3fffd",
+              "expected_sha256": "9eef75e9307275319d93e52f16187894f9822bef924d7b8c1d613c300586c6bc",
+              "actual_sha256": "9eef75e9307275319d93e52f16187894f9822bef924d7b8c1d613c300586c6bc",
               "exists": true,
               "hash_verified": true
             },
             {
               "artifact": "Work_Station_PWA.tar.gz",
-              "path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-current-release-b9681bf/Work_Station_PWA.tar.gz",
-              "expected_sha256": "ac88803bb281c0b6d0b9136472b3f360302cad5cbab1707902cef16a50d3966c",
-              "actual_sha256": "ac88803bb281c0b6d0b9136472b3f360302cad5cbab1707902cef16a50d3966c",
+              "path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-current-release-5f46508/Work_Station_PWA.tar.gz",
+              "expected_sha256": "15d24e2edb147d31d800881e87df30f5064b19e920aabc0de465f9f8776571c6",
+              "actual_sha256": "15d24e2edb147d31d800881e87df30f5064b19e920aabc0de465f9f8776571c6",
               "exists": true,
               "hash_verified": true
             }
           ]
         },
-        "historical_evidence_rejected": true
+        "historical_evidence_rejected": false
       }
     }
   },
@@ -191,21 +191,21 @@
     "passed": 64
   },
   "security_status": "PASS_WITH_RECORDED_RISK",
-  "runtime_identity_status": "HISTORICAL_PASS_REQUIRES_CURRENT_ATTESTATION",
-  "evidence_provenance": "NOT_PROVEN",
-  "benchmark_provenance": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE",
-  "artifact_provenance": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE",
-  "release_provenance": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE",
+  "runtime_identity_status": "PASS",
+  "evidence_provenance": "PASS",
+  "benchmark_provenance": "PASS",
+  "artifact_provenance": "PASS",
+  "release_provenance": "PASS",
   "aster_to_ai_os": "PARTIAL: current owner-authenticated HTTP exchange and integrity verified; fabricated execution claims rejected. Parent MCP rejected and live reverse DEX blocked.",
   "ai_os_to_aster": "BLOCKED_EXTERNAL: parent MCP/reverse callback is not available; no bidirectional verification claimed.",
   "dex": "BLOCKED_EXTERNAL: strict host sandbox fails closed with RTM_NEWADDR EPERM; synthetic transport and lifecycle repairs independently verified.",
   "voice": "PARTIAL: ASTER-028 preserves reproducible exact-WAV lexical variability.",
-  "performance_mean": 8.0769,
-  "performance_p95": 16.5235,
+  "performance_mean": 8.0989,
+  "performance_p95": 16.5164,
   "git_status": "DIRTY",
-  "current_commit": "5f46508f6e0b9e0467325581888137397aa1ad00",
+  "current_commit": "39831f8082446580262832e3fb7d067d87179571",
   "application_source_commit": "5f46508f6e0b9e0467325581888137397aa1ad00",
-  "last_successful_commit": "b9681bfdd054e5fe8e9e49e2317335fa87057e34",
+  "last_successful_commit": "5f46508f6e0b9e0467325581888137397aa1ad00",
   "codex_cli": {
     "path": "/home/md-wasim/.nvm/versions/node/v24.19.0/lib/node_modules/@openai/codex/bin/codex.js",
     "version": "0.153.4",
@@ -239,7 +239,7 @@
       }
     ]
   },
-  "report_tip_commit": "5f46508f6e0b9e0467325581888137397aa1ad00",
+  "report_tip_commit": "39831f8082446580262832e3fb7d067d87179571",
   "last_artifact_verification": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-memoryfix2/final-release-attestation.json",
   "last_failure": {
     "timestamp": "2026-09-09T22:45:07.086087+00:00",
