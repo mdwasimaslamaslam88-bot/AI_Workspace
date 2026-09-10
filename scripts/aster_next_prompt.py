@@ -1885,6 +1885,26 @@ def run_controller(args: argparse.Namespace) -> int:
         if args.dry_run:
             print_terminal()
             return 0
+        if choose_issue(queue) is None:
+            mark_terminal_queue_state(state)
+            render_reports(state, queue, observations, evidence_root=evidence_root)
+            result = {
+                "status": "READY" if state.get("overall_ready") else "NOT_READY",
+                "verification": "PARTIAL",
+                "action": state.get("current_action"),
+                "issue": None,
+            }
+            print("ASTER_LOOP_RESULT")
+            print(f"STATUS={result['status']}")
+            print(f"ISSUES_REMAINING={state.get('issues_remaining', '?')}")
+            print("CURRENT_ISSUE=NONE")
+            print(f"ACTION={result['action']}")
+            print(f"VERIFICATION={result['verification']}")
+            print("NEXT_PROMPT_BEGIN")
+            print(state.get("next_prompt") or "Controller will derive the next prompt from persisted queue and evidence.")
+            print("NEXT_PROMPT_END")
+            print_terminal()
+            return 0
         completed_this_run = 0
         while completed_this_run < args.max_iterations and not state.get("overall_ready"):
             try:
