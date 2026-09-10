@@ -2,11 +2,11 @@
   "schema_version": 4,
   "iteration": 4,
   "status": "NOT_READY",
-  "updated_at": "2026-09-10T16:11:53.763981+00:00",
+  "updated_at": "2026-09-10T16:15:47.892981+00:00",
   "current_issue": [
-    "ASTER-028"
+    "ASTER-006"
   ],
-  "current_commit": "f249c14b73055cfe4422f88854bee212cd98e09b",
+  "current_commit": "c88d053f63821daec3ad175f1e65a424db437e59",
   "current_runtime": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-aster-026-reverted-runtime.json",
   "current_artifact": "Packaged desktop/PWA cf05844 unchanged; backend b10742a deployed directly",
   "issues": [
@@ -1170,9 +1170,17 @@
       "integration_test": "Second complete canonical run retains voice-stt-01 PARTIAL; voice score and normalized WER/CER remain measured, not upgraded.",
       "security_test": "Synthetic assets were owner-scoped and deleted with 204/content 404; token scan passed.",
       "runtime_test": "Current voice model IDs and relevant eight source/config hashes unchanged from the prior canonical run.",
-      "regression": "Unchanged canonical 20260910 voice-stt passed; prior exact-WAV replay remains reproducibly variable, so issue remains an OPEN model/acoustic observation.",
-      "performance": "No model or runtime parameter change; current canonical mean 8.2534 seconds and P95 16.7391 seconds.",
-      "status": "OPEN",
+      "regression": "Unchanged canonical 20260910 voice-stt passed; prior exact-WAV replay remains reproducibly variable, so the failure class remains an external installed-model/acoustic limitation.",
+      "performance": "No model or runtime parameter change; current canonical mean 8.085 seconds and P95 16.5325 seconds.",
+      "status": "BLOCKED_EXTERNAL",
+      "external_blocker": {
+        "classification": "INSTALLED_LOCAL_VOICE_MODEL_ACOUSTIC_VARIABILITY",
+        "local_fix_available": false,
+        "proof": "Fresh current canonical voice evidence passed the voice cases, while the preserved alternate synthesized WAV reproduced a missed lexical checkpoint across three identical exact-WAV replays. No source, routing, checker, or expected-answer defect was demonstrated; no generic local repair was justified.",
+        "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/voice-regression/capture-followup/capture.json",
+        "current_benchmark": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-canonical-30acaae/benchmark-attestation-current.json",
+        "revisit_condition": "Revisit only after a generic installed voice model/runtime improvement is available and both canonical voice cases and the preserved exact-WAV replay pass objectively."
+      },
       "evidence": [
         "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/voice-regression/README.md",
         "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/voice-regression/reproduction.json",
@@ -1182,7 +1190,29 @@
       ],
       "commit": "b10742a340a22e56ff7e315603cc8af19158b49b",
       "artifact": "installed local Piper and faster-whisper runtime",
-      "runtime_identity": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/runtime-identity-memory-fix.json"
+      "runtime_identity": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/runtime-identity-memory-fix.json",
+      "controller_observations": [
+        {
+          "timestamp": "2026-09-10T16:13:17.452298+00:00",
+          "iteration": 4,
+          "classification": "BLOCKED_EXTERNAL",
+          "child_status": "FAILED",
+          "verification": "FAIL",
+          "action": "",
+          "evidence_dir": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/iteration-0004/attempt-0023",
+          "queue_status_preserved": true
+        },
+        {
+          "timestamp": "2026-09-10T16:14:18.117529+00:00",
+          "iteration": 4,
+          "classification": "BLOCKED_EXTERNAL",
+          "child_status": "FAILED",
+          "verification": "FAIL",
+          "action": "",
+          "evidence_dir": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/iteration-0004/attempt-0024",
+          "queue_status_preserved": true
+        }
+      ]
     },
     {
       "id": "ASTER-029",
@@ -2873,9 +2903,9 @@
     ]
   },
   "issue_counts": {
-    "remaining_local": 5,
+    "remaining_local": 4,
     "fixed": 23,
-    "blocked_external": 3,
+    "blocked_external": 4,
     "total": 31
   },
   "performance": {
@@ -3087,7 +3117,7 @@
     "iteration": 4,
     "iterations_completed": 4,
     "readiness_reason": "UNRESOLVED_LOCAL_OR_REVIEW_ITEMS",
-    "current_action": "Re-run the canonical voice path and preserved exact-WAV replay with objective transcript/cleanup/security evidence. Separate LOCAL_PASS, PARTIAL and external provider/hardware limits; do not upgrade a voice result from model prose.",
+    "current_action": "Run controlled generic prompt/context experiments for medium-coding-04. A production change is admissible only if the exact case improves and the unrelated canonical cases do not regress; never change the checker.",
     "last_successful_commit": "aa7a2815c162fa45829503109864c90c4060808d",
     "last_codex_cli": {
       "path": "/home/md-wasim/.nvm/versions/node/v24.19.0/lib/node_modules/@openai/codex/bin/codex.js",
@@ -3123,10 +3153,10 @@
       ]
     },
     "last_result": {
-      "timestamp": "2026-09-10T16:08:13.687086+00:00",
+      "timestamp": "2026-09-10T16:14:18.080026+00:00",
       "iteration": 4,
-      "attempt": 22,
-      "issue": "ASTER-026",
+      "attempt": 24,
+      "issue": "ASTER-028",
       "status": "FAILED",
       "action": "",
       "verification": "FAIL",
@@ -3147,19 +3177,19 @@
           "--add-dir",
           "/home/md-wasim/AI_Workspace_Data/aster-evidence",
           "--output-last-message",
-          "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/iteration-0004/attempt-0022/codex.last-message.txt",
+          "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/iteration-0004/attempt-0024/codex.last-message.txt",
           "-"
         ],
         "cwd": "/home/md-wasim/Projects/AI_Workspace",
         "exit_code": 124,
-        "duration_seconds": 60.0159,
+        "duration_seconds": 60.032,
         "timed_out": true,
         "error": null,
-        "stdout_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/iteration-0004/attempt-0022/codex.stdout.jsonl",
-        "stderr_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/iteration-0004/attempt-0022/codex.stderr.log",
+        "stdout_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/iteration-0004/attempt-0024/codex.stdout.jsonl",
+        "stderr_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/iteration-0004/attempt-0024/codex.stderr.log",
         "stderr_tail": "",
-        "last_message_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/iteration-0004/attempt-0022/codex.last-message.txt",
-        "stdout_sha256": "0a248ba9ad7bec69677ed3b08b74a0d004318b8aa066411e3866a83f0fcca153",
+        "last_message_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/iteration-0004/attempt-0024/codex.last-message.txt",
+        "stdout_sha256": "a6609951dcacfa1a5884911fa92c78e72e6461972d0ff7ac59c1ad62810b8e38",
         "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "last_message_sha256": null,
         "codex_executable": "/home/md-wasim/.nvm/versions/node/v24.19.0/lib/node_modules/@openai/codex/bin/codex.js",
@@ -3219,7 +3249,7 @@
       },
       "before_commit": {
         "branch": "main",
-        "commit": "917a92f4b6b4990c2c5dcbbe51dc28260a68078e",
+        "commit": "6c75f535b65e19d43344ca179a4de082695f685f",
         "application_source_commit": "30acaae8e6329f702eb289073978ef2991e2be11",
         "upstream": "origin/main",
         "upstream_error": null,
@@ -3231,10 +3261,10 @@
       },
       "after": {
         "observations": {
-          "timestamp": "2026-09-10T16:08:13.584424+00:00",
+          "timestamp": "2026-09-10T16:14:17.964259+00:00",
           "git": {
             "branch": "main",
-            "commit": "917a92f4b6b4990c2c5dcbbe51dc28260a68078e",
+            "commit": "6c75f535b65e19d43344ca179a4de082695f685f",
             "application_source_commit": "30acaae8e6329f702eb289073978ef2991e2be11",
             "upstream": "origin/main",
             "upstream_error": null,
@@ -3277,7 +3307,7 @@
               ],
               "cwd": "/home/md-wasim/Projects/AI_Workspace",
               "exit_code": 0,
-              "duration_seconds": 0.0088,
+              "duration_seconds": 0.0065,
               "stdout": "{\"status\":\"alive\"}",
               "stderr": "",
               "stdout_sha256": "bc24b0b5a305d5afc198c725890c8fb91053be2dbd8672779de73cac19a008fa",
@@ -3302,8 +3332,8 @@
           },
           "queue": {
             "total": 31,
-            "unresolved": 6,
-            "local_unresolved": 6
+            "unresolved": 5,
+            "local_unresolved": 5
           },
           "provenance": {
             "status": "PASS",
@@ -3394,7 +3424,7 @@
         },
         "git": {
           "branch": "main",
-          "commit": "917a92f4b6b4990c2c5dcbbe51dc28260a68078e",
+          "commit": "6c75f535b65e19d43344ca179a4de082695f685f",
           "application_source_commit": "30acaae8e6329f702eb289073978ef2991e2be11",
           "upstream": "origin/main",
           "upstream_error": null,
@@ -3406,17 +3436,17 @@
         }
       },
       "blocker": {
-        "timestamp": "2026-09-10T16:08:13.687074+00:00",
+        "timestamp": "2026-09-10T16:14:18.080012+00:00",
         "classification": "BLOCKED_EXTERNAL",
         "exit_code": 124,
         "timed_out": true,
-        "stderr_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/iteration-0004/attempt-0022/codex.stderr.log",
+        "stderr_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/iteration-0004/attempt-0024/codex.stderr.log",
         "error_excerpt": ""
       }
     }
   },
-  "report_generated_from_commit": "f249c14b73055cfe4422f88854bee212cd98e09b",
-  "report_tip_commit": "f249c14b73055cfe4422f88854bee212cd98e09b",
+  "report_generated_from_commit": "c88d053f63821daec3ad175f1e65a424db437e59",
+  "report_tip_commit": "c88d053f63821daec3ad175f1e65a424db437e59",
   "evidence_provenance": {
     "status": "PASS",
     "current_source_commit": "30acaae8e6329f702eb289073978ef2991e2be11",

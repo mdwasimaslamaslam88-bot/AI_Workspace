@@ -6,8 +6,8 @@ BENCHMARK      : 97.83 / 100
 PASS           : 457
 PARTIAL        : 1
 FAIL           : 1
-ISSUES         : 5
-CURRENT        : ASTER-028
+ISSUES         : 4
+CURRENT        : ASTER-006
 ASTER→AI OS    : PARTIAL: current owner-authenticated HTTP exchange and integrity verified; fabricated exec
 AI OS→ASTER    : BLOCKED_EXTERNAL: parent MCP/reverse callback is not available; no bidirectional verificat
 DEX            : BLOCKED_EXTERNAL: strict host sandbox fails closed with RTM_NEWADDR EPERM; synthetic trans
@@ -18,7 +18,7 @@ BACKEND        : 3152 PASS
 WEB            : 206 PASS
 MOBILE         : 64 PASS
 PERFORMANCE    : mean 8.085s / P95 16.5325s
-GIT            : CLEAN_SYNCED
-COMMIT         : f249c14b73055cfe4422f88854bee212cd98e09b
-NEXT ACTION    : Re-run the canonical voice path and preserved exact-WAV replay with objective transcript/cleanup/security evidence. Separate LOCAL_PASS, PARTIAL and external provider/hardware limits; do not upgrade a voice result from model prose.
+GIT            : DIRTY
+COMMIT         : c88d053f63821daec3ad175f1e65a424db437e59
+NEXT ACTION    : Run controlled generic prompt/context experiments for medium-coding-04. A production change is admissible only if the exact case improves and the unrelated canonical cases do not regress; never change the checker.
 ========================================================

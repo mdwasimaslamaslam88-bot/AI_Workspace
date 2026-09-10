@@ -2,15 +2,15 @@
 
 Iteration 4. Overall readiness is **NOT READY**.
 
-Current source commit: `f249c14b73055cfe4422f88854bee212cd98e09b`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
+Current source commit: `c88d053f63821daec3ad175f1e65a424db437e59`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
 
 ## Current measured state
 
 - Canonical benchmark: **97.83/100**, 457 PASS, 1 PARTIAL, 1 FAIL; mean 8.085s, P95 16.5325s.
-- Issues: 5 locally unresolved, 23 fixed/verified, 3 externally blocked.
-- Current issue/action: `ASTER-028` — Re-run the canonical voice path and preserved exact-WAV replay with objective transcript/cleanup/security evidence. Separate LOCAL_PASS, PARTIAL and external provider/hardware limits; do not upgrade a voice result from model prose.
+- Issues: 4 locally unresolved, 23 fixed/verified, 4 externally blocked.
+- Current issue/action: `ASTER-006` — Run controlled generic prompt/context experiments for medium-coding-04. A production change is admissible only if the exact case improves and the unrelated canonical cases do not regress; never change the checker.
 - Runtime identity: **PASS**; evidence `/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-aster-026-reverted-runtime.json`.
-- Git: **CLEAN_SYNCED** at `f249c14b73055cfe4422f88854bee212cd98e09b`.
+- Git: **DIRTY** at `c88d053f63821daec3ad175f1e65a424db437e59`.
 
 ## Queue classifications
 
@@ -41,7 +41,7 @@ Current source commit: `f249c14b73055cfe4422f88854bee212cd98e09b`. Evidence root
 | ASTER-023 | VERIFIED | COMPLETE | P3 |
 | ASTER-024 | VERIFIED | COMPLETE | P3 |
 | ASTER-025 | VERIFIED | COMPLETE | P3 |
-| ASTER-028 | OPEN | REPRODUCED | P1 |
+| ASTER-028 | BLOCKED_EXTERNAL | BLOCKED_EXTERNAL | P1 |
 | ASTER-029 | VERIFIED | COMPLETE | P3 |
 | ASTER-030 | VERIFIED | COMPLETE | P3 |
 | ASTER-026 | BLOCKED_EXTERNAL | BLOCKED_EXTERNAL | P1 |

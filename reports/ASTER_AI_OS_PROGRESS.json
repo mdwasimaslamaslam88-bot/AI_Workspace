@@ -1,23 +1,23 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-10T16:11:53.769357+00:00",
+  "generated_at": "2026-09-10T16:15:47.898687+00:00",
   "source": {
     "state": "/home/md-wasim/AI_Workspace_Data/aster-evidence/current_state.json",
     "status": "/home/md-wasim/Projects/AI_Workspace/reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.json",
     "queue": "/home/md-wasim/Projects/AI_Workspace/reports/ASTER_AI_OS_ISSUE_QUEUE.json",
     "observations": {
-      "timestamp": "2026-09-10T16:11:53.640513+00:00",
+      "timestamp": "2026-09-10T16:15:47.765070+00:00",
       "git": {
         "branch": "main",
-        "commit": "f249c14b73055cfe4422f88854bee212cd98e09b",
+        "commit": "c88d053f63821daec3ad175f1e65a424db437e59",
         "application_source_commit": "30acaae8e6329f702eb289073978ef2991e2be11",
         "upstream": "origin/main",
         "upstream_error": null,
         "ahead": 0,
         "behind": 0,
-        "clean": true,
-        "status_porcelain": "",
-        "status": "CLEAN_SYNCED"
+        "clean": false,
+        "status_porcelain": "M reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.json\n M reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.md\n M reports/ASTER_AI_OS_PROGRESS.json\n M reports/ASTER_AI_OS_PROGRESS.md",
+        "status": "DIRTY"
       },
       "benchmark": {
         "path": "/home/md-wasim/Desktop/Work_Station_Benchmark/benchmark-summary.json",
@@ -52,7 +52,7 @@
           ],
           "cwd": "/home/md-wasim/Projects/AI_Workspace",
           "exit_code": 0,
-          "duration_seconds": 0.0069,
+          "duration_seconds": 0.0065,
           "stdout": "{\"status\":\"alive\"}",
           "stderr": "",
           "stdout_sha256": "bc24b0b5a305d5afc198c725890c8fb91053be2dbd8672779de73cac19a008fa",
@@ -77,8 +77,8 @@
       },
       "queue": {
         "total": 31,
-        "unresolved": 5,
-        "local_unresolved": 5
+        "unresolved": 4,
+        "local_unresolved": 4
       },
       "provenance": {
         "status": "PASS",
@@ -174,11 +174,11 @@
   "partial": 1,
   "fail": 1,
   "iterations_completed": 4,
-  "issues_remaining": 5,
+  "issues_remaining": 4,
   "issues_fixed": 23,
-  "issues_blocked_externally": 3,
-  "current_issue": "ASTER-028",
-  "current_action": "Re-run the canonical voice path and preserved exact-WAV replay with objective transcript/cleanup/security evidence. Separate LOCAL_PASS, PARTIAL and external provider/hardware limits; do not upgrade a voice result from model prose.",
+  "issues_blocked_externally": 4,
+  "current_issue": "ASTER-006",
+  "current_action": "Run controlled generic prompt/context experiments for medium-coding-04. A production change is admissible only if the exact case improves and the unrelated canonical cases do not regress; never change the checker.",
   "last_verification": "FAIL",
   "backend_tests": {
     "passed": 3152,
@@ -202,8 +202,8 @@
   "voice": "PARTIAL: ASTER-028 preserves reproducible exact-WAV lexical variability.",
   "performance_mean": 8.085,
   "performance_p95": 16.5325,
-  "git_status": "CLEAN_SYNCED",
-  "current_commit": "f249c14b73055cfe4422f88854bee212cd98e09b",
+  "git_status": "DIRTY",
+  "current_commit": "c88d053f63821daec3ad175f1e65a424db437e59",
   "application_source_commit": "30acaae8e6329f702eb289073978ef2991e2be11",
   "last_successful_commit": "aa7a2815c162fa45829503109864c90c4060808d",
   "codex_cli": {
@@ -239,16 +239,16 @@
       }
     ]
   },
-  "report_tip_commit": "f249c14b73055cfe4422f88854bee212cd98e09b",
+  "report_tip_commit": "c88d053f63821daec3ad175f1e65a424db437e59",
   "last_artifact_verification": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-current-release-30acaae/artifact-attestation-current.json",
   "last_failure": {
-    "timestamp": "2026-09-10T16:08:13.687074+00:00",
+    "timestamp": "2026-09-10T16:14:18.080012+00:00",
     "classification": "BLOCKED_EXTERNAL",
     "exit_code": 124,
     "timed_out": true,
-    "stderr_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/iteration-0004/attempt-0022/codex.stderr.log",
+    "stderr_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/iteration-0004/attempt-0024/codex.stderr.log",
     "error_excerpt": ""
   },
-  "next_action": "Re-run the canonical voice path and preserved exact-WAV replay with objective transcript/cleanup/security evidence. Separate LOCAL_PASS, PARTIAL and external provider/hardware limits; do not upgrade a voice result from model prose.",
+  "next_action": "Run controlled generic prompt/context experiments for medium-coding-04. A production change is admissible only if the exact case improves and the unrelated canonical cases do not regress; never change the checker.",
   "readiness_reason": "UNRESOLVED_LOCAL_OR_REVIEW_ITEMS"
 }
