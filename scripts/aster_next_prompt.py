@@ -1274,6 +1274,9 @@ def render_reports(
     tests = observations.get("tests", {})
     git = observations.get("git", {})
     runtime = observations.get("runtime", {})
+    artifact_evidence_path = provenance.get("artifact", {}).get("evidence") if isinstance(provenance.get("artifact"), dict) else None
+    if provenance.get("status") == "PASS" and isinstance(git.get("application_source_commit"), str):
+        state["last_successful_commit"] = git["application_source_commit"]
     last_result = state.get("last_result") or {}
     last_child = last_result.get("child") if isinstance(last_result, dict) else None
     if isinstance(last_child, dict) and isinstance(last_child.get("codex_resolution"), dict):
@@ -1314,6 +1317,8 @@ def render_reports(
             "current_issue": [current_issue] if current_issue else [],
             "current_commit": git.get("commit"),
             "application_source_commit": git.get("application_source_commit"),
+            "current_runtime": runtime.get("evidence"),
+            "current_artifact": artifact_evidence_path,
             "evidence_root": str(evidence_root),
             "issue_queue": str(QUEUE_JSON.relative_to(REPOSITORY_ROOT)),
             "controller_state": str(evidence_root / "current_state.json"),
@@ -1432,7 +1437,7 @@ def render_reports(
         "last_successful_commit": state.get("last_successful_commit"),
         "codex_cli": state.get("last_codex_cli"),
         "report_tip_commit": state.get("report_tip_commit"),
-        "last_artifact_verification": status.get("release", {}).get("final_report_tip_attestation"),
+        "last_artifact_verification": artifact_evidence_path,
         "last_failure": state.get("last_failure"),
         "next_action": state.get("current_action"),
         "readiness_reason": readiness_reason,
