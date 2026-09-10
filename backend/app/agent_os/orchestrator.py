@@ -34,7 +34,6 @@ from app.ai.routing import (
     ModelRoutingUnavailableError,
     ModelTask,
     TaskAwareModelRouter,
-    task_system_instruction,
 )
 from app.external_ai.service import ExternalAIService
 
@@ -267,7 +266,7 @@ class ModelBackedSpecialist:
         self.max_output_tokens = max_output_tokens
 
     async def execute(self, context: AgentExecutionContext) -> AgentExecution:
-        messages_list = [
+        messages = (
             TextGenerationMessage(
                 TextGenerationRole.SYSTEM,
                 (
@@ -276,23 +275,12 @@ class ModelBackedSpecialist:
                     "contract, never claim a tool action you did not execute, "
                     "and clearly distinguish verified facts from inference."
                 ),
-            )
-        ]
-        trusted_task_instruction = task_system_instruction(context.step.task)
-        if trusted_task_instruction is not None:
-            messages_list.append(
-                TextGenerationMessage(
-                    TextGenerationRole.SYSTEM,
-                    trusted_task_instruction,
-                )
-            )
-        messages_list.append(
+            ),
             TextGenerationMessage(
                 TextGenerationRole.USER,
                 context.step.instruction,
-            )
+            ),
         )
-        messages = tuple(messages_list)
         if context.model.source is ModelSource.EXTERNAL:
             if (
                 self.external_ai is None
