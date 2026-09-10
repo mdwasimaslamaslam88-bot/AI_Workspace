@@ -1327,7 +1327,7 @@
           "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-aster-026-current/current-attestation.json"
         ]
       },
-      "controlled_task_contract_experiment": {
+  "controlled_task_contract_experiment": {
         "task": "exact_output",
         "run_id": "add11055-d498-4bae-b992-070c1f2e4d8d",
         "owner_id": "d42473e2-a80c-4c94-a146-2cbcf6a0dd30",
@@ -1346,26 +1346,60 @@
           "delete_status": 204,
           "after_status": 401
         },
-        "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-aster-026-experiment-exact-output"
-      },
-      "ASTER_analysis": "Separate content-quality failure from ASTER-004 DEX evidence-integrity acceptance. Detection succeeded, but detection does not fix the model limitation. A controlled exact_output task-contract run also produced malformed JSON with matching engine hash, so no generic local task-routing repair is demonstrated. Canonical hallucination metric0 is corpus/checker-specific and cannot negate these observed failures.",
+    "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-aster-026-experiment-exact-output"
+  },
+  "candidate_generation_contract_experiment": {
+    "candidate_source_commit": "395fdc37ac642cc28dd41088fd4ab5e584a65a1f",
+    "reverted_source_commit": "30acaae8e6329f702eb289073978ef2991e2be11",
+    "task": "exact_output",
+    "run_id": "de4778dc-d45f-47c2-ac4a-1f7052235563",
+    "owner_id": "fb0d67dd-2197-4237-9d70-93ef84e537a0",
+    "run_status": "completed",
+    "raw_output_sha256": "977565ade5562918efc29e93a678f0da777e72b5d622a9801a88cf280ab3f63a",
+    "engine_output_hash_matched": true,
+    "output_json": true,
+    "semantic_errors": [
+      "C1:incorrect_resolution_action",
+      "C1:evidence_not_allowlisted_or_insufficient",
+      "C4:incorrect_resolution_action"
+    ],
+    "objective_semantic_proof": false,
+    "permission_plan": [
+      [
+        "model_inference"
+      ]
+    ],
+    "audit_event_count": 6,
+    "session_revocation": {
+      "delete_status": 204,
+      "after_status": 401
+    },
+    "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-aster-026-candidate-task-contract"
+  },
+  "ASTER_analysis": "Separate content-quality failure from ASTER-004 DEX evidence-integrity acceptance. Detection succeeded, but detection does not fix the model limitation. A controlled exact_output task-contract run produced malformed JSON with matching engine hash. A generic candidate that injected the existing trusted exact-output task instruction produced valid JSON, but independent semantic validation still rejected C1 and C4; the candidate was reverted. No generic local generation repair is demonstrated. Canonical hallucination metric0 is corpus/checker-specific and cannot negate these observed failures.",
       "AI_OS_analysis": {
         "raw_claims_preserved": [
           "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/interop/ai-os-request.json",
           "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/interop/ai-os-evidence-review.json",
           "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/interop/ai-os-challenge-response.json"
         ],
-        "last_status": "CURRENT_RUN_REJECTED_OUTPUT_NOT_JSON",
+    "last_status": "CURRENT_RUN_REJECTED_OUTPUT_NOT_JSON; GENERIC_TASK_CONTRACT_CANDIDATE_REJECTED_SEMANTICALLY",
         "last_evidence": {
           "run_id": "2ff8d32d-d4f1-460b-b7dc-3f18d63f1742",
           "validation": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-aster-026-current/current-validation.json",
           "attestation": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-aster-026-current/current-attestation.json"
         },
-        "controlled_task_contract_experiment": {
+    "controlled_task_contract_experiment": {
           "run_id": "add11055-d498-4bae-b992-070c1f2e4d8d",
           "validation": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-aster-026-experiment-exact-output/validation.json",
           "runtime": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-aster-026-experiment-exact-output/runtime.json",
-          "cleanup": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-aster-026-experiment-exact-output/cleanup.json"
+      "cleanup": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-aster-026-experiment-exact-output/cleanup.json"
+    },
+    "candidate_generation_contract_experiment": {
+      "run_id": "de4778dc-d45f-47c2-ac4a-1f7052235563",
+      "validation": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-aster-026-candidate-task-contract/validation.json",
+      "runtime": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-aster-026-candidate-task-contract/runtime.json",
+      "cleanup": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-aster-026-candidate-task-contract/cleanup.json"
         }
       },
       "cross_agent_findings": [
@@ -1384,10 +1418,10 @@
         "resolution": "False execution claim rejected. Third response corrects flag but lacks substantive evidence, so semantic acceptance remains incomplete."
       },
       "fix": "No validated model-quality fix. Existing independent human/ASTER arbitration rejected unsupported claims and preserved evidence; do not mark this issue fixed solely because detection worked.",
-      "focused_test": "Current authenticated Agent OS run 2ff8d32d-d4f1-460b-b7dc-3f18d63f1742 completed through /api/v1/agent-os/runs; the raw output hash matched the engine attempt, but the verifier rejected malformed non-JSON output.",
+  "focused_test": "Current authenticated Agent OS run 2ff8d32d-d4f1-460b-b7dc-3f18d63f1742 completed through /api/v1/agent-os/runs; the raw output hash matched the engine attempt, but the verifier rejected malformed non-JSON output. The candidate run de4778dc-d45f-47c2-ac4a-1f7052235563 validated as JSON but independent semantic validation rejected C1/C4, so it was not promoted.",
       "integration_test": "Existing owner-authenticated HTTP request/reply transport completed. This does not prove autonomous reverse delegation.",
       "security_test": "Review runs granted model inference only; no execution was authorized by advisory content. Preserve existing ToolService and owner controls.",
-      "runtime_test": "Fresh authenticated reproduction on current source aa7a2815c162fa45829503109864c90c4060808d runtime identity; backend and web hashes matched, model-inference-only permissions were recorded, six audit events were present, and session revocation passed.",
+  "runtime_test": "Fresh authenticated runtime identity after candidate rollback is source 30acaae8e6329f702eb289073978ef2991e2be11; backend and web hashes matched, model-inference-only permissions were recorded, six audit events were present, and session revocation passed. The candidate runtime identity and run remain preserved separately and were not accepted as current evidence.",
       "regression": "Retain exact prompts/output hashes as a review regression corpus. Future meaningful model/routing changes require unchanged full canonical benchmark and these review cases.",
       "performance": "Three serial review round trips averaged23.0302seconds; too few observations for a general P95 assertion.",
       "status": "REPRODUCED",
@@ -1402,8 +1436,8 @@
       "commit": null,
       "artifact": null,
       "runtime_identity": {
-        "observed_run_commit": "da1d0ad41ea96f2a633aa3efdb862c8f0ff9a77f",
-        "current_source_commit": "cf05844dbee756ae7377fefe6cbd039cd0e8fcd1"
+    "observed_run_commit": "30acaae8e6329f702eb289073978ef2991e2be11",
+    "current_source_commit": "30acaae8e6329f702eb289073978ef2991e2be11"
       },
       "linked_issues": [
         "ASTER-004",
