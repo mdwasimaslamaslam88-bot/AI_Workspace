@@ -1,23 +1,23 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-10T17:40:55.094593+00:00",
+  "generated_at": "2026-09-10T18:51:18.567143+00:00",
   "source": {
     "state": "/home/md-wasim/AI_Workspace_Data/aster-evidence/current_state.json",
     "status": "/home/md-wasim/Projects/AI_Workspace/reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.json",
     "queue": "/home/md-wasim/Projects/AI_Workspace/reports/ASTER_AI_OS_ISSUE_QUEUE.json",
     "observations": {
-      "timestamp": "2026-09-10T17:40:54.965017+00:00",
+      "timestamp": "2026-09-10T18:51:18.436779+00:00",
       "git": {
         "branch": "main",
-        "commit": "b773e49c6245b27a7b80fa6b9cd59755caaa2676",
+        "commit": "9b8451c07839edae6f25d6868a68a7c924c5b579",
         "application_source_commit": "bfcd805f95569cfad4216855e36a06487defb646",
         "upstream": "origin/main",
         "upstream_error": null,
         "ahead": 0,
         "behind": 0,
-        "clean": true,
-        "status_porcelain": "",
-        "status": "CLEAN_SYNCED"
+        "clean": false,
+        "status_porcelain": "M reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.json\n M reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.md\n M reports/ASTER_AI_OS_PROGRESS.json\n M reports/ASTER_AI_OS_PROGRESS.md",
+        "status": "DIRTY"
       },
       "benchmark": {
         "path": "/home/md-wasim/Desktop/Work_Station_Benchmark/benchmark-summary.json",
@@ -52,7 +52,7 @@
           ],
           "cwd": "/home/md-wasim/Projects/AI_Workspace",
           "exit_code": 0,
-          "duration_seconds": 0.0081,
+          "duration_seconds": 0.0066,
           "stdout": "{\"status\":\"alive\"}",
           "stderr": "",
           "stdout_sha256": "bc24b0b5a305d5afc198c725890c8fb91053be2dbd8672779de73cac19a008fa",
@@ -81,7 +81,7 @@
         "local_unresolved": 0
       },
       "provenance": {
-        "status": "PASS",
+        "status": "NOT_PROVEN",
         "current_source_commit": "bfcd805f95569cfad4216855e36a06487defb646",
         "components": {
           "source_commit": "PASS",
@@ -91,7 +91,7 @@
           "benchmark": "PASS",
           "security": "PASS",
           "release": "PASS",
-          "artifact": "PASS"
+          "artifact": "FAIL"
         },
         "runtime": {
           "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-controller-runtime-bfcd805.json",
@@ -136,23 +136,23 @@
             "Work_Station_Ubuntu.deb": true,
             "Work_Station_PWA.tar.gz": true
           },
-          "structural_valid": true,
+          "structural_valid": false,
           "artifacts": [
             {
               "artifact": "Work_Station_Ubuntu.AppImage",
               "path": "/home/md-wasim/Projects/AI_Workspace/apps/desktop/src-tauri/target/release/bundle/appimage/WORK STATION_0.1.0_amd64.AppImage",
               "expected_sha256": "eb792a5e3d3a86bc19128806aea5166e5bd346efce03fca54f732fdbce394382",
-              "actual_sha256": "eb792a5e3d3a86bc19128806aea5166e5bd346efce03fca54f732fdbce394382",
+              "actual_sha256": "a493e98703b63fbf7790887e7e1bd1251e4ea1be2f14339d120326c86fedc8f9",
               "exists": true,
-              "hash_verified": true
+              "hash_verified": false
             },
             {
               "artifact": "Work_Station_Ubuntu.deb",
               "path": "/home/md-wasim/Projects/AI_Workspace/apps/desktop/src-tauri/target/release/bundle/deb/WORK STATION_0.1.0_amd64.deb",
               "expected_sha256": "4933f557ad86a275c4e7279cd30d02cd70abda5cf24ab0bf601a423e9568accd",
-              "actual_sha256": "4933f557ad86a275c4e7279cd30d02cd70abda5cf24ab0bf601a423e9568accd",
+              "actual_sha256": "a705985f646cb1f888312a8e2b5a251acb80dbb45d466d55f66550850534f4fa",
               "exists": true,
-              "hash_verified": true
+              "hash_verified": false
             },
             {
               "artifact": "Work_Station_PWA.tar.gz",
@@ -192,9 +192,9 @@
   },
   "security_status": "PASS_WITH_RECORDED_RISK",
   "runtime_identity_status": "PASS",
-  "evidence_provenance": "PASS",
+  "evidence_provenance": "NOT_PROVEN",
   "benchmark_provenance": "PASS",
-  "artifact_provenance": "PASS",
+  "artifact_provenance": "FAIL",
   "release_provenance": "PASS",
   "aster_to_ai_os": "PARTIAL: current owner-authenticated HTTP exchange and integrity verified; fabricated execution claims rejected. Parent MCP rejected and live reverse DEX blocked.",
   "ai_os_to_aster": "BLOCKED_EXTERNAL: parent MCP/reverse callback is not available; no bidirectional verification claimed.",
@@ -202,8 +202,8 @@
   "voice": "BLOCKED_EXTERNAL: ASTER-028 installed voice-model/acoustic variability is preserved with exact-WAV evidence.",
   "performance_mean": 8.0703,
   "performance_p95": 16.5161,
-  "git_status": "CLEAN_SYNCED",
-  "current_commit": "b773e49c6245b27a7b80fa6b9cd59755caaa2676",
+  "git_status": "DIRTY",
+  "current_commit": "9b8451c07839edae6f25d6868a68a7c924c5b579",
   "application_source_commit": "bfcd805f95569cfad4216855e36a06487defb646",
   "last_successful_commit": "bfcd805f95569cfad4216855e36a06487defb646",
   "codex_cli": {
@@ -239,7 +239,7 @@
       }
     ]
   },
-  "report_tip_commit": "b773e49c6245b27a7b80fa6b9cd59755caaa2676",
+  "report_tip_commit": "9b8451c07839edae6f25d6868a68a7c924c5b579",
   "last_artifact_verification": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-current-release-bfcd805/artifact-attestation-current.json",
   "last_failure": {
     "timestamp": "2026-09-10T16:18:07.000203+00:00",

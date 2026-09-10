@@ -2,9 +2,9 @@
   "schema_version": 4,
   "iteration": 4,
   "status": "NOT_READY",
-  "updated_at": "2026-09-10T17:40:55.089089+00:00",
+  "updated_at": "2026-09-10T18:51:18.561618+00:00",
   "current_issue": [],
-  "current_commit": "b773e49c6245b27a7b80fa6b9cd59755caaa2676",
+  "current_commit": "9b8451c07839edae6f25d6868a68a7c924c5b579",
   "current_runtime": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-controller-runtime-bfcd805.json",
   "current_artifact": "Packaged desktop/PWA cf05844 unchanged; backend b10742a deployed directly",
   "issues": [
@@ -3496,10 +3496,10 @@
       }
     }
   },
-  "report_generated_from_commit": "b773e49c6245b27a7b80fa6b9cd59755caaa2676",
-  "report_tip_commit": "b773e49c6245b27a7b80fa6b9cd59755caaa2676",
+  "report_generated_from_commit": "9b8451c07839edae6f25d6868a68a7c924c5b579",
+  "report_tip_commit": "9b8451c07839edae6f25d6868a68a7c924c5b579",
   "evidence_provenance": {
-    "status": "PASS",
+    "status": "NOT_PROVEN",
     "current_source_commit": "bfcd805f95569cfad4216855e36a06487defb646",
     "components": {
       "source_commit": "PASS",
@@ -3509,7 +3509,7 @@
       "benchmark": "PASS",
       "security": "PASS",
       "release": "PASS",
-      "artifact": "PASS"
+      "artifact": "FAIL"
     },
     "runtime": {
       "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-controller-runtime-bfcd805.json",
@@ -3554,23 +3554,23 @@
         "Work_Station_Ubuntu.deb": true,
         "Work_Station_PWA.tar.gz": true
       },
-      "structural_valid": true,
+      "structural_valid": false,
       "artifacts": [
         {
           "artifact": "Work_Station_Ubuntu.AppImage",
           "path": "/home/md-wasim/Projects/AI_Workspace/apps/desktop/src-tauri/target/release/bundle/appimage/WORK STATION_0.1.0_amd64.AppImage",
           "expected_sha256": "eb792a5e3d3a86bc19128806aea5166e5bd346efce03fca54f732fdbce394382",
-          "actual_sha256": "eb792a5e3d3a86bc19128806aea5166e5bd346efce03fca54f732fdbce394382",
+          "actual_sha256": "a493e98703b63fbf7790887e7e1bd1251e4ea1be2f14339d120326c86fedc8f9",
           "exists": true,
-          "hash_verified": true
+          "hash_verified": false
         },
         {
           "artifact": "Work_Station_Ubuntu.deb",
           "path": "/home/md-wasim/Projects/AI_Workspace/apps/desktop/src-tauri/target/release/bundle/deb/WORK STATION_0.1.0_amd64.deb",
           "expected_sha256": "4933f557ad86a275c4e7279cd30d02cd70abda5cf24ab0bf601a423e9568accd",
-          "actual_sha256": "4933f557ad86a275c4e7279cd30d02cd70abda5cf24ab0bf601a423e9568accd",
+          "actual_sha256": "a705985f646cb1f888312a8e2b5a251acb80dbb45d466d55f66550850534f4fa",
           "exists": true,
-          "hash_verified": true
+          "hash_verified": false
         },
         {
           "artifact": "Work_Station_PWA.tar.gz",

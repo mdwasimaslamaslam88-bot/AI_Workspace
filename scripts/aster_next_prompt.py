@@ -1702,6 +1702,14 @@ def safe_commit_if_validated(result: dict[str, Any], iteration: int) -> dict[str
     }
 
 
+def mark_terminal_queue_state(state: dict[str, Any]) -> None:
+    """Clear retry state when observation proves there is no issue to run."""
+    state["in_progress"] = False
+    state["resume_required"] = False
+    state["child_suggested_next_prompt"] = ""
+    state["next_prompt"] = "Run final comprehensive validation and release gate; stop only after all evidence passes."
+
+
 def iteration_once(
     state: dict[str, Any], *, evidence_root: Path, execute_codex: bool, timeout_seconds: int, auto_commit: bool
 ) -> dict[str, Any]:
@@ -1710,8 +1718,7 @@ def iteration_once(
     selected = choose_issue(queue)
     if selected is None:
         state["iteration"] = max(int(state.get("iteration", 0)), int(state.get("iterations_completed", 0)))
-        state["in_progress"] = False
-        state["next_prompt"] = "Run final comprehensive validation and release gate; stop only after all evidence passes."
+        mark_terminal_queue_state(state)
         render_reports(state, queue, observations_before, evidence_root=evidence_root)
         return {"status": "READY" if state.get("overall_ready") else "NOT_READY", "verification": "PARTIAL", "action": state.get("current_action")}
 
@@ -1923,6 +1930,16 @@ def self_test() -> int:
     assert parsed["parsed"] and parsed["current_issue"] == "ASTER-006"
     assert parsed["next_prompt"] == "Do the next exact task."
     assert parse_result_text("no structured output")["status"] == "FAILED"
+    terminal_state = {
+        "in_progress": True,
+        "resume_required": True,
+        "child_suggested_next_prompt": "retry historical timeout",
+        "next_prompt": "retry historical timeout",
+    }
+    mark_terminal_queue_state(terminal_state)
+    assert terminal_state["in_progress"] is False
+    assert terminal_state["resume_required"] is False
+    assert terminal_state["child_suggested_next_prompt"] == ""
     codex_cli = resolve_codex_cli()
     verified = [
         candidate

@@ -2,7 +2,7 @@
 
 Iteration 4. Overall readiness is **NOT READY**.
 
-Current source commit: `b773e49c6245b27a7b80fa6b9cd59755caaa2676`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
+Current source commit: `9b8451c07839edae6f25d6868a68a7c924c5b579`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
 
 ## Current measured state
 
@@ -10,7 +10,7 @@ Current source commit: `b773e49c6245b27a7b80fa6b9cd59755caaa2676`. Evidence root
 - Issues: 0 locally unresolved, 24 fixed/verified, 7 externally blocked.
 - Current issue/action: `NONE` — Run final comprehensive validation and release gate.
 - Runtime identity: **PASS**; evidence `/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-controller-runtime-bfcd805.json`.
-- Git: **CLEAN_SYNCED** at `b773e49c6245b27a7b80fa6b9cd59755caaa2676`.
+- Git: **DIRTY** at `9b8451c07839edae6f25d6868a68a7c924c5b579`.
 
 ## Queue classifications
 
