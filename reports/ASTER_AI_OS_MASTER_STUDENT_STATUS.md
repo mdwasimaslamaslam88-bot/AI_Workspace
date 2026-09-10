@@ -2,7 +2,7 @@
 
 Iteration 4. Overall readiness is **NOT READY**.
 
-Current source commit: `c88d053f63821daec3ad175f1e65a424db437e59`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
+Current source commit: `b27ffa7f14ff1b4aa919db8641735e2f75f009ed`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
 
 ## Current measured state
 
@@ -10,7 +10,7 @@ Current source commit: `c88d053f63821daec3ad175f1e65a424db437e59`. Evidence root
 - Issues: 4 locally unresolved, 23 fixed/verified, 4 externally blocked.
 - Current issue/action: `ASTER-006` — Run controlled generic prompt/context experiments for medium-coding-04. A production change is admissible only if the exact case improves and the unrelated canonical cases do not regress; never change the checker.
 - Runtime identity: **PASS**; evidence `/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-aster-026-reverted-runtime.json`.
-- Git: **DIRTY** at `c88d053f63821daec3ad175f1e65a424db437e59`.
+- Git: **DIRTY** at `b27ffa7f14ff1b4aa919db8641735e2f75f009ed`.
 
 ## Queue classifications
 

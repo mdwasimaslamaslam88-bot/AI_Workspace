@@ -2,11 +2,11 @@
   "schema_version": 4,
   "iteration": 4,
   "status": "NOT_READY",
-  "updated_at": "2026-09-10T16:15:47.892981+00:00",
+  "updated_at": "2026-09-10T16:18:07.057119+00:00",
   "current_issue": [
     "ASTER-006"
   ],
-  "current_commit": "c88d053f63821daec3ad175f1e65a424db437e59",
+  "current_commit": "b27ffa7f14ff1b4aa919db8641735e2f75f009ed",
   "current_runtime": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-aster-026-reverted-runtime.json",
   "current_artifact": "Packaged desktop/PWA cf05844 unchanged; backend b10742a deployed directly",
   "issues": [
@@ -246,6 +246,28 @@
           "from": "REPRODUCED_MODEL_LIMITATION",
           "to": "REPRODUCED",
           "reason": "Normalize queue status while retaining exact prior claim and its scoped evidence."
+        }
+      ],
+      "controller_observations": [
+        {
+          "timestamp": "2026-09-10T16:17:06.346909+00:00",
+          "iteration": 4,
+          "classification": "BLOCKED_EXTERNAL",
+          "child_status": "FAILED",
+          "verification": "FAIL",
+          "action": "",
+          "evidence_dir": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/iteration-0004/attempt-0025",
+          "queue_status_preserved": true
+        },
+        {
+          "timestamp": "2026-09-10T16:18:07.042918+00:00",
+          "iteration": 4,
+          "classification": "BLOCKED_EXTERNAL",
+          "child_status": "FAILED",
+          "verification": "FAIL",
+          "action": "",
+          "evidence_dir": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/iteration-0004/attempt-0026",
+          "queue_status_preserved": true
         }
       ]
     },
@@ -3153,10 +3175,10 @@
       ]
     },
     "last_result": {
-      "timestamp": "2026-09-10T16:14:18.080026+00:00",
+      "timestamp": "2026-09-10T16:18:07.000216+00:00",
       "iteration": 4,
-      "attempt": 24,
-      "issue": "ASTER-028",
+      "attempt": 26,
+      "issue": "ASTER-006",
       "status": "FAILED",
       "action": "",
       "verification": "FAIL",
@@ -3177,19 +3199,19 @@
           "--add-dir",
           "/home/md-wasim/AI_Workspace_Data/aster-evidence",
           "--output-last-message",
-          "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/iteration-0004/attempt-0024/codex.last-message.txt",
+          "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/iteration-0004/attempt-0026/codex.last-message.txt",
           "-"
         ],
         "cwd": "/home/md-wasim/Projects/AI_Workspace",
         "exit_code": 124,
-        "duration_seconds": 60.032,
+        "duration_seconds": 60.0159,
         "timed_out": true,
         "error": null,
-        "stdout_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/iteration-0004/attempt-0024/codex.stdout.jsonl",
-        "stderr_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/iteration-0004/attempt-0024/codex.stderr.log",
+        "stdout_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/iteration-0004/attempt-0026/codex.stdout.jsonl",
+        "stderr_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/iteration-0004/attempt-0026/codex.stderr.log",
         "stderr_tail": "",
-        "last_message_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/iteration-0004/attempt-0024/codex.last-message.txt",
-        "stdout_sha256": "a6609951dcacfa1a5884911fa92c78e72e6461972d0ff7ac59c1ad62810b8e38",
+        "last_message_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/iteration-0004/attempt-0026/codex.last-message.txt",
+        "stdout_sha256": "f7f9faec219ca3bc10ac51ec5697a7ad190c0b1f779622cfc155cc348b7ef36a",
         "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
         "last_message_sha256": null,
         "codex_executable": "/home/md-wasim/.nvm/versions/node/v24.19.0/lib/node_modules/@openai/codex/bin/codex.js",
@@ -3249,7 +3271,7 @@
       },
       "before_commit": {
         "branch": "main",
-        "commit": "6c75f535b65e19d43344ca179a4de082695f685f",
+        "commit": "b27ffa7f14ff1b4aa919db8641735e2f75f009ed",
         "application_source_commit": "30acaae8e6329f702eb289073978ef2991e2be11",
         "upstream": "origin/main",
         "upstream_error": null,
@@ -3261,10 +3283,10 @@
       },
       "after": {
         "observations": {
-          "timestamp": "2026-09-10T16:14:17.964259+00:00",
+          "timestamp": "2026-09-10T16:18:06.877115+00:00",
           "git": {
             "branch": "main",
-            "commit": "6c75f535b65e19d43344ca179a4de082695f685f",
+            "commit": "b27ffa7f14ff1b4aa919db8641735e2f75f009ed",
             "application_source_commit": "30acaae8e6329f702eb289073978ef2991e2be11",
             "upstream": "origin/main",
             "upstream_error": null,
@@ -3307,7 +3329,7 @@
               ],
               "cwd": "/home/md-wasim/Projects/AI_Workspace",
               "exit_code": 0,
-              "duration_seconds": 0.0065,
+              "duration_seconds": 0.0063,
               "stdout": "{\"status\":\"alive\"}",
               "stderr": "",
               "stdout_sha256": "bc24b0b5a305d5afc198c725890c8fb91053be2dbd8672779de73cac19a008fa",
@@ -3332,8 +3354,8 @@
           },
           "queue": {
             "total": 31,
-            "unresolved": 5,
-            "local_unresolved": 5
+            "unresolved": 4,
+            "local_unresolved": 4
           },
           "provenance": {
             "status": "PASS",
@@ -3424,7 +3446,7 @@
         },
         "git": {
           "branch": "main",
-          "commit": "6c75f535b65e19d43344ca179a4de082695f685f",
+          "commit": "b27ffa7f14ff1b4aa919db8641735e2f75f009ed",
           "application_source_commit": "30acaae8e6329f702eb289073978ef2991e2be11",
           "upstream": "origin/main",
           "upstream_error": null,
@@ -3436,17 +3458,17 @@
         }
       },
       "blocker": {
-        "timestamp": "2026-09-10T16:14:18.080012+00:00",
+        "timestamp": "2026-09-10T16:18:07.000203+00:00",
         "classification": "BLOCKED_EXTERNAL",
         "exit_code": 124,
         "timed_out": true,
-        "stderr_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/iteration-0004/attempt-0024/codex.stderr.log",
+        "stderr_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/iteration-0004/attempt-0026/codex.stderr.log",
         "error_excerpt": ""
       }
     }
   },
-  "report_generated_from_commit": "c88d053f63821daec3ad175f1e65a424db437e59",
-  "report_tip_commit": "c88d053f63821daec3ad175f1e65a424db437e59",
+  "report_generated_from_commit": "b27ffa7f14ff1b4aa919db8641735e2f75f009ed",
+  "report_tip_commit": "b27ffa7f14ff1b4aa919db8641735e2f75f009ed",
   "evidence_provenance": {
     "status": "PASS",
     "current_source_commit": "30acaae8e6329f702eb289073978ef2991e2be11",

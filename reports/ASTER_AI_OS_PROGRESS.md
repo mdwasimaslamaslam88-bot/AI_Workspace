@@ -19,6 +19,6 @@ WEB            : 206 PASS
 MOBILE         : 64 PASS
 PERFORMANCE    : mean 8.085s / P95 16.5325s
 GIT            : DIRTY
-COMMIT         : c88d053f63821daec3ad175f1e65a424db437e59
+COMMIT         : b27ffa7f14ff1b4aa919db8641735e2f75f009ed
 NEXT ACTION    : Run controlled generic prompt/context experiments for medium-coding-04. A production change is admissible only if the exact case improves and the unrelated canonical cases do not regress; never change the checker.
 ========================================================
