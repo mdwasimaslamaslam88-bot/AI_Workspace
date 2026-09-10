@@ -5,7 +5,7 @@
   "updated_at": "2026-09-10T16:22:56.952250+00:00",
   "current_issue": [],
   "current_commit": "366bd942970121a4b3d3593331ec7aebc1c93bb6",
-  "current_runtime": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-aster-026-reverted-runtime.json",
+  "current_runtime": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-controller-runtime-bfcd805.json",
   "current_artifact": "Packaged desktop/PWA cf05844 unchanged; backend b10742a deployed directly",
   "issues": [
     {
