@@ -2,11 +2,11 @@
   "schema_version": 4,
   "iteration": 4,
   "status": "NOT_READY",
-  "updated_at": "2026-09-10T16:08:13.723011+00:00",
+  "updated_at": "2026-09-10T16:08:57.253485+00:00",
   "current_issue": [
     "ASTER-026"
   ],
-  "current_commit": "917a92f4b6b4990c2c5dcbbe51dc28260a68078e",
+  "current_commit": "8d8fd756f02d4461a8d58f985a8f65254c501c58",
   "current_runtime": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-aster-026-reverted-runtime.json",
   "current_artifact": "Packaged desktop/PWA cf05844 unchanged; backend b10742a deployed directly",
   "issues": [
@@ -3404,8 +3404,8 @@
       }
     }
   },
-  "report_generated_from_commit": "917a92f4b6b4990c2c5dcbbe51dc28260a68078e",
-  "report_tip_commit": "917a92f4b6b4990c2c5dcbbe51dc28260a68078e",
+  "report_generated_from_commit": "8d8fd756f02d4461a8d58f985a8f65254c501c58",
+  "report_tip_commit": "8d8fd756f02d4461a8d58f985a8f65254c501c58",
   "evidence_provenance": {
     "status": "PASS",
     "current_source_commit": "30acaae8e6329f702eb289073978ef2991e2be11",
