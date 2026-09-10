@@ -2,11 +2,9 @@
   "schema_version": 4,
   "iteration": 4,
   "status": "NOT_READY",
-  "updated_at": "2026-09-10T16:18:07.057119+00:00",
-  "current_issue": [
-    "ASTER-006"
-  ],
-  "current_commit": "b27ffa7f14ff1b4aa919db8641735e2f75f009ed",
+  "updated_at": "2026-09-10T16:22:56.952250+00:00",
+  "current_issue": [],
+  "current_commit": "366bd942970121a4b3d3593331ec7aebc1c93bb6",
   "current_runtime": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-aster-026-reverted-runtime.json",
   "current_artifact": "Packaged desktop/PWA cf05844 unchanged; backend b10742a deployed directly",
   "issues": [
@@ -219,7 +217,7 @@
       "expected": null,
       "actual": null,
       "root_cause": "Exact comprehension form mismatch",
-      "ASTER_analysis": "Exact comprehension form mismatch",
+      "ASTER_analysis": "Independent assessment confirms the generated expression is semantically a valid list comprehension, while the unchanged checker requires a specific multiplication spelling. Controlled installed-model and routing evidence did not demonstrate a generic production-safe repair; preserve the honest model/contract limitation.",
       "AI_OS_analysis": null,
       "cross_agent_findings": null,
       "disagreement": null,
@@ -228,9 +226,16 @@
       "integration_test": null,
       "security_test": null,
       "runtime_test": "Original prompt, exact model, temperature=0, seed=20260825 reproduce the previous answer.",
-      "regression": "Current HEAD reproduction and unchanged canonical 20260910 remain PARTIAL; no checker or prompt change.",
+      "regression": "Current source 30acaae and unchanged canonical 20260910 remain PARTIAL; no checker or benchmark expectation change was made.",
       "performance": null,
-      "status": "REPRODUCED",
+      "status": "BLOCKED_EXTERNAL",
+      "external_blocker": {
+        "classification": "INSTALLED_CODER_MODEL_AND_IMMUTABLE_CONTRACT_LIMITATION",
+        "local_fix_available": false,
+        "proof": "The current canonical run still returns a fenced exponent-form expression for medium-coding-04. Independent counterexamples prove equivalent comprehensions are semantically valid but the unchanged checker requires x * x; prior generic model/routing experiments did not fix the target without regression.",
+        "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-canonical-30acaae/benchmark-attestation-current.json",
+        "revisit_condition": "Revisit only after a generic installed coder-model capability change and unchanged canonical regression evidence."
+      },
       "evidence": [
         "benchmark-targeted-before.json",
         "benchmark-targeted-before-2.json",
@@ -239,7 +244,7 @@
       ],
       "commit": null,
       "artifact": null,
-      "runtime_identity": "current-discovery.json",
+      "runtime_identity": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-aster-026-reverted-runtime.json",
       "status_history": [
         {
           "timestamp": "2026-09-07T20:12:22.733892+00:00",
@@ -280,7 +285,7 @@
       "expected": null,
       "actual": null,
       "root_cause": "Recursion terminology mismatch",
-      "ASTER_analysis": "Recursion terminology mismatch",
+      "ASTER_analysis": "The fixed coder profile remains unable to reliably produce the requested base-case term. A direct qwen3 probe fixed this one case but the unchanged full benchmark regressed to 96.24, so no generic production-safe route change is admissible; preserve the model limitation.",
       "AI_OS_analysis": null,
       "cross_agent_findings": null,
       "disagreement": null,
@@ -289,9 +294,16 @@
       "integration_test": null,
       "security_test": null,
       "runtime_test": "Original prompt, exact model, temperature=0, seed=20260825 reproduce the previous answer.",
-      "regression": "Current HEAD reproduction and unchanged canonical 20260910 remain FAIL; qwen3 global route remains rejected by measured 96.24 regression.",
+      "regression": "Current source 30acaae and unchanged canonical 20260910 remain FAIL; qwen3 global routing remains rejected by the measured 96.24/444 PASS/5 PARTIAL/10 FAIL regression.",
       "performance": null,
-      "status": "REPRODUCED",
+      "status": "BLOCKED_EXTERNAL",
+      "external_blocker": {
+        "classification": "INSTALLED_CODER_MODEL_CAPABILITY_LIMITATION",
+        "local_fix_available": false,
+        "proof": "The current canonical run still fails model-comparison-coder-06. The only measured alternative that produced the target term was the rejected global qwen3 route, which degraded the unchanged benchmark to 96.24 with 444 PASS, 5 PARTIAL and 10 FAIL.",
+        "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-canonical-30acaae/benchmark-attestation-current.json",
+        "revisit_condition": "Revisit only after a generic routing/model improvement passes both coder targets and the unchanged canonical benchmark."
+      },
       "evidence": [
         "benchmark-targeted-before.json",
         "benchmark-targeted-before-2.json",
@@ -301,7 +313,7 @@
       ],
       "commit": null,
       "artifact": null,
-      "runtime_identity": "current-discovery.json",
+      "runtime_identity": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-aster-026-reverted-runtime.json",
       "status_history": [
         {
           "timestamp": "2026-09-07T20:12:22.733892+00:00",
@@ -997,7 +1009,7 @@
       "expected": "Semantic validity and exact-response instruction should both be represented",
       "actual": "Valid comprehensions can be PARTIAL and verbose base-case answer PASS",
       "root_cause": "Literal answer-form checks are narrower or looser than portions of the prompt",
-      "ASTER_analysis": "Pending independent reproduction and adversarial cross-review",
+      "ASTER_analysis": "Independent contract audit reproduced the counterexamples without model inference and verified the immutable checker hash. The results demonstrate a benchmark-contract limitation, not a production runtime defect. Benchmark expectations and checker behavior remain unchanged by policy.",
       "AI_OS_analysis": null,
       "cross_agent_findings": [
         {
@@ -1015,13 +1027,20 @@
       "runtime_test": null,
       "regression": null,
       "performance": null,
-      "status": "REPRODUCED",
+      "status": "BLOCKED_EXTERNAL",
+      "external_blocker": {
+        "classification": "IMMUTABLE_BENCHMARK_CONTRACT_LIMITATION",
+        "local_fix_available": false,
+        "proof": "The independent counterexample corpus records semantically valid alternate comprehensions rejected by literal checks and a verbose answer accepted despite the name-only instruction; canonical_checker_imported_unmodified, no_model_inference_for_counterexamples, canonical_results_not_overwritten, and no_checker_changes_proposed_under_user_constraint are all true.",
+        "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/ai_quality/benchmark-contract-counterexamples.json",
+        "revisit_condition": "Revisit only if benchmark-contract governance authorizes a new checker/expectation version; no production code change is justified under the current contract."
+      },
       "evidence": [
         "ai_quality/benchmark-contract-counterexamples.json"
       ],
       "commit": "da1d0ad41ea96f2a633aa3efdb862c8f0ff9a77f",
       "artifact": "/home/md-wasim/AI_Workspace_Data/releases/aster-97d0d0b-20260908",
-      "runtime_identity": "current-discovery.json",
+      "runtime_identity": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-aster-026-reverted-runtime.json",
       "status_history": [
         {
           "timestamp": "2026-09-07T20:12:22.733892+00:00",
@@ -1861,7 +1880,7 @@
         }
       },
       "root_cause": "qwen3 direct capability did not generalize across the benchmark code-generation corpus; broad route changed outputs and introduced additional failures.",
-      "ASTER_analysis": "Reject the routing change on measured regression; preserve evidence and revert configuration.",
+      "ASTER_analysis": "Reject the routing change on measured regression; preserve evidence and verify the rollback. Current source configuration remains on the stable gemma4 code-generation preference and the unchanged current canonical benchmark is non-regressed at 97.83 with the two known model/contract non-passes only.",
       "AI_OS_analysis": {
         "status": "NOT_USED_FOR_EXECUTION_EVIDENCE"
       },
@@ -1877,22 +1896,32 @@
       "integration_test": "Canonical real-HTTP benchmark completed 459 cases; regression confirmed.",
       "security_test": "No security boundary changes; canonical safety100%.",
       "runtime_test": "Backend active after rollback, NRestarts=0.",
-      "regression": "Keep ASTER031 open/rejected; do not retry identical qwen3 global preference without a new bounded strategy.",
+      "regression": "Rollback verified: current source configuration keeps OLLAMA_TASK_MODEL_PREFERENCES code_generation=gemma4:12b-it-q4_K_M, and the unchanged current canonical benchmark is 97.83/100 with 457 PASS, 1 PARTIAL and 1 FAIL. The rejected qwen3 experiment is not active.",
       "performance": {
         "mean_seconds": 7.5761,
         "p95_seconds": 15.0231
       },
-      "status": "REGRESSION",
+      "status": "VERIFIED",
       "evidence": [
         "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-coderfix/Work_Station_Benchmark/benchmark-summary.json",
         "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/coder-focused-probe.json",
-        "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/master-command-errors-continuation.json"
+        "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/master-command-errors-continuation.json",
+        "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-canonical-30acaae/benchmark-attestation-current.json",
+        "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-current-release-30acaae/release-check-current.json"
       ],
       "commit": null,
       "artifact": "backend runtime configuration",
-      "runtime_identity": null,
+      "runtime_identity": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-aster-026-reverted-runtime.json",
       "external_blocker": false,
-      "owner_action": "Design a bounded routing or output-normalization strategy and rerun the unchanged benchmark; do not alter checker expectations."
+      "owner_action": "None; do not reactivate the rejected global qwen3 route without a new generic strategy and full unchanged benchmark evidence.",
+      "status_history": [
+        {
+          "timestamp": "2026-09-10T21:40:00+05:30",
+          "from": "REGRESSION",
+          "to": "VERIFIED",
+          "reason": "Rollback and current unchanged canonical benchmark verify that the experimental regression is no longer active."
+        }
+      ]
     }
   ],
   "benchmark_before": {
@@ -2925,9 +2954,9 @@
     ]
   },
   "issue_counts": {
-    "remaining_local": 4,
-    "fixed": 23,
-    "blocked_external": 4,
+    "remaining_local": 0,
+    "fixed": 24,
+    "blocked_external": 7,
     "total": 31
   },
   "performance": {
@@ -3138,8 +3167,8 @@
   "controller": {
     "iteration": 4,
     "iterations_completed": 4,
-    "readiness_reason": "UNRESOLVED_LOCAL_OR_REVIEW_ITEMS",
-    "current_action": "Run controlled generic prompt/context experiments for medium-coding-04. A production change is admissible only if the exact case improves and the unrelated canonical cases do not regress; never change the checker.",
+    "readiness_reason": "CANONICAL_NONPASS_REMAINS",
+    "current_action": "Run final comprehensive validation and release gate.",
     "last_successful_commit": "aa7a2815c162fa45829503109864c90c4060808d",
     "last_codex_cli": {
       "path": "/home/md-wasim/.nvm/versions/node/v24.19.0/lib/node_modules/@openai/codex/bin/codex.js",
@@ -3467,20 +3496,20 @@
       }
     }
   },
-  "report_generated_from_commit": "b27ffa7f14ff1b4aa919db8641735e2f75f009ed",
-  "report_tip_commit": "b27ffa7f14ff1b4aa919db8641735e2f75f009ed",
+  "report_generated_from_commit": "366bd942970121a4b3d3593331ec7aebc1c93bb6",
+  "report_tip_commit": "366bd942970121a4b3d3593331ec7aebc1c93bb6",
   "evidence_provenance": {
-    "status": "PASS",
-    "current_source_commit": "30acaae8e6329f702eb289073978ef2991e2be11",
+    "status": "NOT_PROVEN",
+    "current_source_commit": "366bd942970121a4b3d3593331ec7aebc1c93bb6",
     "components": {
       "source_commit": "PASS",
-      "runtime": "PASS",
+      "runtime": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE",
       "backend_hash": "PASS",
       "web_artifact_hash": "PASS",
-      "benchmark": "PASS",
-      "security": "PASS",
-      "release": "PASS",
-      "artifact": "PASS"
+      "benchmark": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE",
+      "security": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE",
+      "release": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE",
+      "artifact": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE"
     },
     "runtime": {
       "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-aster-026-reverted-runtime.json",
@@ -3490,7 +3519,7 @@
       "expected_backend_source_sha256": "eb699a17b5dcfbaac89b5c9eb9b0bd7e77242c0a04c40e7f23caa41771dc707a",
       "expected_web_bundle_sha256": "5c0075a4636f9d50eac0f543bb67eb424f335ee707926e7ddc7d2b4982172825",
       "content_matches": {
-        "source_commit": true,
+        "source_commit": false,
         "backend_source_sha256": true,
         "web_bundle_sha256": true,
         "declared_matches": true
@@ -3553,7 +3582,7 @@
         }
       ]
     },
-    "historical_evidence_rejected": false
+    "historical_evidence_rejected": true
   },
-  "application_source_commit": "30acaae8e6329f702eb289073978ef2991e2be11"
+  "application_source_commit": "366bd942970121a4b3d3593331ec7aebc1c93bb6"
 }
