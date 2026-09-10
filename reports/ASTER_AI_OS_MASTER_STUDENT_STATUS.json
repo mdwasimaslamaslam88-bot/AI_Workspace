@@ -2,12 +2,12 @@
   "schema_version": 4,
   "iteration": 4,
   "status": "NOT_READY",
-  "updated_at": "2026-09-10T06:08:16.072996+00:00",
+  "updated_at": "2026-09-10T16:05:17.805903+00:00",
   "current_issue": [
     "ASTER-026"
   ],
-  "current_commit": "6925fb55c064fa4f43ef785e612366e6f0acf4a0",
-  "current_runtime": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/runtime-identity-final-f8fecdb.json",
+  "current_commit": "270ab97a0be63916ee9fd32505085a72ee9cc525",
+  "current_runtime": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-aster-026-reverted-runtime.json",
   "current_artifact": "Packaged desktop/PWA cf05844 unchanged; backend b10742a deployed directly",
   "issues": [
     {
@@ -1342,14 +1342,42 @@
         },
         "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-aster-026-experiment-exact-output"
       },
-      "ASTER_analysis": "Separate content-quality failure from ASTER-004 DEX evidence-integrity acceptance. Detection succeeded, but detection does not fix the model limitation. A controlled exact_output task-contract run also produced malformed JSON with matching engine hash, so no generic local task-routing repair is demonstrated. Canonical hallucination metric0 is corpus/checker-specific and cannot negate these observed failures.",
+      "candidate_generation_contract_experiment": {
+        "candidate_source_commit": "395fdc37ac642cc28dd41088fd4ab5e584a65a1f",
+        "reverted_source_commit": "30acaae8e6329f702eb289073978ef2991e2be11",
+        "task": "exact_output",
+        "run_id": "de4778dc-d45f-47c2-ac4a-1f7052235563",
+        "owner_id": "fb0d67dd-2197-4237-9d70-93ef84e537a0",
+        "run_status": "completed",
+        "raw_output_sha256": "977565ade5562918efc29e93a678f0da777e72b5d622a9801a88cf280ab3f63a",
+        "engine_output_hash_matched": true,
+        "output_json": true,
+        "semantic_errors": [
+          "C1:incorrect_resolution_action",
+          "C1:evidence_not_allowlisted_or_insufficient",
+          "C4:incorrect_resolution_action"
+        ],
+        "objective_semantic_proof": false,
+        "permission_plan": [
+          [
+            "model_inference"
+          ]
+        ],
+        "audit_event_count": 6,
+        "session_revocation": {
+          "delete_status": 204,
+          "after_status": 401
+        },
+        "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-aster-026-candidate-task-contract"
+      },
+      "ASTER_analysis": "Separate content-quality failure from ASTER-004 DEX evidence-integrity acceptance. Detection succeeded, but detection does not fix the model limitation. A controlled exact_output task-contract run produced malformed JSON with matching engine hash. A generic candidate that injected the existing trusted exact-output task instruction produced valid JSON, but independent semantic validation still rejected C1 and C4; the candidate was reverted. No generic local generation repair is demonstrated. Canonical hallucination metric0 is corpus/checker-specific and cannot negate these observed failures.",
       "AI_OS_analysis": {
         "raw_claims_preserved": [
           "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/interop/ai-os-request.json",
           "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/interop/ai-os-evidence-review.json",
           "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/interop/ai-os-challenge-response.json"
         ],
-        "last_status": "CURRENT_RUN_REJECTED_OUTPUT_NOT_JSON",
+        "last_status": "CURRENT_RUN_REJECTED_OUTPUT_NOT_JSON; GENERIC_TASK_CONTRACT_CANDIDATE_REJECTED_SEMANTICALLY",
         "last_evidence": {
           "run_id": "2ff8d32d-d4f1-460b-b7dc-3f18d63f1742",
           "validation": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-aster-026-current/current-validation.json",
@@ -1360,6 +1388,12 @@
           "validation": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-aster-026-experiment-exact-output/validation.json",
           "runtime": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-aster-026-experiment-exact-output/runtime.json",
           "cleanup": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-aster-026-experiment-exact-output/cleanup.json"
+        },
+        "candidate_generation_contract_experiment": {
+          "run_id": "de4778dc-d45f-47c2-ac4a-1f7052235563",
+          "validation": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-aster-026-candidate-task-contract/validation.json",
+          "runtime": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-aster-026-candidate-task-contract/runtime.json",
+          "cleanup": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-aster-026-candidate-task-contract/cleanup.json"
         }
       },
       "cross_agent_findings": [
@@ -1378,10 +1412,10 @@
         "resolution": "False execution claim rejected. Third response corrects flag but lacks substantive evidence, so semantic acceptance remains incomplete."
       },
       "fix": "No validated model-quality fix. Existing independent human/ASTER arbitration rejected unsupported claims and preserved evidence; do not mark this issue fixed solely because detection worked.",
-      "focused_test": "Current authenticated Agent OS run 2ff8d32d-d4f1-460b-b7dc-3f18d63f1742 completed through /api/v1/agent-os/runs; the raw output hash matched the engine attempt, but the verifier rejected malformed non-JSON output.",
+      "focused_test": "Current authenticated Agent OS run 2ff8d32d-d4f1-460b-b7dc-3f18d63f1742 completed through /api/v1/agent-os/runs; the raw output hash matched the engine attempt, but the verifier rejected malformed non-JSON output. The candidate run de4778dc-d45f-47c2-ac4a-1f7052235563 validated as JSON but independent semantic validation rejected C1/C4, so it was not promoted.",
       "integration_test": "Existing owner-authenticated HTTP request/reply transport completed. This does not prove autonomous reverse delegation.",
       "security_test": "Review runs granted model inference only; no execution was authorized by advisory content. Preserve existing ToolService and owner controls.",
-      "runtime_test": "Fresh authenticated reproduction on current source aa7a2815c162fa45829503109864c90c4060808d runtime identity; backend and web hashes matched, model-inference-only permissions were recorded, six audit events were present, and session revocation passed.",
+      "runtime_test": "Fresh authenticated runtime identity after candidate rollback is source 30acaae8e6329f702eb289073978ef2991e2be11; backend and web hashes matched, model-inference-only permissions were recorded, six audit events were present, and session revocation passed. The candidate runtime identity and run remain preserved separately and were not accepted as current evidence.",
       "regression": "Retain exact prompts/output hashes as a review regression corpus. Future meaningful model/routing changes require unchanged full canonical benchmark and these review cases.",
       "performance": "Three serial review round trips averaged23.0302seconds; too few observations for a general P95 assertion.",
       "status": "REPRODUCED",
@@ -1396,8 +1430,8 @@
       "commit": null,
       "artifact": null,
       "runtime_identity": {
-        "observed_run_commit": "da1d0ad41ea96f2a633aa3efdb862c8f0ff9a77f",
-        "current_source_commit": "cf05844dbee756ae7377fefe6cbd039cd0e8fcd1"
+        "observed_run_commit": "30acaae8e6329f702eb289073978ef2991e2be11",
+        "current_source_commit": "30acaae8e6329f702eb289073978ef2991e2be11"
       },
       "linked_issues": [
         "ASTER-004",
@@ -2884,16 +2918,16 @@
     "feature_registry_evidence": "feature_registry.json"
   },
   "release": {
-    "application_commit": "b10742a340a22e56ff7e315603cc8af19158b49b",
+    "application_commit": "30acaae8e6329f702eb289073978ef2991e2be11",
     "overall_ready": false,
     "backend_deployed": true,
-    "packaged_artifact_scope": "unchanged cf05844 desktop/PWA",
+    "packaged_artifact_scope": "rebuilt 30acaae desktop/PWA",
     "external_blockers": [
       "strict DEX sandbox",
       "parent MCP callback rejection",
       "off-device browser"
     ],
-    "final_report_tip_attestation": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-current-release-aa7a281/artifact-attestation-current.json"
+    "final_report_tip_attestation": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-current-release-30acaae/artifact-attestation-current.json"
   },
   "previous_run": {
     "report_commit": "da1d0ad41ea96f2a633aa3efdb862c8f0ff9a77f",
@@ -3349,11 +3383,11 @@
       }
     }
   },
-  "report_generated_from_commit": "6925fb55c064fa4f43ef785e612366e6f0acf4a0",
-  "report_tip_commit": "6925fb55c064fa4f43ef785e612366e6f0acf4a0",
+  "report_generated_from_commit": "270ab97a0be63916ee9fd32505085a72ee9cc525",
+  "report_tip_commit": "270ab97a0be63916ee9fd32505085a72ee9cc525",
   "evidence_provenance": {
     "status": "PASS",
-    "current_source_commit": "aa7a2815c162fa45829503109864c90c4060808d",
+    "current_source_commit": "30acaae8e6329f702eb289073978ef2991e2be11",
     "components": {
       "source_commit": "PASS",
       "runtime": "PASS",
@@ -3365,8 +3399,8 @@
       "artifact": "PASS"
     },
     "runtime": {
-      "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-canonical-aa7a281/runtime-identity-current.json",
-      "recorded_source_commit": "aa7a2815c162fa45829503109864c90c4060808d",
+      "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-aster-026-reverted-runtime.json",
+      "recorded_source_commit": "30acaae8e6329f702eb289073978ef2991e2be11",
       "recorded_backend_source_sha256": "eb699a17b5dcfbaac89b5c9eb9b0bd7e77242c0a04c40e7f23caa41771dc707a",
       "recorded_web_bundle_sha256": "5c0075a4636f9d50eac0f543bb67eb424f335ee707926e7ddc7d2b4982172825",
       "expected_backend_source_sha256": "eb699a17b5dcfbaac89b5c9eb9b0bd7e77242c0a04c40e7f23caa41771dc707a",
@@ -3379,11 +3413,11 @@
       }
     },
     "benchmark": {
-      "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-canonical-aa7a281/Work_Station_Benchmark/benchmark-summary.json",
-      "results": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-canonical-aa7a281/Work_Station_Benchmark/benchmark-results.json",
-      "recorded_source_commit": "aa7a2815c162fa45829503109864c90c4060808d",
-      "summary_sha256": "679b58f646f27fae1ea70aadab3ebf7f1b9fec0a87882541867ddac6721f3892",
-      "results_sha256": "6d462e350fcf86df96740ae51554f250c17f84f87f25140cf41d1ca01c585a2c",
+      "evidence": "/home/md-wasim/Desktop/Work_Station_Benchmark/benchmark-summary.json",
+      "results": "/home/md-wasim/Desktop/Work_Station_Benchmark/benchmark-results.json",
+      "recorded_source_commit": "30acaae8e6329f702eb289073978ef2991e2be11",
+      "summary_sha256": "9a241ef01d9d54010bd0844f6b0ed8a6bdcb8dd53dfc4b6b6460265332782f97",
+      "results_sha256": "5689f5d76f22f3477f1a6d97aff1ac1114f005170cd7aa9a352ece37e0a9fa03",
       "structural_valid": true,
       "counts": {
         "PASS": 457,
@@ -3392,16 +3426,16 @@
       }
     },
     "release": {
-      "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-current-release-aa7a281/release-check-current.json",
-      "recorded_source_commit": "aa7a2815c162fa45829503109864c90c4060808d",
-      "log": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-current-release-aa7a281/release-check.log",
-      "log_sha256": "2542dd8c29c830ea8b9d8a6fecee5b6f09016232541bbf918931688f5e65b267",
+      "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-current-release-30acaae/release-check-current.json",
+      "recorded_source_commit": "30acaae8e6329f702eb289073978ef2991e2be11",
+      "log": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-current-release-30acaae/release-check.log",
+      "log_sha256": "e6f376da0a8faa9ec4badd7c681169853df878123612616f12656a94afd70e5e",
       "structural_valid": true,
       "security_check": "PASS"
     },
     "artifact": {
-      "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-current-release-aa7a281/artifact-attestation-current.json",
-      "recorded_source_commit": "aa7a2815c162fa45829503109864c90c4060808d",
+      "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-current-release-30acaae/artifact-attestation-current.json",
+      "recorded_source_commit": "30acaae8e6329f702eb289073978ef2991e2be11",
       "hashes_verified": {
         "Work_Station_Ubuntu.AppImage": true,
         "Work_Station_Ubuntu.deb": true,
@@ -3412,24 +3446,24 @@
         {
           "artifact": "Work_Station_Ubuntu.AppImage",
           "path": "/home/md-wasim/Projects/AI_Workspace/apps/desktop/src-tauri/target/release/bundle/appimage/WORK STATION_0.1.0_amd64.AppImage",
-          "expected_sha256": "d8ac7fe8eaf5b8edeaec2a8a5b8b137f6d9e02b770ed910795ce4a1487a25e26",
-          "actual_sha256": "d8ac7fe8eaf5b8edeaec2a8a5b8b137f6d9e02b770ed910795ce4a1487a25e26",
+          "expected_sha256": "7bbb8fecefea78047210a0cb1aa4cb1378ac739515fca5828974e18621fc5799",
+          "actual_sha256": "7bbb8fecefea78047210a0cb1aa4cb1378ac739515fca5828974e18621fc5799",
           "exists": true,
           "hash_verified": true
         },
         {
           "artifact": "Work_Station_Ubuntu.deb",
           "path": "/home/md-wasim/Projects/AI_Workspace/apps/desktop/src-tauri/target/release/bundle/deb/WORK STATION_0.1.0_amd64.deb",
-          "expected_sha256": "147d8a3bb275827b59bd769953a38a2b158c2ef175f603f35fcfe589b4f25310",
-          "actual_sha256": "147d8a3bb275827b59bd769953a38a2b158c2ef175f603f35fcfe589b4f25310",
+          "expected_sha256": "838edff5e693ed462911383b971ff1712b287eee09aea06a887090d020108477",
+          "actual_sha256": "838edff5e693ed462911383b971ff1712b287eee09aea06a887090d020108477",
           "exists": true,
           "hash_verified": true
         },
         {
           "artifact": "Work_Station_PWA.tar.gz",
-          "path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-current-release-aa7a281/Work_Station_PWA.tar.gz",
-          "expected_sha256": "5c0fb504c40617c2eeb9d5e1674137a5f9e9d097bf5a3b06931dcea4814c24db",
-          "actual_sha256": "5c0fb504c40617c2eeb9d5e1674137a5f9e9d097bf5a3b06931dcea4814c24db",
+          "path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-current-release-30acaae/Work_Station_PWA.tar.gz",
+          "expected_sha256": "82d13cbf4e64d270fddab1c2938a56ed4ce8de663818b4b22de28069675d8c85",
+          "actual_sha256": "82d13cbf4e64d270fddab1c2938a56ed4ce8de663818b4b22de28069675d8c85",
           "exists": true,
           "hash_verified": true
         }
@@ -3437,5 +3471,5 @@
     },
     "historical_evidence_rejected": false
   },
-  "application_source_commit": "aa7a2815c162fa45829503109864c90c4060808d"
+  "application_source_commit": "30acaae8e6329f702eb289073978ef2991e2be11"
 }

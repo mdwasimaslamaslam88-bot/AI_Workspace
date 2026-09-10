@@ -2,7 +2,7 @@
 ASTER / PERSONAL AI OS AUTONOMOUS STATUS
 ========================================================
 READINESS      : NOT READY
-BENCHMARK      : 97.84 / 100
+BENCHMARK      : 97.83 / 100
 PASS           : 457
 PARTIAL        : 1
 FAIL           : 1
@@ -17,8 +17,8 @@ PROVENANCE     : PASS
 BACKEND        : 3152 PASS
 WEB            : 206 PASS
 MOBILE         : 64 PASS
-PERFORMANCE    : mean 8.0681s / P95 16.4845s
-GIT            : CLEAN_SYNCED
-COMMIT         : 6925fb55c064fa4f43ef785e612366e6f0acf4a0
+PERFORMANCE    : mean 8.085s / P95 16.5325s
+GIT            : DIRTY
+COMMIT         : 270ab97a0be63916ee9fd32505085a72ee9cc525
 NEXT ACTION    : Re-run the existing authenticated Agent OS advisory-review corpus on the current runtime, verify hashes and permission grants, and determine whether a local model/prompt repair is demonstrated. Model prose is not evidence.
 ========================================================

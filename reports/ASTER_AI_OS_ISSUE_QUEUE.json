@@ -1818,8 +1818,8 @@
       "owner_action": "Design a bounded routing or output-normalization strategy and rerun the unchanged benchmark; do not alter checker expectations."
     }
   ],
-  "current_application_commit": "aa7a2815c162fa45829503109864c90c4060808d",
-  "current_benchmark": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-canonical-aa7a281/Work_Station_Benchmark/benchmark-summary.json",
+  "current_application_commit": "30acaae8e6329f702eb289073978ef2991e2be11",
+  "current_benchmark": "/home/md-wasim/Desktop/Work_Station_Benchmark/benchmark-summary.json",
   "current_nonpass_ids": [
     "medium-coding-04",
     "model-comparison-coder-06"
