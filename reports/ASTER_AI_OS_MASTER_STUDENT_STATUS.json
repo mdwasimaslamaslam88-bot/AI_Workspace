@@ -2,9 +2,9 @@
   "schema_version": 4,
   "iteration": 4,
   "status": "NOT_READY",
-  "updated_at": "2026-09-10T20:05:13.718187+00:00",
+  "updated_at": "2026-09-10T21:16:04.806890+00:00",
   "current_issue": [],
-  "current_commit": "30be59f48d894303e8d0b82195046d3ac8b9d679",
+  "current_commit": "6a00aa26cf694ee6130ddcfbfc06b0438a66aec1",
   "current_runtime": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-controller-runtime-bfcd805.json",
   "current_artifact": "Packaged desktop/PWA cf05844 unchanged; backend b10742a deployed directly",
   "issues": [
@@ -3496,11 +3496,11 @@
       }
     }
   },
-  "report_generated_from_commit": "30be59f48d894303e8d0b82195046d3ac8b9d679",
-  "report_tip_commit": "30be59f48d894303e8d0b82195046d3ac8b9d679",
+  "report_generated_from_commit": "6a00aa26cf694ee6130ddcfbfc06b0438a66aec1",
+  "report_tip_commit": "6a00aa26cf694ee6130ddcfbfc06b0438a66aec1",
   "evidence_provenance": {
     "status": "PASS",
-    "current_source_commit": "21c834772b85460a6fe01a3de6d947e7527fbd9d",
+    "current_source_commit": "6a00aa26cf694ee6130ddcfbfc06b0438a66aec1",
     "components": {
       "source_commit": "PASS",
       "runtime": "PASS",
@@ -3512,8 +3512,8 @@
       "artifact": "PASS"
     },
     "runtime": {
-      "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/runtime-identity-20260911-21c8347.json",
-      "recorded_source_commit": "21c834772b85460a6fe01a3de6d947e7527fbd9d",
+      "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/runtime-identity-20260911-6a00aa2.json",
+      "recorded_source_commit": "6a00aa26cf694ee6130ddcfbfc06b0438a66aec1",
       "recorded_backend_source_sha256": "eb699a17b5dcfbaac89b5c9eb9b0bd7e77242c0a04c40e7f23caa41771dc707a",
       "recorded_web_bundle_sha256": "5c0075a4636f9d50eac0f543bb67eb424f335ee707926e7ddc7d2b4982172825",
       "expected_backend_source_sha256": "eb699a17b5dcfbaac89b5c9eb9b0bd7e77242c0a04c40e7f23caa41771dc707a",
@@ -3528,27 +3528,27 @@
     "benchmark": {
       "evidence": "/home/md-wasim/Desktop/Work_Station_Benchmark/benchmark-summary.json",
       "results": "/home/md-wasim/Desktop/Work_Station_Benchmark/benchmark-results.json",
-      "recorded_source_commit": "fce2aaabdaf376b4177b5765e239bd63b93738df",
-      "summary_sha256": "303f2d52b21e5661f25464af7a06078e5c9c3dc6419e25eb105ccf07d71581a5",
-      "results_sha256": "3d9ac16beb0ce3cd53b424afa7bf6ccda32e418a1dfcc9cbf3b87ec8946b3a4b",
+      "recorded_source_commit": "6a00aa26cf694ee6130ddcfbfc06b0438a66aec1",
+      "summary_sha256": "6f73a53cd8c09c633162260ee808dc0c94504dc3a3ef9a90750ce7082e89e8bd",
+      "results_sha256": "2f9589cc8dea982b66cb206381fc8cf7c379748450c650749d57024b233de8ed",
       "structural_valid": true,
       "counts": {
-        "PASS": 457,
-        "PARTIAL": 1,
+        "PASS": 456,
+        "PARTIAL": 2,
         "FAIL": 1
       }
     },
     "release": {
-      "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260911-release-21c8347/release-check-current.json",
-      "recorded_source_commit": "21c834772b85460a6fe01a3de6d947e7527fbd9d",
-      "log": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260911-release-21c8347/release-check.log",
-      "log_sha256": "83802fe4bd6e3c4e70dad10631255dd0e674a30f5771dbed6649050ba2e44183",
+      "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260911-release-6a00aa2/release-check-current.json",
+      "recorded_source_commit": "6a00aa26cf694ee6130ddcfbfc06b0438a66aec1",
+      "log": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260911-release-6a00aa2/release-check.log",
+      "log_sha256": "195f7b70c7c3f16a9fd38489a85346283c7bc54f3a552af8428f1a43c73e0989",
       "structural_valid": true,
       "security_check": "PASS"
     },
     "artifact": {
-      "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260911-release-21c8347/artifact-attestation-current.json",
-      "recorded_source_commit": "21c834772b85460a6fe01a3de6d947e7527fbd9d",
+      "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260911-release-6a00aa2/artifact-attestation-current.json",
+      "recorded_source_commit": "6a00aa26cf694ee6130ddcfbfc06b0438a66aec1",
       "hashes_verified": {
         "Work_Station_Ubuntu.AppImage": true,
         "Work_Station_Ubuntu.deb": true,
@@ -3559,22 +3559,22 @@
         {
           "artifact": "Work_Station_Ubuntu.AppImage",
           "path": "/home/md-wasim/Projects/AI_Workspace/apps/desktop/src-tauri/target/release/bundle/appimage/WORK STATION_0.1.0_amd64.AppImage",
-          "expected_sha256": "2595b5c4feaac10918c89f21a1420aa399151cf49569a004d231a0818b06ceae",
-          "actual_sha256": "2595b5c4feaac10918c89f21a1420aa399151cf49569a004d231a0818b06ceae",
+          "expected_sha256": "a9f5c5e3042665b58facb41e1c750e42d56f28b706b1c173cd19461edda07a77",
+          "actual_sha256": "a9f5c5e3042665b58facb41e1c750e42d56f28b706b1c173cd19461edda07a77",
           "exists": true,
           "hash_verified": true
         },
         {
           "artifact": "Work_Station_Ubuntu.deb",
           "path": "/home/md-wasim/Projects/AI_Workspace/apps/desktop/src-tauri/target/release/bundle/deb/WORK STATION_0.1.0_amd64.deb",
-          "expected_sha256": "4ca923adcf21c78664107ad8a6202dca9e67a34ef5998ecac2648227de1772ae",
-          "actual_sha256": "4ca923adcf21c78664107ad8a6202dca9e67a34ef5998ecac2648227de1772ae",
+          "expected_sha256": "a34aed2eb754a03a52b27ee30011be1da055604152930d35d4925ef10da0893b",
+          "actual_sha256": "a34aed2eb754a03a52b27ee30011be1da055604152930d35d4925ef10da0893b",
           "exists": true,
           "hash_verified": true
         },
         {
           "artifact": "Work_Station_PWA.tar.gz",
-          "path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260911-release-21c8347/Work_Station_PWA.tar.gz",
+          "path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260911-release-6a00aa2/Work_Station_PWA.tar.gz",
           "expected_sha256": "ea2edcd29abc393a8b859e5c13e80a614e1233dc564f79ec06d7c57708596d39",
           "actual_sha256": "ea2edcd29abc393a8b859e5c13e80a614e1233dc564f79ec06d7c57708596d39",
           "exists": true,
@@ -3584,5 +3584,5 @@
     },
     "historical_evidence_rejected": false
   },
-  "application_source_commit": "21c834772b85460a6fe01a3de6d947e7527fbd9d"
+  "application_source_commit": "6a00aa26cf694ee6130ddcfbfc06b0438a66aec1"
 }
