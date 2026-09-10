@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-09-10T02:23:57.167136+00:00",
+  "updated_at": "2026-09-10T05:54:22.231112+00:00",
   "authoritative_report": "reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.json",
   "purpose": "Derived machine-readable issue ledger; uses the existing report issue identities, not a second issue service",
   "allowed_statuses": [
@@ -1302,6 +1302,31 @@
         "third": "Corrected independently_executed_tests=false but returned evidence={} instead of requested substantive disagreement resolution."
       },
       "root_cause": "Installed advisory model produced unsupported review content and failed follow-up instructions. Run integrity/nonblank checks do not establish semantic correctness. No validated general model or prompt repair has been demonstrated.",
+      "current_runtime_reproduction": {
+        "run_id": "2ff8d32d-d4f1-460b-b7dc-3f18d63f1742",
+        "source_commit": "aa7a2815c162fa45829503109864c90c4060808d",
+        "owner_id": "94637007-d190-4ef6-ad0a-ec1180048984",
+        "run_status": "completed",
+        "permission_plan": [
+          [
+            "model_inference"
+          ]
+        ],
+        "raw_output_sha256": "168237feb45945ca18dba53e182a2b6f8b450e89459424aa0b0ef4bf76d7098c",
+        "validation_status": "REJECTED",
+        "validation_errors": [
+          "output_not_json"
+        ],
+        "audit_event_count": 6,
+        "session_revocation_verified": true,
+        "objective_semantic_proof": false,
+        "evidence": [
+          "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-aster-026-current/current-request.json",
+          "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-aster-026-current/current-run.json",
+          "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-aster-026-current/current-validation.json",
+          "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-aster-026-current/current-attestation.json"
+        ]
+      },
       "ASTER_analysis": "Separate content-quality failure from ASTER-004 DEX evidence-integrity acceptance. Detection succeeded, but detection does not fix the model limitation. Canonical hallucination metric0 is corpus/checker-specific and cannot negate these observed failures.",
       "AI_OS_analysis": {
         "raw_claims_preserved": [
@@ -1309,8 +1334,12 @@
           "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/interop/ai-os-evidence-review.json",
           "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/interop/ai-os-challenge-response.json"
         ],
-        "last_status": "UNVERIFIED",
-        "last_evidence": {}
+        "last_status": "CURRENT_RUN_REJECTED_OUTPUT_NOT_JSON",
+        "last_evidence": {
+          "run_id": "2ff8d32d-d4f1-460b-b7dc-3f18d63f1742",
+          "validation": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-aster-026-current/current-validation.json",
+          "attestation": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-aster-026-current/current-attestation.json"
+        }
       },
       "cross_agent_findings": [
         {
@@ -1328,10 +1357,10 @@
         "resolution": "False execution claim rejected. Third response corrects flag but lacks substantive evidence, so semantic acceptance remains incomplete."
       },
       "fix": "No validated model-quality fix. Existing independent human/ASTER arbitration rejected unsupported claims and preserved evidence; do not mark this issue fixed solely because detection worked.",
-      "focused_test": "Real authenticated Agent OS run b32ee14b-5ae4-4f4a-a4ef-930d095fc209 completed through /api/v1/agent-os/runs; output was nonblank but objective-evidence verification correctly failed.",
+      "focused_test": "Current authenticated Agent OS run 2ff8d32d-d4f1-460b-b7dc-3f18d63f1742 completed through /api/v1/agent-os/runs; the raw output hash matched the engine attempt, but the verifier rejected malformed non-JSON output.",
       "integration_test": "Existing owner-authenticated HTTP request/reply transport completed. This does not prove autonomous reverse delegation.",
       "security_test": "Review runs granted model inference only; no execution was authorized by advisory content. Preserve existing ToolService and owner controls.",
-      "runtime_test": "Observed on da1d0ad runtime. Current cf05844 changes verifier/gateway/filesystem/ToolService only, with no generation/model-routing code change; no claim of a fresh model reproduction on current runtime.",
+      "runtime_test": "Fresh authenticated reproduction on current source aa7a2815c162fa45829503109864c90c4060808d runtime identity; backend and web hashes matched, model-inference-only permissions were recorded, six audit events were present, and session revocation passed.",
       "regression": "Retain exact prompts/output hashes as a review regression corpus. Future meaningful model/routing changes require unchanged full canonical benchmark and these review cases.",
       "performance": "Three serial review round trips averaged23.0302seconds; too few observations for a general P95 assertion.",
       "status": "REPRODUCED",
@@ -1339,7 +1368,8 @@
         "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/interop/ai-os-request.json",
         "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/interop/ai-os-evidence-review.json",
         "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/interop/ai-os-challenge-response.json",
-        "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/aster-to-aios-real-agent-run-20260909.json"
+        "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260908-swarm/aster-to-aios-real-agent-run-20260909.json",
+        "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-aster-026-current/current-attestation.json"
       ],
       "commit": null,
       "artifact": null,
@@ -1412,6 +1442,36 @@
           "verification": "FAIL",
           "action": "",
           "evidence_dir": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/iteration-0004/attempt-0014",
+          "queue_status_preserved": true
+        },
+        {
+          "timestamp": "2026-09-10T05:48:48.053057+00:00",
+          "iteration": 4,
+          "classification": "BLOCKED_EXTERNAL",
+          "child_status": "FAILED",
+          "verification": "FAIL",
+          "action": "",
+          "evidence_dir": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/iteration-0004/attempt-0015",
+          "queue_status_preserved": true
+        },
+        {
+          "timestamp": "2026-09-10T05:49:48.693238+00:00",
+          "iteration": 4,
+          "classification": "BLOCKED_EXTERNAL",
+          "child_status": "FAILED",
+          "verification": "FAIL",
+          "action": "",
+          "evidence_dir": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/iteration-0004/attempt-0016",
+          "queue_status_preserved": true
+        },
+        {
+          "timestamp": "2026-09-10T05:54:22.231097+00:00",
+          "iteration": 4,
+          "classification": "BLOCKED_EXTERNAL",
+          "child_status": "FAILED",
+          "verification": "FAIL",
+          "action": "",
+          "evidence_dir": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/iteration-0004/attempt-0017",
           "queue_status_preserved": true
         }
       ]
