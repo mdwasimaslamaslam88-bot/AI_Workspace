@@ -1286,6 +1286,13 @@ def render_reports(
     # history; this prevents self-referential commit claims.
     state["report_tip_commit"] = git.get("commit")
     current_issue = selected.get("id") if selected else None
+    remaining_internal_ids = [
+        str(issue.get("id"))
+        for issue in queue.get("issues", [])
+        if isinstance(issue, dict)
+        and issue.get("status") not in {"VERIFIED", "CLOSED", "BLOCKED_EXTERNAL"}
+        and issue.get("id")
+    ]
     state.update(
         {
             "overall_ready": ready,
@@ -1319,6 +1326,8 @@ def render_reports(
             "application_source_commit": git.get("application_source_commit"),
             "current_runtime": runtime.get("evidence"),
             "current_artifact": artifact_evidence_path,
+            "latest_canonical": benchmark.get("path"),
+            "remaining_internal_issues": remaining_internal_ids,
             "evidence_root": str(evidence_root),
             "issue_queue": str(QUEUE_JSON.relative_to(REPOSITORY_ROOT)),
             "controller_state": str(evidence_root / "current_state.json"),
