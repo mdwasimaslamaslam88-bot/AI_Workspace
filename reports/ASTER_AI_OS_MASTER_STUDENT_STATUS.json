@@ -2,9 +2,9 @@
   "schema_version": 4,
   "iteration": 4,
   "status": "NOT_READY",
-  "updated_at": "2026-09-10T19:00:59.806947+00:00",
+  "updated_at": "2026-09-10T20:04:42.271946+00:00",
   "current_issue": [],
-  "current_commit": "21c834772b85460a6fe01a3de6d947e7527fbd9d",
+  "current_commit": "fce2aaabdaf376b4177b5765e239bd63b93738df",
   "current_runtime": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-controller-runtime-bfcd805.json",
   "current_artifact": "Packaged desktop/PWA cf05844 unchanged; backend b10742a deployed directly",
   "issues": [
@@ -3496,8 +3496,8 @@
       }
     }
   },
-  "report_generated_from_commit": "21c834772b85460a6fe01a3de6d947e7527fbd9d",
-  "report_tip_commit": "21c834772b85460a6fe01a3de6d947e7527fbd9d",
+  "report_generated_from_commit": "fce2aaabdaf376b4177b5765e239bd63b93738df",
+  "report_tip_commit": "fce2aaabdaf376b4177b5765e239bd63b93738df",
   "evidence_provenance": {
     "status": "NOT_PROVEN",
     "current_source_commit": "21c834772b85460a6fe01a3de6d947e7527fbd9d",
@@ -3506,7 +3506,7 @@
       "runtime": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE",
       "backend_hash": "PASS",
       "web_artifact_hash": "PASS",
-      "benchmark": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE",
+      "benchmark": "PASS",
       "security": "PASS",
       "release": "PASS",
       "artifact": "PASS"
@@ -3528,13 +3528,13 @@
     "benchmark": {
       "evidence": "/home/md-wasim/Desktop/Work_Station_Benchmark/benchmark-summary.json",
       "results": "/home/md-wasim/Desktop/Work_Station_Benchmark/benchmark-results.json",
-      "recorded_source_commit": "77dfd2bdc75d1e1416b72ec2b27ce47155c6f58e",
-      "summary_sha256": "d124d56d5e7dafad1b7175aaabb14e78a0f768977324602e8f5dfd3e46bd2944",
-      "results_sha256": "1078174dee8e10e89af71e9e503591df995b0cbe41c95a87d306d2803d644db6",
+      "recorded_source_commit": "fce2aaabdaf376b4177b5765e239bd63b93738df",
+      "summary_sha256": "303f2d52b21e5661f25464af7a06078e5c9c3dc6419e25eb105ccf07d71581a5",
+      "results_sha256": "3d9ac16beb0ce3cd53b424afa7bf6ccda32e418a1dfcc9cbf3b87ec8946b3a4b",
       "structural_valid": true,
       "counts": {
-        "PASS": 456,
-        "PARTIAL": 2,
+        "PASS": 457,
+        "PARTIAL": 1,
         "FAIL": 1
       }
     },

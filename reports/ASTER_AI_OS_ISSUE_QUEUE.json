@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "updated_at": "2026-09-10T17:37:56.713120+00:00",
+  "updated_at": "2026-09-10T20:04:42.093766+00:00",
   "authoritative_report": "reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.json",
   "purpose": "Derived machine-readable issue ledger; uses the existing report issue identities, not a second issue service",
   "allowed_statuses": [
@@ -1932,11 +1932,10 @@
       ]
     }
   ],
-  "current_application_commit": "77dfd2bdc75d1e1416b72ec2b27ce47155c6f58e",
+  "current_application_commit": "fce2aaabdaf376b4177b5765e239bd63b93738df",
   "current_benchmark": "/home/md-wasim/Desktop/Work_Station_Benchmark/benchmark-summary.json",
   "current_nonpass_ids": [
     "medium-coding-04",
-    "model-comparison-coder-06",
-    "voice-stt-01"
+    "model-comparison-coder-06"
   ]
 }
