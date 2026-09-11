@@ -2,9 +2,9 @@
   "schema_version": 4,
   "iteration": 4,
   "status": "NOT_READY",
-  "updated_at": "2026-09-11T15:04:26.880211+00:00",
+  "updated_at": "2026-09-11T19:16:32.145300+00:00",
   "current_issue": [],
-  "current_commit": "95c2a6bdec2e406332b65cd3a738e482c86584ac",
+  "current_commit": "6268153e7f0879af29109e6faed15956415ba642",
   "current_runtime": "/home/md-wasim/AI_Workspace_Data/aster-evidence/runtime-identity-20260911-70335a7.json",
   "current_artifact": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260911-final-gap-release-1a02fe0/artifact-attestation-current.json",
   "issues": [
@@ -3160,7 +3160,7 @@
     "iteration": 4,
     "iterations_completed": 4,
     "readiness_reason": "CANONICAL_NONPASS_REMAINS",
-    "current_action": "Obtain or admit a different generic coding-capable model/runtime, then run both unchanged coder cases through explicit, generic coding, and code-generation paths before any production route change.",
+    "current_action": "When a reliable bounded download window is available, admit a different generic coding-capable model through the existing catalog, hardware admission, routing, and Ollama runtime, then run both unchanged coder cases through explicit, generic coding, code-generation, and task-aware paths.",
     "last_successful_commit": "70335a71c9a1ef410a5976d6ba687712b983610b",
     "last_codex_cli": {
       "path": "/home/md-wasim/.nvm/versions/node/v24.19.0/lib/node_modules/@openai/codex/bin/codex.js",
@@ -3488,8 +3488,8 @@
       }
     }
   },
-  "report_generated_from_commit": "95c2a6bdec2e406332b65cd3a738e482c86584ac",
-  "report_tip_commit": "95c2a6bdec2e406332b65cd3a738e482c86584ac",
+  "report_generated_from_commit": "6268153e7f0879af29109e6faed15956415ba642",
+  "report_tip_commit": "6268153e7f0879af29109e6faed15956415ba642",
   "evidence_provenance": {
     "status": "PASS",
     "current_source_commit": "70335a71c9a1ef410a5976d6ba687712b983610b",

@@ -19,6 +19,6 @@ WEB            : 206 PASS
 MOBILE         : 64 PASS
 PERFORMANCE    : mean 8.062s / P95 16.5064s
 GIT            : CLEAN_SYNCED
-COMMIT         : 1c9d32224f846f6a2ff9666dfd3743c2d29871f4
-NEXT ACTION    : No complete untested local candidate is available. Retry bounded admission of a different generic coding-capable model when reliable download capacity exists; then rerun both unchanged coder cases before any route change.
+COMMIT         : 6268153e7f0879af29109e6faed15956415ba642
+NEXT ACTION    : When a reliable bounded download window is available, admit a different generic coding-capable model through the existing catalog, hardware admission, routing, and Ollama runtime, then run both unchanged coder cases through explicit, generic coding, code-generation, and task-aware paths.
 ========================================================

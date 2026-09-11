@@ -2,16 +2,15 @@
 
 Iteration 4. Overall readiness is **NOT READY**.
 
-Current report commit: `1c9d32224f846f6a2ff9666dfd3743c2d29871f4`; application source commit: `70335a71c9a1ef410a5976d6ba687712b983610b`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
+Current source commit: `6268153e7f0879af29109e6faed15956415ba642`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
 
 ## Current measured state
 
 - Canonical benchmark: **97.84/100**, 457 PASS, 1 PARTIAL, 1 FAIL; mean 8.062s, P95 16.5064s.
 - Issues: 0 locally unresolved, 24 fixed/verified, 7 externally blocked.
-- Current issue/action: `NONE` — Obtain or admit a different generic coding-capable model/runtime, then rerun both unchanged coder cases before any route change.
+- Current issue/action: `NONE` — When a reliable bounded download window is available, admit a different generic coding-capable model through the existing catalog, hardware admission, routing, and Ollama runtime, then run both unchanged coder cases through explicit, generic coding, code-generation, and task-aware paths.
 - Runtime identity: **PASS**; evidence `/home/md-wasim/AI_Workspace_Data/aster-evidence/runtime-identity-20260911-70335a7.json`.
-- Git: **CLEAN_SYNCED** at `1c9d32224f846f6a2ff9666dfd3743c2d29871f4`.
-- Coding capability inventory: no complete untested local candidate exists; all installed runnable text models have prior evidence. The incomplete `codegemma:7b` download remains externally blocked by bounded network throughput; production routing is unchanged. Evidence: `/home/md-wasim/AI_Workspace_Data/aster-evidence/20260912-coding-capability-gap/model-inventory-no-new-local-candidate.json`.
+- Git: **CLEAN_SYNCED** at `6268153e7f0879af29109e6faed15956415ba642`.
 
 ## Queue classifications
 
