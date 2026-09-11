@@ -2,9 +2,9 @@
   "schema_version": 4,
   "iteration": 4,
   "status": "NOT_READY",
-  "updated_at": "2026-09-11T05:33:25.798665+00:00",
+  "updated_at": "2026-09-11T15:04:26.880211+00:00",
   "current_issue": [],
-  "current_commit": "b2c44e8c96785d9de13b8166580a8262b0a01758",
+  "current_commit": "95c2a6bdec2e406332b65cd3a738e482c86584ac",
   "current_runtime": "/home/md-wasim/AI_Workspace_Data/aster-evidence/runtime-identity-20260911-70335a7.json",
   "current_artifact": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260911-final-gap-release-1a02fe0/artifact-attestation-current.json",
   "issues": [
@@ -3488,8 +3488,8 @@
       }
     }
   },
-  "report_generated_from_commit": "b2c44e8c96785d9de13b8166580a8262b0a01758",
-  "report_tip_commit": "b2c44e8c96785d9de13b8166580a8262b0a01758",
+  "report_generated_from_commit": "95c2a6bdec2e406332b65cd3a738e482c86584ac",
+  "report_tip_commit": "95c2a6bdec2e406332b65cd3a738e482c86584ac",
   "evidence_provenance": {
     "status": "PASS",
     "current_source_commit": "70335a71c9a1ef410a5976d6ba687712b983610b",

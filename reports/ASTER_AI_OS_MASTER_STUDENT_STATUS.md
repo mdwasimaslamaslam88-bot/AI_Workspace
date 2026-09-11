@@ -2,7 +2,7 @@
 
 Iteration 4. Overall readiness is **NOT READY**.
 
-Current source commit: `b2c44e8c96785d9de13b8166580a8262b0a01758`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
+Current source commit: `95c2a6bdec2e406332b65cd3a738e482c86584ac`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
 
 ## Current measured state
 
@@ -10,7 +10,7 @@ Current source commit: `b2c44e8c96785d9de13b8166580a8262b0a01758`. Evidence root
 - Issues: 0 locally unresolved, 24 fixed/verified, 7 externally blocked.
 - Current issue/action: `NONE` — Obtain or admit a different generic coding-capable model/runtime, then rerun both unchanged coder cases before any route change.
 - Runtime identity: **PASS**; evidence `/home/md-wasim/AI_Workspace_Data/aster-evidence/runtime-identity-20260911-70335a7.json`.
-- Git: **CLEAN_SYNCED** at `b2c44e8c96785d9de13b8166580a8262b0a01758`.
+- Git: **CLEAN_SYNCED** at `95c2a6bdec2e406332b65cd3a738e482c86584ac`.
 
 ## Queue classifications
 
