@@ -2,15 +2,16 @@
 
 Iteration 4. Overall readiness is **NOT READY**.
 
-Current source commit: `6268153e7f0879af29109e6faed15956415ba642`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
+Current source commit: `12a74c77a68a2c63acd47e97e71168082d09a0e7`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
 
 ## Current measured state
 
 - Canonical benchmark: **97.84/100**, 457 PASS, 1 PARTIAL, 1 FAIL; mean 8.062s, P95 16.5064s.
 - Issues: 0 locally unresolved, 24 fixed/verified, 7 externally blocked.
-- Current issue/action: `NONE` — When a reliable bounded download window is available, admit `qwen2.5-coder:3b` or another finite-size generic coding candidate through the existing catalog, hardware admission, routing, and Ollama runtime, then run both unchanged coder cases through explicit, generic coding, code-generation, and task-aware paths.
-- Runtime identity: **PASS**; evidence `/home/md-wasim/AI_Workspace_Data/aster-evidence/runtime-identity-20260911-70335a7.json`.
-- Git: **CLEAN_SYNCED** at `6268153e7f0879af29109e6faed15956415ba642`.
+- Current issue/action: `NONE` — Wait for a reliable bounded download window for candidate qwen2.5-coder:3b; no production route change is permitted.
+- Controller phase: **WATCH_EXTERNAL_GAP**.
+- Runtime identity: **HISTORICAL_PASS_REQUIRES_CURRENT_ATTESTATION**; evidence `/home/md-wasim/AI_Workspace_Data/aster-evidence/runtime-identity-20260911-70335a7.json`.
+- Git: **DIRTY** at `12a74c77a68a2c63acd47e97e71168082d09a0e7`.
 
 ## Queue classifications
 

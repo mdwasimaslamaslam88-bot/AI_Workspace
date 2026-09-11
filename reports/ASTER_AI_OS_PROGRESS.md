@@ -8,17 +8,19 @@ PARTIAL        : 1
 FAIL           : 1
 ISSUES         : 0
 CURRENT        : NONE
+PHASE          : WATCH_EXTERNAL_GAP
+CANDIDATE      : qwen2.5-coder:3b
 ASTER→AI OS    : PARTIAL: current owner-authenticated HTTP exchange and integrity verified; fabricated exec
 AI OS→ASTER    : BLOCKED_EXTERNAL: parent MCP/reverse callback is not available; no bidirectional verificat
 DEX            : BLOCKED_EXTERNAL: strict host sandbox fails closed with RTM_NEWADDR EPERM; synthetic trans
 VOICE          : BLOCKED_EXTERNAL: ASTER-028 installed voice-model/acoustic variability is preserved with e
 SECURITY       : PASS_WITH_RECORDED_RISK
-PROVENANCE     : PASS
+PROVENANCE     : NOT_PROVEN
 BACKEND        : 3152 PASS
 WEB            : 206 PASS
 MOBILE         : 64 PASS
 PERFORMANCE    : mean 8.062s / P95 16.5064s
-GIT            : CLEAN_SYNCED
-COMMIT         : 6268153e7f0879af29109e6faed15956415ba642
-NEXT ACTION    : When a reliable bounded download window is available, admit qwen2.5-coder:3b or another finite-size generic coding candidate through the existing catalog, hardware admission, routing, and Ollama runtime, then run both unchanged coder cases through explicit, generic coding, code-generation, and task-aware paths.
+GIT            : DIRTY
+COMMIT         : 12a74c77a68a2c63acd47e97e71168082d09a0e7
+NEXT ACTION    : Wait for a reliable bounded download window for candidate qwen2.5-coder:3b; no production route change is permitted.
 ========================================================
