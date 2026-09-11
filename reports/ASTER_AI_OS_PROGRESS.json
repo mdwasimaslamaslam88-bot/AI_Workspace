@@ -1,23 +1,23 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-11T05:14:21.801514+00:00",
+  "generated_at": "2026-09-11T05:32:58.484511+00:00",
   "source": {
     "state": "/home/md-wasim/AI_Workspace_Data/aster-evidence/current_state.json",
     "status": "/home/md-wasim/Projects/AI_Workspace/reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.json",
     "queue": "/home/md-wasim/Projects/AI_Workspace/reports/ASTER_AI_OS_ISSUE_QUEUE.json",
     "observations": {
-      "timestamp": "2026-09-11T05:14:21.661398+00:00",
+      "timestamp": "2026-09-11T05:32:58.339732+00:00",
       "git": {
         "branch": "main",
-        "commit": "4a6e68e012246e0de09de82e14d0fcf3599d320e",
+        "commit": "1a02fe0010867233f8189a2851ea33da3bc21b5d",
         "application_source_commit": "70335a71c9a1ef410a5976d6ba687712b983610b",
         "upstream": "origin/main",
         "upstream_error": null,
         "ahead": 0,
         "behind": 0,
-        "clean": true,
-        "status_porcelain": "",
-        "status": "CLEAN_SYNCED"
+        "clean": false,
+        "status_porcelain": "M reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.json\n M reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.md\n M reports/ASTER_AI_OS_PROGRESS.json\n M reports/ASTER_AI_OS_PROGRESS.md",
+        "status": "DIRTY"
       },
       "benchmark": {
         "path": "/home/md-wasim/Desktop/Work_Station_Benchmark/benchmark-summary.json",
@@ -52,7 +52,7 @@
           ],
           "cwd": "/home/md-wasim/Projects/AI_Workspace",
           "exit_code": 0,
-          "duration_seconds": 0.0068,
+          "duration_seconds": 0.0064,
           "stdout": "{\"status\":\"alive\"}",
           "stderr": "",
           "stdout_sha256": "bc24b0b5a305d5afc198c725890c8fb91053be2dbd8672779de73cac19a008fa",
@@ -121,16 +121,16 @@
           }
         },
         "release": {
-          "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260911-release-7b0340a/release-check-current.json",
-          "recorded_source_commit": "7b0340a675f962de4f2d389e9c1cd1f5c7394ecc",
-          "log": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260911-release-7b0340a/release-check.log",
-          "log_sha256": "8653a8e5c11b154b3328f2892e9044ffed23be7980928510bbaab53992d4a618",
+          "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260911-final-gap-release-1a02fe0/release-check-current.json",
+          "recorded_source_commit": "1a02fe0010867233f8189a2851ea33da3bc21b5d",
+          "log": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260911-final-gap-release-1a02fe0/release-check.log",
+          "log_sha256": "e10562863a1fbd02f6bb2e0f8f96e06c25b2eb8d8222879c58c156af33e0418c",
           "structural_valid": true,
           "security_check": "PASS"
         },
         "artifact": {
-          "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260911-release-7b0340a/artifact-attestation-current.json",
-          "recorded_source_commit": "7b0340a675f962de4f2d389e9c1cd1f5c7394ecc",
+          "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260911-final-gap-release-1a02fe0/artifact-attestation-current.json",
+          "recorded_source_commit": "1a02fe0010867233f8189a2851ea33da3bc21b5d",
           "hashes_verified": {
             "Work_Station_Ubuntu.AppImage": true,
             "Work_Station_Ubuntu.deb": true,
@@ -141,16 +141,16 @@
             {
               "artifact": "Work_Station_Ubuntu.AppImage",
               "path": "/home/md-wasim/Projects/AI_Workspace/apps/desktop/src-tauri/target/release/bundle/appimage/WORK STATION_0.1.0_amd64.AppImage",
-              "expected_sha256": "6c7a2caa6c5f3be38b32fdefa0bf4a548992c6c02129639ef7c0b9d90f7d8b0e",
-              "actual_sha256": "6c7a2caa6c5f3be38b32fdefa0bf4a548992c6c02129639ef7c0b9d90f7d8b0e",
+              "expected_sha256": "f8abb66ffee5b7bae6cde1e120b68ab968419f9671284c9f4967f1cd9b2ba227",
+              "actual_sha256": "f8abb66ffee5b7bae6cde1e120b68ab968419f9671284c9f4967f1cd9b2ba227",
               "exists": true,
               "hash_verified": true
             },
             {
               "artifact": "Work_Station_Ubuntu.deb",
               "path": "/home/md-wasim/Projects/AI_Workspace/apps/desktop/src-tauri/target/release/bundle/deb/WORK STATION_0.1.0_amd64.deb",
-              "expected_sha256": "f0ecf052d56693e689386f207bdfbc7294f39985571078bef9515fec49df8453",
-              "actual_sha256": "f0ecf052d56693e689386f207bdfbc7294f39985571078bef9515fec49df8453",
+              "expected_sha256": "92e4ca24f4e418be60a9b1c2c1efc9938905f996858ff3d85003f097464f9ddb",
+              "actual_sha256": "92e4ca24f4e418be60a9b1c2c1efc9938905f996858ff3d85003f097464f9ddb",
               "exists": true,
               "hash_verified": true
             },
@@ -202,8 +202,8 @@
   "voice": "BLOCKED_EXTERNAL: ASTER-028 installed voice-model/acoustic variability is preserved with exact-WAV evidence.",
   "performance_mean": 8.062,
   "performance_p95": 16.5064,
-  "git_status": "CLEAN_SYNCED",
-  "current_commit": "4a6e68e012246e0de09de82e14d0fcf3599d320e",
+  "git_status": "DIRTY",
+  "current_commit": "1a02fe0010867233f8189a2851ea33da3bc21b5d",
   "application_source_commit": "70335a71c9a1ef410a5976d6ba687712b983610b",
   "last_successful_commit": "70335a71c9a1ef410a5976d6ba687712b983610b",
   "codex_cli": {
@@ -239,8 +239,8 @@
       }
     ]
   },
-  "report_tip_commit": "4a6e68e012246e0de09de82e14d0fcf3599d320e",
-  "last_artifact_verification": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260911-release-7b0340a/artifact-attestation-current.json",
+  "report_tip_commit": "1a02fe0010867233f8189a2851ea33da3bc21b5d",
+  "last_artifact_verification": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260911-final-gap-release-1a02fe0/artifact-attestation-current.json",
   "last_failure": {
     "timestamp": "2026-09-10T16:18:07.000203+00:00",
     "classification": "BLOCKED_EXTERNAL",
