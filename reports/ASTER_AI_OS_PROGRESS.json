@@ -178,7 +178,7 @@
   "issues_fixed": 24,
   "issues_blocked_externally": 7,
   "current_issue": null,
-  "current_action": "Run final comprehensive validation and release gate.",
+  "current_action": "Obtain or admit a different generic coding-capable model/runtime, then run both unchanged coder cases through explicit, generic coding, and code-generation paths before any production route change.",
   "last_verification": "FAIL",
   "backend_tests": {
     "passed": 3152,
@@ -249,6 +249,6 @@
     "stderr_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/iteration-0004/attempt-0026/codex.stderr.log",
     "error_excerpt": ""
   },
-  "next_action": "Run final comprehensive validation and release gate.",
+  "next_action": "Obtain or admit a different generic coding-capable model/runtime, then run both unchanged coder cases through explicit, generic coding, and code-generation paths before any production route change.",
   "readiness_reason": "CANONICAL_NONPASS_REMAINS"
 }

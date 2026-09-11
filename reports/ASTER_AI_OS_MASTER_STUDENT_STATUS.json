@@ -3160,7 +3160,7 @@
     "iteration": 4,
     "iterations_completed": 4,
     "readiness_reason": "CANONICAL_NONPASS_REMAINS",
-    "current_action": "Run final comprehensive validation and release gate.",
+    "current_action": "Obtain or admit a different generic coding-capable model/runtime, then run both unchanged coder cases through explicit, generic coding, and code-generation paths before any production route change.",
     "last_successful_commit": "70335a71c9a1ef410a5976d6ba687712b983610b",
     "last_codex_cli": {
       "path": "/home/md-wasim/.nvm/versions/node/v24.19.0/lib/node_modules/@openai/codex/bin/codex.js",

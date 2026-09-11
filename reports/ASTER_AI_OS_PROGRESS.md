@@ -20,5 +20,5 @@ MOBILE         : 64 PASS
 PERFORMANCE    : mean 8.062s / P95 16.5064s
 GIT            : CLEAN_SYNCED
 COMMIT         : b2c44e8c96785d9de13b8166580a8262b0a01758
-NEXT ACTION    : Run final comprehensive validation and release gate.
+NEXT ACTION    : Obtain or admit a different generic coding-capable model/runtime, then rerun both unchanged coder cases before any route change.
 ========================================================

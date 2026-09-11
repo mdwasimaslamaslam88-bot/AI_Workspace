@@ -8,7 +8,7 @@ Current source commit: `b2c44e8c96785d9de13b8166580a8262b0a01758`. Evidence root
 
 - Canonical benchmark: **97.84/100**, 457 PASS, 1 PARTIAL, 1 FAIL; mean 8.062s, P95 16.5064s.
 - Issues: 0 locally unresolved, 24 fixed/verified, 7 externally blocked.
-- Current issue/action: `NONE` — Run final comprehensive validation and release gate.
+- Current issue/action: `NONE` — Obtain or admit a different generic coding-capable model/runtime, then rerun both unchanged coder cases before any route change.
 - Runtime identity: **PASS**; evidence `/home/md-wasim/AI_Workspace_Data/aster-evidence/runtime-identity-20260911-70335a7.json`.
 - Git: **CLEAN_SYNCED** at `b2c44e8c96785d9de13b8166580a8262b0a01758`.
 
