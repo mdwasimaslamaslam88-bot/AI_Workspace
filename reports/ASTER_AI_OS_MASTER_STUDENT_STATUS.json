@@ -3579,12 +3579,13 @@
   "application_source_commit": "70335a71c9a1ef410a5976d6ba687712b983610b",
   "coding_capability_gap": {
     "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260912-coding-capability-gap/model-inventory-no-new-local-candidate.json",
-    "evidence_sha256": "af21d67cd16c3467d49c57e51d135fe873f9e12fb51b5614d6af5de78c7947ab",
+    "evidence_sha256": "72c0d38d7f35f6408ac7b3e61a89e62a91ee60b94c1e506fd8ad85e8f735bd4c",
     "candidate": null,
     "candidate_admitted": false,
     "focused_verification": "NOT_RUN_NO_NEW_CANDIDATE",
     "new_download_blocker": "codegemma:7b download externally blocked at approximately 0.7 MB/s for a 5.0 GB blob; incomplete partial blob is not runnable",
     "local_inventory_result": "No complete untested local model or unreferenced runnable blob exists; all installed runnable text candidates have prior discovery/candidate evidence.",
-    "next_action": "When a reliable bounded download window is available, admit a different generic coding-capable model through the existing catalog, hardware admission, routing, and Ollama runtime, then run both unchanged coder cases before any route change."
+    "next_remote_candidate": "qwen2.5-coder:3b",
+    "next_action": "When a reliable bounded download window is available, admit qwen2.5-coder:3b or another finite-size generic coding candidate through the existing catalog, hardware admission, routing, and Ollama runtime, then run both unchanged coder cases before any route change."
   }
 }
