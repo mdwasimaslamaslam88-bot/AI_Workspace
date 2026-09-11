@@ -46,6 +46,12 @@ PROGRESS_MD = REPOSITORY_ROOT / "reports/ASTER_AI_OS_PROGRESS.md"
 MAX_HISTORY = 100
 MAX_ITERATIONS_PER_INVOCATION = 8
 DEFAULT_CHILD_TIMEOUT = 1800
+DEFAULT_WATCH_INTERVAL_SECONDS = 300
+DEFAULT_MAX_WATCH_CYCLES = 12
+DEFAULT_MAX_DOWNLOAD_SECONDS = 900
+DEFAULT_MAX_ESTIMATED_DOWNLOAD_HOURS = 0.5
+DEFAULT_EXTERNAL_CODING_CANDIDATE = "qwen2.5-coder:3b"
+WATCH_RANGE_BYTES = 1024 * 1024
 
 UNRESOLVED_STATUSES = {
     "OPEN",
@@ -687,6 +693,8 @@ def load_or_create_state(evidence_root: Path) -> dict[str, Any]:
     value.setdefault("last_failure", None)
     value.setdefault("last_successful_commit", None)
     value.setdefault("last_codex_cli", None)
+    value.setdefault("controller_phase", "RUNNING")
+    value.setdefault("external_watch", {})
     return value
 
 
@@ -1193,6 +1201,289 @@ def readiness(queue: dict[str, Any], observations: dict[str, Any]) -> tuple[bool
     return True, "ALL_REQUIRED_LOCAL_GATES_PROVEN"
 
 
+def canonical_nonpass_remains(observations: dict[str, Any]) -> bool:
+    benchmark = observations.get("benchmark", {})
+    try:
+        return int(benchmark.get("fail", 0) or 0) > 0 or int(benchmark.get("partial", 0) or 0) > 0
+    except (TypeError, ValueError):
+        return True
+
+
+def terminal_queue_requires_external_watch(
+    state: dict[str, Any], queue: dict[str, Any], observations: dict[str, Any]
+) -> bool:
+    """Keep a concrete, unresolved acceptance opportunity alive after queue drain."""
+    ready, _ = readiness(queue, observations)
+    return (
+        choose_issue(queue) is None
+        and not ready
+        and canonical_nonpass_remains(observations)
+        and bool(str(state.get("next_prompt", "") or "").strip())
+    )
+
+
+def _safe_model_reference(reference: str) -> bool:
+    return bool(re.fullmatch(r"[a-z0-9][a-z0-9._-]*:[a-z0-9][a-z0-9._-]*", reference))
+
+
+def _model_registry_parts(reference: str) -> tuple[str, str] | None:
+    if not _safe_model_reference(reference):
+        return None
+    repository, tag = reference.split(":", 1)
+    return repository, tag
+
+
+def parse_ollama_model_names(stdout: str) -> list[str]:
+    names: list[str] = []
+    for line in stdout.splitlines():
+        value = line.strip()
+        if not value or value.upper().startswith("NAME"):
+            continue
+        name = value.split()[0]
+        if _safe_model_reference(name):
+            names.append(name)
+    return names
+
+
+def ollama_models_root() -> Path:
+    configured = os.environ.get("OLLAMA_MODELS", "").strip()
+    if configured:
+        return Path(configured).expanduser().resolve()
+    return Path("/usr/share/ollama/.ollama/models")
+
+
+def local_ollama_candidate(reference: str) -> dict[str, Any]:
+    """Verify a local Ollama candidate without trusting list output alone."""
+    listed = command_record(["ollama", "list"], REPOSITORY_ROOT, timeout=10)
+    names = parse_ollama_model_names(str(listed.get("stdout", "")))
+    listed_exact = reference in names
+    show = command_record(["ollama", "show", reference], REPOSITORY_ROOT, timeout=10) if listed_exact else {}
+    parts = _model_registry_parts(reference)
+    manifest_path = None
+    manifest: dict[str, Any] = {}
+    if parts:
+        manifest_path = ollama_models_root() / "manifests" / "registry.ollama.ai" / "library" / parts[0] / parts[1]
+        value = read_json(manifest_path, {})
+        manifest = value if isinstance(value, dict) else {}
+    model_layer = next(
+        (
+            layer
+            for layer in manifest.get("layers", [])
+            if isinstance(layer, dict) and layer.get("mediaType") == "application/vnd.ollama.image.model"
+        ),
+        None,
+    )
+    blob_path = None
+    blob_hash = None
+    expected_hash = None
+    if isinstance(model_layer, dict) and isinstance(model_layer.get("digest"), str):
+        expected_hash = model_layer["digest"].replace(":", "-")
+        blob_path = ollama_models_root() / "blobs" / expected_hash
+        if blob_path.is_file():
+            blob_hash = sha256_file(blob_path)
+    metadata_ok = listed_exact and show.get("exit_code") == 0 and bool(manifest) and isinstance(model_layer, dict)
+    integrity_ok = bool(blob_path and blob_path.is_file() and blob_hash == str(model_layer.get("digest", "")).split(":", 1)[-1])
+    return {
+        "reference": reference,
+        "list": listed,
+        "listed_exact": listed_exact,
+        "show": show,
+        "manifest_path": str(manifest_path) if manifest_path else None,
+        "manifest_sha256": sha256_file(manifest_path) if manifest_path and manifest_path.is_file() else None,
+        "model_layer_bytes": model_layer.get("size") if isinstance(model_layer, dict) else None,
+        "model_layer_digest": model_layer.get("digest") if isinstance(model_layer, dict) else None,
+        "blob_path": str(blob_path) if blob_path else None,
+        "blob_sha256": blob_hash,
+        "metadata_verified": metadata_ok,
+        "blob_integrity_verified": integrity_ok,
+        "available": metadata_ok and integrity_ok,
+    }
+
+
+def remote_model_manifest(reference: str) -> dict[str, Any]:
+    parts = _model_registry_parts(reference)
+    if not parts:
+        return {"reference": reference, "status": "INVALID_REFERENCE"}
+    repository, tag = parts
+    url = f"https://registry.ollama.ai/v2/library/{repository}/manifests/{tag}"
+    result = command_record(
+        ["curl", "--fail", "--silent", "--show-error", "--location", "--max-time", "10", url],
+        REPOSITORY_ROOT,
+        timeout=15,
+    )
+    payload = read_json_from_text(str(result.get("stdout", "")), {})
+    model_layer = next(
+        (
+            layer
+            for layer in payload.get("layers", [])
+            if isinstance(layer, dict) and layer.get("mediaType") == "application/vnd.ollama.image.model"
+        ),
+        None,
+    ) if isinstance(payload, dict) else None
+    return {
+        "reference": reference,
+        "url": url,
+        "command": result,
+        "manifest": payload if isinstance(payload, dict) else {},
+        "model_layer_bytes": model_layer.get("size") if isinstance(model_layer, dict) else None,
+        "model_layer_digest": model_layer.get("digest") if isinstance(model_layer, dict) else None,
+        "status": "AVAILABLE" if result.get("exit_code") == 0 and isinstance(model_layer, dict) else "UNAVAILABLE",
+    }
+
+
+def read_json_from_text(value: str, fallback: Any = None) -> Any:
+    try:
+        return json.loads(value)
+    except (TypeError, json.JSONDecodeError):
+        return fallback
+
+
+def remote_range_probe(manifest: dict[str, Any]) -> dict[str, Any]:
+    digest = manifest.get("model_layer_digest")
+    if not isinstance(digest, str) or not digest.startswith("sha256:"):
+        return {"status": "UNAVAILABLE", "reason": "manifest has no model layer digest"}
+    repository, tag = _model_registry_parts(str(manifest.get("reference", ""))) or ("", "")
+    if not repository or not tag:
+        return {"status": "UNAVAILABLE", "reason": "invalid model reference"}
+    url = f"https://registry.ollama.ai/v2/library/{repository}/blobs/{digest}"
+    result = command_record(
+        [
+            "curl", "--fail", "--silent", "--show-error", "--location", "--max-time", "15",
+            "--range", f"0-{WATCH_RANGE_BYTES - 1}", "-o", "/dev/null",
+            "-w", "%{http_code}\\t%{size_download}\\t%{time_total}\\t%{speed_download}\\n", url,
+        ],
+        REPOSITORY_ROOT,
+        timeout=20,
+    )
+    raw = str(result.get("stdout", "")).strip().split("\t")
+    try:
+        http_code = int(raw[0])
+        bytes_downloaded = int(float(raw[1]))
+        duration = float(raw[2])
+        throughput = float(raw[3])
+    except (IndexError, TypeError, ValueError):
+        return {"status": "UNAVAILABLE", "command": result, "reason": "range probe output invalid"}
+    size = manifest.get("model_layer_bytes")
+    estimated_hours = float(size) / throughput / 3600 if isinstance(size, (int, float)) and throughput > 0 else None
+    return {
+        "status": "AVAILABLE" if result.get("exit_code") == 0 and http_code in {200, 206} else "UNAVAILABLE",
+        "command": result,
+        "http_code": http_code,
+        "bytes_downloaded": bytes_downloaded,
+        "duration_seconds": duration,
+        "throughput_bytes_per_second": throughput,
+        "estimated_download_hours": estimated_hours,
+        "url": url,
+    }
+
+
+def watch_candidate_references(state: dict[str, Any]) -> list[str]:
+    configured = state.get("external_watch", {}).get("candidate_priority") if isinstance(state.get("external_watch"), dict) else None
+    values = configured if isinstance(configured, list) else []
+    values = [str(value) for value in values if _safe_model_reference(str(value))]
+    defaults = [
+        DEFAULT_EXTERNAL_CODING_CANDIDATE,
+        "qwen2.5-coder:1.5b",
+        "deepseek-coder:1.3b",
+        "starcoder2:3b",
+        "codegemma:2b",
+    ]
+    return list(dict.fromkeys(values + defaults))
+
+
+def discover_watch_candidates(
+    state: dict[str, Any], *, max_estimated_hours: float
+) -> dict[str, Any]:
+    references = watch_candidate_references(state)
+    local: list[dict[str, Any]] = []
+    remote: list[dict[str, Any]] = []
+    for reference in references:
+        local_result = local_ollama_candidate(reference)
+        local.append(local_result)
+        if local_result.get("available"):
+            return {
+                "status": "CANDIDATE_AVAILABLE",
+                "candidate": reference,
+                "candidate_state": "AVAILABLE_LOCAL",
+                "local": local,
+                "remote": remote,
+                "download_policy": {"max_estimated_hours": max_estimated_hours},
+            }
+        manifest = remote_model_manifest(reference)
+        probe = remote_range_probe(manifest) if manifest.get("status") == "AVAILABLE" else {}
+        record = {"manifest": manifest, "probe": probe}
+        remote.append(record)
+        if (
+            manifest.get("status") == "AVAILABLE"
+            and probe.get("status") == "AVAILABLE"
+            and isinstance(probe.get("estimated_download_hours"), (int, float))
+            and probe["estimated_download_hours"] <= max_estimated_hours
+        ):
+            return {
+                "status": "DOWNLOAD_ELIGIBLE",
+                "candidate": reference,
+                "candidate_state": "NOT_CACHED_DOWNLOAD_ELIGIBLE",
+                "local": local,
+                "remote": remote,
+                "download_policy": {"max_estimated_hours": max_estimated_hours},
+            }
+    return {
+        "status": "WAITING_EXTERNAL",
+        "candidate": references[0] if references else None,
+        "candidate_state": "NOT_CACHED_DOWNLOAD_TOO_SLOW_OR_UNAVAILABLE",
+        "local": local,
+        "remote": remote,
+        "download_policy": {"max_estimated_hours": max_estimated_hours},
+    }
+
+
+def build_external_watch_prompt(candidate: str, observations: dict[str, Any], evidence: str) -> str:
+    return f"""ASTER EXTERNAL GAP WATCH — bounded model acquisition
+
+Candidate priority: {candidate}
+Repository: {REPOSITORY_ROOT}
+Current source commit: {observations.get('git', {}).get('application_source_commit') or observations.get('git', {}).get('commit', 'unknown')}
+Evidence: {evidence}
+
+The local issue queue is terminal, but readiness is false because the unchanged canonical benchmark still has non-pass coder cases. Wait for a complete, integrity-verified candidate; do not claim readiness from queue emptiness.
+
+Required next action when a candidate is locally available:
+1. Verify its Ollama manifest, model blob SHA-256, metadata, hardware admission, and runtime stability.
+2. Run both unchanged coder cases through explicit candidate, generic coding, generic code-generation, and task-aware routes.
+3. Accept only objective PASS for both cases, then run genericity, unchanged 459-case benchmark, security, provenance, release, artifact, and Git gates.
+
+Download policy: bounded only; never start a pull when the measured estimate exceeds the configured limit. Preserve production routing and fail closed on incomplete or ambiguous evidence.
+"""
+
+
+def build_candidate_focus_prompt(candidate: str, observations: dict[str, Any], evidence: str) -> str:
+    return f"""ASTER CANDIDATE ADMISSION — {candidate}
+
+This is one bounded child task in the existing ASTER controller.
+Repository: {REPOSITORY_ROOT}
+Current source commit: {observations.get('git', {}).get('application_source_commit') or observations.get('git', {}).get('commit', 'unknown')}
+Candidate evidence: {evidence}
+
+Use the existing model catalog, hardware admission, routing, Ollama runtime, Agent OS, and benchmark harness. Do not create another routing layer.
+
+Run BOTH unchanged canonical coder cases through the explicit candidate, generic coding route, generic code-generation route, and automatic task-aware route:
+- medium-coding-04: Write a Python list comprehension producing squares of 0 through 4. Expression only. Objective requirements: x * x and range(5).
+- model-comparison-coder-06: A recursive function has no terminating condition. What is the standard recursion term for the missing condition? Name it only. Objective answer: base case.
+
+Capture selected model, raw output, SHA-256, latency, configuration, hardware telemetry, source commit, and objective checks. Do not edit prompts, expectations, checkers, semantic verification, or normalize output. Do not admit this candidate or claim readiness from prose alone.
+
+Only if both objective cases PASS may the parent proceed to genericity and full canonical validation. End with the standard ASTER_LOOP_RESULT block and an exact next prompt.
+"""
+
+
+def apply_child_handoff(state: dict[str, Any], parsed: dict[str, Any], fallback_prompt: str) -> None:
+    next_prompt = parsed.get("next_prompt", "") if parsed.get("parsed") else ""
+    state["child_suggested_next_prompt"] = next_prompt
+    state["next_prompt"] = next_prompt or fallback_prompt
+    state["next_prompt_source"] = "child_structured_result" if next_prompt else "controller_derived"
+    state["controller_phase"] = "CANDIDATE_FOCUSED_GATE" if next_prompt else "WATCH_EXTERNAL_GAP"
+
+
 def update_queue_observation(
     queue: dict[str, Any], issue_id: str | None, iteration: int, result: dict[str, Any], evidence_dir: Path
 ) -> None:
@@ -1286,6 +1577,9 @@ def render_reports(
     # history; this prevents self-referential commit claims.
     state["report_tip_commit"] = git.get("commit")
     current_issue = selected.get("id") if selected else None
+    watch = state.get("external_watch") if isinstance(state.get("external_watch"), dict) else {}
+    watch_action = watch.get("current_action") if isinstance(watch.get("current_action"), str) else None
+    current_action = required_action(selected) if selected else (watch_action or "Run final comprehensive validation and release gate.")
     remaining_internal_ids = [
         str(issue.get("id"))
         for issue in queue.get("issues", [])
@@ -1299,9 +1593,8 @@ def render_reports(
             "status": "READY" if ready else "NOT_READY",
             "readiness_reason": readiness_reason,
             "current_issue": current_issue,
-            "current_action": (
-                required_action(selected) if selected else "Run final comprehensive validation and release gate."
-            ),
+            "current_action": current_action,
+            "controller_phase": state.get("controller_phase", "RUNNING"),
             "observations": observations,
             "issue_workflow": classify_queue(queue),
             "issues_remaining": len(local_unresolved),
@@ -1337,11 +1630,13 @@ def render_reports(
             "controller": {
                 "iteration": state.get("iteration", 0),
                 "iterations_completed": state.get("iterations_completed", 0),
+                "phase": state.get("controller_phase", "RUNNING"),
                 "readiness_reason": readiness_reason,
                 "current_action": state.get("current_action"),
                 "last_successful_commit": state.get("last_successful_commit"),
                 "last_codex_cli": state.get("last_codex_cli"),
                 "last_result": last_result,
+                "external_watch": state.get("external_watch", {}),
             },
             "issues": queue.get("issues", []),
             "issue_counts": {
@@ -1366,6 +1661,7 @@ def render_reports(
         f"- Canonical benchmark: **{benchmark.get('score', 'unknown')}/100**, {benchmark.get('pass', '?')} PASS, {benchmark.get('partial', '?')} PARTIAL, {benchmark.get('fail', '?')} FAIL; mean {benchmark.get('mean', '?')}s, P95 {benchmark.get('p95', '?')}s.",
         f"- Issues: {len(local_unresolved)} locally unresolved, {len(fixed)} fixed/verified, {len(external_blocked)} externally blocked.",
         f"- Current issue/action: `{current_issue or 'NONE'}` — {state.get('current_action')}",
+        f"- Controller phase: **{state.get('controller_phase', 'RUNNING')}**.",
         f"- Runtime identity: **{runtime.get('status', 'UNKNOWN')}**; evidence `{runtime.get('evidence', 'none')}`.",
         f"- Git: **{git.get('status', 'UNKNOWN')}** at `{git.get('commit', 'unknown')}`.",
         "",
@@ -1424,6 +1720,8 @@ def render_reports(
         "issues_blocked_externally": len(external_blocked),
         "current_issue": current_issue,
         "current_action": state.get("current_action"),
+        "controller_phase": state.get("controller_phase", "RUNNING"),
+        "external_watch": state.get("external_watch", {}),
         "last_verification": last_result.get("verification") or "NONE",
         "backend_tests": tests.get("backend", {}),
         "web_tests": tests.get("web", {}),
@@ -1465,6 +1763,8 @@ def render_reports(
             f"FAIL           : {benchmark.get('fail', '?')}",
             f"ISSUES         : {len(local_unresolved)}",
             f"CURRENT        : {current_issue or 'NONE'}",
+            f"PHASE          : {state.get('controller_phase', 'RUNNING')}",
+            f"CANDIDATE      : {watch.get('candidate', 'NONE')}",
             f"ASTER→AI OS    : {progress['aster_to_ai_os'][:90]}",
             f"AI OS→ASTER    : {progress['ai_os_to_aster'][:90]}",
             f"DEX            : {progress['dex'][:90]}",
@@ -1507,7 +1807,7 @@ def parse_result_text(text: str) -> dict[str, Any]:
     prompt_match = re.search(r"\nNEXT_PROMPT_BEGIN\n(?P<prompt>.*?)\nNEXT_PROMPT_END", text, re.DOTALL)
     status = fields.get("STATUS", "FAILED").upper()
     verification = fields.get("VERIFICATION", "FAIL").upper()
-    if status not in {"READY", "NOT_READY", "BLOCKED", "FAILED"}:
+    if status not in {"READY", "NOT_READY", "BLOCKED", "WAITING", "FAILED"}:
         status = "FAILED"
     if verification not in {"PASS", "FAIL", "PARTIAL", "BLOCKED"}:
         verification = "FAIL"
@@ -1518,7 +1818,7 @@ def parse_result_text(text: str) -> dict[str, Any]:
         "current_issue": fields.get("CURRENT_ISSUE"),
         "action": fields.get("ACTION", ""),
         "verification": verification,
-        "classification": "BLOCKED_EXTERNAL" if status == "BLOCKED" else status,
+        "classification": "BLOCKED_EXTERNAL" if status in {"BLOCKED", "WAITING"} else status,
         "next_prompt": prompt_match.group("prompt").strip() if prompt_match else "",
     }
 
@@ -1717,11 +2017,280 @@ def safe_commit_if_validated(result: dict[str, Any], iteration: int) -> dict[str
 
 
 def mark_terminal_queue_state(state: dict[str, Any]) -> None:
-    """Clear retry state when observation proves there is no issue to run."""
+    """Record a genuine controller terminal observation with no watch gap."""
     state["in_progress"] = False
     state["resume_required"] = False
     state["child_suggested_next_prompt"] = ""
+    state["controller_phase"] = "FINAL_VALIDATION"
     state["next_prompt"] = "Run final comprehensive validation and release gate; stop only after all evidence passes."
+
+
+def _bounded_sleep(seconds: float) -> None:
+    remaining = max(0.0, float(seconds))
+    while remaining > 0:
+        interval = min(remaining, 60.0)
+        time.sleep(interval)
+        remaining -= interval
+
+
+def _watch_action(candidate: str, candidate_state: str) -> str:
+    if candidate_state == "AVAILABLE_LOCAL":
+        return f"Run the focused objective gate for locally available candidate {candidate}."
+    if candidate_state == "NOT_CACHED_DOWNLOAD_ELIGIBLE":
+        return f"Start the bounded download for admissible candidate {candidate}, then verify its manifest and blob hash."
+    return f"Wait for a reliable bounded download window for candidate {candidate}; no production route change is permitted."
+
+
+def _watch_result_block(result: dict[str, Any], state: dict[str, Any]) -> str:
+    return "\n".join(
+        [
+            "ASTER_LOOP_RESULT",
+            f"STATUS={result.get('status', 'FAILED')}",
+            f"ISSUES_REMAINING={state.get('issues_remaining', '?')}",
+            f"CURRENT_ISSUE={result.get('issue') or state.get('current_issue') or 'NONE'}",
+            f"ACTION={result.get('action') or state.get('current_action') or 'none'}",
+            f"VERIFICATION={result.get('verification', 'FAIL')}",
+            "NEXT_PROMPT_BEGIN",
+            state.get("next_prompt") or "Controller will derive the next prompt from persisted state.",
+            "NEXT_PROMPT_END",
+        ]
+    )
+
+
+def watch_external_iteration(
+    state: dict[str, Any],
+    *,
+    evidence_root: Path,
+    cycle: int,
+    execute_codex: bool,
+    timeout_seconds: int,
+    max_download_seconds: int,
+    max_estimated_hours: float,
+) -> dict[str, Any]:
+    """Run one bounded external-gap observation or candidate handoff."""
+    queue = current_queue()
+    observations_before = observe(evidence_root)
+    watch_root = evidence_root / "autonomous-loop" / "watch-external" / f"cycle-{cycle:04d}"
+    watch_root.mkdir(parents=True, exist_ok=True)
+    candidate_hint = watch_candidate_references(state)[0]
+    before = {
+        "timestamp": utc_now(),
+        "cycle": cycle,
+        "phase": "WATCH_EXTERNAL_GAP",
+        "candidate_hint": candidate_hint,
+        "observations": observations_before,
+        "git": git_snapshot(),
+    }
+    write_json(watch_root / "before.json", before)
+    discovery = discover_watch_candidates(state, max_estimated_hours=max_estimated_hours)
+    write_json(watch_root / "candidate-discovery.json", discovery)
+    candidate = str(discovery.get("candidate") or candidate_hint)
+    candidate_state = str(discovery.get("candidate_state") or "UNKNOWN")
+    state["external_watch"] = {
+        "status": discovery.get("status"),
+        "cycle": cycle,
+        "candidate": candidate,
+        "candidate_state": candidate_state,
+        "candidate_priority": watch_candidate_references(state),
+        "max_download_seconds": max_download_seconds,
+        "max_estimated_download_hours": max_estimated_hours,
+        "evidence": str(watch_root),
+    }
+
+    if discovery.get("status") == "DOWNLOAD_ELIGIBLE":
+        state["controller_phase"] = "CANDIDATE_DOWNLOADING"
+        state["external_watch"]["download_policy"] = "bounded"
+        persist_state(state, evidence_root)
+        download = command_record(
+            ["ollama", "pull", candidate],
+            REPOSITORY_ROOT,
+            timeout=max_download_seconds,
+        )
+        discovery["download"] = download
+        verified = local_ollama_candidate(candidate)
+        discovery["post_download_verification"] = verified
+        write_json(watch_root / "candidate-discovery.json", discovery)
+        if download.get("exit_code") != 0 or not verified.get("available"):
+            state["controller_phase"] = "WATCH_EXTERNAL_GAP"
+            state["external_watch"].update(
+                {
+                    "status": "CANDIDATE_REJECTED",
+                    "candidate_state": "DOWNLOAD_FAILED_OR_INTEGRITY_FAILED",
+                    "download": download,
+                    "post_download_verification": verified,
+                }
+            )
+            candidate_state = "DOWNLOAD_FAILED_OR_INTEGRITY_FAILED"
+        else:
+            discovery["status"] = "CANDIDATE_AVAILABLE"
+            candidate_state = "AVAILABLE_LOCAL"
+            state["external_watch"].update({"status": discovery["status"], "candidate_state": candidate_state})
+
+    if discovery.get("status") == "CANDIDATE_AVAILABLE" and candidate_state == "AVAILABLE_LOCAL":
+        state["controller_phase"] = "CANDIDATE_FOCUSED_GATE"
+        state["current_issue"] = None
+        state["current_action"] = _watch_action(candidate, candidate_state)
+        prompt = build_candidate_focus_prompt(candidate, observations_before, str(watch_root))
+        state["next_prompt"] = prompt
+        state["last_prompt"] = prompt
+        state["in_progress"] = True
+        state["resume_required"] = True
+        persist_state(state, evidence_root)
+        if execute_codex:
+            child = run_codex_child(prompt, watch_root, timeout_seconds=timeout_seconds, evidence_root=evidence_root)
+        else:
+            child = {
+                "command": [],
+                "cwd": str(REPOSITORY_ROOT),
+                "exit_code": 0,
+                "duration_seconds": 0,
+                "timed_out": False,
+                "parsed": {
+                    "parsed": True,
+                    "status": "WAITING",
+                    "verification": "WAITING",
+                    "classification": "OBSERVE_ONLY",
+                    "action": "Watch dry-run; no Codex child executed.",
+                    "next_prompt": prompt,
+                },
+            }
+        parsed = child.get("parsed", {})
+        temporary_failure = child.get("exit_code") != 0 and bool(child.get("timed_out") or child.get("exit_code") == 127)
+        if child.get("exit_code") != 0:
+            state["last_failure"] = {
+                "timestamp": utc_now(),
+                "classification": "BLOCKED_EXTERNAL" if temporary_failure else "FAILED",
+                "exit_code": child.get("exit_code"),
+                "timed_out": child.get("timed_out"),
+                "stderr_path": child.get("stderr_path"),
+                "error_excerpt": child.get("stderr_tail"),
+            }
+        result = {
+            "timestamp": utc_now(),
+            "iteration": int(state.get("iteration", 0)),
+            "attempt": int(state.get("attempt", 0)),
+            "cycle": cycle,
+            "issue": None,
+            "status": parsed.get("status", "FAILED"),
+            "action": parsed.get("action", _watch_action(candidate, candidate_state)),
+            "verification": parsed.get("verification", "FAIL"),
+            "classification": parsed.get("classification", "FAILED"),
+            "child": child,
+            "candidate": candidate,
+            "evidence_dir": str(watch_root),
+            "before": before,
+            "after": {"observations": observe(evidence_root), "git": git_snapshot()},
+        }
+        write_json(watch_root / "result.json", result)
+        state["last_result"] = result
+        state["in_progress"] = temporary_failure
+        state["resume_required"] = temporary_failure
+        apply_child_handoff(state, parsed, prompt)
+        state["external_watch"].update(
+            {
+                "status": "CANDIDATE_FOCUSED_GATE",
+                "candidate_state": "FOCUSED_GATE_RESULT_CAPTURED",
+                "current_action": state.get("current_action"),
+                "child_result": str(watch_root / "result.json"),
+            }
+        )
+        state["history"].append(
+            {
+                "timestamp": result["timestamp"],
+                "iteration": int(state.get("iteration", 0)),
+                "attempt": int(state.get("attempt", 0)),
+                "issue": None,
+                "status": result["status"],
+                "verification": result["verification"],
+                "classification": result["classification"],
+                "evidence": str(watch_root),
+                "resumable": temporary_failure,
+            }
+        )
+        persist_state(state, evidence_root)
+        render_reports(state, queue, result["after"]["observations"], evidence_root=evidence_root)
+        return result
+
+    state["controller_phase"] = "WATCH_EXTERNAL_GAP"
+    state["current_action"] = _watch_action(candidate, candidate_state)
+    state["in_progress"] = False
+    state["resume_required"] = False
+    state["next_prompt"] = state.get("next_prompt") or build_external_watch_prompt(candidate, observations_before, str(watch_root))
+    retry_seconds = float(state.get("external_watch", {}).get("watch_interval_seconds", DEFAULT_WATCH_INTERVAL_SECONDS))
+    next_retry = datetime.fromtimestamp(time.time() + max(0.0, retry_seconds), timezone.utc).isoformat()
+    state["external_watch"]["next_retry_at"] = next_retry
+    state["external_watch"]["current_action"] = state["current_action"]
+    result = {
+        "timestamp": utc_now(),
+        "iteration": int(state.get("iteration", 0)),
+        "attempt": int(state.get("attempt", 0)),
+        "cycle": cycle,
+        "issue": None,
+        "status": "WAITING",
+        "action": state["current_action"],
+        "verification": "WAITING",
+        "classification": "BLOCKED_EXTERNAL",
+        "candidate": candidate,
+        "candidate_state": candidate_state,
+        "discovery": discovery,
+        "evidence_dir": str(watch_root),
+        "before": before,
+        "after": {"observations": observe(evidence_root), "git": git_snapshot()},
+        "next_retry_at": next_retry,
+    }
+    write_json(watch_root / "result.json", result)
+    state["last_result"] = result
+    state["history"].append(
+        {
+            "timestamp": result["timestamp"],
+            "iteration": int(state.get("iteration", 0)),
+            "attempt": int(state.get("attempt", 0)),
+            "issue": None,
+            "status": result["status"],
+            "verification": result["verification"],
+            "classification": result["classification"],
+            "evidence": str(watch_root),
+            "resumable": False,
+        }
+    )
+    persist_state(state, evidence_root)
+    render_reports(state, queue, result["after"]["observations"], evidence_root=evidence_root)
+    return result
+
+
+def run_external_watch(args: argparse.Namespace, state: dict[str, Any], evidence_root: Path) -> int:
+    state["controller_phase"] = "WATCH_EXTERNAL_GAP"
+    state.setdefault("external_watch", {})["watch_interval_seconds"] = args.watch_interval_seconds
+    state["external_watch"]["max_watch_cycles"] = args.max_watch_cycles
+    state["external_watch"]["max_download_seconds"] = args.max_download_seconds
+    state["external_watch"]["max_estimated_download_hours"] = args.max_estimated_download_hours
+    persist_state(state, evidence_root)
+    start_cycle = int(state.get("external_watch", {}).get("cycle", 0) or 0)
+    for offset in range(args.max_watch_cycles):
+        queue = current_queue()
+        observations = observe(evidence_root)
+        if readiness(queue, observations)[0]:
+            state["controller_phase"] = "READY"
+            persist_state(state, evidence_root)
+            render_reports(state, queue, observations, evidence_root=evidence_root)
+            return 0
+        cycle = start_cycle + offset + 1
+        result = watch_external_iteration(
+            state,
+            evidence_root=evidence_root,
+            cycle=cycle,
+            execute_codex=not args.no_codex,
+            timeout_seconds=args.timeout_seconds,
+            max_download_seconds=args.max_download_seconds,
+            max_estimated_hours=args.max_estimated_download_hours,
+        )
+        print(_watch_result_block(result, state))
+        if state.get("overall_ready"):
+            return 0
+        if offset + 1 < args.max_watch_cycles:
+            _bounded_sleep(args.watch_interval_seconds)
+    print_terminal()
+    return 0
 
 
 def iteration_once(
@@ -1900,6 +2469,8 @@ def run_controller(args: argparse.Namespace) -> int:
             print_terminal()
             return 0
         if choose_issue(queue) is None:
+            if args.watch_external or terminal_queue_requires_external_watch(state, queue, observations):
+                return run_external_watch(args, state, evidence_root)
             mark_terminal_queue_state(state)
             render_reports(state, queue, observations, evidence_root=evidence_root)
             result = {
@@ -1974,6 +2545,37 @@ def self_test() -> int:
     assert terminal_state["in_progress"] is False
     assert terminal_state["resume_required"] is False
     assert terminal_state["child_suggested_next_prompt"] == ""
+    watch_fixture_state = {
+        "overall_ready": False,
+        "next_prompt": "wait for the next candidate",
+    }
+    watch_fixture_queue = {"issues": [{"id": "ASTER-006", "status": "BLOCKED_EXTERNAL"}]}
+    watch_fixture_observations = {
+        "benchmark": {"fail": 1, "partial": 1},
+        "provenance": {"status": "PASS"},
+        "runtime": {"status": "PASS"},
+        "git": {"status": "CLEAN_SYNCED"},
+    }
+    assert terminal_queue_requires_external_watch(
+        watch_fixture_state, watch_fixture_queue, watch_fixture_observations
+    )
+    watch_prompt = build_external_watch_prompt(
+        DEFAULT_EXTERNAL_CODING_CANDIDATE, watch_fixture_observations, "/evidence/watch"
+    )
+    assert DEFAULT_EXTERNAL_CODING_CANDIDATE in watch_prompt
+    assert "both unchanged coder cases" in watch_prompt
+    candidate_prompt = build_candidate_focus_prompt(
+        DEFAULT_EXTERNAL_CODING_CANDIDATE, watch_fixture_observations, "/evidence/candidate"
+    )
+    assert "medium-coding-04" in candidate_prompt and "base case" in candidate_prompt
+    child_result = parse_result_text(
+        "ASTER_LOOP_RESULT\nSTATUS=NOT_READY\nISSUES_REMAINING=0\nCURRENT_ISSUE=NONE\n"
+        "ACTION=run genericity\nVERIFICATION=PARTIAL\nNEXT_PROMPT_BEGIN\n"
+        "Run the generic coding subset with the admitted candidate.\nNEXT_PROMPT_END\n"
+    )
+    apply_child_handoff(watch_fixture_state, child_result, candidate_prompt)
+    assert watch_fixture_state["controller_phase"] == "CANDIDATE_FOCUSED_GATE"
+    assert watch_fixture_state["next_prompt"] == "Run the generic coding subset with the admitted candidate."
     codex_cli = resolve_codex_cli()
     verified = [
         candidate
@@ -2002,6 +2604,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--no-codex", action="store_true", help="observe and persist without starting a child")
     parser.add_argument("--dry-run", action="store_true", help="render current state without executing a child")
     parser.add_argument("--auto-commit", action="store_true", help="commit and push only a child result with objective PASS")
+    parser.add_argument("--watch-external", action="store_true", help="watch a terminal queue for a bounded external candidate opportunity")
+    parser.add_argument("--watch-interval-seconds", type=float, default=DEFAULT_WATCH_INTERVAL_SECONDS)
+    parser.add_argument("--max-watch-cycles", type=int, default=DEFAULT_MAX_WATCH_CYCLES)
+    parser.add_argument("--max-download-seconds", type=int, default=DEFAULT_MAX_DOWNLOAD_SECONDS)
+    parser.add_argument("--max-estimated-download-hours", type=float, default=DEFAULT_MAX_ESTIMATED_DOWNLOAD_HOURS)
     return parser
 
 
@@ -2013,6 +2620,14 @@ def main() -> int:
         raise SystemExit(f"--max-iterations must be between 1 and {MAX_ITERATIONS_PER_INVOCATION}")
     if args.timeout_seconds < 1 or args.timeout_seconds > 3600:
         raise SystemExit("--timeout-seconds must be between 1 and 3600")
+    if args.watch_interval_seconds < 0 or args.watch_interval_seconds > 86400:
+        raise SystemExit("--watch-interval-seconds must be between 0 and 86400")
+    if args.max_watch_cycles < 1 or args.max_watch_cycles > 1000:
+        raise SystemExit("--max-watch-cycles must be between 1 and 1000")
+    if args.max_download_seconds < 1 or args.max_download_seconds > 3600:
+        raise SystemExit("--max-download-seconds must be between 1 and 3600")
+    if args.max_estimated_download_hours <= 0 or args.max_estimated_download_hours > 24:
+        raise SystemExit("--max-estimated-download-hours must be greater than 0 and at most 24")
     if args.command == "status":
         print_terminal()
         return 0
