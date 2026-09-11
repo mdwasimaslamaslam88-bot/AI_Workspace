@@ -2,7 +2,7 @@
 
 Iteration 4. Overall readiness is **NOT READY**.
 
-Current source commit: `95c2a6bdec2e406332b65cd3a738e482c86584ac`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
+Current report commit: `1c9d32224f846f6a2ff9666dfd3743c2d29871f4`; application source commit: `70335a71c9a1ef410a5976d6ba687712b983610b`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
 
 ## Current measured state
 
@@ -10,8 +10,8 @@ Current source commit: `95c2a6bdec2e406332b65cd3a738e482c86584ac`. Evidence root
 - Issues: 0 locally unresolved, 24 fixed/verified, 7 externally blocked.
 - Current issue/action: `NONE` — Obtain or admit a different generic coding-capable model/runtime, then rerun both unchanged coder cases before any route change.
 - Runtime identity: **PASS**; evidence `/home/md-wasim/AI_Workspace_Data/aster-evidence/runtime-identity-20260911-70335a7.json`.
-- Git: **CLEAN_SYNCED** at `95c2a6bdec2e406332b65cd3a738e482c86584ac`.
-- Coding capability candidate: `qwen2.5-coder:14b-instruct-q3_K_L` rejected after the unchanged focused case failed; `codegemma:7b` download is externally blocked by bounded network throughput.
+- Git: **CLEAN_SYNCED** at `1c9d32224f846f6a2ff9666dfd3743c2d29871f4`.
+- Coding capability inventory: no complete untested local candidate exists; all installed runnable text models have prior evidence. The incomplete `codegemma:7b` download remains externally blocked by bounded network throughput; production routing is unchanged. Evidence: `/home/md-wasim/AI_Workspace_Data/aster-evidence/20260912-coding-capability-gap/model-inventory-no-new-local-candidate.json`.
 
 ## Queue classifications
 

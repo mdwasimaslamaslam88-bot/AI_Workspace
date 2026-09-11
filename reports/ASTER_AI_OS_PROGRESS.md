@@ -19,6 +19,6 @@ WEB            : 206 PASS
 MOBILE         : 64 PASS
 PERFORMANCE    : mean 8.062s / P95 16.5064s
 GIT            : CLEAN_SYNCED
-COMMIT         : 95c2a6bdec2e406332b65cd3a738e482c86584ac
-NEXT ACTION    : Obtain or admit a different generic coding-capable model/runtime, then rerun both unchanged coder cases before any route change.
+COMMIT         : 1c9d32224f846f6a2ff9666dfd3743c2d29871f4
+NEXT ACTION    : No complete untested local candidate is available. Retry bounded admission of a different generic coding-capable model when reliable download capacity exists; then rerun both unchanged coder cases before any route change.
 ========================================================
