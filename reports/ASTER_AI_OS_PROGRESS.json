@@ -250,5 +250,12 @@
     "error_excerpt": ""
   },
   "next_action": "Obtain or admit a different generic coding-capable model/runtime, then run both unchanged coder cases through explicit, generic coding, and code-generation paths before any production route change.",
+  "coding_capability_gap": {
+    "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260911-coding-capability-gap/candidate-admission-decision.json",
+    "candidate": "qwen2.5-coder:14b-instruct-q3_K_L",
+    "candidate_admitted": false,
+    "new_download_blocker": "codegemma:7b download externally blocked at approximately 0.7 MB/s for a 5.0 GB blob",
+    "next_action": "Retry a bounded new-model admission when reliable download capacity is available; then run both unchanged coder cases before any route change."
+  },
   "readiness_reason": "CANONICAL_NONPASS_REMAINS"
 }

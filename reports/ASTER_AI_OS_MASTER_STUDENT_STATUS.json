@@ -3576,5 +3576,12 @@
     },
     "historical_evidence_rejected": false
   },
-  "application_source_commit": "70335a71c9a1ef410a5976d6ba687712b983610b"
+  "application_source_commit": "70335a71c9a1ef410a5976d6ba687712b983610b",
+  "coding_capability_gap": {
+    "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260911-coding-capability-gap/candidate-admission-decision.json",
+    "candidate": "qwen2.5-coder:14b-instruct-q3_K_L",
+    "candidate_admitted": false,
+    "new_download_blocker": "codegemma:7b download externally blocked at approximately 0.7 MB/s for a 5.0 GB blob",
+    "next_action": "Retry a bounded new-model admission when reliable download capacity is available; then run both unchanged coder cases before any route change."
+  }
 }

@@ -11,6 +11,7 @@ Current source commit: `95c2a6bdec2e406332b65cd3a738e482c86584ac`. Evidence root
 - Current issue/action: `NONE` — Obtain or admit a different generic coding-capable model/runtime, then rerun both unchanged coder cases before any route change.
 - Runtime identity: **PASS**; evidence `/home/md-wasim/AI_Workspace_Data/aster-evidence/runtime-identity-20260911-70335a7.json`.
 - Git: **CLEAN_SYNCED** at `95c2a6bdec2e406332b65cd3a738e482c86584ac`.
+- Coding capability candidate: `qwen2.5-coder:14b-instruct-q3_K_L` rejected after the unchanged focused case failed; `codegemma:7b` download is externally blocked by bounded network throughput.
 
 ## Queue classifications
 
