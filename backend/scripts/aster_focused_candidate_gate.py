@@ -15,12 +15,10 @@ import json
 import os
 from pathlib import Path
 import re
-import secrets
 import sys
 import tempfile
 import time
 from typing import Any
-import uuid
 
 import httpx
 
@@ -243,12 +241,41 @@ class FocusedGate:
         if len(matching) != 1:
             raise RuntimeError("candidate is absent from the isolated current catalog")
         self.model_metadata = matching[0]
-        required = ("installed", "verified", "runnable_now")
-        if not all(self.model_metadata.get(key) is True for key in required):
-            raise RuntimeError("candidate failed isolated catalog/hardware admission")
+        # The public /ai/models response intentionally exposes runtime
+        # admission, but not the catalog's internal provenance fields.
+        # Missing public ``verified``/eligibility fields are therefore not a
+        # failed admission.  Trusted provenance is checked independently by
+        # the parent-side manifest/blob verifier below.
+        required = ("installed", "runnable_now")
+        if (
+            not all(self.model_metadata.get(key) is True for key in required)
+            or self.model_metadata.get("availability") != "available"
+        ):
+            raise RuntimeError(
+                "candidate failed isolated catalog/hardware admission: "
+                + json.dumps(
+                    {
+                        key: self.model_metadata.get(key)
+                        for key in (
+                            "model_id",
+                            "installed",
+                            "runnable_now",
+                            "availability",
+                            "required_vram_bytes",
+                            "required_ram_bytes",
+                        )
+                    },
+                    sort_keys=True,
+                )
+            )
         if "text_generation" not in self.model_metadata.get("capabilities", []):
             raise RuntimeError("candidate lacks text-generation capability")
         blob = _installed_model_blob_verification(self.candidate)
+        if blob.get("verified") is not True:
+            raise RuntimeError(
+                "candidate failed trusted manifest/blob verification: "
+                + json.dumps(blob, sort_keys=True)
+            )
         return {
             "authenticated_owner": {
                 "provisioned_owner_id": self.owner_id,

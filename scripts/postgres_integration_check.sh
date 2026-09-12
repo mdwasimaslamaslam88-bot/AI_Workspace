@@ -486,7 +486,7 @@ PY
       export ASTER_FOCUSED_CANDIDATE="${candidate_reference}"
       export ASTER_FOCUSED_OUTPUT="${candidate_output}"
       cd backend
-      exec .venv/bin/python scripts/aster_focused_candidate_gate.py
+      exec .venv/bin/python -m scripts.aster_focused_candidate_gate
     )
   fi
   e2e_provisioning_token=""

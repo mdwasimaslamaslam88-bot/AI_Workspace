@@ -1510,7 +1510,14 @@ def discover_watch_candidates(
     state: dict[str, Any], *, max_estimated_hours: float,
     max_download_seconds: int = DEFAULT_MAX_DOWNLOAD_SECONDS,
 ) -> dict[str, Any]:
-    references = watch_candidate_references(state)
+    all_references = watch_candidate_references(state)
+    previous_watch = state.get("external_watch") if isinstance(state.get("external_watch"), dict) else {}
+    rejected_candidates = {
+        str(reference)
+        for reference in previous_watch.get("rejected_candidates", [])
+        if isinstance(reference, str) and _safe_model_reference(reference)
+    }
+    references = [reference for reference in all_references if reference not in rejected_candidates]
     local: list[dict[str, Any]] = []
     remote: list[dict[str, Any]] = []
     for reference in references:
@@ -1545,9 +1552,11 @@ def discover_watch_candidates(
         remote.append(record)
     policy = {
         "candidate_references": references,
-        "constructed_exactly": references == list(HOST_CONTROLLER_CANDIDATES),
-        "excluded_reference": None,
-        "excluded_reference_absent": True,
+        "all_candidate_references": all_references,
+        "constructed_exactly": all_references == list(HOST_CONTROLLER_CANDIDATES),
+        "excluded_references": sorted(rejected_candidates),
+        "excluded_reference": next(iter(sorted(rejected_candidates)), None),
+        "excluded_reference_absent": not rejected_candidates,
     }
     download_policy = {
         "max_estimated_hours": max_estimated_hours,
@@ -2864,6 +2873,40 @@ def watch_external_iteration(
                 "child_result": str(watch_root / "result.json"),
             }
         )
+        definitive_candidate_rejection = bool(
+            execute_codex
+            and trusted_gate.get("run_status") == "complete"
+            and focused_gate.get("exact_eight_record_matrix") is True
+            and focused_gate.get("admitted") is not True
+        )
+        if definitive_candidate_rejection:
+            rejected = list(state["external_watch"].get("rejected_candidates", []))
+            if candidate not in rejected:
+                rejected.append(candidate)
+            state["external_watch"].update(
+                {
+                    "status": "CANDIDATE_REJECTED",
+                    "candidate_state": "FOCUSED_GATE_OBJECTIVE_FAILED",
+                    "rejected_candidates": sorted(set(rejected)),
+                    "rejection_reason": "complete trusted 8-record gate did not objectively pass all records",
+                }
+            )
+            child_suggested_prompt = state.get("next_prompt")
+            if isinstance(child_suggested_prompt, str) and child_suggested_prompt.strip():
+                state["child_suggested_next_prompt"] = child_suggested_prompt
+            state["next_prompt_source"] = "controller_derived"
+            next_candidates = [
+                reference
+                for reference in HOST_CONTROLLER_CANDIDATES
+                if reference not in set(rejected)
+            ]
+            next_candidate = next_candidates[0] if next_candidates else candidate
+            state["current_action"] = _watch_action(
+                next_candidate, "NOT_CACHED_DOWNLOAD_TOO_SLOW_OR_UNAVAILABLE"
+            )
+            state["next_prompt"] = build_external_watch_prompt(
+                next_candidate, result["after"]["observations"], str(watch_root)
+            )
         state["history"].append(
             {
                 "timestamp": result["timestamp"],

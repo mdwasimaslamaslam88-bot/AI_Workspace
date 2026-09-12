@@ -80,6 +80,44 @@ def test_discovery_freshly_probes_all_exact_candidates_and_requires_both_limits(
     )
 
 
+def test_discovery_skips_candidate_after_complete_objective_gate_rejection():
+    references = list(controller.HOST_CONTROLLER_CANDIDATES)
+    rejected = "qwen2.5-coder:1.5b"
+    probed = []
+
+    def fake_local(reference: str) -> dict:
+        return {"reference": reference, "available": False}
+
+    def fake_manifest(reference: str) -> dict:
+        return {
+            "reference": reference,
+            "status": "AVAILABLE",
+            "model_layer_digest": "sha256:" + "b" * 64,
+        }
+
+    def fake_probe(manifest: dict) -> dict:
+        probed.append(manifest["reference"])
+        return {
+            "status": "AVAILABLE",
+            "sha256_addressed": True,
+            "estimated_download_hours": 0.4,
+            "estimated_download_seconds": 1000,
+        }
+
+    state = {"external_watch": {"rejected_candidates": [rejected]}}
+    with patch.object(controller, "local_ollama_candidate", side_effect=fake_local), patch.object(
+        controller, "remote_model_manifest", side_effect=fake_manifest
+    ), patch.object(controller, "remote_range_probe", side_effect=fake_probe):
+        discovery = controller.discover_watch_candidates(
+            state, max_estimated_hours=0.5, max_download_seconds=900
+        )
+
+    assert rejected not in probed
+    assert rejected not in discovery["candidate_policy"]["candidate_references"]
+    assert rejected in discovery["candidate_policy"]["excluded_references"]
+    assert discovery["candidate_policy"]["all_candidate_references"] == references
+
+
 def test_focused_gate_requires_exactly_eight_objective_pass_values():
     routes = sorted(controller.FOCUSED_ADMISSION_ROUTES)
     tests = sorted(controller.FOCUSED_ADMISSION_TESTS)
