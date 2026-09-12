@@ -51,7 +51,25 @@ DEFAULT_MAX_WATCH_CYCLES = 12
 DEFAULT_MAX_DOWNLOAD_SECONDS = 900
 DEFAULT_MAX_ESTIMATED_DOWNLOAD_HOURS = 0.5
 DEFAULT_EXTERNAL_CODING_CANDIDATE = "qwen2.5-coder:3b"
+HOST_CONTROLLER_CANDIDATES = (
+    "qwen2.5-coder:3b",
+    "qwen2.5-coder:1.5b",
+    "deepseek-coder:1.3b",
+    "starcoder2:3b",
+    "codegemma:2b",
+)
 WATCH_RANGE_BYTES = 1024 * 1024
+FOCUSED_ADMISSION_ROUTES = frozenset(
+    {
+        "explicit_candidate",
+        "generic_coding",
+        "generic_code_generation",
+        "automatic_task_aware_agent_os",
+    }
+)
+FOCUSED_ADMISSION_TESTS = frozenset(
+    {"medium-coding-04", "model-comparison-coder-06"}
+)
 
 UNRESOLVED_STATUSES = {
     "OPEN",
@@ -252,6 +270,7 @@ def command_record(
     *,
     timeout: float = 30,
     input_text: str | None = None,
+    environment: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     started = time.monotonic()
     try:
@@ -259,6 +278,7 @@ def command_record(
             command,
             cwd=str(cwd),
             input=input_text,
+            env=environment,
             text=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -1252,6 +1272,59 @@ def ollama_models_root() -> Path:
     return Path("/usr/share/ollama/.ollama/models")
 
 
+def _manifest_blob_verification(manifest: dict[str, Any]) -> list[dict[str, Any]]:
+    descriptors: list[tuple[str, Any]] = [("config", manifest.get("config"))]
+    descriptors.extend(("layer", layer) for layer in manifest.get("layers", []))
+    records: list[dict[str, Any]] = []
+    for kind, descriptor in descriptors:
+        if not isinstance(descriptor, dict):
+            records.append(
+                {
+                    "kind": kind,
+                    "descriptor_valid": False,
+                    "verified": False,
+                }
+            )
+            continue
+        digest = descriptor.get("digest")
+        size = descriptor.get("size")
+        digest_valid = bool(
+            isinstance(digest, str)
+            and digest.startswith("sha256:")
+            and SHA256_PATTERN.fullmatch(digest.split(":", 1)[-1])
+        )
+        size_valid = isinstance(size, int) and not isinstance(size, bool) and size >= 0
+        path = (
+            ollama_models_root() / "blobs" / digest.replace(":", "-", 1)
+            if digest_valid
+            else None
+        )
+        actual_sha256 = sha256_file(path) if path and path.is_file() else None
+        actual_size = path.stat().st_size if path and path.is_file() else None
+        expected_sha256 = digest.split(":", 1)[-1] if digest_valid else None
+        verified = bool(
+            digest_valid
+            and size_valid
+            and actual_sha256 == expected_sha256
+            and actual_size == size
+        )
+        records.append(
+            {
+                "kind": kind,
+                "media_type": descriptor.get("mediaType"),
+                "digest": digest,
+                "expected_sha256": expected_sha256,
+                "actual_sha256": actual_sha256,
+                "expected_size_bytes": size,
+                "actual_size_bytes": actual_size,
+                "blob_path": str(path) if path else None,
+                "descriptor_valid": digest_valid and size_valid,
+                "verified": verified,
+            }
+        )
+    return records
+
+
 def local_ollama_candidate(reference: str) -> dict[str, Any]:
     """Verify a local Ollama candidate without trusting list output alone."""
     listed = command_record(["ollama", "list"], REPOSITORY_ROOT, timeout=10)
@@ -1281,8 +1354,22 @@ def local_ollama_candidate(reference: str) -> dict[str, Any]:
         blob_path = ollama_models_root() / "blobs" / expected_hash
         if blob_path.is_file():
             blob_hash = sha256_file(blob_path)
-    metadata_ok = listed_exact and show.get("exit_code") == 0 and bool(manifest) and isinstance(model_layer, dict)
-    integrity_ok = bool(blob_path and blob_path.is_file() and blob_hash == str(model_layer.get("digest", "")).split(":", 1)[-1])
+    artifact_verification = _manifest_blob_verification(manifest) if manifest else []
+    config_records = [item for item in artifact_verification if item.get("kind") == "config"]
+    layer_records = [item for item in artifact_verification if item.get("kind") == "layer"]
+    metadata_ok = bool(
+        listed_exact
+        and show.get("exit_code") == 0
+        and manifest.get("schemaVersion") == 2
+        and isinstance(model_layer, dict)
+        and len(config_records) == 1
+        and layer_records
+    )
+    config_integrity_ok = len(config_records) == 1 and config_records[0].get("verified") is True
+    all_layer_integrity_ok = bool(layer_records) and all(
+        item.get("verified") is True for item in layer_records
+    )
+    integrity_ok = config_integrity_ok and all_layer_integrity_ok
     return {
         "reference": reference,
         "list": listed,
@@ -1294,8 +1381,16 @@ def local_ollama_candidate(reference: str) -> dict[str, Any]:
         "model_layer_digest": model_layer.get("digest") if isinstance(model_layer, dict) else None,
         "blob_path": str(blob_path) if blob_path else None,
         "blob_sha256": blob_hash,
+        "manifest_artifacts": artifact_verification,
         "metadata_verified": metadata_ok,
-        "blob_integrity_verified": integrity_ok,
+        "config_integrity_verified": config_integrity_ok,
+        "all_layer_integrity_verified": all_layer_integrity_ok,
+        "blob_integrity_verified": bool(
+            blob_path
+            and blob_path.is_file()
+            and blob_hash == str(model_layer.get("digest", "")).split(":", 1)[-1]
+        ),
+        "all_manifest_artifacts_verified": integrity_ok,
         "available": metadata_ok and integrity_ok,
     }
 
@@ -1320,6 +1415,24 @@ def remote_model_manifest(reference: str) -> dict[str, Any]:
         ),
         None,
     ) if isinstance(payload, dict) else None
+    total_blob_bytes = None
+    descriptors = (
+        [payload.get("config")] + list(payload.get("layers", []))
+        if isinstance(payload, dict) and isinstance(payload.get("layers"), list)
+        else []
+    )
+    descriptor_sizes = [
+        item.get("size") for item in descriptors if isinstance(item, dict)
+    ]
+    if (
+        descriptors
+        and len(descriptor_sizes) == len(descriptors)
+        and all(
+            isinstance(size, int) and not isinstance(size, bool) and size >= 0
+            for size in descriptor_sizes
+        )
+    ):
+        total_blob_bytes = sum(descriptor_sizes)
     return {
         "reference": reference,
         "url": url,
@@ -1327,6 +1440,7 @@ def remote_model_manifest(reference: str) -> dict[str, Any]:
         "manifest": payload if isinstance(payload, dict) else {},
         "model_layer_bytes": model_layer.get("size") if isinstance(model_layer, dict) else None,
         "model_layer_digest": model_layer.get("digest") if isinstance(model_layer, dict) else None,
+        "total_blob_bytes": total_blob_bytes,
         "status": "AVAILABLE" if result.get("exit_code") == 0 and isinstance(model_layer, dict) else "UNAVAILABLE",
     }
 
@@ -1339,8 +1453,13 @@ def read_json_from_text(value: str, fallback: Any = None) -> Any:
 
 
 def remote_range_probe(manifest: dict[str, Any]) -> dict[str, Any]:
+    started_at = utc_now()
     digest = manifest.get("model_layer_digest")
-    if not isinstance(digest, str) or not digest.startswith("sha256:"):
+    if (
+        not isinstance(digest, str)
+        or not digest.startswith("sha256:")
+        or not SHA256_PATTERN.fullmatch(digest.split(":", 1)[-1])
+    ):
         return {"status": "UNAVAILABLE", "reason": "manifest has no model layer digest"}
     repository, tag = _model_registry_parts(str(manifest.get("reference", ""))) or ("", "")
     if not repository or not tag:
@@ -1363,7 +1482,7 @@ def remote_range_probe(manifest: dict[str, Any]) -> dict[str, Any]:
         throughput = float(raw[3])
     except (IndexError, TypeError, ValueError):
         return {"status": "UNAVAILABLE", "command": result, "reason": "range probe output invalid"}
-    size = manifest.get("model_layer_bytes")
+    size = manifest.get("total_blob_bytes") or manifest.get("model_layer_bytes")
     estimated_hours = float(size) / throughput / 3600 if isinstance(size, (int, float)) and throughput > 0 else None
     return {
         "status": "AVAILABLE" if result.get("exit_code") == 0 and http_code in {200, 206} else "UNAVAILABLE",
@@ -1372,27 +1491,24 @@ def remote_range_probe(manifest: dict[str, Any]) -> dict[str, Any]:
         "bytes_downloaded": bytes_downloaded,
         "duration_seconds": duration,
         "throughput_bytes_per_second": throughput,
+        "estimated_download_seconds": estimated_hours * 3600 if estimated_hours is not None else None,
         "estimated_download_hours": estimated_hours,
         "url": url,
+        "fresh_probe_started_at": started_at,
+        "sha256_addressed": True,
     }
 
 
 def watch_candidate_references(state: dict[str, Any]) -> list[str]:
-    configured = state.get("external_watch", {}).get("candidate_priority") if isinstance(state.get("external_watch"), dict) else None
-    values = configured if isinstance(configured, list) else []
-    values = [str(value) for value in values if _safe_model_reference(str(value))]
-    defaults = [
-        DEFAULT_EXTERNAL_CODING_CANDIDATE,
-        "qwen2.5-coder:1.5b",
-        "deepseek-coder:1.3b",
-        "starcoder2:3b",
-        "codegemma:2b",
-    ]
-    return list(dict.fromkeys(values + defaults))
+    del state
+    references = list(HOST_CONTROLLER_CANDIDATES)
+    assert references == list(HOST_CONTROLLER_CANDIDATES)
+    return references
 
 
 def discover_watch_candidates(
-    state: dict[str, Any], *, max_estimated_hours: float
+    state: dict[str, Any], *, max_estimated_hours: float,
+    max_download_seconds: int = DEFAULT_MAX_DOWNLOAD_SECONDS,
 ) -> dict[str, Any]:
     references = watch_candidate_references(state)
     local: list[dict[str, Any]] = []
@@ -1400,41 +1516,349 @@ def discover_watch_candidates(
     for reference in references:
         local_result = local_ollama_candidate(reference)
         local.append(local_result)
-        if local_result.get("available"):
-            return {
-                "status": "CANDIDATE_AVAILABLE",
-                "candidate": reference,
-                "candidate_state": "AVAILABLE_LOCAL",
-                "local": local,
-                "remote": remote,
-                "download_policy": {"max_estimated_hours": max_estimated_hours},
-            }
         manifest = remote_model_manifest(reference)
         probe = remote_range_probe(manifest) if manifest.get("status") == "AVAILABLE" else {}
-        record = {"manifest": manifest, "probe": probe}
-        remote.append(record)
-        if (
+        estimated_hours = probe.get("estimated_download_hours")
+        estimated_seconds = probe.get("estimated_download_seconds")
+        qualifies = bool(
             manifest.get("status") == "AVAILABLE"
             and probe.get("status") == "AVAILABLE"
-            and isinstance(probe.get("estimated_download_hours"), (int, float))
-            and probe["estimated_download_hours"] <= max_estimated_hours
-        ):
-            return {
-                "status": "DOWNLOAD_ELIGIBLE",
-                "candidate": reference,
-                "candidate_state": "NOT_CACHED_DOWNLOAD_ELIGIBLE",
-                "local": local,
-                "remote": remote,
-                "download_policy": {"max_estimated_hours": max_estimated_hours},
-            }
+            and isinstance(estimated_hours, (int, float))
+            and estimated_hours <= max_estimated_hours
+            and isinstance(estimated_seconds, (int, float))
+            and estimated_seconds <= max_download_seconds
+        )
+        record = {"manifest": manifest, "probe": probe}
+        record["qualification"] = {
+            "max_estimated_hours": max_estimated_hours,
+            "max_download_seconds": max_download_seconds,
+            "estimate_within_hours_limit": bool(
+                isinstance(estimated_hours, (int, float))
+                and estimated_hours <= max_estimated_hours
+            ),
+            "estimate_within_pull_limit": bool(
+                isinstance(estimated_seconds, (int, float))
+                and estimated_seconds <= max_download_seconds
+            ),
+            "qualifies": qualifies,
+        }
+        remote.append(record)
+    policy = {
+        "candidate_references": references,
+        "constructed_exactly": references == list(HOST_CONTROLLER_CANDIDATES),
+        "excluded_reference": None,
+        "excluded_reference_absent": True,
+    }
+    download_policy = {
+        "max_estimated_hours": max_estimated_hours,
+        "max_download_seconds": max_download_seconds,
+        "both_limits_required": True,
+    }
+    local_candidate = next(
+        (item["reference"] for item in local if item.get("available") is True),
+        None,
+    )
+    if local_candidate:
+        return {
+            "status": "CANDIDATE_AVAILABLE",
+            "candidate": local_candidate,
+            "candidate_state": "AVAILABLE_LOCAL_INTEGRITY_VERIFIED",
+            "candidate_policy": policy,
+            "local": local,
+            "remote": remote,
+            "download_policy": download_policy,
+        }
+    eligible = next(
+        (
+            item["manifest"]["reference"]
+            for item in remote
+            if item.get("qualification", {}).get("qualifies") is True
+        ),
+        None,
+    )
+    if eligible:
+        return {
+            "status": "DOWNLOAD_ELIGIBLE",
+            "candidate": eligible,
+            "candidate_state": "NOT_CACHED_DOWNLOAD_ELIGIBLE",
+            "candidate_policy": policy,
+            "local": local,
+            "remote": remote,
+            "download_policy": download_policy,
+        }
     return {
-        "status": "WAITING_EXTERNAL",
+        "status": "NOT_READY",
         "candidate": references[0] if references else None,
         "candidate_state": "NOT_CACHED_DOWNLOAD_TOO_SLOW_OR_UNAVAILABLE",
+        "candidate_policy": policy,
         "local": local,
         "remote": remote,
-        "download_policy": {"max_estimated_hours": max_estimated_hours},
+        "download_policy": download_policy,
     }
+
+
+CATALOG_CANDIDATE_ADMISSION_SCRIPT = r"""
+import asyncio
+import json
+import os
+
+import httpx
+
+from app.ai.catalog import ModelCatalog, public_model_id
+from app.hardware import detect_hardware
+from app.runtimes.ollama import OllamaModelDiscoveryRuntime
+
+
+async def main() -> None:
+    reference = os.environ["ASTER_CANDIDATE_REFERENCE"]
+    origin = os.environ.get("OLLAMA_ORIGIN", "http://127.0.0.1:11434")
+    async with httpx.AsyncClient(base_url=origin, timeout=15.0) as client:
+        runtime = OllamaModelDiscoveryRuntime(client, (reference,))
+        catalog = ModelCatalog((runtime,), hardware_inventory=detect_hardware())
+        model_id = public_model_id("ollama-local", reference)
+        models = await catalog.list_models()
+        model = next((item for item in models if item.model_id == model_id), None)
+        if model is None:
+            print(json.dumps({"candidate_reference": reference, "model_id": model_id, "found": False}))
+            return
+        value = lambda item: item.value if hasattr(item, "value") else item
+        print(
+            json.dumps(
+                {
+                    "candidate_reference": reference,
+                    "model_id": model.model_id,
+                    "found": True,
+                    "installed": model.installed,
+                    "verified": model.verified,
+                    "runnable_now": model.runnable_now,
+                    "availability": value(model.availability),
+                    "eligibility_status": value(model.eligibility_status),
+                    "eligibility_reasons": [value(item) for item in model.eligibility_reasons],
+                    "performance_class": value(model.performance_class),
+                    "hardware_class": value(model.hardware_class),
+                    "required_vram_bytes": model.required_vram_bytes,
+                    "required_ram_bytes": model.required_ram_bytes,
+                    "capabilities": [value(item) for item in model.capabilities],
+                },
+                sort_keys=True,
+            )
+        )
+
+
+asyncio.run(main())
+""".strip()
+
+
+def catalog_candidate_admission(reference: str) -> dict[str, Any]:
+    if not _safe_model_reference(reference):
+        return {"status": "INVALID_REFERENCE", "admitted": False}
+    virtualenv_python = REPOSITORY_ROOT / "backend" / ".venv" / "bin" / "python"
+    executable = virtualenv_python if virtualenv_python.is_file() else Path(sys.executable)
+    environment = os.environ.copy()
+    environment["ASTER_CANDIDATE_REFERENCE"] = reference
+    started = time.monotonic()
+    try:
+        completed = subprocess.run(
+            [str(executable), "-c", CATALOG_CANDIDATE_ADMISSION_SCRIPT],
+            cwd=str(REPOSITORY_ROOT / "backend"),
+            env=environment,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=30,
+            check=False,
+        )
+        stdout = completed.stdout or ""
+        stderr = completed.stderr or ""
+        command = {
+            "command": [str(executable), "-c", "<existing catalog admission script>"],
+            "cwd": str(REPOSITORY_ROOT / "backend"),
+            "exit_code": completed.returncode,
+            "duration_seconds": round(time.monotonic() - started, 4),
+            "stdout": safe_text(stdout),
+            "stderr": safe_text(stderr),
+            "stdout_sha256": sha256_bytes(stdout.encode()),
+            "stderr_sha256": sha256_bytes(stderr.encode()),
+            "timed_out": False,
+        }
+    except (OSError, subprocess.TimeoutExpired) as error:
+        return {
+            "status": "UNAVAILABLE",
+            "admitted": False,
+            "error": safe_text(error),
+            "duration_seconds": round(time.monotonic() - started, 4),
+        }
+    payload = read_json_from_text(stdout.strip(), {})
+    admitted = bool(
+        completed.returncode == 0
+        and isinstance(payload, dict)
+        and payload.get("candidate_reference") == reference
+        and payload.get("found") is True
+        and payload.get("installed") is True
+        and payload.get("verified") is True
+        and payload.get("runnable_now") is True
+        and payload.get("eligibility_status") == "runnable_now"
+    )
+    return {
+        "status": "ADMITTED" if admitted else "REJECTED",
+        "admitted": admitted,
+        "catalog_record": payload if isinstance(payload, dict) else {},
+        "command": command,
+        "production_configuration_modified": False,
+        "production_routing_modified": False,
+    }
+
+
+ASTER_FOCUSED_TASKS = (
+    "general_chat",
+    "reasoning",
+    "mathematics",
+    "coding",
+    "debugging",
+    "code_generation",
+    "expert_analysis",
+    "vision",
+    "rag",
+    "memory",
+    "summarization",
+    "tool_calling",
+    "workflow_planning",
+    "long_context",
+    "exact_output",
+)
+
+
+def trusted_parent_focused_gate(
+    evidence_dir: Path,
+    candidate: str,
+    source_commit: str | None,
+    *,
+    timeout_seconds: int,
+) -> dict[str, Any]:
+    """Run objective candidate verification outside the restricted Codex child.
+
+    The existing PostgreSQL integration harness creates the disposable backend
+    and configures a candidate-only catalog.  The child remains an inspection
+    and handoff process; this trusted parent subprocess owns runtime evidence.
+    """
+    output = evidence_dir / "focused-candidate-gate.json"
+    environment = os.environ.copy()
+    environment.update(
+        {
+            "ASTER_FOCUSED_CANDIDATE": candidate,
+            "ASTER_FOCUSED_OUTPUT": str(output),
+            "ASTER_APPLICATION_SOURCE_COMMIT": source_commit or "unknown",
+            "OLLAMA_LOCAL_MODEL_ALLOWLIST": json.dumps(
+                [candidate, "nomic-embed-text:latest"], separators=(",", ":")
+            ),
+            "OLLAMA_TASK_MODEL_PREFERENCES": json.dumps(
+                {task: candidate for task in ASTER_FOCUSED_TASKS},
+                separators=(",", ":"),
+            ),
+            "OLLAMA_EMBEDDING_MODEL": "nomic-embed-text:latest",
+        }
+    )
+    command = [
+        str(REPOSITORY_ROOT / "scripts" / "postgres_integration_check.sh"),
+        "--aster-focused-candidate-gate",
+    ]
+    result = command_record(
+        command,
+        REPOSITORY_ROOT,
+        timeout=min(max(int(timeout_seconds), 1), 900),
+        environment=environment,
+    )
+    report = read_json(output, {})
+    report_summary = (
+        {
+            key: report.get(key)
+            for key in (
+                "run_status",
+                "candidate_reference",
+                "candidate_model_id",
+                "source_commit",
+                "matrix_complete",
+                "objective_pass_count",
+                "all_eight_objective_pass",
+                "initialization_error",
+            )
+        }
+        if isinstance(report, dict)
+        else {}
+    )
+    return {
+        "command": result,
+        "output": str(output),
+        "output_sha256": sha256_file(output) if output.is_file() else None,
+        "report_summary": report_summary,
+        "run_status": report.get("run_status") if isinstance(report, dict) else None,
+        "objective_pass_count": (
+            report.get("objective_pass_count") if isinstance(report, dict) else None
+        ),
+        "all_eight_objective_pass": (
+            report.get("all_eight_objective_pass") is True
+            if isinstance(report, dict)
+            else False
+        ),
+        "trusted_parent": True,
+        "child_runtime_access_required": False,
+        "production_routing_modified": False,
+    }
+
+
+def focused_objective_gate(evidence_dir: Path, candidate: str) -> dict[str, Any]:
+    path = evidence_dir / "focused-candidate-gate.json"
+    value = read_json(path, {})
+    records = value.get("records", []) if isinstance(value, dict) else []
+    expected_pairs = {
+        (route, test_id)
+        for route in FOCUSED_ADMISSION_ROUTES
+        for test_id in FOCUSED_ADMISSION_TESTS
+    }
+    observed_pairs = [
+        (str(item.get("route")), str(item.get("test_id")))
+        for item in records
+        if isinstance(item, dict)
+    ] if isinstance(records, list) else []
+    objective_values = [
+        item.get("objective_pass")
+        for item in records
+        if isinstance(item, dict)
+    ] if isinstance(records, list) else []
+    exact_matrix = bool(
+        len(observed_pairs) == 8
+        and len(set(observed_pairs)) == 8
+        and set(observed_pairs) == expected_pairs
+    )
+    all_objective_pass = bool(
+        exact_matrix
+        and len(objective_values) == 8
+        and all(item is True for item in objective_values)
+    )
+    admitted = bool(
+        isinstance(value, dict)
+        and value.get("run_status") == "complete"
+        and value.get("candidate_reference") == candidate
+        and value.get("matrix_complete") is True
+        and all_objective_pass
+    )
+    return {
+        "status": "PASS" if admitted else "FAIL",
+        "admitted": admitted,
+        "evidence": str(path),
+        "evidence_sha256": sha256_file(path) if path.is_file() else None,
+        "record_count": len(observed_pairs),
+        "unique_record_count": len(set(observed_pairs)),
+        "exact_eight_record_matrix": exact_matrix,
+        "objective_pass_values": objective_values,
+        "objective_pass_count": sum(item is True for item in objective_values),
+        "all_eight_objective_pass": all_objective_pass,
+        "candidate_matches": isinstance(value, dict) and value.get("candidate_reference") == candidate,
+    }
+
+
+def _candidate_focus_prompt(prompt: Any) -> bool:
+    return isinstance(prompt, str) and prompt.startswith("ASTER CANDIDATE ADMISSION — ")
 
 
 def build_external_watch_prompt(candidate: str, observations: dict[str, Any], evidence: str) -> str:
@@ -1470,7 +1894,7 @@ Run BOTH unchanged canonical coder cases through the explicit candidate, generic
 - medium-coding-04: Write a Python list comprehension producing squares of 0 through 4. Expression only. Objective requirements: x * x and range(5).
 - model-comparison-coder-06: A recursive function has no terminating condition. What is the standard recursion term for the missing condition? Name it only. Objective answer: base case.
 
-Capture selected model, raw output, SHA-256, latency, configuration, hardware telemetry, source commit, and objective checks. Do not edit prompts, expectations, checkers, semantic verification, or normalize output. Do not admit this candidate or claim readiness from prose alone.
+The trusted parent controller executes the runtime gate in the existing disposable PostgreSQL/backend boundary. Inspect the resulting focused-candidate-gate.json and its raw-output files; do not attempt runtime commands from this child. Capture and review selected model, raw output, SHA-256, latency, configuration, hardware telemetry, source commit, and objective checks. Do not edit prompts, expectations, checkers, semantic verification, or normalize output. Do not admit this candidate or claim readiness from prose alone.
 
 Only if both objective cases PASS may the parent proceed to genericity and full canonical validation. End with the standard ASTER_LOOP_RESULT block and an exact next prompt.
 """
@@ -2145,7 +2569,11 @@ def _bounded_sleep(seconds: float) -> None:
 
 
 def _watch_action(candidate: str, candidate_state: str) -> str:
-    if candidate_state == "AVAILABLE_LOCAL":
+    if candidate_state in {
+        "AVAILABLE_LOCAL",
+        "AVAILABLE_LOCAL_INTEGRITY_VERIFIED",
+        "INSTALLED_RUNNABLE_NOW",
+    }:
         return f"Run the focused objective gate for locally available candidate {candidate}."
     if candidate_state == "NOT_CACHED_DOWNLOAD_ELIGIBLE":
         return f"Start the bounded download for admissible candidate {candidate}, then verify its manifest and blob hash."
@@ -2179,6 +2607,12 @@ def watch_external_iteration(
     max_estimated_hours: float,
 ) -> dict[str, Any]:
     """Run one bounded external-gap observation or candidate handoff."""
+    effective_max_download_seconds = min(
+        max_download_seconds, DEFAULT_MAX_DOWNLOAD_SECONDS
+    )
+    effective_max_estimated_hours = min(
+        max_estimated_hours, DEFAULT_MAX_ESTIMATED_DOWNLOAD_HOURS
+    )
     queue = current_queue()
     observations_before = observe(evidence_root)
     watch_root = evidence_root / "autonomous-loop" / "watch-external" / f"cycle-{cycle:04d}"
@@ -2193,18 +2627,38 @@ def watch_external_iteration(
         "git": git_snapshot(),
     }
     write_json(watch_root / "before.json", before)
-    discovery = discover_watch_candidates(state, max_estimated_hours=max_estimated_hours)
+    discovery = discover_watch_candidates(
+        state,
+        max_estimated_hours=effective_max_estimated_hours,
+        max_download_seconds=effective_max_download_seconds,
+    )
     write_json(watch_root / "candidate-discovery.json", discovery)
     candidate = str(discovery.get("candidate") or candidate_hint)
     candidate_state = str(discovery.get("candidate_state") or "UNKNOWN")
+    previous_watch = (
+        state.get("external_watch")
+        if isinstance(state.get("external_watch"), dict)
+        else {}
+    )
     state["external_watch"] = {
         "status": discovery.get("status"),
         "cycle": cycle,
         "candidate": candidate,
         "candidate_state": candidate_state,
         "candidate_priority": watch_candidate_references(state),
-        "max_download_seconds": max_download_seconds,
-        "max_estimated_download_hours": max_estimated_hours,
+        "excluded_candidate": None,
+        "excluded_candidate_absent": True,
+        "max_download_seconds": effective_max_download_seconds,
+        "max_estimated_download_hours": effective_max_estimated_hours,
+        "requested_max_download_seconds": max_download_seconds,
+        "requested_max_estimated_download_hours": max_estimated_hours,
+        "genericity_and_canonical_validation_allowed": bool(
+            previous_watch.get("candidate") == candidate
+            and previous_watch.get(
+                "genericity_and_canonical_validation_allowed"
+            )
+            is True
+        ),
         "evidence": str(watch_root),
     }
 
@@ -2215,7 +2669,7 @@ def watch_external_iteration(
         download = command_record(
             ["ollama", "pull", candidate],
             REPOSITORY_ROOT,
-            timeout=max_download_seconds,
+            timeout=effective_max_download_seconds,
         )
         discovery["download"] = download
         verified = local_ollama_candidate(candidate)
@@ -2234,14 +2688,66 @@ def watch_external_iteration(
             candidate_state = "DOWNLOAD_FAILED_OR_INTEGRITY_FAILED"
         else:
             discovery["status"] = "CANDIDATE_AVAILABLE"
-            candidate_state = "AVAILABLE_LOCAL"
+            candidate_state = "AVAILABLE_LOCAL_INTEGRITY_VERIFIED"
             state["external_watch"].update({"status": discovery["status"], "candidate_state": candidate_state})
 
-    if discovery.get("status") == "CANDIDATE_AVAILABLE" and candidate_state == "AVAILABLE_LOCAL":
+    catalog_admission: dict[str, Any] = {}
+    if (
+        discovery.get("status") == "CANDIDATE_AVAILABLE"
+        and candidate_state in {
+            "AVAILABLE_LOCAL",
+            "AVAILABLE_LOCAL_INTEGRITY_VERIFIED",
+        }
+    ):
+        catalog_admission = catalog_candidate_admission(candidate)
+        discovery["catalog_hardware_admission"] = catalog_admission
+        write_json(watch_root / "candidate-discovery.json", discovery)
+        if catalog_admission.get("admitted") is True:
+            candidate_state = "INSTALLED_RUNNABLE_NOW"
+            state["external_watch"].update(
+                {
+                    "status": "CANDIDATE_AVAILABLE",
+                    "candidate_state": candidate_state,
+                    "catalog_hardware_admission": catalog_admission,
+                }
+            )
+        else:
+            discovery["status"] = "CANDIDATE_REJECTED"
+            candidate_state = "CATALOG_HARDWARE_ADMISSION_FAILED"
+            state["external_watch"].update(
+                {
+                    "status": discovery["status"],
+                    "candidate_state": candidate_state,
+                    "catalog_hardware_admission": catalog_admission,
+                }
+            )
+
+    if discovery.get("status") == "CANDIDATE_AVAILABLE" and candidate_state == "INSTALLED_RUNNABLE_NOW":
         state["controller_phase"] = "CANDIDATE_FOCUSED_GATE"
         state["current_issue"] = None
         state["current_action"] = _watch_action(candidate, candidate_state)
         current_source_commit = observed_source_commit(observations_before)
+        trusted_gate = (
+            trusted_parent_focused_gate(
+                watch_root,
+                candidate,
+                current_source_commit,
+                timeout_seconds=timeout_seconds,
+            )
+            if execute_codex
+            else {
+                "trusted_parent": False,
+                "run_status": "NOT_RUN",
+                "all_eight_objective_pass": False,
+                "output": str(watch_root / "focused-candidate-gate.json"),
+            }
+        )
+        focused_gate = focused_objective_gate(watch_root, candidate)
+        state["external_watch"]["trusted_parent_gate"] = {
+            key: value
+            for key, value in trusted_gate.items()
+            if key not in {"command", "report_summary"}
+        }
         persisted_child_prompt = (
             state.get("next_prompt")
             if state.get("next_prompt_source") == "child_structured_result"
@@ -2252,8 +2758,19 @@ def watch_external_iteration(
             persisted_prompt_source = persisted_prompt_source or prompt_source_commit(
                 str(persisted_child_prompt)
             )
+        prior_focused_gate_passed = (
+            isinstance(state.get("external_watch"), dict)
+            and state["external_watch"].get(
+                "genericity_and_canonical_validation_allowed"
+            )
+            is True
+        )
         prompt_is_current = bool(
             persisted_child_prompt
+            and (
+                _candidate_focus_prompt(persisted_child_prompt)
+                or prior_focused_gate_passed
+            )
             and current_source_commit
             and persisted_prompt_source == current_source_commit
         )
@@ -2287,6 +2804,22 @@ def watch_external_iteration(
                 },
             }
         parsed = child.get("parsed", {})
+        child["focused_objective_gate"] = focused_gate
+        child["trusted_parent_focused_gate"] = trusted_gate
+        if execute_codex and focused_gate.get("admitted") is not True:
+            parsed = {
+                **parsed,
+                "parsed": True,
+                "status": "NOT_READY",
+                "verification": "PARTIAL",
+                "classification": "NOT_READY",
+                "action": (
+                    "Focused candidate admission stopped before genericity or canonical "
+                    "validation because all eight objective_pass values were not true."
+                ),
+                "next_prompt": prompt,
+            }
+            child["parsed"] = parsed
         temporary_failure = child.get("exit_code") != 0 and bool(child.get("timed_out") or child.get("exit_code") == 127)
         if child.get("exit_code") != 0:
             state["last_failure"] = {
@@ -2309,6 +2842,9 @@ def watch_external_iteration(
             "classification": parsed.get("classification", "FAILED"),
             "child": child,
             "candidate": candidate,
+            "catalog_hardware_admission": catalog_admission,
+            "trusted_parent_focused_gate": trusted_gate,
+            "focused_objective_gate": focused_gate,
             "evidence_dir": str(watch_root),
             "before": before,
             "after": {"observations": observe(evidence_root), "git": git_snapshot()},
@@ -2322,6 +2858,8 @@ def watch_external_iteration(
             {
                 "status": "CANDIDATE_FOCUSED_GATE",
                 "candidate_state": "FOCUSED_GATE_RESULT_CAPTURED",
+                "all_eight_objective_pass": focused_gate.get("all_eight_objective_pass") is True,
+                "genericity_and_canonical_validation_allowed": focused_gate.get("admitted") is True,
                 "current_action": state.get("current_action"),
                 "child_result": str(watch_root / "result.json"),
             }
@@ -2353,7 +2891,11 @@ def watch_external_iteration(
     state["current_action"] = _watch_action(candidate, candidate_state)
     state["in_progress"] = False
     state["resume_required"] = False
-    state["next_prompt"] = state.get("next_prompt") or build_external_watch_prompt(candidate, observations_before, str(watch_root))
+    state["child_suggested_next_prompt"] = ""
+    state["next_prompt_source"] = "controller_derived"
+    state["next_prompt"] = build_external_watch_prompt(
+        candidate, observations_before, str(watch_root)
+    )
     retry_seconds = float(state.get("external_watch", {}).get("watch_interval_seconds", DEFAULT_WATCH_INTERVAL_SECONDS))
     next_retry = datetime.fromtimestamp(time.time() + max(0.0, retry_seconds), timezone.utc).isoformat()
     state["external_watch"]["next_retry_at"] = next_retry
@@ -2364,10 +2906,10 @@ def watch_external_iteration(
         "attempt": int(state.get("attempt", 0)),
         "cycle": cycle,
         "issue": None,
-        "status": "WAITING",
+        "status": "NOT_READY",
         "action": state["current_action"],
-        "verification": "WAITING",
-        "classification": "BLOCKED_EXTERNAL",
+        "verification": "PARTIAL",
+        "classification": "NOT_READY",
         "candidate": candidate,
         "candidate_state": candidate_state,
         "discovery": discovery,

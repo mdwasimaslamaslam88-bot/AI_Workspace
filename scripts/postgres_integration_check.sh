@@ -10,6 +10,7 @@ run_browser=false
 run_benchmark=false
 run_massive_benchmark=false
 run_model_candidate_benchmark=false
+run_aster_focused_candidate_gate=false
 run_chat_tool=false
 e2e_backend_pid=""
 isolated_ollama_pid=""
@@ -31,6 +32,7 @@ the same disposable database before exercising real clients and runtimes.
   --canonical-benchmark  Run only the canonical real-HTTP AI benchmark.
   --massive-benchmark  Run only the disposable adaptive massive benchmark.
   --model-candidate-benchmark  Run one isolated real-HTTP model comparison.
+  --aster-focused-candidate-gate  Run the trusted parent-side focused candidate gate.
   --chat-tool-only  Run only the installed-model authenticated chat tool smoke.
 EOF
 }
@@ -45,6 +47,7 @@ for argument in "$@"; do
     --canonical-benchmark) run_integration=false; run_benchmark=true ;;
     --massive-benchmark) run_integration=false; run_massive_benchmark=true ;;
     --model-candidate-benchmark) run_integration=false; run_model_candidate_benchmark=true ;;
+    --aster-focused-candidate-gate) run_integration=false; run_aster_focused_candidate_gate=true ;;
     --chat-tool-only) run_integration=false; run_chat_tool=true ;;
     --help|-h) usage; exit 0 ;;
     *) echo "Unknown PostgreSQL check option: ${argument}" >&2; usage >&2; exit 2 ;;
@@ -221,7 +224,8 @@ fi
 if [[ "${run_runtime}" == true || "${run_browser}" == true ||
   "${run_chat_tool}" == true ||
   "${run_benchmark}" == true || "${run_massive_benchmark}" == true ||
-  "${run_model_candidate_benchmark}" == true ]]; then
+  "${run_model_candidate_benchmark}" == true ||
+  "${run_aster_focused_candidate_gate}" == true ]]; then
   (
     export DATABASE_SSL_MODE=disable
     export RUN_DATABASE_INTEGRATION_TESTS=true
@@ -233,7 +237,8 @@ fi
 
 if [[ "${run_browser}" == true || "${run_benchmark}" == true ||
   "${run_massive_benchmark}" == true ||
-  "${run_model_candidate_benchmark}" == true ]]; then
+  "${run_model_candidate_benchmark}" == true ||
+  "${run_aster_focused_candidate_gate}" == true ]]; then
   playwright_browsers_path="${WORK_STATION_PLAYWRIGHT_BROWSERS_PATH:-${repository_root}/../../AI_Workspace_Runtimes/playwright}"
   if [[ "${run_browser}" == true ]]; then
     if [[ "${playwright_browsers_path}" != /* || ! -d "${playwright_browsers_path}" ]]; then
@@ -469,6 +474,21 @@ PY
       exec .venv/bin/python -m scripts.model_candidate_benchmark
     )
   fi
+  if [[ "${run_aster_focused_candidate_gate}" == true ]]; then
+    candidate_output="${ASTER_FOCUSED_OUTPUT:-}"
+    candidate_reference="${ASTER_FOCUSED_CANDIDATE:-}"
+    if [[ "${candidate_output}" != /* || "$(basename -- "${candidate_output}")" != "focused-candidate-gate.json" || -z "${candidate_reference}" ]]; then
+      echo "The ASTER focused candidate gate configuration is invalid." >&2
+      exit 2
+    fi
+    printf '%s' "${e2e_provisioning_token}" | (
+      export WORK_STATION_BENCHMARK_API_ORIGIN="${api_origin}"
+      export ASTER_FOCUSED_CANDIDATE="${candidate_reference}"
+      export ASTER_FOCUSED_OUTPUT="${candidate_output}"
+      cd backend
+      exec .venv/bin/python scripts/aster_focused_candidate_gate.py
+    )
+  fi
   e2e_provisioning_token=""
   stop_e2e_backend
 fi
@@ -507,6 +527,8 @@ elif [[ "${run_benchmark}" == true ]]; then
   fi
 elif [[ "${run_model_candidate_benchmark}" == true ]]; then
   echo "ephemeral PostgreSQL validation: isolated model candidate benchmark passed"
+elif [[ "${run_aster_focused_candidate_gate}" == true ]]; then
+  echo "ephemeral PostgreSQL validation: ASTER focused candidate gate passed"
 elif [[ "${run_massive_benchmark}" == true ]]; then
   echo "ephemeral PostgreSQL validation: massive benchmark passed"
 elif [[ "${run_integration}" == true && "${run_browser}" == true && "${run_runtime}" == true ]]; then
