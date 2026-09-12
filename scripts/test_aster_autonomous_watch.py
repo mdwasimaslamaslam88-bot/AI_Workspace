@@ -219,6 +219,66 @@ def test_no_qualifying_candidate_persists_not_ready_without_child():
     assert state["external_watch"]["rejected_candidates"] == ["qwen2.5-coder:1.5b"]
 
 
+def test_watch_recovers_rejection_from_prior_trusted_evidence():
+    state = {
+        "iteration": 4,
+        "attempt": 26,
+        "overall_ready": False,
+        "next_prompt": "host recovery",
+        "external_watch": {"watch_interval_seconds": 0},
+        "history": [],
+    }
+    discovery = {
+        "status": "NOT_READY",
+        "candidate": "qwen2.5-coder:3b",
+        "candidate_state": "NOT_CACHED_DOWNLOAD_TOO_SLOW_OR_UNAVAILABLE",
+        "candidate_policy": {"candidate_references": [], "excluded_reference_absent": False},
+        "local": [],
+        "remote": [],
+    }
+    with TemporaryDirectory() as directory:
+        prior = Path(directory) / "autonomous-loop" / "watch-external" / "cycle-0047"
+        prior.mkdir(parents=True)
+        (prior / "result.json").write_text(
+            __import__("json").dumps(
+                {
+                    "candidate": "qwen2.5-coder:1.5b",
+                    "trusted_parent_focused_gate": {"run_status": "complete"},
+                    "focused_objective_gate": {
+                        "exact_eight_record_matrix": True,
+                        "admitted": False,
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        def fake_discovery(observed_state: dict, **_kwargs: object) -> dict:
+            assert observed_state["external_watch"]["rejected_candidates"] == [
+                "qwen2.5-coder:1.5b"
+            ]
+            return discovery
+
+        with patch.object(controller, "current_queue", return_value={"issues": []}), patch.object(
+            controller, "observe", return_value=_observations()
+        ), patch.object(
+            controller, "discover_watch_candidates", side_effect=fake_discovery
+        ), patch.object(controller, "render_reports", return_value={}), patch.object(
+            controller, "persist_watch_report_commit", return_value={"attempted": False}
+        ):
+            result = controller.watch_external_iteration(
+                state,
+                evidence_root=Path(directory),
+                cycle=48,
+                execute_codex=False,
+                timeout_seconds=30,
+                max_download_seconds=900,
+                max_estimated_hours=0.5,
+            )
+
+        assert result["status"] == "NOT_READY"
+
+
 def test_candidate_child_handoff_repeats_without_copy_paste():
     state = {
         "iteration": 4,

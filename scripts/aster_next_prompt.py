@@ -2636,6 +2636,42 @@ def watch_external_iteration(
         "git": git_snapshot(),
     }
     write_json(watch_root / "before.json", before)
+    previous_watch = (
+        state.get("external_watch")
+        if isinstance(state.get("external_watch"), dict)
+        else {}
+    )
+    rejected_candidates = {
+        str(reference)
+        for reference in previous_watch.get("rejected_candidates", [])
+        if isinstance(reference, str) and _safe_model_reference(reference)
+    }
+    # Recover durable candidate decisions from evidence if an older watcher
+    # cycle was interrupted after writing its report but before the rejection
+    # list was copied into current_state.json.
+    for prior_result_path in sorted(
+        (evidence_root / "autonomous-loop" / "watch-external").glob(
+            "cycle-*/result.json"
+        )
+    ):
+        prior_result = read_json(prior_result_path, {})
+        trusted = prior_result.get("trusted_parent_focused_gate", {}) if isinstance(prior_result, dict) else {}
+        focused = prior_result.get("focused_objective_gate", {}) if isinstance(prior_result, dict) else {}
+        prior_candidate = prior_result.get("candidate") if isinstance(prior_result, dict) else None
+        if (
+            isinstance(prior_candidate, str)
+            and _safe_model_reference(prior_candidate)
+            and isinstance(trusted, dict)
+            and trusted.get("run_status") == "complete"
+            and isinstance(focused, dict)
+            and focused.get("exact_eight_record_matrix") is True
+            and focused.get("admitted") is not True
+        ):
+            rejected_candidates.add(prior_candidate)
+    if rejected_candidates:
+        state.setdefault("external_watch", {})["rejected_candidates"] = sorted(
+            rejected_candidates
+        )
     discovery = discover_watch_candidates(
         state,
         max_estimated_hours=effective_max_estimated_hours,
@@ -2644,11 +2680,6 @@ def watch_external_iteration(
     write_json(watch_root / "candidate-discovery.json", discovery)
     candidate = str(discovery.get("candidate") or candidate_hint)
     candidate_state = str(discovery.get("candidate_state") or "UNKNOWN")
-    previous_watch = (
-        state.get("external_watch")
-        if isinstance(state.get("external_watch"), dict)
-        else {}
-    )
     persisted_rejected_candidates = sorted(
         {
             str(reference)
