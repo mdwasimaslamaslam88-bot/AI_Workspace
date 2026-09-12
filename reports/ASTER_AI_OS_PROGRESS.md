@@ -20,7 +20,7 @@ BACKEND        : 3152 PASS
 WEB            : 206 PASS
 MOBILE         : 64 PASS
 PERFORMANCE    : mean 8.062s / P95 16.5064s
-GIT            : DIRTY
-COMMIT         : 6702d31a6d3f74bd10207a3d41dd390862d62309
+GIT            : CLEAN_SYNCED
+COMMIT         : dab0193cb0f9df948f2049bcafa5f4646cdc2d88
 NEXT ACTION    : Run the focused objective gate for locally available candidate qwen2.5-coder:1.5b.
 ========================================================
