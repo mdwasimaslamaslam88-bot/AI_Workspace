@@ -1,15 +1,15 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-12T08:52:04.561207+00:00",
+  "generated_at": "2026-09-12T09:04:12.696112+00:00",
   "source": {
     "state": "/home/md-wasim/AI_Workspace_Data/aster-evidence/current_state.json",
     "status": "/home/md-wasim/Projects/AI_Workspace/reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.json",
     "queue": "/home/md-wasim/Projects/AI_Workspace/reports/ASTER_AI_OS_ISSUE_QUEUE.json",
     "observations": {
-      "timestamp": "2026-09-12T08:52:04.360801+00:00",
+      "timestamp": "2026-09-12T09:04:12.489045+00:00",
       "git": {
         "branch": "main",
-        "commit": "470201e0b9c6711ad31410c75d7b30bc905de494",
+        "commit": "118f589e1975dc8eef46c9facb1eb6b8a35a529f",
         "application_source_commit": "1cf781cf366c1409514771e6c6f4d5548df5d9a8",
         "upstream": "origin/main",
         "upstream_error": null,
@@ -52,7 +52,7 @@
           ],
           "cwd": "/home/md-wasim/Projects/AI_Workspace",
           "exit_code": 0,
-          "duration_seconds": 0.0061,
+          "duration_seconds": 0.0064,
           "stdout": "{\"status\":\"alive\"}",
           "stderr": "",
           "stdout_sha256": "bc24b0b5a305d5afc198c725890c8fb91053be2dbd8672779de73cac19a008fa",
@@ -179,10 +179,10 @@
   "issues_blocked_externally": 7,
   "current_issue": null,
   "current_action": "Run the focused objective gate for locally available candidate qwen2.5-coder:1.5b.",
-  "controller_phase": "WATCH_EXTERNAL_GAP",
+  "controller_phase": "CANDIDATE_FOCUSED_GATE",
   "external_watch": {
     "status": "CANDIDATE_FOCUSED_GATE",
-    "cycle": 18,
+    "cycle": 19,
     "candidate": "qwen2.5-coder:1.5b",
     "candidate_state": "FOCUSED_GATE_RESULT_CAPTURED",
     "candidate_priority": [
@@ -194,9 +194,9 @@
     ],
     "max_download_seconds": 900,
     "max_estimated_download_hours": 0.5,
-    "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0018",
+    "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0019",
     "current_action": "Run the focused objective gate for locally available candidate qwen2.5-coder:1.5b.",
-    "child_result": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0018/result.json"
+    "child_result": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0019/result.json"
   },
   "last_verification": "FAIL",
   "backend_tests": {
@@ -222,7 +222,7 @@
   "performance_mean": 8.062,
   "performance_p95": 16.5064,
   "git_status": "CLEAN_SYNCED",
-  "current_commit": "470201e0b9c6711ad31410c75d7b30bc905de494",
+  "current_commit": "118f589e1975dc8eef46c9facb1eb6b8a35a529f",
   "application_source_commit": "1cf781cf366c1409514771e6c6f4d5548df5d9a8",
   "last_successful_commit": "70335a71c9a1ef410a5976d6ba687712b983610b",
   "codex_cli": {
@@ -258,7 +258,7 @@
       }
     ]
   },
-  "report_tip_commit": "470201e0b9c6711ad31410c75d7b30bc905de494",
+  "report_tip_commit": "118f589e1975dc8eef46c9facb1eb6b8a35a529f",
   "last_artifact_verification": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260911-final-gap-release-1a02fe0/artifact-attestation-current.json",
   "last_failure": {
     "timestamp": "2026-09-12T08:04:15.495784+00:00",
