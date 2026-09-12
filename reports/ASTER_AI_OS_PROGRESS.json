@@ -1,16 +1,16 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-12T15:45:22.666194+00:00",
+  "generated_at": "2026-09-12T15:49:02.364797+00:00",
   "source": {
     "state": "/home/md-wasim/AI_Workspace_Data/aster-evidence/current_state.json",
     "status": "/home/md-wasim/Projects/AI_Workspace/reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.json",
     "queue": "/home/md-wasim/Projects/AI_Workspace/reports/ASTER_AI_OS_ISSUE_QUEUE.json",
     "observations": {
-      "timestamp": "2026-09-12T15:45:22.525683+00:00",
+      "timestamp": "2026-09-12T15:49:02.224839+00:00",
       "git": {
         "branch": "main",
-        "commit": "d4acfe9343253aa004563885610d3cfb826b4c0b",
-        "application_source_commit": "d4acfe9343253aa004563885610d3cfb826b4c0b",
+        "commit": "d7b0cb5e8422029f17d83c55d2c21b7b64d5583f",
+        "application_source_commit": "d7b0cb5e8422029f17d83c55d2c21b7b64d5583f",
         "upstream": "origin/main",
         "upstream_error": null,
         "ahead": 0,
@@ -33,7 +33,7 @@
         "status": "HISTORICAL_PASS_REQUIRES_CURRENT_ATTESTATION",
         "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/runtime-identity-20260911-70335a7.json",
         "source_commit": "70335a71c9a1ef410a5976d6ba687712b983610b",
-        "current_commit": "d4acfe9343253aa004563885610d3cfb826b4c0b",
+        "current_commit": "d7b0cb5e8422029f17d83c55d2c21b7b64d5583f",
         "source_matches_current": false,
         "matches": {
           "source_commit": true,
@@ -52,7 +52,7 @@
           ],
           "cwd": "/home/md-wasim/Projects/AI_Workspace",
           "exit_code": 0,
-          "duration_seconds": 0.0079,
+          "duration_seconds": 0.0068,
           "stdout": "{\"status\":\"alive\"}",
           "stderr": "",
           "stdout_sha256": "bc24b0b5a305d5afc198c725890c8fb91053be2dbd8672779de73cac19a008fa",
@@ -82,7 +82,7 @@
       },
       "provenance": {
         "status": "NOT_PROVEN",
-        "current_source_commit": "d4acfe9343253aa004563885610d3cfb826b4c0b",
+        "current_source_commit": "d7b0cb5e8422029f17d83c55d2c21b7b64d5583f",
         "components": {
           "source_commit": "PASS",
           "runtime": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE",
@@ -182,7 +182,7 @@
   "controller_phase": "WATCH_EXTERNAL_GAP",
   "external_watch": {
     "status": "NOT_READY",
-    "cycle": 48,
+    "cycle": 50,
     "candidate": "qwen2.5-coder:3b",
     "candidate_state": "NOT_CACHED_DOWNLOAD_TOO_SLOW_OR_UNAVAILABLE",
     "candidate_priority": [
@@ -192,6 +192,9 @@
       "starcoder2:3b",
       "codegemma:2b"
     ],
+    "rejected_candidates": [
+      "qwen2.5-coder:1.5b"
+    ],
     "excluded_candidate": null,
     "excluded_candidate_absent": true,
     "max_download_seconds": 900,
@@ -199,8 +202,8 @@
     "requested_max_download_seconds": 900,
     "requested_max_estimated_download_hours": 0.5,
     "genericity_and_canonical_validation_allowed": false,
-    "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0048",
-    "next_retry_at": "2026-09-12T15:50:22.469844+00:00",
+    "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0050",
+    "next_retry_at": "2026-09-12T15:54:02.164935+00:00",
     "current_action": "Wait for a reliable bounded download window for candidate qwen2.5-coder:3b; no production route change is permitted."
   },
   "last_verification": "PARTIAL",
@@ -227,8 +230,8 @@
   "performance_mean": 8.062,
   "performance_p95": 16.5064,
   "git_status": "CLEAN_SYNCED",
-  "current_commit": "d4acfe9343253aa004563885610d3cfb826b4c0b",
-  "application_source_commit": "d4acfe9343253aa004563885610d3cfb826b4c0b",
+  "current_commit": "d7b0cb5e8422029f17d83c55d2c21b7b64d5583f",
+  "application_source_commit": "d7b0cb5e8422029f17d83c55d2c21b7b64d5583f",
   "last_successful_commit": "70335a71c9a1ef410a5976d6ba687712b983610b",
   "codex_cli": {
     "path": "/home/md-wasim/.nvm/versions/node/v24.19.0/lib/node_modules/@openai/codex/bin/codex.js",
@@ -263,7 +266,7 @@
       }
     ]
   },
-  "report_tip_commit": "d4acfe9343253aa004563885610d3cfb826b4c0b",
+  "report_tip_commit": "d7b0cb5e8422029f17d83c55d2c21b7b64d5583f",
   "last_artifact_verification": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260911-final-gap-release-1a02fe0/artifact-attestation-current.json",
   "last_failure": {
     "timestamp": "2026-09-12T15:43:47.325405+00:00",

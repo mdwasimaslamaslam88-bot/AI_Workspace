@@ -2,9 +2,9 @@
   "schema_version": 4,
   "iteration": 4,
   "status": "NOT_READY",
-  "updated_at": "2026-09-12T15:45:22.659912+00:00",
+  "updated_at": "2026-09-12T15:49:02.358585+00:00",
   "current_issue": [],
-  "current_commit": "d4acfe9343253aa004563885610d3cfb826b4c0b",
+  "current_commit": "d7b0cb5e8422029f17d83c55d2c21b7b64d5583f",
   "current_runtime": "/home/md-wasim/AI_Workspace_Data/aster-evidence/runtime-identity-20260911-70335a7.json",
   "current_artifact": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260911-final-gap-release-1a02fe0/artifact-attestation-current.json",
   "issues": [
@@ -3197,10 +3197,10 @@
       ]
     },
     "last_result": {
-      "timestamp": "2026-09-12T15:45:22.469862+00:00",
+      "timestamp": "2026-09-12T15:49:02.164954+00:00",
       "iteration": 4,
       "attempt": 26,
-      "cycle": 48,
+      "cycle": 50,
       "issue": null,
       "status": "NOT_READY",
       "action": "Wait for a reliable bounded download window for candidate qwen2.5-coder:3b; no production route change is permitted.",
@@ -3243,10 +3243,10 @@
               ],
               "cwd": "/home/md-wasim/Projects/AI_Workspace",
               "exit_code": 0,
-              "duration_seconds": 0.0156,
-              "stdout": "NAME                                    ID              SIZE      MODIFIED     \nqwen2.5-coder:1.5b                      d7372fd82851    986 MB    10 hours ago    \nphi4:14b-q4_K_M                         ac896e5b8b34    9.1 GB    2 weeks ago     \nministral-3:14b-instruct-2512-q4_K_M    4760c35aeb9d    9.1 GB    2 weeks ago     \ndeepcoder:14b-preview-q4_K_M            12bdda054d23    9.0 GB    2 weeks ago     \nqwen3:14b-q4_K_M                        bdbd181c33f2    9.3 GB    2 weeks ago     \ngemma4:12b-it-q4_K_M                    4eb23ef187e2    7.6 GB    2 weeks ago     \nqwen3.5:9b-q4_K_M                       6488c96fa5fa    6.6 GB    2 weeks ago     \nqwen2.5-coder:14b-instruct-q3_K_L       93a65e662efb    7.9 GB    2 weeks ago     \nqwen2.5vl:7b                            5ced39dfa4ba    6.0 GB    2 weeks ago     \nnomic-embed-text:latest                 0a109f422b47    274 MB    5 weeks ago     \nqwen2.5-coder:7b                        dae161e27b0e    4.7 GB    5 weeks ago     \nqwen3:8b                                500a1f067a9f    5.2 GB    5 weeks ago     \n",
+              "duration_seconds": 0.0162,
+              "stdout": "NAME                                    ID              SIZE      MODIFIED     \nqwen2.5-coder:1.5b                      d7372fd82851    986 MB    11 hours ago    \nphi4:14b-q4_K_M                         ac896e5b8b34    9.1 GB    2 weeks ago     \nministral-3:14b-instruct-2512-q4_K_M    4760c35aeb9d    9.1 GB    2 weeks ago     \ndeepcoder:14b-preview-q4_K_M            12bdda054d23    9.0 GB    2 weeks ago     \nqwen3:14b-q4_K_M                        bdbd181c33f2    9.3 GB    2 weeks ago     \ngemma4:12b-it-q4_K_M                    4eb23ef187e2    7.6 GB    2 weeks ago     \nqwen3.5:9b-q4_K_M                       6488c96fa5fa    6.6 GB    2 weeks ago     \nqwen2.5-coder:14b-instruct-q3_K_L       93a65e662efb    7.9 GB    2 weeks ago     \nqwen2.5vl:7b                            5ced39dfa4ba    6.0 GB    2 weeks ago     \nnomic-embed-text:latest                 0a109f422b47    274 MB    5 weeks ago     \nqwen2.5-coder:7b                        dae161e27b0e    4.7 GB    5 weeks ago     \nqwen3:8b                                500a1f067a9f    5.2 GB    5 weeks ago     \n",
               "stderr": "",
-              "stdout_sha256": "4f0a38388ea49c0dbc58e296ef27e177a49844136f4ea1e3c42e6b9ce6596651",
+              "stdout_sha256": "a90d2a04dd1d0aa048723719249eeab3846ac89c02ead1dd9427584d60d78ce5",
               "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
               "timed_out": false
             },
@@ -3275,10 +3275,10 @@
               ],
               "cwd": "/home/md-wasim/Projects/AI_Workspace",
               "exit_code": 0,
-              "duration_seconds": 0.0165,
-              "stdout": "NAME                                    ID              SIZE      MODIFIED     \nqwen2.5-coder:1.5b                      d7372fd82851    986 MB    10 hours ago    \nphi4:14b-q4_K_M                         ac896e5b8b34    9.1 GB    2 weeks ago     \nministral-3:14b-instruct-2512-q4_K_M    4760c35aeb9d    9.1 GB    2 weeks ago     \ndeepcoder:14b-preview-q4_K_M            12bdda054d23    9.0 GB    2 weeks ago     \nqwen3:14b-q4_K_M                        bdbd181c33f2    9.3 GB    2 weeks ago     \ngemma4:12b-it-q4_K_M                    4eb23ef187e2    7.6 GB    2 weeks ago     \nqwen3.5:9b-q4_K_M                       6488c96fa5fa    6.6 GB    2 weeks ago     \nqwen2.5-coder:14b-instruct-q3_K_L       93a65e662efb    7.9 GB    2 weeks ago     \nqwen2.5vl:7b                            5ced39dfa4ba    6.0 GB    2 weeks ago     \nnomic-embed-text:latest                 0a109f422b47    274 MB    5 weeks ago     \nqwen2.5-coder:7b                        dae161e27b0e    4.7 GB    5 weeks ago     \nqwen3:8b                                500a1f067a9f    5.2 GB    5 weeks ago     \n",
+              "duration_seconds": 0.0154,
+              "stdout": "NAME                                    ID              SIZE      MODIFIED     \nqwen2.5-coder:1.5b                      d7372fd82851    986 MB    11 hours ago    \nphi4:14b-q4_K_M                         ac896e5b8b34    9.1 GB    2 weeks ago     \nministral-3:14b-instruct-2512-q4_K_M    4760c35aeb9d    9.1 GB    2 weeks ago     \ndeepcoder:14b-preview-q4_K_M            12bdda054d23    9.0 GB    2 weeks ago     \nqwen3:14b-q4_K_M                        bdbd181c33f2    9.3 GB    2 weeks ago     \ngemma4:12b-it-q4_K_M                    4eb23ef187e2    7.6 GB    2 weeks ago     \nqwen3.5:9b-q4_K_M                       6488c96fa5fa    6.6 GB    2 weeks ago     \nqwen2.5-coder:14b-instruct-q3_K_L       93a65e662efb    7.9 GB    2 weeks ago     \nqwen2.5vl:7b                            5ced39dfa4ba    6.0 GB    2 weeks ago     \nnomic-embed-text:latest                 0a109f422b47    274 MB    5 weeks ago     \nqwen2.5-coder:7b                        dae161e27b0e    4.7 GB    5 weeks ago     \nqwen3:8b                                500a1f067a9f    5.2 GB    5 weeks ago     \n",
               "stderr": "",
-              "stdout_sha256": "4f0a38388ea49c0dbc58e296ef27e177a49844136f4ea1e3c42e6b9ce6596651",
+              "stdout_sha256": "a90d2a04dd1d0aa048723719249eeab3846ac89c02ead1dd9427584d60d78ce5",
               "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
               "timed_out": false
             },
@@ -3307,10 +3307,10 @@
               ],
               "cwd": "/home/md-wasim/Projects/AI_Workspace",
               "exit_code": 0,
-              "duration_seconds": 0.0145,
-              "stdout": "NAME                                    ID              SIZE      MODIFIED     \nqwen2.5-coder:1.5b                      d7372fd82851    986 MB    10 hours ago    \nphi4:14b-q4_K_M                         ac896e5b8b34    9.1 GB    2 weeks ago     \nministral-3:14b-instruct-2512-q4_K_M    4760c35aeb9d    9.1 GB    2 weeks ago     \ndeepcoder:14b-preview-q4_K_M            12bdda054d23    9.0 GB    2 weeks ago     \nqwen3:14b-q4_K_M                        bdbd181c33f2    9.3 GB    2 weeks ago     \ngemma4:12b-it-q4_K_M                    4eb23ef187e2    7.6 GB    2 weeks ago     \nqwen3.5:9b-q4_K_M                       6488c96fa5fa    6.6 GB    2 weeks ago     \nqwen2.5-coder:14b-instruct-q3_K_L       93a65e662efb    7.9 GB    2 weeks ago     \nqwen2.5vl:7b                            5ced39dfa4ba    6.0 GB    2 weeks ago     \nnomic-embed-text:latest                 0a109f422b47    274 MB    5 weeks ago     \nqwen2.5-coder:7b                        dae161e27b0e    4.7 GB    5 weeks ago     \nqwen3:8b                                500a1f067a9f    5.2 GB    5 weeks ago     \n",
+              "duration_seconds": 0.0143,
+              "stdout": "NAME                                    ID              SIZE      MODIFIED     \nqwen2.5-coder:1.5b                      d7372fd82851    986 MB    11 hours ago    \nphi4:14b-q4_K_M                         ac896e5b8b34    9.1 GB    2 weeks ago     \nministral-3:14b-instruct-2512-q4_K_M    4760c35aeb9d    9.1 GB    2 weeks ago     \ndeepcoder:14b-preview-q4_K_M            12bdda054d23    9.0 GB    2 weeks ago     \nqwen3:14b-q4_K_M                        bdbd181c33f2    9.3 GB    2 weeks ago     \ngemma4:12b-it-q4_K_M                    4eb23ef187e2    7.6 GB    2 weeks ago     \nqwen3.5:9b-q4_K_M                       6488c96fa5fa    6.6 GB    2 weeks ago     \nqwen2.5-coder:14b-instruct-q3_K_L       93a65e662efb    7.9 GB    2 weeks ago     \nqwen2.5vl:7b                            5ced39dfa4ba    6.0 GB    2 weeks ago     \nnomic-embed-text:latest                 0a109f422b47    274 MB    5 weeks ago     \nqwen2.5-coder:7b                        dae161e27b0e    4.7 GB    5 weeks ago     \nqwen3:8b                                500a1f067a9f    5.2 GB    5 weeks ago     \n",
               "stderr": "",
-              "stdout_sha256": "4f0a38388ea49c0dbc58e296ef27e177a49844136f4ea1e3c42e6b9ce6596651",
+              "stdout_sha256": "a90d2a04dd1d0aa048723719249eeab3846ac89c02ead1dd9427584d60d78ce5",
               "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
               "timed_out": false
             },
@@ -3339,10 +3339,10 @@
               ],
               "cwd": "/home/md-wasim/Projects/AI_Workspace",
               "exit_code": 0,
-              "duration_seconds": 0.015,
-              "stdout": "NAME                                    ID              SIZE      MODIFIED     \nqwen2.5-coder:1.5b                      d7372fd82851    986 MB    10 hours ago    \nphi4:14b-q4_K_M                         ac896e5b8b34    9.1 GB    2 weeks ago     \nministral-3:14b-instruct-2512-q4_K_M    4760c35aeb9d    9.1 GB    2 weeks ago     \ndeepcoder:14b-preview-q4_K_M            12bdda054d23    9.0 GB    2 weeks ago     \nqwen3:14b-q4_K_M                        bdbd181c33f2    9.3 GB    2 weeks ago     \ngemma4:12b-it-q4_K_M                    4eb23ef187e2    7.6 GB    2 weeks ago     \nqwen3.5:9b-q4_K_M                       6488c96fa5fa    6.6 GB    2 weeks ago     \nqwen2.5-coder:14b-instruct-q3_K_L       93a65e662efb    7.9 GB    2 weeks ago     \nqwen2.5vl:7b                            5ced39dfa4ba    6.0 GB    2 weeks ago     \nnomic-embed-text:latest                 0a109f422b47    274 MB    5 weeks ago     \nqwen2.5-coder:7b                        dae161e27b0e    4.7 GB    5 weeks ago     \nqwen3:8b                                500a1f067a9f    5.2 GB    5 weeks ago     \n",
+              "duration_seconds": 0.0153,
+              "stdout": "NAME                                    ID              SIZE      MODIFIED     \nqwen2.5-coder:1.5b                      d7372fd82851    986 MB    11 hours ago    \nphi4:14b-q4_K_M                         ac896e5b8b34    9.1 GB    2 weeks ago     \nministral-3:14b-instruct-2512-q4_K_M    4760c35aeb9d    9.1 GB    2 weeks ago     \ndeepcoder:14b-preview-q4_K_M            12bdda054d23    9.0 GB    2 weeks ago     \nqwen3:14b-q4_K_M                        bdbd181c33f2    9.3 GB    2 weeks ago     \ngemma4:12b-it-q4_K_M                    4eb23ef187e2    7.6 GB    2 weeks ago     \nqwen3.5:9b-q4_K_M                       6488c96fa5fa    6.6 GB    2 weeks ago     \nqwen2.5-coder:14b-instruct-q3_K_L       93a65e662efb    7.9 GB    2 weeks ago     \nqwen2.5vl:7b                            5ced39dfa4ba    6.0 GB    2 weeks ago     \nnomic-embed-text:latest                 0a109f422b47    274 MB    5 weeks ago     \nqwen2.5-coder:7b                        dae161e27b0e    4.7 GB    5 weeks ago     \nqwen3:8b                                500a1f067a9f    5.2 GB    5 weeks ago     \n",
               "stderr": "",
-              "stdout_sha256": "4f0a38388ea49c0dbc58e296ef27e177a49844136f4ea1e3c42e6b9ce6596651",
+              "stdout_sha256": "a90d2a04dd1d0aa048723719249eeab3846ac89c02ead1dd9427584d60d78ce5",
               "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
               "timed_out": false
             },
@@ -3381,7 +3381,7 @@
                 ],
                 "cwd": "/home/md-wasim/Projects/AI_Workspace",
                 "exit_code": 0,
-                "duration_seconds": 5.6287,
+                "duration_seconds": 1.1969,
                 "stdout": "{\"schemaVersion\":2,\"mediaType\":\"application/vnd.docker.distribution.manifest.v2+json\",\"config\":{\"mediaType\":\"application/vnd.docker.container.image.v1+json\",\"digest\":\"sha256:bb967eff3bda079d4ee62c09c5ef0b2e71a6a75934a4c92a13c755fcfd655703\",\"size\":487},\"layers\":[{\"mediaType\":\"application/vnd.ollama.image.model\",\"digest\":\"sha256:4a188102020e9c9530b687fd6400f775c45e90a0d7baafe65bd0a36963fbb7ba\",\"size\":1929903072},{\"mediaType\":\"application/vnd.ollama.image.system\",\"digest\":\"sha256:66b9ea09bd5b7099cbb4fc820f31b575c0366fa439b08245566692c6784e281e\",\"size\":68},{\"mediaType\":\"application/vnd.ollama.image.template\",\"digest\":\"sha256:1e65450c30670713aa47fe23e8b9662bdf4065e81cc8e3cbfaa98924fcc0d320\",\"size\":1615},{\"mediaType\":\"application/vnd.ollama.image.license\",\"digest\":\"sha256:45fc3ea7579acf3021044fc8c4c5dd5969ebc3ca2a68219b5075662cc949a4f1\",\"size\":7384}]}",
                 "stderr": "",
                 "stdout_sha256": "f72c60cabf6237b07f6e632b2c48d533cef25eda2efbd34bed21c5e9c01e6225",
@@ -3445,21 +3445,21 @@
                 ],
                 "cwd": "/home/md-wasim/Projects/AI_Workspace",
                 "exit_code": 0,
-                "duration_seconds": 5.8831,
-                "stdout": "206\t1048576\t5.875220\t178474\n",
+                "duration_seconds": 5.4477,
+                "stdout": "206\t1048576\t5.440369\t192739\n",
                 "stderr": "",
-                "stdout_sha256": "2a2fe7a1433c740f15e9b4e27254c29130f362fb72a30301e9539f4d943c5f73",
+                "stdout_sha256": "f1370f157775d87baf1394c13942db993cd6f07a6511e213bdcbaf59dd2c917f",
                 "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
                 "timed_out": false
               },
               "http_code": 206,
               "bytes_downloaded": 1048576,
-              "duration_seconds": 5.87522,
-              "throughput_bytes_per_second": 178474.0,
-              "estimated_download_seconds": 10813.410502370092,
-              "estimated_download_hours": 3.0037251395472477,
+              "duration_seconds": 5.440369,
+              "throughput_bytes_per_second": 192739.0,
+              "estimated_download_seconds": 10013.088300759058,
+              "estimated_download_hours": 2.781413416877516,
               "url": "https://registry.ollama.ai/v2/library/qwen2.5-coder/blobs/sha256:4a188102020e9c9530b687fd6400f775c45e90a0d7baafe65bd0a36963fbb7ba",
-              "fresh_probe_started_at": "2026-09-12T15:44:50.134212+00:00",
+              "fresh_probe_started_at": "2026-09-12T15:48:41.705167+00:00",
               "sha256_addressed": true
             },
             "qualification": {
@@ -3487,7 +3487,7 @@
                 ],
                 "cwd": "/home/md-wasim/Projects/AI_Workspace",
                 "exit_code": 0,
-                "duration_seconds": 0.644,
+                "duration_seconds": 0.8666,
                 "stdout": "{\"schemaVersion\":2,\"mediaType\":\"application/vnd.docker.distribution.manifest.v2+json\",\"config\":{\"mediaType\":\"application/vnd.docker.container.image.v1+json\",\"digest\":\"sha256:d55c9eb1669a22f75956872166c676634c77cd8dfb94900640bd09a474dfcd0c\",\"size\":483},\"layers\":[{\"mediaType\":\"application/vnd.ollama.image.model\",\"digest\":\"sha256:d040cc18521592f70c199396aeaa44cdc40224079156dc09d4283d745d9dc5fd\",\"size\":776066240},{\"mediaType\":\"application/vnd.ollama.image.license\",\"digest\":\"sha256:a3a0e9449cb691a12f4de1d03725fd41326614fdeaf5d80b28c51187da0bed0e\",\"size\":13760},{\"mediaType\":\"application/vnd.ollama.image.template\",\"digest\":\"sha256:8893e08fa9f91f7dc39e24d27bdfaece4e9c86bb3269293ff8cea6cba98c872d\",\"size\":59},{\"mediaType\":\"application/vnd.ollama.image.system\",\"digest\":\"sha256:8972a96b8ff1957ca24ff839aeb54411e6849de68609857a3fa17a4e78114247\",\"size\":297}]}",
                 "stderr": "",
                 "stdout_sha256": "3ddd2d3fc8d2b5fe039d18f859271132fd9c7960ef0be1864984442dc2a915d3",
@@ -3551,21 +3551,21 @@
                 ],
                 "cwd": "/home/md-wasim/Projects/AI_Workspace",
                 "exit_code": 0,
-                "duration_seconds": 5.4355,
-                "stdout": "206\t1048576\t5.427454\t193198\n",
+                "duration_seconds": 6.868,
+                "stdout": "206\t1048576\t6.859716\t152859\n",
                 "stderr": "",
-                "stdout_sha256": "052e7602277ff086495abbd79c994360ab8e05c9d1d0419d0bd8105d44d81dd9",
+                "stdout_sha256": "fa7424e1c05a5ae804cfa4fe71b75a178a112ad0623f83a56a5a9c8a71644665",
                 "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
                 "timed_out": false
               },
               "http_code": 206,
               "bytes_downloaded": 1048576,
-              "duration_seconds": 5.427454,
-              "throughput_bytes_per_second": 193198.0,
-              "estimated_download_seconds": 4017.023152413586,
-              "estimated_download_hours": 1.1158397645593294,
+              "duration_seconds": 6.859716,
+              "throughput_bytes_per_second": 152859.0,
+              "estimated_download_seconds": 5077.102682864601,
+              "estimated_download_hours": 1.4103063007957224,
               "url": "https://registry.ollama.ai/v2/library/deepseek-coder/blobs/sha256:d040cc18521592f70c199396aeaa44cdc40224079156dc09d4283d745d9dc5fd",
-              "fresh_probe_started_at": "2026-09-12T15:44:56.678118+00:00",
+              "fresh_probe_started_at": "2026-09-12T15:48:48.035197+00:00",
               "sha256_addressed": true
             },
             "qualification": {
@@ -3593,7 +3593,7 @@
                 ],
                 "cwd": "/home/md-wasim/Projects/AI_Workspace",
                 "exit_code": 0,
-                "duration_seconds": 0.7811,
+                "duration_seconds": 0.5627,
                 "stdout": "{\"schemaVersion\":2,\"mediaType\":\"application/vnd.docker.distribution.manifest.v2+json\",\"config\":{\"mediaType\":\"application/vnd.docker.container.image.v1+json\",\"digest\":\"sha256:9211f2fea414654e0c3039ea44cdc0cd74124dfecffee03dd760b9fee654998b\",\"size\":345},\"layers\":[{\"mediaType\":\"application/vnd.ollama.image.model\",\"digest\":\"sha256:28bfdfaeba9f51611c00ed322ba684ce6db076756dbc46643f98a8a748c5199e\",\"size\":1709888576},{\"mediaType\":\"application/vnd.ollama.image.license\",\"digest\":\"sha256:4ec42cd966c9d5cf067cc4438869e0737679203b4d6fc551c226c15a1c2d7997\",\"size\":12624},{\"mediaType\":\"application/vnd.ollama.image.template\",\"digest\":\"sha256:3b190e68fefe043e95b25825d7ebb8d2d61b154678765a2ab0d4a3a7a5b9733e\",\"size\":142},{\"mediaType\":\"application/vnd.ollama.image.params\",\"digest\":\"sha256:37c99d4c7b605f0ebce03962ea9051ea770cf2c8f86c0e75bc728582d18fdd0d\",\"size\":41}]}",
                 "stderr": "",
                 "stdout_sha256": "9f4ae0aff61ee24fe4b7d9714c9382b5172551fa8e95aa064452ec2e62610835",
@@ -3637,7 +3637,7 @@
               "status": "AVAILABLE"
             },
             "probe": {
-              "status": "UNAVAILABLE",
+              "status": "AVAILABLE",
               "command": {
                 "command": [
                   "curl",
@@ -3656,22 +3656,22 @@
                   "https://registry.ollama.ai/v2/library/starcoder2/blobs/sha256:28bfdfaeba9f51611c00ed322ba684ce6db076756dbc46643f98a8a748c5199e"
                 ],
                 "cwd": "/home/md-wasim/Projects/AI_Workspace",
-                "exit_code": 28,
-                "duration_seconds": 15.3437,
-                "stdout": "206\t344055\t15.334954\t22435\n",
-                "stderr": "curl: (28) Operation timed out after 14583 milliseconds with 344055 out of 1048576 bytes received\n",
-                "stdout_sha256": "1ccd15333697b2570bb389cb58219969bdb8c3135c51ad9bc6a2aeae3de14446",
-                "stderr_sha256": "5d10f8148d3fc45c2bcd68001f29d51bb65198bedbab47773a8b8525f03c5414",
+                "exit_code": 0,
+                "duration_seconds": 3.0081,
+                "stdout": "206\t1048576\t3.000422\t349476\n",
+                "stderr": "",
+                "stdout_sha256": "9f069725e651cf75eb01c7a1cf26d7ba2e21bef79dc30a0be28c025fe58023f7",
+                "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
                 "timed_out": false
               },
               "http_code": 206,
-              "bytes_downloaded": 344055,
-              "duration_seconds": 15.334954,
-              "throughput_bytes_per_second": 22435.0,
-              "estimated_download_seconds": 76215.81136616893,
-              "estimated_download_hours": 21.171058712824703,
+              "bytes_downloaded": 1048576,
+              "duration_seconds": 3.000422,
+              "throughput_bytes_per_second": 349476.0,
+              "estimated_download_seconds": 4892.758667261844,
+              "estimated_download_hours": 1.3590996297949565,
               "url": "https://registry.ollama.ai/v2/library/starcoder2/blobs/sha256:28bfdfaeba9f51611c00ed322ba684ce6db076756dbc46643f98a8a748c5199e",
-              "fresh_probe_started_at": "2026-09-12T15:45:02.909552+00:00",
+              "fresh_probe_started_at": "2026-09-12T15:48:55.480418+00:00",
               "sha256_addressed": true
             },
             "qualification": {
@@ -3699,7 +3699,7 @@
                 ],
                 "cwd": "/home/md-wasim/Projects/AI_Workspace",
                 "exit_code": 0,
-                "duration_seconds": 0.6054,
+                "duration_seconds": 0.6317,
                 "stdout": "{\"schemaVersion\":2,\"mediaType\":\"application/vnd.docker.distribution.manifest.v2+json\",\"config\":{\"mediaType\":\"application/vnd.docker.container.image.v1+json\",\"digest\":\"sha256:ea4a24c038f59ed9a94db50d23d32dd36e73a85c10097b4b9fed9c70c3a5158d\",\"size\":409},\"layers\":[{\"mediaType\":\"application/vnd.ollama.image.model\",\"digest\":\"sha256:dd0c6f2ea876e4c433325df3398386f24e00d321abf6cec197c1bc1fcf1e0025\",\"size\":1551189312},{\"mediaType\":\"application/vnd.ollama.image.license\",\"digest\":\"sha256:097a36493f718248845233af1d3fefe7a303f864fae13bc31a3a9704229378ca\",\"size\":8433},{\"mediaType\":\"application/vnd.ollama.image.params\",\"digest\":\"sha256:9be8862a36378dff002b5114ffa6f5b30054cfb4875ed58195449e1848ae6e09\",\"size\":142},{\"mediaType\":\"application/vnd.ollama.image.template\",\"digest\":\"sha256:48d9a8140749f940a218cb55fe7074cc6b776b93bac231bd9ef02cf6d26a5964\",\"size\":121}]}",
                 "stderr": "",
                 "stdout_sha256": "926331004170f1c177e6185e8c7e6339bcc701cbda124ed4b235246191f38bff",
@@ -3763,21 +3763,21 @@
                 ],
                 "cwd": "/home/md-wasim/Projects/AI_Workspace",
                 "exit_code": 0,
-                "duration_seconds": 3.5928,
-                "stdout": "206\t1048576\t3.585120\t292480\n",
+                "duration_seconds": 3.0257,
+                "stdout": "206\t1048576\t3.016455\t347618\n",
                 "stderr": "",
-                "stdout_sha256": "6fd3e5a9ffbd29e76908ffabafa2b5819ab8d184b680f723f671a7c820888e59",
+                "stdout_sha256": "ce5cb79e048f6aae3c10ff34a92b90468a8530d9f9c1079202cefeaa3e5390bf",
                 "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
                 "timed_out": false
               },
               "http_code": 206,
               "bytes_downloaded": 1048576,
-              "duration_seconds": 3.58512,
-              "throughput_bytes_per_second": 292480.0,
-              "estimated_download_seconds": 5303.605090946389,
-              "estimated_download_hours": 1.473223636373997,
+              "duration_seconds": 3.016455,
+              "throughput_bytes_per_second": 347618.0,
+              "estimated_download_seconds": 4462.36505877141,
+              "estimated_download_hours": 1.239545849658725,
               "url": "https://registry.ollama.ai/v2/library/codegemma/blobs/sha256:dd0c6f2ea876e4c433325df3398386f24e00d321abf6cec197c1bc1fcf1e0025",
-              "fresh_probe_started_at": "2026-09-12T15:45:18.873978+00:00",
+              "fresh_probe_started_at": "2026-09-12T15:48:59.135842+00:00",
               "sha256_addressed": true
             },
             "qualification": {
@@ -3795,18 +3795,18 @@
           "both_limits_required": true
         }
       },
-      "evidence_dir": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0048",
+      "evidence_dir": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0050",
       "before": {
-        "timestamp": "2026-09-12T15:44:44.418247+00:00",
-        "cycle": 48,
+        "timestamp": "2026-09-12T15:48:40.464217+00:00",
+        "cycle": 50,
         "phase": "WATCH_EXTERNAL_GAP",
         "candidate_hint": "qwen2.5-coder:3b",
         "observations": {
-          "timestamp": "2026-09-12T15:44:44.314636+00:00",
+          "timestamp": "2026-09-12T15:48:40.359492+00:00",
           "git": {
             "branch": "main",
-            "commit": "d4acfe9343253aa004563885610d3cfb826b4c0b",
-            "application_source_commit": "d4acfe9343253aa004563885610d3cfb826b4c0b",
+            "commit": "d7b0cb5e8422029f17d83c55d2c21b7b64d5583f",
+            "application_source_commit": "d7b0cb5e8422029f17d83c55d2c21b7b64d5583f",
             "upstream": "origin/main",
             "upstream_error": null,
             "ahead": 0,
@@ -3829,7 +3829,7 @@
             "status": "HISTORICAL_PASS_REQUIRES_CURRENT_ATTESTATION",
             "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/runtime-identity-20260911-70335a7.json",
             "source_commit": "70335a71c9a1ef410a5976d6ba687712b983610b",
-            "current_commit": "d4acfe9343253aa004563885610d3cfb826b4c0b",
+            "current_commit": "d7b0cb5e8422029f17d83c55d2c21b7b64d5583f",
             "source_matches_current": false,
             "matches": {
               "source_commit": true,
@@ -3848,7 +3848,7 @@
               ],
               "cwd": "/home/md-wasim/Projects/AI_Workspace",
               "exit_code": 0,
-              "duration_seconds": 0.0063,
+              "duration_seconds": 0.0078,
               "stdout": "{\"status\":\"alive\"}",
               "stderr": "",
               "stdout_sha256": "bc24b0b5a305d5afc198c725890c8fb91053be2dbd8672779de73cac19a008fa",
@@ -3878,7 +3878,7 @@
           },
           "provenance": {
             "status": "NOT_PROVEN",
-            "current_source_commit": "d4acfe9343253aa004563885610d3cfb826b4c0b",
+            "current_source_commit": "d7b0cb5e8422029f17d83c55d2c21b7b64d5583f",
             "components": {
               "source_commit": "PASS",
               "runtime": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE",
@@ -3965,8 +3965,8 @@
         },
         "git": {
           "branch": "main",
-          "commit": "d4acfe9343253aa004563885610d3cfb826b4c0b",
-          "application_source_commit": "d4acfe9343253aa004563885610d3cfb826b4c0b",
+          "commit": "d7b0cb5e8422029f17d83c55d2c21b7b64d5583f",
+          "application_source_commit": "d7b0cb5e8422029f17d83c55d2c21b7b64d5583f",
           "upstream": "origin/main",
           "upstream_error": null,
           "ahead": 0,
@@ -3978,11 +3978,11 @@
       },
       "after": {
         "observations": {
-          "timestamp": "2026-09-12T15:45:22.525683+00:00",
+          "timestamp": "2026-09-12T15:49:02.224839+00:00",
           "git": {
             "branch": "main",
-            "commit": "d4acfe9343253aa004563885610d3cfb826b4c0b",
-            "application_source_commit": "d4acfe9343253aa004563885610d3cfb826b4c0b",
+            "commit": "d7b0cb5e8422029f17d83c55d2c21b7b64d5583f",
+            "application_source_commit": "d7b0cb5e8422029f17d83c55d2c21b7b64d5583f",
             "upstream": "origin/main",
             "upstream_error": null,
             "ahead": 0,
@@ -4005,7 +4005,7 @@
             "status": "HISTORICAL_PASS_REQUIRES_CURRENT_ATTESTATION",
             "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/runtime-identity-20260911-70335a7.json",
             "source_commit": "70335a71c9a1ef410a5976d6ba687712b983610b",
-            "current_commit": "d4acfe9343253aa004563885610d3cfb826b4c0b",
+            "current_commit": "d7b0cb5e8422029f17d83c55d2c21b7b64d5583f",
             "source_matches_current": false,
             "matches": {
               "source_commit": true,
@@ -4024,7 +4024,7 @@
               ],
               "cwd": "/home/md-wasim/Projects/AI_Workspace",
               "exit_code": 0,
-              "duration_seconds": 0.0079,
+              "duration_seconds": 0.0068,
               "stdout": "{\"status\":\"alive\"}",
               "stderr": "",
               "stdout_sha256": "bc24b0b5a305d5afc198c725890c8fb91053be2dbd8672779de73cac19a008fa",
@@ -4054,7 +4054,7 @@
           },
           "provenance": {
             "status": "NOT_PROVEN",
-            "current_source_commit": "d4acfe9343253aa004563885610d3cfb826b4c0b",
+            "current_source_commit": "d7b0cb5e8422029f17d83c55d2c21b7b64d5583f",
             "components": {
               "source_commit": "PASS",
               "runtime": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE",
@@ -4141,8 +4141,8 @@
         },
         "git": {
           "branch": "main",
-          "commit": "d4acfe9343253aa004563885610d3cfb826b4c0b",
-          "application_source_commit": "d4acfe9343253aa004563885610d3cfb826b4c0b",
+          "commit": "d7b0cb5e8422029f17d83c55d2c21b7b64d5583f",
+          "application_source_commit": "d7b0cb5e8422029f17d83c55d2c21b7b64d5583f",
           "upstream": "origin/main",
           "upstream_error": null,
           "ahead": 0,
@@ -4152,11 +4152,11 @@
           "status": "CLEAN_SYNCED"
         }
       },
-      "next_retry_at": "2026-09-12T15:50:22.469844+00:00"
+      "next_retry_at": "2026-09-12T15:54:02.164935+00:00"
     },
     "external_watch": {
       "status": "NOT_READY",
-      "cycle": 48,
+      "cycle": 50,
       "candidate": "qwen2.5-coder:3b",
       "candidate_state": "NOT_CACHED_DOWNLOAD_TOO_SLOW_OR_UNAVAILABLE",
       "candidate_priority": [
@@ -4166,6 +4166,9 @@
         "starcoder2:3b",
         "codegemma:2b"
       ],
+      "rejected_candidates": [
+        "qwen2.5-coder:1.5b"
+      ],
       "excluded_candidate": null,
       "excluded_candidate_absent": true,
       "max_download_seconds": 900,
@@ -4173,18 +4176,18 @@
       "requested_max_download_seconds": 900,
       "requested_max_estimated_download_hours": 0.5,
       "genericity_and_canonical_validation_allowed": false,
-      "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0048",
-      "next_retry_at": "2026-09-12T15:50:22.469844+00:00",
+      "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0050",
+      "next_retry_at": "2026-09-12T15:54:02.164935+00:00",
       "current_action": "Wait for a reliable bounded download window for candidate qwen2.5-coder:3b; no production route change is permitted."
     }
   },
-  "report_generated_from_commit": "d4acfe9343253aa004563885610d3cfb826b4c0b",
-  "report_tip_commit": "d4acfe9343253aa004563885610d3cfb826b4c0b",
+  "report_generated_from_commit": "d7b0cb5e8422029f17d83c55d2c21b7b64d5583f",
+  "report_tip_commit": "d7b0cb5e8422029f17d83c55d2c21b7b64d5583f",
   "post_watch_git_verification": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0001/post-watch-git-verification.json",
   "post_watch_git_verification_sha256": "119c0f0c77af049af664482efdfe4f662a473d933649cd83a804ccfd9b1c72a1",
   "evidence_provenance": {
     "status": "NOT_PROVEN",
-    "current_source_commit": "d4acfe9343253aa004563885610d3cfb826b4c0b",
+    "current_source_commit": "d7b0cb5e8422029f17d83c55d2c21b7b64d5583f",
     "components": {
       "source_commit": "PASS",
       "runtime": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE",
@@ -4268,7 +4271,7 @@
     },
     "historical_evidence_rejected": true
   },
-  "application_source_commit": "d4acfe9343253aa004563885610d3cfb826b4c0b",
+  "application_source_commit": "d7b0cb5e8422029f17d83c55d2c21b7b64d5583f",
   "coding_capability_gap": {
     "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260912-coding-capability-gap/model-inventory-no-new-local-candidate.json",
     "evidence_sha256": "72c0d38d7f35f6408ac7b3e61a89e62a91ee60b94c1e506fd8ad85e8f735bd4c",
