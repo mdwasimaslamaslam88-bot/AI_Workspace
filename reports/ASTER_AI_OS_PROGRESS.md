@@ -8,7 +8,7 @@ PARTIAL        : 1
 FAIL           : 1
 ISSUES         : 0
 CURRENT        : NONE
-PHASE          : CANDIDATE_FOCUSED_GATE
+PHASE          : WATCH_EXTERNAL_GAP
 CANDIDATE      : qwen2.5-coder:1.5b
 ASTER→AI OS    : PARTIAL: current owner-authenticated HTTP exchange and integrity verified; fabricated exec
 AI OS→ASTER    : BLOCKED_EXTERNAL: parent MCP/reverse callback is not available; no bidirectional verificat
@@ -21,6 +21,6 @@ WEB            : 206 PASS
 MOBILE         : 64 PASS
 PERFORMANCE    : mean 8.062s / P95 16.5064s
 GIT            : CLEAN_SYNCED
-COMMIT         : caa4aee2aa72494f1f613a9e42ac9d73bec8d0d6
+COMMIT         : 3375c1490ae8224145968a111e59c6007d76cd3f
 NEXT ACTION    : Run the focused objective gate for locally available candidate qwen2.5-coder:1.5b.
 ========================================================
