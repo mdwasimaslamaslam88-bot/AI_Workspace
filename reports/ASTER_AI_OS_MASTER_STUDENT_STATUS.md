@@ -2,7 +2,7 @@
 
 Iteration 4. Overall readiness is **NOT READY**.
 
-Current source commit: `ca79968be919e5ad8d682f6aea61f9b0383cd497`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
+Current source commit: `f2bb467c1c56e5d895c4478be924c04cd4984c09`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
 
 ## Current measured state
 
@@ -11,7 +11,7 @@ Current source commit: `ca79968be919e5ad8d682f6aea61f9b0383cd497`. Evidence root
 - Current issue/action: `NONE` — Run the focused objective gate for locally available candidate qwen2.5-coder:1.5b.
 - Controller phase: **CANDIDATE_FOCUSED_GATE**.
 - Runtime identity: **HISTORICAL_PASS_REQUIRES_CURRENT_ATTESTATION**; evidence `/home/md-wasim/AI_Workspace_Data/aster-evidence/runtime-identity-20260911-70335a7.json`.
-- Git: **CLEAN_SYNCED** at `ca79968be919e5ad8d682f6aea61f9b0383cd497`.
+- Git: **DIRTY** at `f2bb467c1c56e5d895c4478be924c04cd4984c09`.
 
 ## Queue classifications
 

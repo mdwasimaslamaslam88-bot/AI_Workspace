@@ -1,23 +1,23 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-12T10:31:08.997628+00:00",
+  "generated_at": "2026-09-12T15:43:47.517459+00:00",
   "source": {
     "state": "/home/md-wasim/AI_Workspace_Data/aster-evidence/current_state.json",
     "status": "/home/md-wasim/Projects/AI_Workspace/reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.json",
     "queue": "/home/md-wasim/Projects/AI_Workspace/reports/ASTER_AI_OS_ISSUE_QUEUE.json",
     "observations": {
-      "timestamp": "2026-09-12T10:31:08.757899+00:00",
+      "timestamp": "2026-09-12T15:43:47.380996+00:00",
       "git": {
         "branch": "main",
-        "commit": "ca79968be919e5ad8d682f6aea61f9b0383cd497",
-        "application_source_commit": "1cf781cf366c1409514771e6c6f4d5548df5d9a8",
+        "commit": "f2bb467c1c56e5d895c4478be924c04cd4984c09",
+        "application_source_commit": "f2bb467c1c56e5d895c4478be924c04cd4984c09",
         "upstream": "origin/main",
         "upstream_error": null,
         "ahead": 0,
         "behind": 0,
-        "clean": true,
-        "status_porcelain": "",
-        "status": "CLEAN_SYNCED"
+        "clean": false,
+        "status_porcelain": "M reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.json\n M reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.md\n M reports/ASTER_AI_OS_PROGRESS.json\n M reports/ASTER_AI_OS_PROGRESS.md",
+        "status": "DIRTY"
       },
       "benchmark": {
         "path": "/home/md-wasim/Desktop/Work_Station_Benchmark/benchmark-summary.json",
@@ -33,7 +33,7 @@
         "status": "HISTORICAL_PASS_REQUIRES_CURRENT_ATTESTATION",
         "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/runtime-identity-20260911-70335a7.json",
         "source_commit": "70335a71c9a1ef410a5976d6ba687712b983610b",
-        "current_commit": "1cf781cf366c1409514771e6c6f4d5548df5d9a8",
+        "current_commit": "f2bb467c1c56e5d895c4478be924c04cd4984c09",
         "source_matches_current": false,
         "matches": {
           "source_commit": true,
@@ -52,7 +52,7 @@
           ],
           "cwd": "/home/md-wasim/Projects/AI_Workspace",
           "exit_code": 0,
-          "duration_seconds": 0.0063,
+          "duration_seconds": 0.0064,
           "stdout": "{\"status\":\"alive\"}",
           "stderr": "",
           "stdout_sha256": "bc24b0b5a305d5afc198c725890c8fb91053be2dbd8672779de73cac19a008fa",
@@ -82,7 +82,7 @@
       },
       "provenance": {
         "status": "NOT_PROVEN",
-        "current_source_commit": "1cf781cf366c1409514771e6c6f4d5548df5d9a8",
+        "current_source_commit": "f2bb467c1c56e5d895c4478be924c04cd4984c09",
         "components": {
           "source_commit": "PASS",
           "runtime": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE",
@@ -181,10 +181,10 @@
   "current_action": "Run the focused objective gate for locally available candidate qwen2.5-coder:1.5b.",
   "controller_phase": "CANDIDATE_FOCUSED_GATE",
   "external_watch": {
-    "status": "CANDIDATE_FOCUSED_GATE",
-    "cycle": 24,
+    "status": "CANDIDATE_REJECTED",
+    "cycle": 47,
     "candidate": "qwen2.5-coder:1.5b",
-    "candidate_state": "FOCUSED_GATE_RESULT_CAPTURED",
+    "candidate_state": "FOCUSED_GATE_OBJECTIVE_FAILED",
     "candidate_priority": [
       "qwen2.5-coder:3b",
       "qwen2.5-coder:1.5b",
@@ -192,11 +192,74 @@
       "starcoder2:3b",
       "codegemma:2b"
     ],
+    "excluded_candidate": null,
+    "excluded_candidate_absent": true,
     "max_download_seconds": 900,
     "max_estimated_download_hours": 0.5,
-    "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0024",
+    "requested_max_download_seconds": 900,
+    "requested_max_estimated_download_hours": 0.5,
+    "genericity_and_canonical_validation_allowed": false,
+    "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0047",
+    "catalog_hardware_admission": {
+      "status": "ADMITTED",
+      "admitted": true,
+      "catalog_record": {
+        "availability": "available",
+        "candidate_reference": "qwen2.5-coder:1.5b",
+        "capabilities": [
+          "code",
+          "text_generation",
+          "tool_calling"
+        ],
+        "eligibility_reasons": [
+          "eligible"
+        ],
+        "eligibility_status": "runnable_now",
+        "found": true,
+        "hardware_class": "gpu_under_8gb",
+        "installed": true,
+        "model_id": "ollama-local:9d50494469a5dd5a041d4f3e",
+        "performance_class": "interactive",
+        "required_ram_bytes": 3133545737,
+        "required_vram_bytes": 2059803913,
+        "runnable_now": true,
+        "verified": true
+      },
+      "command": {
+        "command": [
+          "/home/md-wasim/Projects/AI_Workspace/backend/.venv/bin/python",
+          "-c",
+          "<existing catalog admission script>"
+        ],
+        "cwd": "/home/md-wasim/Projects/AI_Workspace/backend",
+        "exit_code": 0,
+        "duration_seconds": 0.7144,
+        "stdout": "{\"availability\": \"available\", \"candidate_reference\": \"qwen2.5-coder:1.5b\", \"capabilities\": [\"code\", \"text_generation\", \"tool_calling\"], \"eligibility_reasons\": [\"eligible\"], \"eligibility_status\": \"runnable_now\", \"found\": true, \"hardware_class\": \"gpu_under_8gb\", \"installed\": true, \"model_id\": \"ollama-local:9d50494469a5dd5a041d4f3e\", \"performance_class\": \"interactive\", \"required_ram_bytes\": 3133545737, \"required_vram_bytes\": 2059803913, \"runnable_now\": true, \"verified\": true}\n",
+        "stderr": "",
+        "stdout_sha256": "22646b2894de2d0d5768ea65902a4ecdd64dc7856f06ce603ff88a5604025f45",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "timed_out": false
+      },
+      "production_configuration_modified": false,
+      "production_routing_modified": false
+    },
+    "trusted_parent_gate": {
+      "output": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0047/focused-candidate-gate.json",
+      "output_sha256": "7ca146411dd4dec9b87d7fa8b98517e9dd0a50b35fc1fb27d0002492c3de9310",
+      "run_status": "complete",
+      "objective_pass_count": 0,
+      "all_eight_objective_pass": false,
+      "trusted_parent": true,
+      "child_runtime_access_required": false,
+      "production_routing_modified": false
+    },
+    "all_eight_objective_pass": false,
     "current_action": "Run the focused objective gate for locally available candidate qwen2.5-coder:1.5b.",
-    "child_result": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0024/result.json"
+    "child_result": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0047/result.json",
+    "rejected_candidates": [
+      "qwen2.5-coder:1.5b"
+    ],
+    "rejection_reason": "complete trusted 8-record gate did not objectively pass all records"
   },
   "last_verification": "PARTIAL",
   "backend_tests": {
@@ -221,9 +284,9 @@
   "voice": "BLOCKED_EXTERNAL: ASTER-028 installed voice-model/acoustic variability is preserved with exact-WAV evidence.",
   "performance_mean": 8.062,
   "performance_p95": 16.5064,
-  "git_status": "CLEAN_SYNCED",
-  "current_commit": "ca79968be919e5ad8d682f6aea61f9b0383cd497",
-  "application_source_commit": "1cf781cf366c1409514771e6c6f4d5548df5d9a8",
+  "git_status": "DIRTY",
+  "current_commit": "f2bb467c1c56e5d895c4478be924c04cd4984c09",
+  "application_source_commit": "f2bb467c1c56e5d895c4478be924c04cd4984c09",
   "last_successful_commit": "70335a71c9a1ef410a5976d6ba687712b983610b",
   "codex_cli": {
     "path": "/home/md-wasim/.nvm/versions/node/v24.19.0/lib/node_modules/@openai/codex/bin/codex.js",
@@ -258,15 +321,15 @@
       }
     ]
   },
-  "report_tip_commit": "ca79968be919e5ad8d682f6aea61f9b0383cd497",
+  "report_tip_commit": "f2bb467c1c56e5d895c4478be924c04cd4984c09",
   "last_artifact_verification": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260911-final-gap-release-1a02fe0/artifact-attestation-current.json",
   "last_failure": {
-    "timestamp": "2026-09-12T08:04:15.495784+00:00",
-    "classification": "BLOCKED_EXTERNAL",
-    "exit_code": 124,
-    "timed_out": true,
-    "stderr_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0015/codex.stderr.log",
-    "error_excerpt": "2026-09-12T07:47:21.974672Z ERROR codex_core::tools::router: error=Exit code: 1\nWall time: 0 seconds\nOutput:\nFailed to write file /home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0015/focused_gate_runner.py\n\n2026-09-12T07:50:34.657321Z ERROR codex_core::tools::router: error=Exit code: 1\nWall time: 0 seconds\nOutput:\nFailed to write file /tmp/aster_cycle0015_focused_gate_runner.py\n\n"
+    "timestamp": "2026-09-12T15:43:47.325405+00:00",
+    "classification": "FAILED",
+    "exit_code": 1,
+    "timed_out": false,
+    "stderr_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0047/codex.stderr.log",
+    "error_excerpt": ""
   },
   "next_action": "Run the focused objective gate for locally available candidate qwen2.5-coder:1.5b.",
   "readiness_reason": "CANONICAL_NONPASS_REMAINS"
