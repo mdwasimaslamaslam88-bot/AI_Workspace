@@ -101,6 +101,63 @@ def test_candidate_child_handoff_repeats_without_copy_paste():
     assert child_prompts[1] == child_outputs[0]
 
 
+def test_stale_candidate_prompt_is_rebuilt_for_current_source():
+    stale_commit = "a" * 40
+    current_commit = "b" * 40
+    state = {
+        "iteration": 4,
+        "attempt": 27,
+        "overall_ready": False,
+        "next_prompt": f"ASTER CANDIDATE ADMISSION\nRequired source commit: {stale_commit}",
+        "next_prompt_source": "child_structured_result",
+        "next_prompt_source_commit": stale_commit,
+        "external_watch": {"watch_interval_seconds": 0},
+        "history": [],
+    }
+    child_prompts = []
+
+    def fake_child(prompt: str, iteration_dir: Path, *, timeout_seconds: int, evidence_root: Path) -> dict:
+        child_prompts.append(prompt)
+        return {
+            "command": ["codex", "exec"],
+            "cwd": str(controller.REPOSITORY_ROOT),
+            "exit_code": 0,
+            "timed_out": False,
+            "parsed": controller.parse_result_text(
+                "ASTER_LOOP_RESULT\nSTATUS=NOT_READY\nISSUES_REMAINING=0\nCURRENT_ISSUE=NONE\n"
+                "ACTION=retry\nVERIFICATION=BLOCKED\nNEXT_PROMPT_BEGIN\n"
+                f"Current source commit: {current_commit}\nNEXT_PROMPT_END\n"
+            ),
+        }
+
+    candidate = {
+        "status": "CANDIDATE_AVAILABLE",
+        "candidate": "qwen2.5-coder:3b",
+        "candidate_state": "AVAILABLE_LOCAL",
+        "local": [],
+        "remote": [],
+    }
+    with TemporaryDirectory() as directory, patch.object(controller, "current_queue", return_value={"issues": []}), patch.object(
+        controller, "observe", return_value={**_observations(), "git": {**_observations()["git"], "application_source_commit": current_commit}}
+    ), patch.object(controller, "discover_watch_candidates", return_value=candidate), patch.object(
+        controller, "run_codex_child", side_effect=fake_child
+    ), patch.object(controller, "render_reports", return_value={}):
+        controller.watch_external_iteration(
+            state,
+            evidence_root=Path(directory),
+            cycle=1,
+            execute_codex=True,
+            timeout_seconds=30,
+            max_download_seconds=900,
+            max_estimated_hours=0.5,
+        )
+
+    assert len(child_prompts) == 1
+    assert stale_commit not in child_prompts[0]
+    assert current_commit in child_prompts[0]
+    assert state["next_prompt_source_commit"] == current_commit
+
+
 def main() -> int:
     test_terminal_queue_enters_watch()
     test_candidate_child_handoff_repeats_without_copy_paste()

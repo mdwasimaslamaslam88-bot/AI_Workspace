@@ -1476,11 +1476,33 @@ Only if both objective cases PASS may the parent proceed to genericity and full 
 """
 
 
-def apply_child_handoff(state: dict[str, Any], parsed: dict[str, Any], fallback_prompt: str) -> None:
+def prompt_source_commit(prompt: str) -> str | None:
+    match = re.search(
+        r"(?:Required|Current) source commit(?: at selection)?:\s*`?([0-9a-f]{40,64})",
+        prompt,
+        re.IGNORECASE,
+    )
+    return match.group(1) if match else None
+
+
+def observed_source_commit(observations: dict[str, Any]) -> str | None:
+    git = observations.get("git", {})
+    return git.get("application_source_commit") or git.get("commit")
+
+
+def apply_child_handoff(
+    state: dict[str, Any],
+    parsed: dict[str, Any],
+    fallback_prompt: str,
+    *,
+    source_commit: str | None = None,
+) -> None:
     next_prompt = parsed.get("next_prompt", "") if parsed.get("parsed") else ""
     state["child_suggested_next_prompt"] = next_prompt
     state["next_prompt"] = next_prompt or fallback_prompt
     state["next_prompt_source"] = "child_structured_result" if next_prompt else "controller_derived"
+    if source_commit:
+        state["next_prompt_source_commit"] = source_commit
     state["controller_phase"] = "CANDIDATE_FOCUSED_GATE" if next_prompt else "WATCH_EXTERNAL_GAP"
 
 
@@ -2219,16 +2241,30 @@ def watch_external_iteration(
         state["controller_phase"] = "CANDIDATE_FOCUSED_GATE"
         state["current_issue"] = None
         state["current_action"] = _watch_action(candidate, candidate_state)
+        current_source_commit = observed_source_commit(observations_before)
         persisted_child_prompt = (
             state.get("next_prompt")
             if state.get("next_prompt_source") == "child_structured_result"
             else None
         )
-        prompt = persisted_child_prompt or build_candidate_focus_prompt(
-            candidate, observations_before, str(watch_root)
+        persisted_prompt_source = state.get("next_prompt_source_commit")
+        if persisted_child_prompt:
+            persisted_prompt_source = persisted_prompt_source or prompt_source_commit(
+                str(persisted_child_prompt)
+            )
+        prompt_is_current = bool(
+            persisted_child_prompt
+            and current_source_commit
+            and persisted_prompt_source == current_source_commit
+        )
+        prompt = (
+            str(persisted_child_prompt)
+            if prompt_is_current
+            else build_candidate_focus_prompt(candidate, observations_before, str(watch_root))
         )
         state["next_prompt"] = prompt
         state["last_prompt"] = prompt
+        state["next_prompt_source_commit"] = current_source_commit
         state["in_progress"] = True
         state["resume_required"] = True
         persist_state(state, evidence_root)
@@ -2281,7 +2317,7 @@ def watch_external_iteration(
         state["last_result"] = result
         state["in_progress"] = temporary_failure
         state["resume_required"] = temporary_failure
-        apply_child_handoff(state, parsed, prompt)
+        apply_child_handoff(state, parsed, prompt, source_commit=current_source_commit)
         state["external_watch"].update(
             {
                 "status": "CANDIDATE_FOCUSED_GATE",
