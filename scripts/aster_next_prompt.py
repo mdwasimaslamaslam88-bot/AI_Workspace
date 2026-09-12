@@ -2904,6 +2904,7 @@ def watch_external_iteration(
             state["current_action"] = _watch_action(
                 next_candidate, "NOT_CACHED_DOWNLOAD_TOO_SLOW_OR_UNAVAILABLE"
             )
+            state["external_watch"]["current_action"] = state["current_action"]
             state["next_prompt"] = build_external_watch_prompt(
                 next_candidate, result["after"]["observations"], str(watch_root)
             )
