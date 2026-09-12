@@ -2016,6 +2016,95 @@ def safe_commit_if_validated(result: dict[str, Any], iteration: int) -> dict[str
     }
 
 
+WATCH_REPORT_PATHS = frozenset(
+    {
+        "reports/ASTER_AI_OS_PROGRESS.json",
+        "reports/ASTER_AI_OS_PROGRESS.md",
+        "reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.json",
+        "reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.md",
+        "reports/ASTER_AI_OS_ISSUE_QUEUE.json",
+    }
+)
+
+
+def persist_watch_report_commit(cycle: int) -> dict[str, Any]:
+    """Commit only controller-owned report changes made by a watch cycle.
+
+    A continuous watcher must not leave its tracked dashboard dirty, but it
+    must also never absorb an unrelated user/source change.  The allowlist is
+    deliberately narrower than the normal validated-child commit policy.
+    """
+    paths = changed_paths()
+    unexpected = [path for path in paths if path not in WATCH_REPORT_PATHS]
+    if unexpected:
+        return {
+            "attempted": False,
+            "reason": "unexpected_changes_refused",
+            "paths": paths,
+            "unexpected": unexpected,
+        }
+    report_paths = [path for path in paths if path in WATCH_REPORT_PATHS]
+    if not report_paths:
+        return {"attempted": False, "reason": "no_watch_report_changes", "paths": paths}
+
+    check = command_record(["git", "diff", "--check"], REPOSITORY_ROOT, timeout=30)
+    if check.get("exit_code") != 0:
+        return {
+            "attempted": False,
+            "reason": "report_diff_check_failed",
+            "paths": report_paths,
+            "diff_check": check,
+        }
+    subprocess.run(["git", "add", "--", *report_paths], cwd=str(REPOSITORY_ROOT), check=True)
+    staged_check = command_record(["git", "diff", "--cached", "--check"], REPOSITORY_ROOT, timeout=30)
+    if staged_check.get("exit_code") != 0:
+        subprocess.run(["git", "reset", "--", *report_paths], cwd=str(REPOSITORY_ROOT), check=False)
+        return {
+            "attempted": False,
+            "reason": "staged_report_diff_check_failed",
+            "paths": report_paths,
+            "diff_check": staged_check,
+        }
+    commit = subprocess.run(
+        ["git", "commit", "-m", f"Persist ASTER external watch cycle {cycle:04d}"],
+        cwd=str(REPOSITORY_ROOT),
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if commit.returncode != 0:
+        return {
+            "attempted": True,
+            "committed": False,
+            "paths": report_paths,
+            "exit_code": commit.returncode,
+            "stderr": safe_text(commit.stderr),
+        }
+    push = subprocess.run(
+        ["git", "push", "origin", "HEAD:main"],
+        cwd=str(REPOSITORY_ROOT),
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    snapshot = git_snapshot()
+    return {
+        "attempted": True,
+        "committed": True,
+        "commit": snapshot.get("commit"),
+        "paths": report_paths,
+        "push": {
+            "exit_code": push.returncode,
+            "stdout": safe_text(push.stdout),
+            "stderr": safe_text(push.stderr),
+            "status": "PUSHED" if push.returncode == 0 else "PUSH_BLOCKED_EXTERNAL",
+        },
+        "git": snapshot,
+    }
+
+
 def mark_terminal_queue_state(state: dict[str, Any]) -> None:
     """Record a genuine controller terminal observation with no watch gap."""
     state["in_progress"] = False
@@ -2209,6 +2298,12 @@ def watch_external_iteration(
         )
         persist_state(state, evidence_root)
         render_reports(state, queue, result["after"]["observations"], evidence_root=evidence_root)
+        report_commit = persist_watch_report_commit(cycle)
+        result["report_commit"] = report_commit
+        state["external_watch"]["report_commit"] = report_commit
+        write_json(watch_root / "result.json", result)
+        state["last_result"] = result
+        persist_state(state, evidence_root)
         return result
 
     state["controller_phase"] = "WATCH_EXTERNAL_GAP"
@@ -2255,6 +2350,12 @@ def watch_external_iteration(
     )
     persist_state(state, evidence_root)
     render_reports(state, queue, result["after"]["observations"], evidence_root=evidence_root)
+    report_commit = persist_watch_report_commit(cycle)
+    result["report_commit"] = report_commit
+    state["external_watch"]["report_commit"] = report_commit
+    write_json(watch_root / "result.json", result)
+    state["last_result"] = result
+    persist_state(state, evidence_root)
     return result
 
 
