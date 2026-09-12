@@ -2565,13 +2565,21 @@ def run_controller(args: argparse.Namespace) -> int:
             build_prompt(choose_issue(queue), observations) if choose_issue(queue) else ""
         )
         persist_state(state, evidence_root)
-        render_reports(state, queue, observations, evidence_root=evidence_root)
+        selected_issue = choose_issue(queue)
+        watch_mode = selected_issue is None and (
+            args.watch_external
+            or terminal_queue_requires_external_watch(state, queue, observations)
+        )
         if args.dry_run:
+            render_reports(state, queue, observations, evidence_root=evidence_root)
             print_terminal()
             return 0
-        if choose_issue(queue) is None:
-            if args.watch_external or terminal_queue_requires_external_watch(state, queue, observations):
-                return run_external_watch(args, state, evidence_root)
+        if watch_mode:
+            # The watch iteration must observe a clean pre-render tree.  Its
+            # own report commit then keeps the dashboard synchronized without
+            # manufacturing a DIRTY observation at controller startup.
+            return run_external_watch(args, state, evidence_root)
+        if selected_issue is None:
             mark_terminal_queue_state(state)
             render_reports(state, queue, observations, evidence_root=evidence_root)
             result = {
