@@ -8,8 +8,8 @@ PARTIAL        : 1
 FAIL           : 1
 ISSUES         : 0
 CURRENT        : NONE
-PHASE          : WATCH_EXTERNAL_GAP
-CANDIDATE      : qwen2.5-coder:3b
+PHASE          : CANDIDATE_FOCUSED_GATE
+CANDIDATE      : qwen2.5-coder:1.5b
 ASTER→AI OS    : PARTIAL: current owner-authenticated HTTP exchange and integrity verified; fabricated exec
 AI OS→ASTER    : BLOCKED_EXTERNAL: parent MCP/reverse callback is not available; no bidirectional verificat
 DEX            : BLOCKED_EXTERNAL: strict host sandbox fails closed with RTM_NEWADDR EPERM; synthetic trans
@@ -20,7 +20,7 @@ BACKEND        : 3152 PASS
 WEB            : 206 PASS
 MOBILE         : 64 PASS
 PERFORMANCE    : mean 8.062s / P95 16.5064s
-GIT            : CLEAN_SYNCED
-COMMIT         : 57935f3805bc4059c8f7470de39acdd9d9160947
-NEXT ACTION    : Wait for a reliable bounded download window for candidate qwen2.5-coder:3b; no production route change is permitted.
+GIT            : DIRTY
+COMMIT         : 6702d31a6d3f74bd10207a3d41dd390862d62309
+NEXT ACTION    : Run the focused objective gate for locally available candidate qwen2.5-coder:1.5b.
 ========================================================

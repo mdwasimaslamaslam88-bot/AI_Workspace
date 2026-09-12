@@ -1,23 +1,23 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-11T19:55:40.236803+00:00",
+  "generated_at": "2026-09-12T05:32:11.053391+00:00",
   "source": {
     "state": "/home/md-wasim/AI_Workspace_Data/aster-evidence/current_state.json",
     "status": "/home/md-wasim/Projects/AI_Workspace/reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.json",
     "queue": "/home/md-wasim/Projects/AI_Workspace/reports/ASTER_AI_OS_ISSUE_QUEUE.json",
     "observations": {
-      "timestamp": "2026-09-11T19:55:40.106258+00:00",
+      "timestamp": "2026-09-12T05:32:10.924216+00:00",
       "git": {
         "branch": "main",
-        "commit": "57935f3805bc4059c8f7470de39acdd9d9160947",
-        "application_source_commit": "12a74c77a68a2c63acd47e97e71168082d09a0e7",
+        "commit": "6702d31a6d3f74bd10207a3d41dd390862d62309",
+        "application_source_commit": "6702d31a6d3f74bd10207a3d41dd390862d62309",
         "upstream": "origin/main",
         "upstream_error": null,
         "ahead": 0,
         "behind": 0,
-        "clean": true,
-        "status_porcelain": "",
-        "status": "CLEAN_SYNCED"
+        "clean": false,
+        "status_porcelain": "M reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.json\n M reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.md\n M reports/ASTER_AI_OS_PROGRESS.json\n M reports/ASTER_AI_OS_PROGRESS.md",
+        "status": "DIRTY"
       },
       "benchmark": {
         "path": "/home/md-wasim/Desktop/Work_Station_Benchmark/benchmark-summary.json",
@@ -33,7 +33,7 @@
         "status": "HISTORICAL_PASS_REQUIRES_CURRENT_ATTESTATION",
         "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/runtime-identity-20260911-70335a7.json",
         "source_commit": "70335a71c9a1ef410a5976d6ba687712b983610b",
-        "current_commit": "12a74c77a68a2c63acd47e97e71168082d09a0e7",
+        "current_commit": "6702d31a6d3f74bd10207a3d41dd390862d62309",
         "source_matches_current": false,
         "matches": {
           "source_commit": true,
@@ -52,7 +52,7 @@
           ],
           "cwd": "/home/md-wasim/Projects/AI_Workspace",
           "exit_code": 0,
-          "duration_seconds": 0.0063,
+          "duration_seconds": 0.0071,
           "stdout": "{\"status\":\"alive\"}",
           "stderr": "",
           "stdout_sha256": "bc24b0b5a305d5afc198c725890c8fb91053be2dbd8672779de73cac19a008fa",
@@ -82,7 +82,7 @@
       },
       "provenance": {
         "status": "NOT_PROVEN",
-        "current_source_commit": "12a74c77a68a2c63acd47e97e71168082d09a0e7",
+        "current_source_commit": "6702d31a6d3f74bd10207a3d41dd390862d62309",
         "components": {
           "source_commit": "PASS",
           "runtime": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE",
@@ -178,13 +178,13 @@
   "issues_fixed": 24,
   "issues_blocked_externally": 7,
   "current_issue": null,
-  "current_action": "Wait for a reliable bounded download window for candidate qwen2.5-coder:3b; no production route change is permitted.",
-  "controller_phase": "WATCH_EXTERNAL_GAP",
+  "current_action": "Run the focused objective gate for locally available candidate qwen2.5-coder:1.5b.",
+  "controller_phase": "CANDIDATE_FOCUSED_GATE",
   "external_watch": {
-    "status": "WAITING_EXTERNAL",
-    "cycle": 2,
-    "candidate": "qwen2.5-coder:3b",
-    "candidate_state": "NOT_CACHED_DOWNLOAD_TOO_SLOW_OR_UNAVAILABLE",
+    "status": "CANDIDATE_FOCUSED_GATE",
+    "cycle": 3,
+    "candidate": "qwen2.5-coder:1.5b",
+    "candidate_state": "FOCUSED_GATE_RESULT_CAPTURED",
     "candidate_priority": [
       "qwen2.5-coder:3b",
       "qwen2.5-coder:1.5b",
@@ -194,11 +194,12 @@
     ],
     "max_download_seconds": 900,
     "max_estimated_download_hours": 0.5,
-    "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0002",
-    "next_retry_at": "2026-09-11T19:59:20.660052+00:00",
-    "current_action": "Wait for a reliable bounded download window for candidate qwen2.5-coder:3b; no production route change is permitted."
+    "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0003",
+    "download_policy": "bounded",
+    "current_action": "Run the focused objective gate for locally available candidate qwen2.5-coder:1.5b.",
+    "child_result": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0003/result.json"
   },
-  "last_verification": "WAITING",
+  "last_verification": "BLOCKED",
   "backend_tests": {
     "passed": 3152,
     "skipped": 55
@@ -221,9 +222,9 @@
   "voice": "BLOCKED_EXTERNAL: ASTER-028 installed voice-model/acoustic variability is preserved with exact-WAV evidence.",
   "performance_mean": 8.062,
   "performance_p95": 16.5064,
-  "git_status": "CLEAN_SYNCED",
-  "current_commit": "57935f3805bc4059c8f7470de39acdd9d9160947",
-  "application_source_commit": "12a74c77a68a2c63acd47e97e71168082d09a0e7",
+  "git_status": "DIRTY",
+  "current_commit": "6702d31a6d3f74bd10207a3d41dd390862d62309",
+  "application_source_commit": "6702d31a6d3f74bd10207a3d41dd390862d62309",
   "last_successful_commit": "70335a71c9a1ef410a5976d6ba687712b983610b",
   "codex_cli": {
     "path": "/home/md-wasim/.nvm/versions/node/v24.19.0/lib/node_modules/@openai/codex/bin/codex.js",
@@ -258,7 +259,7 @@
       }
     ]
   },
-  "report_tip_commit": "57935f3805bc4059c8f7470de39acdd9d9160947",
+  "report_tip_commit": "6702d31a6d3f74bd10207a3d41dd390862d62309",
   "last_artifact_verification": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260911-final-gap-release-1a02fe0/artifact-attestation-current.json",
   "last_failure": {
     "timestamp": "2026-09-10T16:18:07.000203+00:00",
@@ -268,6 +269,6 @@
     "stderr_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/iteration-0004/attempt-0026/codex.stderr.log",
     "error_excerpt": ""
   },
-  "next_action": "Wait for a reliable bounded download window for candidate qwen2.5-coder:3b; no production route change is permitted.",
+  "next_action": "Run the focused objective gate for locally available candidate qwen2.5-coder:1.5b.",
   "readiness_reason": "CANONICAL_NONPASS_REMAINS"
 }
