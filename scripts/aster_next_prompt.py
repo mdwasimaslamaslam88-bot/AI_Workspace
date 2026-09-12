@@ -2219,7 +2219,14 @@ def watch_external_iteration(
         state["controller_phase"] = "CANDIDATE_FOCUSED_GATE"
         state["current_issue"] = None
         state["current_action"] = _watch_action(candidate, candidate_state)
-        prompt = build_candidate_focus_prompt(candidate, observations_before, str(watch_root))
+        persisted_child_prompt = (
+            state.get("next_prompt")
+            if state.get("next_prompt_source") == "child_structured_result"
+            else None
+        )
+        prompt = persisted_child_prompt or build_candidate_focus_prompt(
+            candidate, observations_before, str(watch_root)
+        )
         state["next_prompt"] = prompt
         state["last_prompt"] = prompt
         state["in_progress"] = True

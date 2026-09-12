@@ -96,7 +96,9 @@ def test_candidate_child_handoff_repeats_without_copy_paste():
         assert state["next_prompt"] == child_outputs[1]
 
     assert len(child_prompts) == 2
-    assert all("medium-coding-04" in prompt and "model-comparison-coder-06" in prompt for prompt in child_prompts)
+    assert "medium-coding-04" in child_prompts[0]
+    assert "model-comparison-coder-06" in child_prompts[0]
+    assert child_prompts[1] == child_outputs[0]
 
 
 def main() -> int:
