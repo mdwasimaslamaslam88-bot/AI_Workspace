@@ -2649,12 +2649,20 @@ def watch_external_iteration(
         if isinstance(state.get("external_watch"), dict)
         else {}
     )
+    persisted_rejected_candidates = sorted(
+        {
+            str(reference)
+            for reference in previous_watch.get("rejected_candidates", [])
+            if isinstance(reference, str) and _safe_model_reference(reference)
+        }
+    )
     state["external_watch"] = {
         "status": discovery.get("status"),
         "cycle": cycle,
         "candidate": candidate,
         "candidate_state": candidate_state,
         "candidate_priority": watch_candidate_references(state),
+        "rejected_candidates": persisted_rejected_candidates,
         "excluded_candidate": None,
         "excluded_candidate_absent": True,
         "max_download_seconds": effective_max_download_seconds,

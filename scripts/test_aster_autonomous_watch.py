@@ -169,7 +169,10 @@ def test_no_qualifying_candidate_persists_not_ready_without_child():
         "attempt": 26,
         "overall_ready": False,
         "next_prompt": "host recovery",
-        "external_watch": {"watch_interval_seconds": 0},
+        "external_watch": {
+            "watch_interval_seconds": 0,
+            "rejected_candidates": ["qwen2.5-coder:1.5b"],
+        },
         "history": [],
     }
     discovery = {
@@ -213,6 +216,7 @@ def test_no_qualifying_candidate_persists_not_ready_without_child():
     assert result["classification"] == "NOT_READY"
     assert state["in_progress"] is False
     assert state["resume_required"] is False
+    assert state["external_watch"]["rejected_candidates"] == ["qwen2.5-coder:1.5b"]
 
 
 def test_candidate_child_handoff_repeats_without_copy_paste():
