@@ -2,9 +2,9 @@
   "schema_version": 4,
   "iteration": 4,
   "status": "NOT_READY",
-  "updated_at": "2026-09-13T14:09:55.760065+00:00",
+  "updated_at": "2026-09-13T14:16:17.273011+00:00",
   "current_issue": [],
-  "current_commit": "af07ec9a39564a622f2d3d4ff76e57c4b5d06798",
+  "current_commit": "adaf4db15895f53fa3c9010eb720c98c65fdad5c",
   "current_runtime": "/home/md-wasim/AI_Workspace_Data/aster-evidence/runtime-identity-20260911-70335a7.json",
   "current_artifact": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260911-final-gap-release-1a02fe0/artifact-attestation-current.json",
   "issues": [
@@ -3197,10 +3197,10 @@
       ]
     },
     "last_result": {
-      "timestamp": "2026-09-13T14:09:51.769779+00:00",
+      "timestamp": "2026-09-13T14:16:13.262395+00:00",
       "iteration": 4,
       "attempt": 26,
-      "cycle": 297,
+      "cycle": 298,
       "issue": null,
       "status": "NOT_READY",
       "action": "Wait for a reliable bounded download window for candidate qwen2.5-coder:3b; no production route change is permitted.",
@@ -3243,7 +3243,7 @@
               ],
               "cwd": "/home/md-wasim/Projects/AI_Workspace",
               "exit_code": 0,
-              "duration_seconds": 0.0132,
+              "duration_seconds": 0.0137,
               "stdout": "NAME                                    ID              SIZE      MODIFIED     \nqwen2.5-coder:1.5b                      d7372fd82851    986 MB    33 hours ago    \nphi4:14b-q4_K_M                         ac896e5b8b34    9.1 GB    2 weeks ago     \nministral-3:14b-instruct-2512-q4_K_M    4760c35aeb9d    9.1 GB    2 weeks ago     \ndeepcoder:14b-preview-q4_K_M            12bdda054d23    9.0 GB    2 weeks ago     \nqwen3:14b-q4_K_M                        bdbd181c33f2    9.3 GB    2 weeks ago     \ngemma4:12b-it-q4_K_M                    4eb23ef187e2    7.6 GB    2 weeks ago     \nqwen3.5:9b-q4_K_M                       6488c96fa5fa    6.6 GB    2 weeks ago     \nqwen2.5-coder:14b-instruct-q3_K_L       93a65e662efb    7.9 GB    2 weeks ago     \nqwen2.5vl:7b                            5ced39dfa4ba    6.0 GB    3 weeks ago     \nnomic-embed-text:latest                 0a109f422b47    274 MB    5 weeks ago     \nqwen2.5-coder:7b                        dae161e27b0e    4.7 GB    5 weeks ago     \nqwen3:8b                                500a1f067a9f    5.2 GB    5 weeks ago     \n",
               "stderr": "",
               "stdout_sha256": "0c68b6c779916700a3dd8e9dde21fb146af3f89441070cd194c99d48e8f95e63",
@@ -3307,7 +3307,7 @@
               ],
               "cwd": "/home/md-wasim/Projects/AI_Workspace",
               "exit_code": 0,
-              "duration_seconds": 0.015,
+              "duration_seconds": 0.0133,
               "stdout": "NAME                                    ID              SIZE      MODIFIED     \nqwen2.5-coder:1.5b                      d7372fd82851    986 MB    33 hours ago    \nphi4:14b-q4_K_M                         ac896e5b8b34    9.1 GB    2 weeks ago     \nministral-3:14b-instruct-2512-q4_K_M    4760c35aeb9d    9.1 GB    2 weeks ago     \ndeepcoder:14b-preview-q4_K_M            12bdda054d23    9.0 GB    2 weeks ago     \nqwen3:14b-q4_K_M                        bdbd181c33f2    9.3 GB    2 weeks ago     \ngemma4:12b-it-q4_K_M                    4eb23ef187e2    7.6 GB    2 weeks ago     \nqwen3.5:9b-q4_K_M                       6488c96fa5fa    6.6 GB    2 weeks ago     \nqwen2.5-coder:14b-instruct-q3_K_L       93a65e662efb    7.9 GB    2 weeks ago     \nqwen2.5vl:7b                            5ced39dfa4ba    6.0 GB    3 weeks ago     \nnomic-embed-text:latest                 0a109f422b47    274 MB    5 weeks ago     \nqwen2.5-coder:7b                        dae161e27b0e    4.7 GB    5 weeks ago     \nqwen3:8b                                500a1f067a9f    5.2 GB    5 weeks ago     \n",
               "stderr": "",
               "stdout_sha256": "0c68b6c779916700a3dd8e9dde21fb146af3f89441070cd194c99d48e8f95e63",
@@ -3339,7 +3339,7 @@
               ],
               "cwd": "/home/md-wasim/Projects/AI_Workspace",
               "exit_code": 0,
-              "duration_seconds": 0.0132,
+              "duration_seconds": 0.0133,
               "stdout": "NAME                                    ID              SIZE      MODIFIED     \nqwen2.5-coder:1.5b                      d7372fd82851    986 MB    33 hours ago    \nphi4:14b-q4_K_M                         ac896e5b8b34    9.1 GB    2 weeks ago     \nministral-3:14b-instruct-2512-q4_K_M    4760c35aeb9d    9.1 GB    2 weeks ago     \ndeepcoder:14b-preview-q4_K_M            12bdda054d23    9.0 GB    2 weeks ago     \nqwen3:14b-q4_K_M                        bdbd181c33f2    9.3 GB    2 weeks ago     \ngemma4:12b-it-q4_K_M                    4eb23ef187e2    7.6 GB    2 weeks ago     \nqwen3.5:9b-q4_K_M                       6488c96fa5fa    6.6 GB    2 weeks ago     \nqwen2.5-coder:14b-instruct-q3_K_L       93a65e662efb    7.9 GB    2 weeks ago     \nqwen2.5vl:7b                            5ced39dfa4ba    6.0 GB    3 weeks ago     \nnomic-embed-text:latest                 0a109f422b47    274 MB    5 weeks ago     \nqwen2.5-coder:7b                        dae161e27b0e    4.7 GB    5 weeks ago     \nqwen3:8b                                500a1f067a9f    5.2 GB    5 weeks ago     \n",
               "stderr": "",
               "stdout_sha256": "0c68b6c779916700a3dd8e9dde21fb146af3f89441070cd194c99d48e8f95e63",
@@ -3381,7 +3381,7 @@
                 ],
                 "cwd": "/home/md-wasim/Projects/AI_Workspace",
                 "exit_code": 0,
-                "duration_seconds": 1.1819,
+                "duration_seconds": 7.3106,
                 "stdout": "{\"schemaVersion\":2,\"mediaType\":\"application/vnd.docker.distribution.manifest.v2+json\",\"config\":{\"mediaType\":\"application/vnd.docker.container.image.v1+json\",\"digest\":\"sha256:bb967eff3bda079d4ee62c09c5ef0b2e71a6a75934a4c92a13c755fcfd655703\",\"size\":487},\"layers\":[{\"mediaType\":\"application/vnd.ollama.image.model\",\"digest\":\"sha256:4a188102020e9c9530b687fd6400f775c45e90a0d7baafe65bd0a36963fbb7ba\",\"size\":1929903072},{\"mediaType\":\"application/vnd.ollama.image.system\",\"digest\":\"sha256:66b9ea09bd5b7099cbb4fc820f31b575c0366fa439b08245566692c6784e281e\",\"size\":68},{\"mediaType\":\"application/vnd.ollama.image.template\",\"digest\":\"sha256:1e65450c30670713aa47fe23e8b9662bdf4065e81cc8e3cbfaa98924fcc0d320\",\"size\":1615},{\"mediaType\":\"application/vnd.ollama.image.license\",\"digest\":\"sha256:45fc3ea7579acf3021044fc8c4c5dd5969ebc3ca2a68219b5075662cc949a4f1\",\"size\":7384}]}",
                 "stderr": "",
                 "stdout_sha256": "f72c60cabf6237b07f6e632b2c48d533cef25eda2efbd34bed21c5e9c01e6225",
@@ -3425,7 +3425,7 @@
               "status": "AVAILABLE"
             },
             "probe": {
-              "status": "AVAILABLE",
+              "status": "UNAVAILABLE",
               "command": {
                 "command": [
                   "curl",
@@ -3444,22 +3444,22 @@
                   "https://registry.ollama.ai/v2/library/qwen2.5-coder/blobs/sha256:4a188102020e9c9530b687fd6400f775c45e90a0d7baafe65bd0a36963fbb7ba"
                 ],
                 "cwd": "/home/md-wasim/Projects/AI_Workspace",
-                "exit_code": 0,
-                "duration_seconds": 5.2404,
-                "stdout": "206\t1048576\t5.233776\t200347\n",
-                "stderr": "",
-                "stdout_sha256": "eb592f45cdae0f01d06dbfdd60029acbd1430ff48cef1949f0cb88ec331dba39",
-                "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                "exit_code": 28,
+                "duration_seconds": 15.2917,
+                "stdout": "206\t983040\t15.283625\t64319\n",
+                "stderr": "curl: (28) Operation timed out after 14155 milliseconds with 983040 out of 1048576 bytes received\n",
+                "stdout_sha256": "6b06ab902b65c40286b6ae788675791ef08ece7c6b8eab3d01e6b19d10a09226",
+                "stderr_sha256": "4bebd87571970521d34e783833dfc9c6fc38424e764d4381780b5066d6bab71c",
                 "timed_out": false
               },
               "http_code": 206,
-              "bytes_downloaded": 1048576,
-              "duration_seconds": 5.233776,
-              "throughput_bytes_per_second": 200347.0,
-              "estimated_download_seconds": 9632.850135015748,
-              "estimated_download_hours": 2.675791704171041,
+              "bytes_downloaded": 983040,
+              "duration_seconds": 15.283625,
+              "throughput_bytes_per_second": 64319.0,
+              "estimated_download_seconds": 30005.326979586127,
+              "estimated_download_hours": 8.334813049885035,
               "url": "https://registry.ollama.ai/v2/library/qwen2.5-coder/blobs/sha256:4a188102020e9c9530b687fd6400f775c45e90a0d7baafe65bd0a36963fbb7ba",
-              "fresh_probe_started_at": "2026-09-13T14:09:14.438711+00:00",
+              "fresh_probe_started_at": "2026-09-13T14:15:25.625930+00:00",
               "sha256_addressed": true
             },
             "qualification": {
@@ -3487,7 +3487,7 @@
                 ],
                 "cwd": "/home/md-wasim/Projects/AI_Workspace",
                 "exit_code": 0,
-                "duration_seconds": 0.6106,
+                "duration_seconds": 1.0667,
                 "stdout": "{\"schemaVersion\":2,\"mediaType\":\"application/vnd.docker.distribution.manifest.v2+json\",\"config\":{\"mediaType\":\"application/vnd.docker.container.image.v1+json\",\"digest\":\"sha256:d55c9eb1669a22f75956872166c676634c77cd8dfb94900640bd09a474dfcd0c\",\"size\":483},\"layers\":[{\"mediaType\":\"application/vnd.ollama.image.model\",\"digest\":\"sha256:d040cc18521592f70c199396aeaa44cdc40224079156dc09d4283d745d9dc5fd\",\"size\":776066240},{\"mediaType\":\"application/vnd.ollama.image.license\",\"digest\":\"sha256:a3a0e9449cb691a12f4de1d03725fd41326614fdeaf5d80b28c51187da0bed0e\",\"size\":13760},{\"mediaType\":\"application/vnd.ollama.image.template\",\"digest\":\"sha256:8893e08fa9f91f7dc39e24d27bdfaece4e9c86bb3269293ff8cea6cba98c872d\",\"size\":59},{\"mediaType\":\"application/vnd.ollama.image.system\",\"digest\":\"sha256:8972a96b8ff1957ca24ff839aeb54411e6849de68609857a3fa17a4e78114247\",\"size\":297}]}",
                 "stderr": "",
                 "stdout_sha256": "3ddd2d3fc8d2b5fe039d18f859271132fd9c7960ef0be1864984442dc2a915d3",
@@ -3551,27 +3551,27 @@
                 ],
                 "cwd": "/home/md-wasim/Projects/AI_Workspace",
                 "exit_code": 0,
-                "duration_seconds": 2.2103,
-                "stdout": "206\t1048576\t2.203331\t475904\n",
+                "duration_seconds": 4.9966,
+                "stdout": "206\t1048576\t4.988971\t210178\n",
                 "stderr": "",
-                "stdout_sha256": "d15a9d98a5c00885c2fc2274a9f155fa27f58b4f2054ccf0dcb057db0d1a4204",
+                "stdout_sha256": "45553333cc483bbb33417bd016de31e73084c811371927cfdb028ea3de2473e7",
                 "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
                 "timed_out": false
               },
               "http_code": 206,
               "bytes_downloaded": 1048576,
-              "duration_seconds": 2.203331,
-              "throughput_bytes_per_second": 475904.0,
-              "estimated_download_seconds": 1630.7508215942712,
-              "estimated_download_hours": 0.452986339331742,
+              "duration_seconds": 4.988971,
+              "throughput_bytes_per_second": 210178.0,
+              "estimated_download_seconds": 3692.493215274672,
+              "estimated_download_hours": 1.02569255979852,
               "url": "https://registry.ollama.ai/v2/library/deepseek-coder/blobs/sha256:d040cc18521592f70c199396aeaa44cdc40224079156dc09d4283d745d9dc5fd",
-              "fresh_probe_started_at": "2026-09-13T14:09:20.303687+00:00",
+              "fresh_probe_started_at": "2026-09-13T14:15:41.998296+00:00",
               "sha256_addressed": true
             },
             "qualification": {
               "max_estimated_hours": 0.5,
               "max_download_seconds": 900,
-              "estimate_within_hours_limit": true,
+              "estimate_within_hours_limit": false,
               "estimate_within_pull_limit": false,
               "qualifies": false
             }
@@ -3593,7 +3593,7 @@
                 ],
                 "cwd": "/home/md-wasim/Projects/AI_Workspace",
                 "exit_code": 0,
-                "duration_seconds": 0.8156,
+                "duration_seconds": 0.6338,
                 "stdout": "{\"schemaVersion\":2,\"mediaType\":\"application/vnd.docker.distribution.manifest.v2+json\",\"config\":{\"mediaType\":\"application/vnd.docker.container.image.v1+json\",\"digest\":\"sha256:9211f2fea414654e0c3039ea44cdc0cd74124dfecffee03dd760b9fee654998b\",\"size\":345},\"layers\":[{\"mediaType\":\"application/vnd.ollama.image.model\",\"digest\":\"sha256:28bfdfaeba9f51611c00ed322ba684ce6db076756dbc46643f98a8a748c5199e\",\"size\":1709888576},{\"mediaType\":\"application/vnd.ollama.image.license\",\"digest\":\"sha256:4ec42cd966c9d5cf067cc4438869e0737679203b4d6fc551c226c15a1c2d7997\",\"size\":12624},{\"mediaType\":\"application/vnd.ollama.image.template\",\"digest\":\"sha256:3b190e68fefe043e95b25825d7ebb8d2d61b154678765a2ab0d4a3a7a5b9733e\",\"size\":142},{\"mediaType\":\"application/vnd.ollama.image.params\",\"digest\":\"sha256:37c99d4c7b605f0ebce03962ea9051ea770cf2c8f86c0e75bc728582d18fdd0d\",\"size\":41}]}",
                 "stderr": "",
                 "stdout_sha256": "9f4ae0aff61ee24fe4b7d9714c9382b5172551fa8e95aa064452ec2e62610835",
@@ -3657,21 +3657,21 @@
                 ],
                 "cwd": "/home/md-wasim/Projects/AI_Workspace",
                 "exit_code": 0,
-                "duration_seconds": 7.1186,
-                "stdout": "206\t1048576\t7.112590\t147425\n",
+                "duration_seconds": 9.249,
+                "stdout": "206\t1048576\t9.241115\t113468\n",
                 "stderr": "",
-                "stdout_sha256": "0c39af4351e22b9be8a5879dcebd2cec3d19e4e872b6af24eff4d5f373d4d8ae",
+                "stdout_sha256": "3385bb0ee3b58f15fb3fd47ca6b02ca5189c41a444b6fb374e86d224e9545762",
                 "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
                 "timed_out": false
               },
               "http_code": 206,
               "bytes_downloaded": 1048576,
-              "duration_seconds": 7.11259,
-              "throughput_bytes_per_second": 147425.0,
-              "estimated_download_seconds": 11598.451605901306,
-              "estimated_download_hours": 3.2217921127503626,
+              "duration_seconds": 9.241115,
+              "throughput_bytes_per_second": 113468.0,
+              "estimated_download_seconds": 15069.462121479184,
+              "estimated_download_hours": 4.185961700410885,
               "url": "https://registry.ollama.ai/v2/library/starcoder2/blobs/sha256:28bfdfaeba9f51611c00ed322ba684ce6db076756dbc46643f98a8a748c5199e",
-              "fresh_probe_started_at": "2026-09-13T14:09:23.344888+00:00",
+              "fresh_probe_started_at": "2026-09-13T14:15:47.642236+00:00",
               "sha256_addressed": true
             },
             "qualification": {
@@ -3699,7 +3699,7 @@
                 ],
                 "cwd": "/home/md-wasim/Projects/AI_Workspace",
                 "exit_code": 0,
-                "duration_seconds": 5.4908,
+                "duration_seconds": 1.03,
                 "stdout": "{\"schemaVersion\":2,\"mediaType\":\"application/vnd.docker.distribution.manifest.v2+json\",\"config\":{\"mediaType\":\"application/vnd.docker.container.image.v1+json\",\"digest\":\"sha256:ea4a24c038f59ed9a94db50d23d32dd36e73a85c10097b4b9fed9c70c3a5158d\",\"size\":409},\"layers\":[{\"mediaType\":\"application/vnd.ollama.image.model\",\"digest\":\"sha256:dd0c6f2ea876e4c433325df3398386f24e00d321abf6cec197c1bc1fcf1e0025\",\"size\":1551189312},{\"mediaType\":\"application/vnd.ollama.image.license\",\"digest\":\"sha256:097a36493f718248845233af1d3fefe7a303f864fae13bc31a3a9704229378ca\",\"size\":8433},{\"mediaType\":\"application/vnd.ollama.image.params\",\"digest\":\"sha256:9be8862a36378dff002b5114ffa6f5b30054cfb4875ed58195449e1848ae6e09\",\"size\":142},{\"mediaType\":\"application/vnd.ollama.image.template\",\"digest\":\"sha256:48d9a8140749f940a218cb55fe7074cc6b776b93bac231bd9ef02cf6d26a5964\",\"size\":121}]}",
                 "stderr": "",
                 "stdout_sha256": "926331004170f1c177e6185e8c7e6339bcc701cbda124ed4b235246191f38bff",
@@ -3763,21 +3763,21 @@
                 ],
                 "cwd": "/home/md-wasim/Projects/AI_Workspace",
                 "exit_code": 28,
-                "duration_seconds": 15.7986,
-                "stdout": "206\t131072\t15.793440\t8299\n",
-                "stderr": "curl: (28) Operation timed out after 9071 milliseconds with 131072 out of 1048576 bytes received\n",
-                "stdout_sha256": "e8bf3c706722a9a01450e3e209aafccfee365ded64516e9111cbe5ef167ecdd4",
-                "stderr_sha256": "40e4ea8c7805179463cb01c853570d964c0986b1875601fba5d8208b71a41d4f",
+                "duration_seconds": 15.3253,
+                "stdout": "206\t507904\t15.321751\t33149\n",
+                "stderr": "curl: (28) Operation timed out after 11358 milliseconds with 507904 out of 1048576 bytes received\n",
+                "stdout_sha256": "c028d3a1e75de9d2289b10b8ad3645e884df6bec2a6a0f0da2dc267740302682",
+                "stderr_sha256": "f926f5a26dc18237c08f162e329717ad0d68e839e09a85051238bad624346c1f",
                 "timed_out": false
               },
               "http_code": 206,
-              "bytes_downloaded": 131072,
-              "duration_seconds": 15.79344,
-              "throughput_bytes_per_second": 8299.0,
-              "estimated_download_seconds": 186913.89528858897,
-              "estimated_download_hours": 51.92052646905249,
+              "bytes_downloaded": 507904,
+              "duration_seconds": 15.321751,
+              "throughput_bytes_per_second": 33149.0,
+              "estimated_download_seconds": 46794.727352257985,
+              "estimated_download_hours": 12.998535375627219,
               "url": "https://registry.ollama.ai/v2/library/codegemma/blobs/sha256:dd0c6f2ea876e4c433325df3398386f24e00d321abf6cec197c1bc1fcf1e0025",
-              "fresh_probe_started_at": "2026-09-13T14:09:35.967708+00:00",
+              "fresh_probe_started_at": "2026-09-13T14:15:57.934873+00:00",
               "sha256_addressed": true
             },
             "qualification": {
@@ -3795,193 +3795,17 @@
           "both_limits_required": true
         }
       },
-      "evidence_dir": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0297",
+      "evidence_dir": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0298",
       "before": {
-        "timestamp": "2026-09-13T14:09:12.422683+00:00",
-        "cycle": 297,
+        "timestamp": "2026-09-13T14:15:17.482858+00:00",
+        "cycle": 298,
         "phase": "WATCH_EXTERNAL_GAP",
         "candidate_hint": "qwen2.5-coder:3b",
         "observations": {
-          "timestamp": "2026-09-13T14:09:11.546116+00:00",
+          "timestamp": "2026-09-13T14:15:16.597754+00:00",
           "git": {
             "branch": "main",
-            "commit": "af07ec9a39564a622f2d3d4ff76e57c4b5d06798",
-            "application_source_commit": "d7b0cb5e8422029f17d83c55d2c21b7b64d5583f",
-            "upstream": "origin/main",
-            "upstream_error": null,
-            "ahead": 0,
-            "behind": 0,
-            "clean": true,
-            "status_porcelain": "",
-            "status": "CLEAN_SYNCED"
-          },
-          "benchmark": {
-            "path": "/home/md-wasim/Desktop/Work_Station_Benchmark/benchmark-summary.json",
-            "commit": "70335a71c9a1ef410a5976d6ba687712b983610b",
-            "score": 97.84,
-            "pass": 457,
-            "partial": 1,
-            "fail": 1,
-            "mean": 8.062,
-            "p95": 16.5064
-          },
-          "runtime": {
-            "status": "HISTORICAL_PASS_REQUIRES_CURRENT_ATTESTATION",
-            "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/runtime-identity-20260911-70335a7.json",
-            "source_commit": "70335a71c9a1ef410a5976d6ba687712b983610b",
-            "current_commit": "d7b0cb5e8422029f17d83c55d2c21b7b64d5583f",
-            "source_matches_current": false,
-            "matches": {
-              "source_commit": true,
-              "backend_source_sha256": true,
-              "web_bundle_sha256": true
-            },
-            "health_command": {
-              "command": [
-                "curl",
-                "--fail",
-                "--silent",
-                "--show-error",
-                "--max-time",
-                "3",
-                "http://127.0.0.1:8000/api/v1/health/live"
-              ],
-              "cwd": "/home/md-wasim/Projects/AI_Workspace",
-              "exit_code": 0,
-              "duration_seconds": 0.0074,
-              "stdout": "{\"status\":\"alive\"}",
-              "stderr": "",
-              "stdout_sha256": "bc24b0b5a305d5afc198c725890c8fb91053be2dbd8672779de73cac19a008fa",
-              "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-              "timed_out": false
-            }
-          },
-          "tests": {
-            "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-canonical/full-regression.log",
-            "backend": {
-              "passed": 3152,
-              "skipped": 55
-            },
-            "web": {
-              "passed": 206
-            },
-            "mobile": {
-              "passed": 64
-            },
-            "status": "PASS",
-            "acceptance_hint": "PENDING_CURRENT_DEPLOYMENT_AND_FINAL_VERIFICATION; prior release evidence retained in previous report snapshot."
-          },
-          "queue": {
-            "total": 31,
-            "unresolved": 0,
-            "local_unresolved": 0
-          },
-          "provenance": {
-            "status": "NOT_PROVEN",
-            "current_source_commit": "d7b0cb5e8422029f17d83c55d2c21b7b64d5583f",
-            "components": {
-              "source_commit": "PASS",
-              "runtime": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE",
-              "backend_hash": "PASS",
-              "web_artifact_hash": "PASS",
-              "benchmark": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE",
-              "security": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE",
-              "release": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE",
-              "artifact": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE"
-            },
-            "runtime": {
-              "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/runtime-identity-20260911-70335a7.json",
-              "recorded_source_commit": "70335a71c9a1ef410a5976d6ba687712b983610b",
-              "recorded_backend_source_sha256": "eb699a17b5dcfbaac89b5c9eb9b0bd7e77242c0a04c40e7f23caa41771dc707a",
-              "recorded_web_bundle_sha256": "5c0075a4636f9d50eac0f543bb67eb424f335ee707926e7ddc7d2b4982172825",
-              "expected_backend_source_sha256": "eb699a17b5dcfbaac89b5c9eb9b0bd7e77242c0a04c40e7f23caa41771dc707a",
-              "expected_web_bundle_sha256": "5c0075a4636f9d50eac0f543bb67eb424f335ee707926e7ddc7d2b4982172825",
-              "content_matches": {
-                "source_commit": false,
-                "backend_source_sha256": true,
-                "web_bundle_sha256": true,
-                "declared_matches": true
-              }
-            },
-            "benchmark": {
-              "evidence": "/home/md-wasim/Desktop/Work_Station_Benchmark/benchmark-summary.json",
-              "results": "/home/md-wasim/Desktop/Work_Station_Benchmark/benchmark-results.json",
-              "recorded_source_commit": "70335a71c9a1ef410a5976d6ba687712b983610b",
-              "summary_sha256": "7067963bd6cd67c1bc5b8fa00b7d6d574f16f895cada8f1b0dc9d82ade9f6aec",
-              "results_sha256": "815c23db2757bad57532afcf8a5595716599375eae666330664fb118ff6b1cc5",
-              "structural_valid": true,
-              "counts": {
-                "PASS": 457,
-                "PARTIAL": 1,
-                "FAIL": 1
-              }
-            },
-            "release": {
-              "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260911-final-gap-release-1a02fe0/release-check-current.json",
-              "recorded_source_commit": "1a02fe0010867233f8189a2851ea33da3bc21b5d",
-              "log": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260911-final-gap-release-1a02fe0/release-check.log",
-              "log_sha256": "e10562863a1fbd02f6bb2e0f8f96e06c25b2eb8d8222879c58c156af33e0418c",
-              "structural_valid": true,
-              "security_check": "PASS"
-            },
-            "artifact": {
-              "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260911-final-gap-release-1a02fe0/artifact-attestation-current.json",
-              "recorded_source_commit": "1a02fe0010867233f8189a2851ea33da3bc21b5d",
-              "hashes_verified": {
-                "Work_Station_Ubuntu.AppImage": true,
-                "Work_Station_Ubuntu.deb": true,
-                "Work_Station_PWA.tar.gz": true
-              },
-              "structural_valid": true,
-              "artifacts": [
-                {
-                  "artifact": "Work_Station_Ubuntu.AppImage",
-                  "path": "/home/md-wasim/Projects/AI_Workspace/apps/desktop/src-tauri/target/release/bundle/appimage/WORK STATION_0.1.0_amd64.AppImage",
-                  "expected_sha256": "f8abb66ffee5b7bae6cde1e120b68ab968419f9671284c9f4967f1cd9b2ba227",
-                  "actual_sha256": "f8abb66ffee5b7bae6cde1e120b68ab968419f9671284c9f4967f1cd9b2ba227",
-                  "exists": true,
-                  "hash_verified": true
-                },
-                {
-                  "artifact": "Work_Station_Ubuntu.deb",
-                  "path": "/home/md-wasim/Projects/AI_Workspace/apps/desktop/src-tauri/target/release/bundle/deb/WORK STATION_0.1.0_amd64.deb",
-                  "expected_sha256": "92e4ca24f4e418be60a9b1c2c1efc9938905f996858ff3d85003f097464f9ddb",
-                  "actual_sha256": "92e4ca24f4e418be60a9b1c2c1efc9938905f996858ff3d85003f097464f9ddb",
-                  "exists": true,
-                  "hash_verified": true
-                },
-                {
-                  "artifact": "Work_Station_PWA.tar.gz",
-                  "path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260911-release-7b0340a/Work_Station_PWA.tar.gz",
-                  "expected_sha256": "e2e0fa4b53ff52421d95ef9a7a08c8b13a83eacfe03914dbb71f9fa101c0bf07",
-                  "actual_sha256": "e2e0fa4b53ff52421d95ef9a7a08c8b13a83eacfe03914dbb71f9fa101c0bf07",
-                  "exists": true,
-                  "hash_verified": true
-                }
-              ]
-            },
-            "historical_evidence_rejected": true
-          }
-        },
-        "git": {
-          "branch": "main",
-          "commit": "af07ec9a39564a622f2d3d4ff76e57c4b5d06798",
-          "application_source_commit": "d7b0cb5e8422029f17d83c55d2c21b7b64d5583f",
-          "upstream": "origin/main",
-          "upstream_error": null,
-          "ahead": 0,
-          "behind": 0,
-          "clean": true,
-          "status_porcelain": "",
-          "status": "CLEAN_SYNCED"
-        }
-      },
-      "after": {
-        "observations": {
-          "timestamp": "2026-09-13T14:09:54.094804+00:00",
-          "git": {
-            "branch": "main",
-            "commit": "af07ec9a39564a622f2d3d4ff76e57c4b5d06798",
+            "commit": "adaf4db15895f53fa3c9010eb720c98c65fdad5c",
             "application_source_commit": "d7b0cb5e8422029f17d83c55d2c21b7b64d5583f",
             "upstream": "origin/main",
             "upstream_error": null,
@@ -4141,7 +3965,7 @@
         },
         "git": {
           "branch": "main",
-          "commit": "af07ec9a39564a622f2d3d4ff76e57c4b5d06798",
+          "commit": "adaf4db15895f53fa3c9010eb720c98c65fdad5c",
           "application_source_commit": "d7b0cb5e8422029f17d83c55d2c21b7b64d5583f",
           "upstream": "origin/main",
           "upstream_error": null,
@@ -4152,11 +3976,187 @@
           "status": "CLEAN_SYNCED"
         }
       },
-      "next_retry_at": "2026-09-13T14:14:51.769767+00:00"
+      "after": {
+        "observations": {
+          "timestamp": "2026-09-13T14:16:15.600486+00:00",
+          "git": {
+            "branch": "main",
+            "commit": "adaf4db15895f53fa3c9010eb720c98c65fdad5c",
+            "application_source_commit": "d7b0cb5e8422029f17d83c55d2c21b7b64d5583f",
+            "upstream": "origin/main",
+            "upstream_error": null,
+            "ahead": 0,
+            "behind": 0,
+            "clean": true,
+            "status_porcelain": "",
+            "status": "CLEAN_SYNCED"
+          },
+          "benchmark": {
+            "path": "/home/md-wasim/Desktop/Work_Station_Benchmark/benchmark-summary.json",
+            "commit": "70335a71c9a1ef410a5976d6ba687712b983610b",
+            "score": 97.84,
+            "pass": 457,
+            "partial": 1,
+            "fail": 1,
+            "mean": 8.062,
+            "p95": 16.5064
+          },
+          "runtime": {
+            "status": "HISTORICAL_PASS_REQUIRES_CURRENT_ATTESTATION",
+            "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/runtime-identity-20260911-70335a7.json",
+            "source_commit": "70335a71c9a1ef410a5976d6ba687712b983610b",
+            "current_commit": "d7b0cb5e8422029f17d83c55d2c21b7b64d5583f",
+            "source_matches_current": false,
+            "matches": {
+              "source_commit": true,
+              "backend_source_sha256": true,
+              "web_bundle_sha256": true
+            },
+            "health_command": {
+              "command": [
+                "curl",
+                "--fail",
+                "--silent",
+                "--show-error",
+                "--max-time",
+                "3",
+                "http://127.0.0.1:8000/api/v1/health/live"
+              ],
+              "cwd": "/home/md-wasim/Projects/AI_Workspace",
+              "exit_code": 0,
+              "duration_seconds": 0.0063,
+              "stdout": "{\"status\":\"alive\"}",
+              "stderr": "",
+              "stdout_sha256": "bc24b0b5a305d5afc198c725890c8fb91053be2dbd8672779de73cac19a008fa",
+              "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "timed_out": false
+            }
+          },
+          "tests": {
+            "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-canonical/full-regression.log",
+            "backend": {
+              "passed": 3152,
+              "skipped": 55
+            },
+            "web": {
+              "passed": 206
+            },
+            "mobile": {
+              "passed": 64
+            },
+            "status": "PASS",
+            "acceptance_hint": "PENDING_CURRENT_DEPLOYMENT_AND_FINAL_VERIFICATION; prior release evidence retained in previous report snapshot."
+          },
+          "queue": {
+            "total": 31,
+            "unresolved": 0,
+            "local_unresolved": 0
+          },
+          "provenance": {
+            "status": "NOT_PROVEN",
+            "current_source_commit": "d7b0cb5e8422029f17d83c55d2c21b7b64d5583f",
+            "components": {
+              "source_commit": "PASS",
+              "runtime": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE",
+              "backend_hash": "PASS",
+              "web_artifact_hash": "PASS",
+              "benchmark": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE",
+              "security": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE",
+              "release": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE",
+              "artifact": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE"
+            },
+            "runtime": {
+              "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/runtime-identity-20260911-70335a7.json",
+              "recorded_source_commit": "70335a71c9a1ef410a5976d6ba687712b983610b",
+              "recorded_backend_source_sha256": "eb699a17b5dcfbaac89b5c9eb9b0bd7e77242c0a04c40e7f23caa41771dc707a",
+              "recorded_web_bundle_sha256": "5c0075a4636f9d50eac0f543bb67eb424f335ee707926e7ddc7d2b4982172825",
+              "expected_backend_source_sha256": "eb699a17b5dcfbaac89b5c9eb9b0bd7e77242c0a04c40e7f23caa41771dc707a",
+              "expected_web_bundle_sha256": "5c0075a4636f9d50eac0f543bb67eb424f335ee707926e7ddc7d2b4982172825",
+              "content_matches": {
+                "source_commit": false,
+                "backend_source_sha256": true,
+                "web_bundle_sha256": true,
+                "declared_matches": true
+              }
+            },
+            "benchmark": {
+              "evidence": "/home/md-wasim/Desktop/Work_Station_Benchmark/benchmark-summary.json",
+              "results": "/home/md-wasim/Desktop/Work_Station_Benchmark/benchmark-results.json",
+              "recorded_source_commit": "70335a71c9a1ef410a5976d6ba687712b983610b",
+              "summary_sha256": "7067963bd6cd67c1bc5b8fa00b7d6d574f16f895cada8f1b0dc9d82ade9f6aec",
+              "results_sha256": "815c23db2757bad57532afcf8a5595716599375eae666330664fb118ff6b1cc5",
+              "structural_valid": true,
+              "counts": {
+                "PASS": 457,
+                "PARTIAL": 1,
+                "FAIL": 1
+              }
+            },
+            "release": {
+              "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260911-final-gap-release-1a02fe0/release-check-current.json",
+              "recorded_source_commit": "1a02fe0010867233f8189a2851ea33da3bc21b5d",
+              "log": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260911-final-gap-release-1a02fe0/release-check.log",
+              "log_sha256": "e10562863a1fbd02f6bb2e0f8f96e06c25b2eb8d8222879c58c156af33e0418c",
+              "structural_valid": true,
+              "security_check": "PASS"
+            },
+            "artifact": {
+              "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260911-final-gap-release-1a02fe0/artifact-attestation-current.json",
+              "recorded_source_commit": "1a02fe0010867233f8189a2851ea33da3bc21b5d",
+              "hashes_verified": {
+                "Work_Station_Ubuntu.AppImage": true,
+                "Work_Station_Ubuntu.deb": true,
+                "Work_Station_PWA.tar.gz": true
+              },
+              "structural_valid": true,
+              "artifacts": [
+                {
+                  "artifact": "Work_Station_Ubuntu.AppImage",
+                  "path": "/home/md-wasim/Projects/AI_Workspace/apps/desktop/src-tauri/target/release/bundle/appimage/WORK STATION_0.1.0_amd64.AppImage",
+                  "expected_sha256": "f8abb66ffee5b7bae6cde1e120b68ab968419f9671284c9f4967f1cd9b2ba227",
+                  "actual_sha256": "f8abb66ffee5b7bae6cde1e120b68ab968419f9671284c9f4967f1cd9b2ba227",
+                  "exists": true,
+                  "hash_verified": true
+                },
+                {
+                  "artifact": "Work_Station_Ubuntu.deb",
+                  "path": "/home/md-wasim/Projects/AI_Workspace/apps/desktop/src-tauri/target/release/bundle/deb/WORK STATION_0.1.0_amd64.deb",
+                  "expected_sha256": "92e4ca24f4e418be60a9b1c2c1efc9938905f996858ff3d85003f097464f9ddb",
+                  "actual_sha256": "92e4ca24f4e418be60a9b1c2c1efc9938905f996858ff3d85003f097464f9ddb",
+                  "exists": true,
+                  "hash_verified": true
+                },
+                {
+                  "artifact": "Work_Station_PWA.tar.gz",
+                  "path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260911-release-7b0340a/Work_Station_PWA.tar.gz",
+                  "expected_sha256": "e2e0fa4b53ff52421d95ef9a7a08c8b13a83eacfe03914dbb71f9fa101c0bf07",
+                  "actual_sha256": "e2e0fa4b53ff52421d95ef9a7a08c8b13a83eacfe03914dbb71f9fa101c0bf07",
+                  "exists": true,
+                  "hash_verified": true
+                }
+              ]
+            },
+            "historical_evidence_rejected": true
+          }
+        },
+        "git": {
+          "branch": "main",
+          "commit": "adaf4db15895f53fa3c9010eb720c98c65fdad5c",
+          "application_source_commit": "d7b0cb5e8422029f17d83c55d2c21b7b64d5583f",
+          "upstream": "origin/main",
+          "upstream_error": null,
+          "ahead": 0,
+          "behind": 0,
+          "clean": true,
+          "status_porcelain": "",
+          "status": "CLEAN_SYNCED"
+        }
+      },
+      "next_retry_at": "2026-09-13T14:21:13.262383+00:00"
     },
     "external_watch": {
       "status": "NOT_READY",
-      "cycle": 297,
+      "cycle": 298,
       "candidate": "qwen2.5-coder:3b",
       "candidate_state": "NOT_CACHED_DOWNLOAD_TOO_SLOW_OR_UNAVAILABLE",
       "candidate_priority": [
@@ -4176,13 +4176,13 @@
       "requested_max_download_seconds": 900,
       "requested_max_estimated_download_hours": 0.5,
       "genericity_and_canonical_validation_allowed": false,
-      "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0297",
-      "next_retry_at": "2026-09-13T14:14:51.769767+00:00",
+      "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0298",
+      "next_retry_at": "2026-09-13T14:21:13.262383+00:00",
       "current_action": "Wait for a reliable bounded download window for candidate qwen2.5-coder:3b; no production route change is permitted."
     }
   },
-  "report_generated_from_commit": "af07ec9a39564a622f2d3d4ff76e57c4b5d06798",
-  "report_tip_commit": "af07ec9a39564a622f2d3d4ff76e57c4b5d06798",
+  "report_generated_from_commit": "adaf4db15895f53fa3c9010eb720c98c65fdad5c",
+  "report_tip_commit": "adaf4db15895f53fa3c9010eb720c98c65fdad5c",
   "post_watch_git_verification": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0001/post-watch-git-verification.json",
   "post_watch_git_verification_sha256": "119c0f0c77af049af664482efdfe4f662a473d933649cd83a804ccfd9b1c72a1",
   "evidence_provenance": {
