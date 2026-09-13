@@ -8,7 +8,7 @@ PARTIAL        : 1
 FAIL           : 1
 ISSUES         : 0
 CURRENT        : NONE
-PHASE          : WATCH_EXTERNAL_GAP
+PHASE          : CANDIDATE_FOCUSED_GATE
 CANDIDATE      : codegemma:2b
 ASTER→AI OS    : PARTIAL: current owner-authenticated HTTP exchange and integrity verified; fabricated exec
 AI OS→ASTER    : BLOCKED_EXTERNAL: parent MCP/reverse callback is not available; no bidirectional verificat
@@ -21,6 +21,6 @@ WEB            : 206 PASS
 MOBILE         : 64 PASS
 PERFORMANCE    : mean 8.062s / P95 16.5064s
 GIT            : CLEAN_SYNCED
-COMMIT         : ed25cbda1747c51dd378a91c6764a777cde97397
-NEXT ACTION    : Wait for a reliable bounded download window for candidate codegemma:2b; no production route change is permitted.
+COMMIT         : 62ddd81c4387ea67abaf31d8e9f0bba1e1e7caf7
+NEXT ACTION    : Wait for a reliable bounded download window for candidate qwen2.5-coder:3b; no production route change is permitted.
 ========================================================
