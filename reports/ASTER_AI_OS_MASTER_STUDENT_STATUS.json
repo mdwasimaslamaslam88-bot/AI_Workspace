@@ -2,9 +2,9 @@
   "schema_version": 4,
   "iteration": 4,
   "status": "NOT_READY",
-  "updated_at": "2026-09-13T19:23:42.609230+00:00",
+  "updated_at": "2026-09-13T20:05:17.783764+00:00",
   "current_issue": [],
-  "current_commit": "882c0a95f057917375548013d8e3f72fdb50f827",
+  "current_commit": "ad625801852d76ad06f3f851604b4e40a391240d",
   "current_runtime": "/home/md-wasim/AI_Workspace_Data/aster-evidence/runtime-identity-20260911-70335a7.json",
   "current_artifact": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260911-final-gap-release-1a02fe0/artifact-attestation-current.json",
   "issues": [
@@ -3197,10 +3197,10 @@
       ]
     },
     "last_result": {
-      "timestamp": "2026-09-13T19:23:42.363294+00:00",
+      "timestamp": "2026-09-13T20:05:17.531459+00:00",
       "iteration": 4,
       "attempt": 26,
-      "cycle": 344,
+      "cycle": 345,
       "issue": null,
       "status": "NOT_READY",
       "action": "Focused candidate admission stopped before genericity or canonical validation because all eight objective_pass values were not true.",
@@ -3222,21 +3222,21 @@
           "--add-dir",
           "/home/md-wasim/AI_Workspace_Data/aster-evidence",
           "--output-last-message",
-          "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0344/codex.last-message.txt",
+          "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0345/codex.last-message.txt",
           "-"
         ],
         "cwd": "/home/md-wasim/Projects/AI_Workspace",
         "exit_code": 0,
-        "duration_seconds": 404.79,
+        "duration_seconds": 455.9255,
         "timed_out": false,
         "error": null,
-        "stdout_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0344/codex.stdout.jsonl",
-        "stderr_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0344/codex.stderr.log",
+        "stdout_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0345/codex.stdout.jsonl",
+        "stderr_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0345/codex.stderr.log",
         "stderr_tail": "",
-        "last_message_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0344/codex.last-message.txt",
-        "stdout_sha256": "626184e58c83c80148ca53c71b7c75dbd8341d6e8ed510dfe220b4d724fb2d3b",
+        "last_message_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0345/codex.last-message.txt",
+        "stdout_sha256": "025479079a91c14916c5550a403b2d22c31793a2944b534f26ea5e5219760b6b",
         "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-        "last_message_sha256": "858f6daf8a11593f0472a6b323da6c705f86cb6d9bf0843a0efdc8b652b99f6c",
+        "last_message_sha256": "157db28dade9e6d5f5181fdf7dc25aaf38652b2fc0592b9ddfcad90738d837a8",
         "codex_executable": "/home/md-wasim/.nvm/versions/node/v24.19.0/lib/node_modules/@openai/codex/bin/codex.js",
         "codex_version": "0.153.4",
         "codex_resolution": {
@@ -3280,13 +3280,13 @@
           "action": "Focused candidate admission stopped before genericity or canonical validation because all eight objective_pass values were not true.",
           "verification": "PARTIAL",
           "classification": "NOT_READY",
-          "next_prompt": "ASTER CANDIDATE ADMISSION — deepseek-coder:1.3b\n\nThis is one bounded child task in the existing ASTER controller.\nRepository: /home/md-wasim/Projects/AI_Workspace\nCurrent source commit: 882c0a95f057917375548013d8e3f72fdb50f827\nCandidate evidence: /home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0344\n\nUse the existing model catalog, hardware admission, routing, Ollama runtime, Agent OS, and benchmark harness. Do not create another routing layer.\n\nRun BOTH unchanged canonical coder cases through the explicit candidate, generic coding route, generic code-generation route, and automatic task-aware route:\n- medium-coding-04: Write a Python list comprehension producing squares of 0 through 4. Expression only. Objective requirements: x * x and range(5).\n- model-comparison-coder-06: A recursive function has no terminating condition. What is the standard recursion term for the missing condition? Name it only. Objective answer: base case.\n\nThe trusted parent controller executes the runtime gate in the existing disposable PostgreSQL/backend boundary. Inspect the resulting focused-candidate-gate.json and its raw-output files; do not attempt runtime commands from this child. Capture and review selected model, raw output, SHA-256, latency, configuration, hardware telemetry, source commit, and objective checks. Do not edit prompts, expectations, checkers, semantic verification, or normalize output. Do not admit this candidate or claim readiness from prose alone.\n\nOnly if both objective cases PASS may the parent proceed to genericity and full canonical validation. End with the standard ASTER_LOOP_RESULT block and an exact next prompt.\n"
+          "next_prompt": "ASTER CANDIDATE ADMISSION — starcoder2:3b\n\nThis is one bounded child task in the existing ASTER controller.\nRepository: /home/md-wasim/Projects/AI_Workspace\nCurrent source commit: 882c0a95f057917375548013d8e3f72fdb50f827\nCandidate evidence: /home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0345\n\nUse the existing model catalog, hardware admission, routing, Ollama runtime, Agent OS, and benchmark harness. Do not create another routing layer.\n\nRun BOTH unchanged canonical coder cases through the explicit candidate, generic coding route, generic code-generation route, and automatic task-aware route:\n- medium-coding-04: Write a Python list comprehension producing squares of 0 through 4. Expression only. Objective requirements: x * x and range(5).\n- model-comparison-coder-06: A recursive function has no terminating condition. What is the standard recursion term for the missing condition? Name it only. Objective answer: base case.\n\nThe trusted parent controller executes the runtime gate in the existing disposable PostgreSQL/backend boundary. Inspect the resulting focused-candidate-gate.json and its raw-output files; do not attempt runtime commands from this child. Capture and review selected model, raw output, SHA-256, latency, configuration, hardware telemetry, source commit, and objective checks. Do not edit prompts, expectations, checkers, semantic verification, or normalize output. Do not admit this candidate or claim readiness from prose alone.\n\nOnly if both objective cases PASS may the parent proceed to genericity and full canonical validation. End with the standard ASTER_LOOP_RESULT block and an exact next prompt.\n"
         },
         "focused_objective_gate": {
           "status": "FAIL",
           "admitted": false,
-          "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0344/focused-candidate-gate.json",
-          "evidence_sha256": "c19e9ee23e1cf64a30cd8b2d7fb9997e7d863c56d7d1c033210100a619b766f4",
+          "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0345/focused-candidate-gate.json",
+          "evidence_sha256": "841ec518e01dcfe69d78b9fc9f3acee0a2701e901b6a409bacc878a7c8077555",
           "record_count": 8,
           "unique_record_count": 8,
           "exact_eight_record_matrix": true,
@@ -3312,19 +3312,19 @@
             ],
             "cwd": "/home/md-wasim/Projects/AI_Workspace",
             "exit_code": 0,
-            "duration_seconds": 37.5329,
-            "stdout": "ASTER_FOCUSED_GATE_COMPLETE\nASTER_FOCUSED_GATE_OBJECTIVE_PASS=0/8\nASTER_FOCUSED_GATE_OUTPUT=/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0344/focused-candidate-gate.json\nephemeral PostgreSQL validation: ASTER focused candidate gate passed\n",
+            "duration_seconds": 38.2289,
+            "stdout": "ASTER_FOCUSED_GATE_COMPLETE\nASTER_FOCUSED_GATE_OBJECTIVE_PASS=0/8\nASTER_FOCUSED_GATE_OUTPUT=/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0345/focused-candidate-gate.json\nephemeral PostgreSQL validation: ASTER focused candidate gate passed\n",
             "stderr": "INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.\nINFO  [alembic.runtime.migration] Will assume transactional DDL.\nINFO  [alembic.runtime.migration] Running upgrade  -> 0001_initial_domain, Create the initial user, conversation, and message domain schema.\nINFO  [alembic.runtime.migration] Running upgrade 0001_initial_domain -> 0002_user_access_credential, Add the user access credential digest.\nINFO  [alembic.runtime.migration] Running upgrade 0002_user_access_credential -> 0003_bound_message_content, Bound persisted Message content length.\nINFO  [alembic.runtime.migration] Running upgrade 0003_bound_message_content -> 0004_owned_assets, Add user-owned opaque assets and ordered message attachments.\nINFO  [alembic.runtime.migration] Running upgrade 0004_owned_assets -> 0005_document_intelligence, Add owner-scoped document ingestion, chunks, embeddings, and citations.\nINFO  [alembic.runtime.migration] Running upgrade 0005_document_intelligence -> 0006_personal_memory, Add explicit owner-scoped long-term personal memory.\nINFO  [alembic.runtime.migration] Running upgrade 0006_personal_memory -> 0007_bounded_tools, Add bounded owner-scoped tool execution history.\nINFO  [alembic.runtime.migration] Running upgrade 0007_bounded_tools -> 0008_bounded_workflows, Add bounded owner-scoped workflow execution.\nINFO  [alembic.runtime.migration] Running upgrade 0008_bounded_workflows -> 0009_document_embedding_models, Add model identity and dimensions to document embeddings.\nINFO  [alembic.runtime.migration] Running upgrade 0009_document_embedding_models -> 0010_asset_provenance, Add explicit provenance for locally generated media assets.\nINFO  [alembic.runtime.migration] Running upgrade 0010_asset_provenance -> 0011_conversation_organization, Add owner conversation organization state.\nINFO  [alembic.runtime.migration] Running upgrade 0011_conversation_organization -> 0012_owner_device_sessions, Add bounded owner device sessions.\nINFO  [alembic.runtime.migration] Running upgrade 0012_owner_device_sessions -> 0013_owner_connectors, Add owner-scoped connector registry and execution audit.\nINFO  [alembic.runtime.migration] Running upgrade 0013_owner_connectors -> 0014_marketing_campaigns, Add grounded owner-scoped marketing campaign workflows.\nINFO  [alembic.runtime.migration] Running upgrade 0014_marketing_campaigns -> 0015_finance_intelligence, Add grounded finance intelligence and paper market operations.\nINFO  [alembic.runtime.migration] Running upgrade 0015_finance_intelligence -> 0016_learning_system, Add persistent adaptive learning programs and spaced repetition.\nINFO  [alembic.runtime.migration] Running upgrade 0016_learning_system -> 0017_creative_experiences, Add persistent verified local creative experiences.\nINFO  [alembic.runtime.migration] Running upgrade 0017_creative_experiences -> 0018_connector_activation, Add production connector activation metadata and lifecycle evidence.\nINFO  [alembic.runtime.migration] Running upgrade 0018_connector_activation -> 0019_connector_lifecycle_audit, Audit provider connector configuration and lifecycle transitions.\nINFO  [alembic.runtime.migration] Running upgrade 0019_connector_lifecycle_audit -> 0020_trading_safety, Add owner trading safety policy and verified broker order evidence.\nINFO  [alembic.runtime.migration] Running upgrade 0020_trading_safety -> 0021_learning_knowledge_os, Add resumable, grounded and auditable learning state.\nINFO  [alembic.runtime.migration] Running upgrade 0021_learning_knowledge_os -> 0022_persistent_agent_missions, Add persistent owner-controlled Agent OS missions.\nINFO  [alembic.runtime.migration] Running upgrade 0022_persistent_agent_missions -> 0023_chat_filesystem_tools, Admit audited chat filesystem tools.\nINFO  [alembic.runtime.migration] Running upgrade 0023_chat_filesystem_tools -> 0024_dex_delegation_tool, Admit audited DEX agent delegation.\n",
-            "stdout_sha256": "19b75ec02914928ec948a94b6f80710b0e51ea04f3ae3659b6d1081a9449b588",
+            "stdout_sha256": "de08ea29227e4a605b9b2432b6ec362f163745a602fc2f055fc07ac3e3eee845",
             "stderr_sha256": "ce2f65077761de980952c88fe8e80bd55daf0824aded1cb5361a1d4392f3266c",
             "timed_out": false
           },
-          "output": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0344/focused-candidate-gate.json",
-          "output_sha256": "c19e9ee23e1cf64a30cd8b2d7fb9997e7d863c56d7d1c033210100a619b766f4",
+          "output": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0345/focused-candidate-gate.json",
+          "output_sha256": "841ec518e01dcfe69d78b9fc9f3acee0a2701e901b6a409bacc878a7c8077555",
           "report_summary": {
             "run_status": "complete",
-            "candidate_reference": "deepseek-coder:1.3b",
-            "candidate_model_id": "ollama-local:2f6630b49b9d6859e6144b73",
+            "candidate_reference": "starcoder2:3b",
+            "candidate_model_id": "ollama-local:93b762412b549c57dc8f39d8",
             "source_commit": "882c0a95f057917375548013d8e3f72fdb50f827",
             "matrix_complete": true,
             "objective_pass_count": 0,
@@ -3339,15 +3339,14 @@
           "production_routing_modified": false
         }
       },
-      "candidate": "deepseek-coder:1.3b",
+      "candidate": "starcoder2:3b",
       "catalog_hardware_admission": {
         "status": "ADMITTED",
         "admitted": true,
         "catalog_record": {
           "availability": "available",
-          "candidate_reference": "deepseek-coder:1.3b",
+          "candidate_reference": "starcoder2:3b",
           "capabilities": [
-            "code",
             "text_generation"
           ],
           "eligibility_reasons": [
@@ -3357,10 +3356,10 @@
           "found": true,
           "hardware_class": "gpu_under_8gb",
           "installed": true,
-          "model_id": "ollama-local:2f6630b49b9d6859e6144b73",
+          "model_id": "ollama-local:93b762412b549c57dc8f39d8",
           "performance_class": "interactive",
-          "required_ram_bytes": 2923564487,
-          "required_vram_bytes": 1849822663,
+          "required_ram_bytes": 3857385376,
+          "required_vram_bytes": 2783643552,
           "runnable_now": true,
           "verified": true
         },
@@ -3372,10 +3371,10 @@
           ],
           "cwd": "/home/md-wasim/Projects/AI_Workspace/backend",
           "exit_code": 0,
-          "duration_seconds": 0.7406,
-          "stdout": "{\"availability\": \"available\", \"candidate_reference\": \"deepseek-coder:1.3b\", \"capabilities\": [\"code\", \"text_generation\"], \"eligibility_reasons\": [\"eligible\"], \"eligibility_status\": \"runnable_now\", \"found\": true, \"hardware_class\": \"gpu_under_8gb\", \"installed\": true, \"model_id\": \"ollama-local:2f6630b49b9d6859e6144b73\", \"performance_class\": \"interactive\", \"required_ram_bytes\": 2923564487, \"required_vram_bytes\": 1849822663, \"runnable_now\": true, \"verified\": true}\n",
+          "duration_seconds": 0.6882,
+          "stdout": "{\"availability\": \"available\", \"candidate_reference\": \"starcoder2:3b\", \"capabilities\": [\"text_generation\"], \"eligibility_reasons\": [\"eligible\"], \"eligibility_status\": \"runnable_now\", \"found\": true, \"hardware_class\": \"gpu_under_8gb\", \"installed\": true, \"model_id\": \"ollama-local:93b762412b549c57dc8f39d8\", \"performance_class\": \"interactive\", \"required_ram_bytes\": 3857385376, \"required_vram_bytes\": 2783643552, \"runnable_now\": true, \"verified\": true}\n",
           "stderr": "",
-          "stdout_sha256": "7ea7c0b323664cf7e4879e73c472ca341a555fc5c8bf81caac2d6943fe5f8ae5",
+          "stdout_sha256": "0c04ca8cd689729b6743212205a7b46fa641d8d7f542757445c606c41b00c219",
           "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
           "timed_out": false
         },
@@ -3390,19 +3389,19 @@
           ],
           "cwd": "/home/md-wasim/Projects/AI_Workspace",
           "exit_code": 0,
-          "duration_seconds": 37.5329,
-          "stdout": "ASTER_FOCUSED_GATE_COMPLETE\nASTER_FOCUSED_GATE_OBJECTIVE_PASS=0/8\nASTER_FOCUSED_GATE_OUTPUT=/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0344/focused-candidate-gate.json\nephemeral PostgreSQL validation: ASTER focused candidate gate passed\n",
+          "duration_seconds": 38.2289,
+          "stdout": "ASTER_FOCUSED_GATE_COMPLETE\nASTER_FOCUSED_GATE_OBJECTIVE_PASS=0/8\nASTER_FOCUSED_GATE_OUTPUT=/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0345/focused-candidate-gate.json\nephemeral PostgreSQL validation: ASTER focused candidate gate passed\n",
           "stderr": "INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.\nINFO  [alembic.runtime.migration] Will assume transactional DDL.\nINFO  [alembic.runtime.migration] Running upgrade  -> 0001_initial_domain, Create the initial user, conversation, and message domain schema.\nINFO  [alembic.runtime.migration] Running upgrade 0001_initial_domain -> 0002_user_access_credential, Add the user access credential digest.\nINFO  [alembic.runtime.migration] Running upgrade 0002_user_access_credential -> 0003_bound_message_content, Bound persisted Message content length.\nINFO  [alembic.runtime.migration] Running upgrade 0003_bound_message_content -> 0004_owned_assets, Add user-owned opaque assets and ordered message attachments.\nINFO  [alembic.runtime.migration] Running upgrade 0004_owned_assets -> 0005_document_intelligence, Add owner-scoped document ingestion, chunks, embeddings, and citations.\nINFO  [alembic.runtime.migration] Running upgrade 0005_document_intelligence -> 0006_personal_memory, Add explicit owner-scoped long-term personal memory.\nINFO  [alembic.runtime.migration] Running upgrade 0006_personal_memory -> 0007_bounded_tools, Add bounded owner-scoped tool execution history.\nINFO  [alembic.runtime.migration] Running upgrade 0007_bounded_tools -> 0008_bounded_workflows, Add bounded owner-scoped workflow execution.\nINFO  [alembic.runtime.migration] Running upgrade 0008_bounded_workflows -> 0009_document_embedding_models, Add model identity and dimensions to document embeddings.\nINFO  [alembic.runtime.migration] Running upgrade 0009_document_embedding_models -> 0010_asset_provenance, Add explicit provenance for locally generated media assets.\nINFO  [alembic.runtime.migration] Running upgrade 0010_asset_provenance -> 0011_conversation_organization, Add owner conversation organization state.\nINFO  [alembic.runtime.migration] Running upgrade 0011_conversation_organization -> 0012_owner_device_sessions, Add bounded owner device sessions.\nINFO  [alembic.runtime.migration] Running upgrade 0012_owner_device_sessions -> 0013_owner_connectors, Add owner-scoped connector registry and execution audit.\nINFO  [alembic.runtime.migration] Running upgrade 0013_owner_connectors -> 0014_marketing_campaigns, Add grounded owner-scoped marketing campaign workflows.\nINFO  [alembic.runtime.migration] Running upgrade 0014_marketing_campaigns -> 0015_finance_intelligence, Add grounded finance intelligence and paper market operations.\nINFO  [alembic.runtime.migration] Running upgrade 0015_finance_intelligence -> 0016_learning_system, Add persistent adaptive learning programs and spaced repetition.\nINFO  [alembic.runtime.migration] Running upgrade 0016_learning_system -> 0017_creative_experiences, Add persistent verified local creative experiences.\nINFO  [alembic.runtime.migration] Running upgrade 0017_creative_experiences -> 0018_connector_activation, Add production connector activation metadata and lifecycle evidence.\nINFO  [alembic.runtime.migration] Running upgrade 0018_connector_activation -> 0019_connector_lifecycle_audit, Audit provider connector configuration and lifecycle transitions.\nINFO  [alembic.runtime.migration] Running upgrade 0019_connector_lifecycle_audit -> 0020_trading_safety, Add owner trading safety policy and verified broker order evidence.\nINFO  [alembic.runtime.migration] Running upgrade 0020_trading_safety -> 0021_learning_knowledge_os, Add resumable, grounded and auditable learning state.\nINFO  [alembic.runtime.migration] Running upgrade 0021_learning_knowledge_os -> 0022_persistent_agent_missions, Add persistent owner-controlled Agent OS missions.\nINFO  [alembic.runtime.migration] Running upgrade 0022_persistent_agent_missions -> 0023_chat_filesystem_tools, Admit audited chat filesystem tools.\nINFO  [alembic.runtime.migration] Running upgrade 0023_chat_filesystem_tools -> 0024_dex_delegation_tool, Admit audited DEX agent delegation.\n",
-          "stdout_sha256": "19b75ec02914928ec948a94b6f80710b0e51ea04f3ae3659b6d1081a9449b588",
+          "stdout_sha256": "de08ea29227e4a605b9b2432b6ec362f163745a602fc2f055fc07ac3e3eee845",
           "stderr_sha256": "ce2f65077761de980952c88fe8e80bd55daf0824aded1cb5361a1d4392f3266c",
           "timed_out": false
         },
-        "output": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0344/focused-candidate-gate.json",
-        "output_sha256": "c19e9ee23e1cf64a30cd8b2d7fb9997e7d863c56d7d1c033210100a619b766f4",
+        "output": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0345/focused-candidate-gate.json",
+        "output_sha256": "841ec518e01dcfe69d78b9fc9f3acee0a2701e901b6a409bacc878a7c8077555",
         "report_summary": {
           "run_status": "complete",
-          "candidate_reference": "deepseek-coder:1.3b",
-          "candidate_model_id": "ollama-local:2f6630b49b9d6859e6144b73",
+          "candidate_reference": "starcoder2:3b",
+          "candidate_model_id": "ollama-local:93b762412b549c57dc8f39d8",
           "source_commit": "882c0a95f057917375548013d8e3f72fdb50f827",
           "matrix_complete": true,
           "objective_pass_count": 0,
@@ -3419,8 +3418,8 @@
       "focused_objective_gate": {
         "status": "FAIL",
         "admitted": false,
-        "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0344/focused-candidate-gate.json",
-        "evidence_sha256": "c19e9ee23e1cf64a30cd8b2d7fb9997e7d863c56d7d1c033210100a619b766f4",
+        "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0345/focused-candidate-gate.json",
+        "evidence_sha256": "841ec518e01dcfe69d78b9fc9f3acee0a2701e901b6a409bacc878a7c8077555",
         "record_count": 8,
         "unique_record_count": 8,
         "exact_eight_record_matrix": true,
@@ -3438,17 +3437,193 @@
         "all_eight_objective_pass": false,
         "candidate_matches": true
       },
-      "evidence_dir": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0344",
+      "evidence_dir": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0345",
       "before": {
-        "timestamp": "2026-09-13T19:00:56.778682+00:00",
-        "cycle": 344,
+        "timestamp": "2026-09-13T19:28:45.036842+00:00",
+        "cycle": 345,
         "phase": "WATCH_EXTERNAL_GAP",
         "candidate_hint": "qwen2.5-coder:3b",
         "observations": {
-          "timestamp": "2026-09-13T19:00:56.637915+00:00",
+          "timestamp": "2026-09-13T19:28:44.896267+00:00",
           "git": {
             "branch": "main",
-            "commit": "882c0a95f057917375548013d8e3f72fdb50f827",
+            "commit": "ad625801852d76ad06f3f851604b4e40a391240d",
+            "application_source_commit": "882c0a95f057917375548013d8e3f72fdb50f827",
+            "upstream": "origin/main",
+            "upstream_error": null,
+            "ahead": 0,
+            "behind": 0,
+            "clean": true,
+            "status_porcelain": "",
+            "status": "CLEAN_SYNCED"
+          },
+          "benchmark": {
+            "path": "/home/md-wasim/Desktop/Work_Station_Benchmark/benchmark-summary.json",
+            "commit": "70335a71c9a1ef410a5976d6ba687712b983610b",
+            "score": 97.84,
+            "pass": 457,
+            "partial": 1,
+            "fail": 1,
+            "mean": 8.062,
+            "p95": 16.5064
+          },
+          "runtime": {
+            "status": "HISTORICAL_PASS_REQUIRES_CURRENT_ATTESTATION",
+            "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/runtime-identity-20260911-70335a7.json",
+            "source_commit": "70335a71c9a1ef410a5976d6ba687712b983610b",
+            "current_commit": "882c0a95f057917375548013d8e3f72fdb50f827",
+            "source_matches_current": false,
+            "matches": {
+              "source_commit": true,
+              "backend_source_sha256": true,
+              "web_bundle_sha256": true
+            },
+            "health_command": {
+              "command": [
+                "curl",
+                "--fail",
+                "--silent",
+                "--show-error",
+                "--max-time",
+                "3",
+                "http://127.0.0.1:8000/api/v1/health/live"
+              ],
+              "cwd": "/home/md-wasim/Projects/AI_Workspace",
+              "exit_code": 0,
+              "duration_seconds": 0.0081,
+              "stdout": "{\"status\":\"alive\"}",
+              "stderr": "",
+              "stdout_sha256": "bc24b0b5a305d5afc198c725890c8fb91053be2dbd8672779de73cac19a008fa",
+              "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "timed_out": false
+            }
+          },
+          "tests": {
+            "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-canonical/full-regression.log",
+            "backend": {
+              "passed": 3152,
+              "skipped": 55
+            },
+            "web": {
+              "passed": 206
+            },
+            "mobile": {
+              "passed": 64
+            },
+            "status": "PASS",
+            "acceptance_hint": "PENDING_CURRENT_DEPLOYMENT_AND_FINAL_VERIFICATION; prior release evidence retained in previous report snapshot."
+          },
+          "queue": {
+            "total": 31,
+            "unresolved": 0,
+            "local_unresolved": 0
+          },
+          "provenance": {
+            "status": "NOT_PROVEN",
+            "current_source_commit": "882c0a95f057917375548013d8e3f72fdb50f827",
+            "components": {
+              "source_commit": "PASS",
+              "runtime": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE",
+              "backend_hash": "PASS",
+              "web_artifact_hash": "PASS",
+              "benchmark": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE",
+              "security": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE",
+              "release": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE",
+              "artifact": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE"
+            },
+            "runtime": {
+              "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/runtime-identity-20260911-70335a7.json",
+              "recorded_source_commit": "70335a71c9a1ef410a5976d6ba687712b983610b",
+              "recorded_backend_source_sha256": "eb699a17b5dcfbaac89b5c9eb9b0bd7e77242c0a04c40e7f23caa41771dc707a",
+              "recorded_web_bundle_sha256": "5c0075a4636f9d50eac0f543bb67eb424f335ee707926e7ddc7d2b4982172825",
+              "expected_backend_source_sha256": "eb699a17b5dcfbaac89b5c9eb9b0bd7e77242c0a04c40e7f23caa41771dc707a",
+              "expected_web_bundle_sha256": "5c0075a4636f9d50eac0f543bb67eb424f335ee707926e7ddc7d2b4982172825",
+              "content_matches": {
+                "source_commit": false,
+                "backend_source_sha256": true,
+                "web_bundle_sha256": true,
+                "declared_matches": true
+              }
+            },
+            "benchmark": {
+              "evidence": "/home/md-wasim/Desktop/Work_Station_Benchmark/benchmark-summary.json",
+              "results": "/home/md-wasim/Desktop/Work_Station_Benchmark/benchmark-results.json",
+              "recorded_source_commit": "70335a71c9a1ef410a5976d6ba687712b983610b",
+              "summary_sha256": "7067963bd6cd67c1bc5b8fa00b7d6d574f16f895cada8f1b0dc9d82ade9f6aec",
+              "results_sha256": "815c23db2757bad57532afcf8a5595716599375eae666330664fb118ff6b1cc5",
+              "structural_valid": true,
+              "counts": {
+                "PASS": 457,
+                "PARTIAL": 1,
+                "FAIL": 1
+              }
+            },
+            "release": {
+              "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260911-final-gap-release-1a02fe0/release-check-current.json",
+              "recorded_source_commit": "1a02fe0010867233f8189a2851ea33da3bc21b5d",
+              "log": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260911-final-gap-release-1a02fe0/release-check.log",
+              "log_sha256": "e10562863a1fbd02f6bb2e0f8f96e06c25b2eb8d8222879c58c156af33e0418c",
+              "structural_valid": true,
+              "security_check": "PASS"
+            },
+            "artifact": {
+              "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260911-final-gap-release-1a02fe0/artifact-attestation-current.json",
+              "recorded_source_commit": "1a02fe0010867233f8189a2851ea33da3bc21b5d",
+              "hashes_verified": {
+                "Work_Station_Ubuntu.AppImage": true,
+                "Work_Station_Ubuntu.deb": true,
+                "Work_Station_PWA.tar.gz": true
+              },
+              "structural_valid": true,
+              "artifacts": [
+                {
+                  "artifact": "Work_Station_Ubuntu.AppImage",
+                  "path": "/home/md-wasim/Projects/AI_Workspace/apps/desktop/src-tauri/target/release/bundle/appimage/WORK STATION_0.1.0_amd64.AppImage",
+                  "expected_sha256": "f8abb66ffee5b7bae6cde1e120b68ab968419f9671284c9f4967f1cd9b2ba227",
+                  "actual_sha256": "f8abb66ffee5b7bae6cde1e120b68ab968419f9671284c9f4967f1cd9b2ba227",
+                  "exists": true,
+                  "hash_verified": true
+                },
+                {
+                  "artifact": "Work_Station_Ubuntu.deb",
+                  "path": "/home/md-wasim/Projects/AI_Workspace/apps/desktop/src-tauri/target/release/bundle/deb/WORK STATION_0.1.0_amd64.deb",
+                  "expected_sha256": "92e4ca24f4e418be60a9b1c2c1efc9938905f996858ff3d85003f097464f9ddb",
+                  "actual_sha256": "92e4ca24f4e418be60a9b1c2c1efc9938905f996858ff3d85003f097464f9ddb",
+                  "exists": true,
+                  "hash_verified": true
+                },
+                {
+                  "artifact": "Work_Station_PWA.tar.gz",
+                  "path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260911-release-7b0340a/Work_Station_PWA.tar.gz",
+                  "expected_sha256": "e2e0fa4b53ff52421d95ef9a7a08c8b13a83eacfe03914dbb71f9fa101c0bf07",
+                  "actual_sha256": "e2e0fa4b53ff52421d95ef9a7a08c8b13a83eacfe03914dbb71f9fa101c0bf07",
+                  "exists": true,
+                  "hash_verified": true
+                }
+              ]
+            },
+            "historical_evidence_rejected": true
+          }
+        },
+        "git": {
+          "branch": "main",
+          "commit": "ad625801852d76ad06f3f851604b4e40a391240d",
+          "application_source_commit": "882c0a95f057917375548013d8e3f72fdb50f827",
+          "upstream": "origin/main",
+          "upstream_error": null,
+          "ahead": 0,
+          "behind": 0,
+          "clean": true,
+          "status_porcelain": "",
+          "status": "CLEAN_SYNCED"
+        }
+      },
+      "after": {
+        "observations": {
+          "timestamp": "2026-09-13T20:05:17.614194+00:00",
+          "git": {
+            "branch": "main",
+            "commit": "ad625801852d76ad06f3f851604b4e40a391240d",
             "application_source_commit": "882c0a95f057917375548013d8e3f72fdb50f827",
             "upstream": "origin/main",
             "upstream_error": null,
@@ -3608,183 +3783,7 @@
         },
         "git": {
           "branch": "main",
-          "commit": "882c0a95f057917375548013d8e3f72fdb50f827",
-          "application_source_commit": "882c0a95f057917375548013d8e3f72fdb50f827",
-          "upstream": "origin/main",
-          "upstream_error": null,
-          "ahead": 0,
-          "behind": 0,
-          "clean": true,
-          "status_porcelain": "",
-          "status": "CLEAN_SYNCED"
-        }
-      },
-      "after": {
-        "observations": {
-          "timestamp": "2026-09-13T19:23:42.436176+00:00",
-          "git": {
-            "branch": "main",
-            "commit": "882c0a95f057917375548013d8e3f72fdb50f827",
-            "application_source_commit": "882c0a95f057917375548013d8e3f72fdb50f827",
-            "upstream": "origin/main",
-            "upstream_error": null,
-            "ahead": 0,
-            "behind": 0,
-            "clean": true,
-            "status_porcelain": "",
-            "status": "CLEAN_SYNCED"
-          },
-          "benchmark": {
-            "path": "/home/md-wasim/Desktop/Work_Station_Benchmark/benchmark-summary.json",
-            "commit": "70335a71c9a1ef410a5976d6ba687712b983610b",
-            "score": 97.84,
-            "pass": 457,
-            "partial": 1,
-            "fail": 1,
-            "mean": 8.062,
-            "p95": 16.5064
-          },
-          "runtime": {
-            "status": "HISTORICAL_PASS_REQUIRES_CURRENT_ATTESTATION",
-            "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/runtime-identity-20260911-70335a7.json",
-            "source_commit": "70335a71c9a1ef410a5976d6ba687712b983610b",
-            "current_commit": "882c0a95f057917375548013d8e3f72fdb50f827",
-            "source_matches_current": false,
-            "matches": {
-              "source_commit": true,
-              "backend_source_sha256": true,
-              "web_bundle_sha256": true
-            },
-            "health_command": {
-              "command": [
-                "curl",
-                "--fail",
-                "--silent",
-                "--show-error",
-                "--max-time",
-                "3",
-                "http://127.0.0.1:8000/api/v1/health/live"
-              ],
-              "cwd": "/home/md-wasim/Projects/AI_Workspace",
-              "exit_code": 0,
-              "duration_seconds": 0.0079,
-              "stdout": "{\"status\":\"alive\"}",
-              "stderr": "",
-              "stdout_sha256": "bc24b0b5a305d5afc198c725890c8fb91053be2dbd8672779de73cac19a008fa",
-              "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-              "timed_out": false
-            }
-          },
-          "tests": {
-            "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-canonical/full-regression.log",
-            "backend": {
-              "passed": 3152,
-              "skipped": 55
-            },
-            "web": {
-              "passed": 206
-            },
-            "mobile": {
-              "passed": 64
-            },
-            "status": "PASS",
-            "acceptance_hint": "PENDING_CURRENT_DEPLOYMENT_AND_FINAL_VERIFICATION; prior release evidence retained in previous report snapshot."
-          },
-          "queue": {
-            "total": 31,
-            "unresolved": 0,
-            "local_unresolved": 0
-          },
-          "provenance": {
-            "status": "NOT_PROVEN",
-            "current_source_commit": "882c0a95f057917375548013d8e3f72fdb50f827",
-            "components": {
-              "source_commit": "PASS",
-              "runtime": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE",
-              "backend_hash": "PASS",
-              "web_artifact_hash": "PASS",
-              "benchmark": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE",
-              "security": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE",
-              "release": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE",
-              "artifact": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE"
-            },
-            "runtime": {
-              "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/runtime-identity-20260911-70335a7.json",
-              "recorded_source_commit": "70335a71c9a1ef410a5976d6ba687712b983610b",
-              "recorded_backend_source_sha256": "eb699a17b5dcfbaac89b5c9eb9b0bd7e77242c0a04c40e7f23caa41771dc707a",
-              "recorded_web_bundle_sha256": "5c0075a4636f9d50eac0f543bb67eb424f335ee707926e7ddc7d2b4982172825",
-              "expected_backend_source_sha256": "eb699a17b5dcfbaac89b5c9eb9b0bd7e77242c0a04c40e7f23caa41771dc707a",
-              "expected_web_bundle_sha256": "5c0075a4636f9d50eac0f543bb67eb424f335ee707926e7ddc7d2b4982172825",
-              "content_matches": {
-                "source_commit": false,
-                "backend_source_sha256": true,
-                "web_bundle_sha256": true,
-                "declared_matches": true
-              }
-            },
-            "benchmark": {
-              "evidence": "/home/md-wasim/Desktop/Work_Station_Benchmark/benchmark-summary.json",
-              "results": "/home/md-wasim/Desktop/Work_Station_Benchmark/benchmark-results.json",
-              "recorded_source_commit": "70335a71c9a1ef410a5976d6ba687712b983610b",
-              "summary_sha256": "7067963bd6cd67c1bc5b8fa00b7d6d574f16f895cada8f1b0dc9d82ade9f6aec",
-              "results_sha256": "815c23db2757bad57532afcf8a5595716599375eae666330664fb118ff6b1cc5",
-              "structural_valid": true,
-              "counts": {
-                "PASS": 457,
-                "PARTIAL": 1,
-                "FAIL": 1
-              }
-            },
-            "release": {
-              "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260911-final-gap-release-1a02fe0/release-check-current.json",
-              "recorded_source_commit": "1a02fe0010867233f8189a2851ea33da3bc21b5d",
-              "log": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260911-final-gap-release-1a02fe0/release-check.log",
-              "log_sha256": "e10562863a1fbd02f6bb2e0f8f96e06c25b2eb8d8222879c58c156af33e0418c",
-              "structural_valid": true,
-              "security_check": "PASS"
-            },
-            "artifact": {
-              "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260911-final-gap-release-1a02fe0/artifact-attestation-current.json",
-              "recorded_source_commit": "1a02fe0010867233f8189a2851ea33da3bc21b5d",
-              "hashes_verified": {
-                "Work_Station_Ubuntu.AppImage": true,
-                "Work_Station_Ubuntu.deb": true,
-                "Work_Station_PWA.tar.gz": true
-              },
-              "structural_valid": true,
-              "artifacts": [
-                {
-                  "artifact": "Work_Station_Ubuntu.AppImage",
-                  "path": "/home/md-wasim/Projects/AI_Workspace/apps/desktop/src-tauri/target/release/bundle/appimage/WORK STATION_0.1.0_amd64.AppImage",
-                  "expected_sha256": "f8abb66ffee5b7bae6cde1e120b68ab968419f9671284c9f4967f1cd9b2ba227",
-                  "actual_sha256": "f8abb66ffee5b7bae6cde1e120b68ab968419f9671284c9f4967f1cd9b2ba227",
-                  "exists": true,
-                  "hash_verified": true
-                },
-                {
-                  "artifact": "Work_Station_Ubuntu.deb",
-                  "path": "/home/md-wasim/Projects/AI_Workspace/apps/desktop/src-tauri/target/release/bundle/deb/WORK STATION_0.1.0_amd64.deb",
-                  "expected_sha256": "92e4ca24f4e418be60a9b1c2c1efc9938905f996858ff3d85003f097464f9ddb",
-                  "actual_sha256": "92e4ca24f4e418be60a9b1c2c1efc9938905f996858ff3d85003f097464f9ddb",
-                  "exists": true,
-                  "hash_verified": true
-                },
-                {
-                  "artifact": "Work_Station_PWA.tar.gz",
-                  "path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260911-release-7b0340a/Work_Station_PWA.tar.gz",
-                  "expected_sha256": "e2e0fa4b53ff52421d95ef9a7a08c8b13a83eacfe03914dbb71f9fa101c0bf07",
-                  "actual_sha256": "e2e0fa4b53ff52421d95ef9a7a08c8b13a83eacfe03914dbb71f9fa101c0bf07",
-                  "exists": true,
-                  "hash_verified": true
-                }
-              ]
-            },
-            "historical_evidence_rejected": true
-          }
-        },
-        "git": {
-          "branch": "main",
-          "commit": "882c0a95f057917375548013d8e3f72fdb50f827",
+          "commit": "ad625801852d76ad06f3f851604b4e40a391240d",
           "application_source_commit": "882c0a95f057917375548013d8e3f72fdb50f827",
           "upstream": "origin/main",
           "upstream_error": null,
@@ -3798,8 +3797,8 @@
     },
     "external_watch": {
       "status": "CANDIDATE_REJECTED",
-      "cycle": 344,
-      "candidate": "deepseek-coder:1.3b",
+      "cycle": 345,
+      "candidate": "starcoder2:3b",
       "candidate_state": "FOCUSED_GATE_OBJECTIVE_FAILED",
       "candidate_priority": [
         "qwen2.5-coder:3b",
@@ -3810,7 +3809,8 @@
       ],
       "rejected_candidates": [
         "deepseek-coder:1.3b",
-        "qwen2.5-coder:1.5b"
+        "qwen2.5-coder:1.5b",
+        "starcoder2:3b"
       ],
       "acquisition_blocked_candidates": [
         "qwen2.5-coder:3b"
@@ -3822,16 +3822,15 @@
       "requested_max_download_seconds": 10800,
       "requested_max_estimated_download_hours": 3.0,
       "genericity_and_canonical_validation_allowed": false,
-      "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0344",
+      "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0345",
       "download_policy": "bounded",
       "catalog_hardware_admission": {
         "status": "ADMITTED",
         "admitted": true,
         "catalog_record": {
           "availability": "available",
-          "candidate_reference": "deepseek-coder:1.3b",
+          "candidate_reference": "starcoder2:3b",
           "capabilities": [
-            "code",
             "text_generation"
           ],
           "eligibility_reasons": [
@@ -3841,10 +3840,10 @@
           "found": true,
           "hardware_class": "gpu_under_8gb",
           "installed": true,
-          "model_id": "ollama-local:2f6630b49b9d6859e6144b73",
+          "model_id": "ollama-local:93b762412b549c57dc8f39d8",
           "performance_class": "interactive",
-          "required_ram_bytes": 2923564487,
-          "required_vram_bytes": 1849822663,
+          "required_ram_bytes": 3857385376,
+          "required_vram_bytes": 2783643552,
           "runnable_now": true,
           "verified": true
         },
@@ -3856,10 +3855,10 @@
           ],
           "cwd": "/home/md-wasim/Projects/AI_Workspace/backend",
           "exit_code": 0,
-          "duration_seconds": 0.7406,
-          "stdout": "{\"availability\": \"available\", \"candidate_reference\": \"deepseek-coder:1.3b\", \"capabilities\": [\"code\", \"text_generation\"], \"eligibility_reasons\": [\"eligible\"], \"eligibility_status\": \"runnable_now\", \"found\": true, \"hardware_class\": \"gpu_under_8gb\", \"installed\": true, \"model_id\": \"ollama-local:2f6630b49b9d6859e6144b73\", \"performance_class\": \"interactive\", \"required_ram_bytes\": 2923564487, \"required_vram_bytes\": 1849822663, \"runnable_now\": true, \"verified\": true}\n",
+          "duration_seconds": 0.6882,
+          "stdout": "{\"availability\": \"available\", \"candidate_reference\": \"starcoder2:3b\", \"capabilities\": [\"text_generation\"], \"eligibility_reasons\": [\"eligible\"], \"eligibility_status\": \"runnable_now\", \"found\": true, \"hardware_class\": \"gpu_under_8gb\", \"installed\": true, \"model_id\": \"ollama-local:93b762412b549c57dc8f39d8\", \"performance_class\": \"interactive\", \"required_ram_bytes\": 3857385376, \"required_vram_bytes\": 2783643552, \"runnable_now\": true, \"verified\": true}\n",
           "stderr": "",
-          "stdout_sha256": "7ea7c0b323664cf7e4879e73c472ca341a555fc5c8bf81caac2d6943fe5f8ae5",
+          "stdout_sha256": "0c04ca8cd689729b6743212205a7b46fa641d8d7f542757445c606c41b00c219",
           "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
           "timed_out": false
         },
@@ -3867,8 +3866,8 @@
         "production_routing_modified": false
       },
       "trusted_parent_gate": {
-        "output": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0344/focused-candidate-gate.json",
-        "output_sha256": "c19e9ee23e1cf64a30cd8b2d7fb9997e7d863c56d7d1c033210100a619b766f4",
+        "output": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0345/focused-candidate-gate.json",
+        "output_sha256": "841ec518e01dcfe69d78b9fc9f3acee0a2701e901b6a409bacc878a7c8077555",
         "run_status": "complete",
         "objective_pass_count": 0,
         "all_eight_objective_pass": false,
@@ -3878,12 +3877,12 @@
       },
       "all_eight_objective_pass": false,
       "current_action": "Wait for a reliable bounded download window for candidate qwen2.5-coder:3b; no production route change is permitted.",
-      "child_result": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0344/result.json",
+      "child_result": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0345/result.json",
       "rejection_reason": "complete trusted 8-record gate did not objectively pass all records"
     }
   },
-  "report_generated_from_commit": "882c0a95f057917375548013d8e3f72fdb50f827",
-  "report_tip_commit": "882c0a95f057917375548013d8e3f72fdb50f827",
+  "report_generated_from_commit": "ad625801852d76ad06f3f851604b4e40a391240d",
+  "report_tip_commit": "ad625801852d76ad06f3f851604b4e40a391240d",
   "post_watch_git_verification": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0001/post-watch-git-verification.json",
   "post_watch_git_verification_sha256": "119c0f0c77af049af664482efdfe4f662a473d933649cd83a804ccfd9b1c72a1",
   "evidence_provenance": {
