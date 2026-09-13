@@ -23,6 +23,18 @@ def _observations() -> dict:
     }
 
 
+def test_external_download_policy_is_bounded_at_three_hours():
+    parser = controller.build_parser()
+    args = parser.parse_args(["run"])
+    assert controller.DEFAULT_MAX_DOWNLOAD_SECONDS == 10_800
+    assert controller.DEFAULT_MAX_ESTIMATED_DOWNLOAD_HOURS == 3.0
+    assert args.max_download_seconds == 10_800
+    assert args.max_estimated_download_hours == 3.0
+    assert parser.parse_args(
+        ["run", "--max-download-seconds", "10800", "--max-estimated-download-hours", "3.0"]
+    ).max_download_seconds == 10_800
+
+
 def test_terminal_queue_enters_watch():
     state = {"overall_ready": False, "next_prompt": "wait for candidate"}
     queue = {"issues": [{"id": "ASTER-006", "status": "BLOCKED_EXTERNAL"}]}

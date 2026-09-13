@@ -48,8 +48,11 @@ MAX_ITERATIONS_PER_INVOCATION = 8
 DEFAULT_CHILD_TIMEOUT = 1800
 DEFAULT_WATCH_INTERVAL_SECONDS = 300
 DEFAULT_MAX_WATCH_CYCLES = 12
-DEFAULT_MAX_DOWNLOAD_SECONDS = 900
-DEFAULT_MAX_ESTIMATED_DOWNLOAD_HOURS = 0.5
+# Model acquisition remains bounded and resumable, but the former 15-minute /
+# 30-minute defaults made realistic local coding-model acquisition impossible.
+# These are hard controller ceilings, not an instruction to pull blindly.
+DEFAULT_MAX_DOWNLOAD_SECONDS = 10_800
+DEFAULT_MAX_ESTIMATED_DOWNLOAD_HOURS = 3.0
 DEFAULT_EXTERNAL_CODING_CANDIDATE = "qwen2.5-coder:3b"
 HOST_CONTROLLER_CANDIDATES = (
     "qwen2.5-coder:3b",
@@ -3401,8 +3404,10 @@ def main() -> int:
         raise SystemExit("--watch-interval-seconds must be between 0 and 86400")
     if args.max_watch_cycles < 1 or args.max_watch_cycles > 1000:
         raise SystemExit("--max-watch-cycles must be between 1 and 1000")
-    if args.max_download_seconds < 1 or args.max_download_seconds > 3600:
-        raise SystemExit("--max-download-seconds must be between 1 and 3600")
+    if args.max_download_seconds < 1 or args.max_download_seconds > DEFAULT_MAX_DOWNLOAD_SECONDS:
+        raise SystemExit(
+            f"--max-download-seconds must be between 1 and {DEFAULT_MAX_DOWNLOAD_SECONDS}"
+        )
     if args.max_estimated_download_hours <= 0 or args.max_estimated_download_hours > 24:
         raise SystemExit("--max-estimated-download-hours must be greater than 0 and at most 24")
     if args.command == "status":
