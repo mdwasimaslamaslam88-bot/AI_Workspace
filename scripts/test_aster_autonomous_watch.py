@@ -130,6 +130,46 @@ def test_discovery_skips_candidate_after_complete_objective_gate_rejection():
     assert discovery["candidate_policy"]["all_candidate_references"] == references
 
 
+def test_discovery_skips_candidate_after_incomplete_download():
+    rejected = "qwen2.5-coder:1.5b"
+    blocked = "qwen2.5-coder:3b"
+    with patch.object(
+        controller, "local_ollama_candidate", side_effect=lambda reference: {
+            "reference": reference, "available": False
+        }
+    ), patch.object(
+        controller,
+        "remote_model_manifest",
+        side_effect=lambda reference: {
+            "reference": reference,
+            "status": "AVAILABLE",
+            "model_layer_digest": "sha256:" + "c" * 64,
+        },
+    ), patch.object(
+        controller,
+        "remote_range_probe",
+        side_effect=lambda manifest: {
+            "status": "AVAILABLE",
+            "estimated_download_hours": 0.4,
+            "estimated_download_seconds": 1000,
+        },
+    ):
+        discovery = controller.discover_watch_candidates(
+            {
+                "external_watch": {
+                    "rejected_candidates": [rejected],
+                    "acquisition_blocked_candidates": [blocked],
+                }
+            },
+            max_estimated_hours=0.5,
+            max_download_seconds=900,
+        )
+
+    assert blocked not in discovery["candidate_policy"]["candidate_references"]
+    assert blocked in discovery["candidate_policy"]["acquisition_blocked_references"]
+    assert rejected in discovery["candidate_policy"]["rejected_references"]
+
+
 def test_focused_gate_requires_exactly_eight_objective_pass_values():
     routes = sorted(controller.FOCUSED_ADMISSION_ROUTES)
     tests = sorted(controller.FOCUSED_ADMISSION_TESTS)

@@ -1520,7 +1520,13 @@ def discover_watch_candidates(
         for reference in previous_watch.get("rejected_candidates", [])
         if isinstance(reference, str) and _safe_model_reference(reference)
     }
-    references = [reference for reference in all_references if reference not in rejected_candidates]
+    acquisition_blocked_candidates = {
+        str(reference)
+        for reference in previous_watch.get("acquisition_blocked_candidates", [])
+        if isinstance(reference, str) and _safe_model_reference(reference)
+    }
+    excluded_candidates = rejected_candidates | acquisition_blocked_candidates
+    references = [reference for reference in all_references if reference not in excluded_candidates]
     local: list[dict[str, Any]] = []
     remote: list[dict[str, Any]] = []
     for reference in references:
@@ -1557,9 +1563,11 @@ def discover_watch_candidates(
         "candidate_references": references,
         "all_candidate_references": all_references,
         "constructed_exactly": all_references == list(HOST_CONTROLLER_CANDIDATES),
-        "excluded_references": sorted(rejected_candidates),
-        "excluded_reference": next(iter(sorted(rejected_candidates)), None),
-        "excluded_reference_absent": not rejected_candidates,
+        "rejected_references": sorted(rejected_candidates),
+        "acquisition_blocked_references": sorted(acquisition_blocked_candidates),
+        "excluded_references": sorted(excluded_candidates),
+        "excluded_reference": next(iter(sorted(excluded_candidates)), None),
+        "excluded_reference_absent": not excluded_candidates,
     }
     download_policy = {
         "max_estimated_hours": max_estimated_hours,
@@ -2649,6 +2657,11 @@ def watch_external_iteration(
         for reference in previous_watch.get("rejected_candidates", [])
         if isinstance(reference, str) and _safe_model_reference(reference)
     }
+    acquisition_blocked_candidates = {
+        str(reference)
+        for reference in previous_watch.get("acquisition_blocked_candidates", [])
+        if isinstance(reference, str) and _safe_model_reference(reference)
+    }
     # Recover durable candidate decisions from evidence if an older watcher
     # cycle was interrupted after writing its report but before the rejection
     # list was copied into current_state.json.
@@ -2671,9 +2684,26 @@ def watch_external_iteration(
             and focused.get("admitted") is not True
         ):
             rejected_candidates.add(prior_candidate)
-    if rejected_candidates:
+        prior_candidate_state = prior_result.get("candidate_state") if isinstance(prior_result, dict) else None
+        prior_download = prior_result.get("discovery", {}).get("download") if isinstance(prior_result, dict) and isinstance(prior_result.get("discovery"), dict) else None
+        if (
+            isinstance(prior_candidate, str)
+            and _safe_model_reference(prior_candidate)
+            and prior_candidate_state == "DOWNLOAD_FAILED_OR_INTEGRITY_FAILED"
+            and isinstance(prior_download, dict)
+            and prior_download.get("exit_code") != 0
+        ):
+            acquisition_blocked_candidates.add(prior_candidate)
+    if previous_watch.get("candidate_state") == "DOWNLOAD_FAILED_OR_INTEGRITY_FAILED":
+        prior_candidate = previous_watch.get("candidate")
+        if isinstance(prior_candidate, str) and _safe_model_reference(prior_candidate):
+            acquisition_blocked_candidates.add(prior_candidate)
+    if rejected_candidates or acquisition_blocked_candidates:
         state.setdefault("external_watch", {})["rejected_candidates"] = sorted(
             rejected_candidates
+        )
+        state["external_watch"]["acquisition_blocked_candidates"] = sorted(
+            acquisition_blocked_candidates
         )
     discovery = discover_watch_candidates(
         state,
@@ -2690,6 +2720,13 @@ def watch_external_iteration(
             if isinstance(reference, str) and _safe_model_reference(reference)
         }
     )
+    persisted_acquisition_blocked_candidates = sorted(
+        {
+            str(reference)
+            for reference in previous_watch.get("acquisition_blocked_candidates", [])
+            if isinstance(reference, str) and _safe_model_reference(reference)
+        }
+    )
     state["external_watch"] = {
         "status": discovery.get("status"),
         "cycle": cycle,
@@ -2697,6 +2734,7 @@ def watch_external_iteration(
         "candidate_state": candidate_state,
         "candidate_priority": watch_candidate_references(state),
         "rejected_candidates": persisted_rejected_candidates,
+        "acquisition_blocked_candidates": persisted_acquisition_blocked_candidates,
         "excluded_candidate": None,
         "excluded_candidate_absent": True,
         "max_download_seconds": effective_max_download_seconds,
@@ -2727,11 +2765,15 @@ def watch_external_iteration(
         discovery["post_download_verification"] = verified
         write_json(watch_root / "candidate-discovery.json", discovery)
         if download.get("exit_code") != 0 or not verified.get("available"):
+            blocked = list(state["external_watch"].get("acquisition_blocked_candidates", []))
+            if candidate not in blocked:
+                blocked.append(candidate)
             state["controller_phase"] = "WATCH_EXTERNAL_GAP"
             state["external_watch"].update(
                 {
                     "status": "CANDIDATE_REJECTED",
                     "candidate_state": "DOWNLOAD_FAILED_OR_INTEGRITY_FAILED",
+                    "acquisition_blocked_candidates": sorted(set(blocked)),
                     "download": download,
                     "post_download_verification": verified,
                 }
@@ -2975,12 +3017,29 @@ def watch_external_iteration(
 
     state["controller_phase"] = "WATCH_EXTERNAL_GAP"
     state["current_action"] = _watch_action(candidate, candidate_state)
+    next_prompt_candidate = candidate
+    if candidate_state == "DOWNLOAD_FAILED_OR_INTEGRITY_FAILED":
+        excluded = set(state.get("external_watch", {}).get("rejected_candidates", []))
+        excluded.update(state.get("external_watch", {}).get("acquisition_blocked_candidates", []))
+        next_candidate = next(
+            (
+                reference
+                for reference in HOST_CONTROLLER_CANDIDATES
+                if reference not in excluded
+            ),
+            candidate,
+        )
+        state["current_action"] = _watch_action(
+            next_candidate, "NOT_CACHED_DOWNLOAD_TOO_SLOW_OR_UNAVAILABLE"
+        )
+        state["external_watch"]["current_action"] = state["current_action"]
+        next_prompt_candidate = next_candidate
     state["in_progress"] = False
     state["resume_required"] = False
     state["child_suggested_next_prompt"] = ""
     state["next_prompt_source"] = "controller_derived"
     state["next_prompt"] = build_external_watch_prompt(
-        candidate, observations_before, str(watch_root)
+        next_prompt_candidate, observations_before, str(watch_root)
     )
     retry_seconds = float(state.get("external_watch", {}).get("watch_interval_seconds", DEFAULT_WATCH_INTERVAL_SECONDS))
     next_retry = datetime.fromtimestamp(time.time() + max(0.0, retry_seconds), timezone.utc).isoformat()
