@@ -8,8 +8,8 @@ PARTIAL        : 1
 FAIL           : 1
 ISSUES         : 0
 CURRENT        : NONE
-PHASE          : CANDIDATE_FOCUSED_GATE
-CANDIDATE      : starcoder2:3b
+PHASE          : WATCH_EXTERNAL_GAP
+CANDIDATE      : codegemma:2b
 ASTER→AI OS    : PARTIAL: current owner-authenticated HTTP exchange and integrity verified; fabricated exec
 AI OS→ASTER    : BLOCKED_EXTERNAL: parent MCP/reverse callback is not available; no bidirectional verificat
 DEX            : BLOCKED_EXTERNAL: strict host sandbox fails closed with RTM_NEWADDR EPERM; synthetic trans
@@ -21,6 +21,6 @@ WEB            : 206 PASS
 MOBILE         : 64 PASS
 PERFORMANCE    : mean 8.062s / P95 16.5064s
 GIT            : CLEAN_SYNCED
-COMMIT         : ad625801852d76ad06f3f851604b4e40a391240d
-NEXT ACTION    : Wait for a reliable bounded download window for candidate qwen2.5-coder:3b; no production route change is permitted.
+COMMIT         : ed25cbda1747c51dd378a91c6764a777cde97397
+NEXT ACTION    : Wait for a reliable bounded download window for candidate codegemma:2b; no production route change is permitted.
 ========================================================
