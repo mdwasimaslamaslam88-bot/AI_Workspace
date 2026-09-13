@@ -1,15 +1,15 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-13T20:45:25.669848+00:00",
+  "generated_at": "2026-09-13T20:50:28.603561+00:00",
   "source": {
     "state": "/home/md-wasim/AI_Workspace_Data/aster-evidence/current_state.json",
     "status": "/home/md-wasim/Projects/AI_Workspace/reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.json",
     "queue": "/home/md-wasim/Projects/AI_Workspace/reports/ASTER_AI_OS_ISSUE_QUEUE.json",
     "observations": {
-      "timestamp": "2026-09-13T20:45:25.475054+00:00",
+      "timestamp": "2026-09-13T20:50:28.393372+00:00",
       "git": {
         "branch": "main",
-        "commit": "62ddd81c4387ea67abaf31d8e9f0bba1e1e7caf7",
+        "commit": "7a7bcdbd8948ace76e555e97c5cdd80fa9275672",
         "application_source_commit": "882c0a95f057917375548013d8e3f72fdb50f827",
         "upstream": "origin/main",
         "upstream_error": null,
@@ -52,7 +52,7 @@
           ],
           "cwd": "/home/md-wasim/Projects/AI_Workspace",
           "exit_code": 0,
-          "duration_seconds": 0.0081,
+          "duration_seconds": 0.0084,
           "stdout": "{\"status\":\"alive\"}",
           "stderr": "",
           "stdout_sha256": "bc24b0b5a305d5afc198c725890c8fb91053be2dbd8672779de73cac19a008fa",
@@ -179,12 +179,12 @@
   "issues_blocked_externally": 7,
   "current_issue": null,
   "current_action": "Wait for a reliable bounded download window for candidate qwen2.5-coder:3b; no production route change is permitted.",
-  "controller_phase": "CANDIDATE_FOCUSED_GATE",
+  "controller_phase": "WATCH_EXTERNAL_GAP",
   "external_watch": {
-    "status": "CANDIDATE_REJECTED",
-    "cycle": 347,
-    "candidate": "codegemma:2b",
-    "candidate_state": "FOCUSED_GATE_OBJECTIVE_FAILED",
+    "status": "NOT_READY",
+    "cycle": 348,
+    "candidate": "qwen2.5-coder:3b",
+    "candidate_state": "NOT_CACHED_DOWNLOAD_TOO_SLOW_OR_UNAVAILABLE",
     "candidate_priority": [
       "qwen2.5-coder:3b",
       "qwen2.5-coder:1.5b",
@@ -208,63 +208,9 @@
     "requested_max_download_seconds": 10800,
     "requested_max_estimated_download_hours": 3.0,
     "genericity_and_canonical_validation_allowed": false,
-    "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0347",
-    "download_policy": "bounded",
-    "catalog_hardware_admission": {
-      "status": "ADMITTED",
-      "admitted": true,
-      "catalog_record": {
-        "availability": "available",
-        "candidate_reference": "codegemma:2b",
-        "capabilities": [
-          "text_generation"
-        ],
-        "eligibility_reasons": [
-          "eligible"
-        ],
-        "eligibility_status": "runnable_now",
-        "found": true,
-        "hardware_class": "gpu_under_8gb",
-        "installed": true,
-        "model_id": "ollama-local:abde0ce27aa601102726ecd0",
-        "performance_class": "interactive",
-        "required_ram_bytes": 3698682065,
-        "required_vram_bytes": 2624940241,
-        "runnable_now": true,
-        "verified": true
-      },
-      "command": {
-        "command": [
-          "/home/md-wasim/Projects/AI_Workspace/backend/.venv/bin/python",
-          "-c",
-          "<existing catalog admission script>"
-        ],
-        "cwd": "/home/md-wasim/Projects/AI_Workspace/backend",
-        "exit_code": 0,
-        "duration_seconds": 0.6936,
-        "stdout": "{\"availability\": \"available\", \"candidate_reference\": \"codegemma:2b\", \"capabilities\": [\"text_generation\"], \"eligibility_reasons\": [\"eligible\"], \"eligibility_status\": \"runnable_now\", \"found\": true, \"hardware_class\": \"gpu_under_8gb\", \"installed\": true, \"model_id\": \"ollama-local:abde0ce27aa601102726ecd0\", \"performance_class\": \"interactive\", \"required_ram_bytes\": 3698682065, \"required_vram_bytes\": 2624940241, \"runnable_now\": true, \"verified\": true}\n",
-        "stderr": "",
-        "stdout_sha256": "22422b3ecc2d21d2f2c6070bb4e77e98ca7850110fe9ab3287256171bc6d4ddc",
-        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-        "timed_out": false
-      },
-      "production_configuration_modified": false,
-      "production_routing_modified": false
-    },
-    "trusted_parent_gate": {
-      "output": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0347/focused-candidate-gate.json",
-      "output_sha256": "bf15ed5a66de1b6127abb96fc104d2ebad67052e45520594c4f33237ffce6ffd",
-      "run_status": "complete",
-      "objective_pass_count": 0,
-      "all_eight_objective_pass": false,
-      "trusted_parent": true,
-      "child_runtime_access_required": false,
-      "production_routing_modified": false
-    },
-    "all_eight_objective_pass": false,
-    "current_action": "Wait for a reliable bounded download window for candidate qwen2.5-coder:3b; no production route change is permitted.",
-    "child_result": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0347/result.json",
-    "rejection_reason": "complete trusted 8-record gate did not objectively pass all records"
+    "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0348",
+    "next_retry_at": "2026-09-13T20:55:28.282861+00:00",
+    "current_action": "Wait for a reliable bounded download window for candidate qwen2.5-coder:3b; no production route change is permitted."
   },
   "last_verification": "PARTIAL",
   "backend_tests": {
@@ -290,7 +236,7 @@
   "performance_mean": 8.062,
   "performance_p95": 16.5064,
   "git_status": "CLEAN_SYNCED",
-  "current_commit": "62ddd81c4387ea67abaf31d8e9f0bba1e1e7caf7",
+  "current_commit": "7a7bcdbd8948ace76e555e97c5cdd80fa9275672",
   "application_source_commit": "882c0a95f057917375548013d8e3f72fdb50f827",
   "last_successful_commit": "70335a71c9a1ef410a5976d6ba687712b983610b",
   "codex_cli": {
@@ -326,7 +272,7 @@
       }
     ]
   },
-  "report_tip_commit": "62ddd81c4387ea67abaf31d8e9f0bba1e1e7caf7",
+  "report_tip_commit": "7a7bcdbd8948ace76e555e97c5cdd80fa9275672",
   "last_artifact_verification": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260911-final-gap-release-1a02fe0/artifact-attestation-current.json",
   "last_failure": {
     "timestamp": "2026-09-12T15:43:47.325405+00:00",
