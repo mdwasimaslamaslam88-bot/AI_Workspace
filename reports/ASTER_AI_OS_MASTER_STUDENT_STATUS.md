@@ -2,7 +2,7 @@
 
 Iteration 4. Overall readiness is **NOT READY**.
 
-Current source commit: `36d2fcf32224f790864f01e61b001428b46d9dc9`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
+Current source commit: `4f44e8aeea01b10c21841061aa92bf0e8345585e`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
 
 ## Current measured state
 
@@ -11,7 +11,7 @@ Current source commit: `36d2fcf32224f790864f01e61b001428b46d9dc9`. Evidence root
 - Current issue/action: `NONE` — Wait for a reliable bounded download window for candidate qwen2.5-coder:3b; no production route change is permitted.
 - Controller phase: **WATCH_EXTERNAL_GAP**.
 - Runtime identity: **HISTORICAL_PASS_REQUIRES_CURRENT_ATTESTATION**; evidence `/home/md-wasim/AI_Workspace_Data/aster-evidence/runtime-identity-20260911-70335a7.json`.
-- Git: **CLEAN_SYNCED** at `36d2fcf32224f790864f01e61b001428b46d9dc9`.
+- Git: **CLEAN_SYNCED** at `4f44e8aeea01b10c21841061aa92bf0e8345585e`.
 
 ## Queue classifications
 
