@@ -21,6 +21,6 @@ WEB            : 206 PASS
 MOBILE         : 64 PASS
 PERFORMANCE    : mean 8.062s / P95 16.5064s
 GIT            : CLEAN_SYNCED
-COMMIT         : 2bef3932b4e2395e2f33be78ff8ed5e75f5f8891
+COMMIT         : 8a3bde69ab49e7e4cd5ccd3d709c0ade8cb83639
 NEXT ACTION    : Wait for a reliable bounded download window for candidate qwen2.5-coder:3b; no production route change is permitted.
 ========================================================
