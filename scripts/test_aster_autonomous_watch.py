@@ -271,6 +271,68 @@ def test_no_qualifying_candidate_persists_not_ready_without_child():
     assert state["external_watch"]["rejected_candidates"] == ["qwen2.5-coder:1.5b"]
 
 
+def test_all_excluded_candidates_do_not_fall_back_to_priority_display():
+    state = {
+        "iteration": 4,
+        "attempt": 26,
+        "overall_ready": False,
+        "next_prompt": "stale candidate prompt",
+        "external_watch": {
+            "watch_interval_seconds": 0,
+            "rejected_candidates": [
+                "codegemma:2b",
+                "deepseek-coder:1.3b",
+                "qwen2.5-coder:1.5b",
+                "starcoder2:3b",
+            ],
+            "acquisition_blocked_candidates": ["qwen2.5-coder:3b"],
+        },
+        "history": [],
+    }
+    discovery = {
+        "status": "NOT_READY",
+        "candidate": None,
+        "candidate_state": "NOT_CACHED_DOWNLOAD_TOO_SLOW_OR_UNAVAILABLE",
+        "candidate_policy": {
+            "candidate_references": [],
+            "excluded_reference_absent": False,
+        },
+        "local": [],
+        "remote": [],
+    }
+    with TemporaryDirectory() as directory, patch.object(
+        controller, "current_queue", return_value={"issues": []}
+    ), patch.object(
+        controller, "observe", return_value=_observations()
+    ), patch.object(
+        controller, "discover_watch_candidates", return_value=discovery
+    ), patch.object(
+        controller, "run_codex_child"
+    ) as child, patch.object(
+        controller, "render_reports", return_value={}
+    ), patch.object(
+        controller,
+        "persist_watch_report_commit",
+        return_value={"attempted": False},
+    ):
+        result = controller.watch_external_iteration(
+            state,
+            evidence_root=Path(directory),
+            cycle=1,
+            execute_codex=True,
+            timeout_seconds=30,
+            max_download_seconds=10_800,
+            max_estimated_hours=3.0,
+        )
+
+    child.assert_not_called()
+    assert result["candidate"] is None
+    assert state["external_watch"]["candidate"] is None
+    assert "qwen2.5-coder:3b" not in state["current_action"]
+    assert "NONE (all configured candidates excluded or unavailable)" in state["next_prompt"]
+    assert "No eligible coding candidate" in state["current_action"]
+
+
 def test_watch_recovers_rejection_from_prior_trusted_evidence():
     state = {
         "iteration": 4,

@@ -1881,10 +1881,11 @@ def _candidate_focus_prompt(prompt: Any) -> bool:
     return isinstance(prompt, str) and prompt.startswith("ASTER CANDIDATE ADMISSION — ")
 
 
-def build_external_watch_prompt(candidate: str, observations: dict[str, Any], evidence: str) -> str:
+def build_external_watch_prompt(candidate: str | None, observations: dict[str, Any], evidence: str) -> str:
+    candidate_label = candidate or "NONE (all configured candidates excluded or unavailable)"
     return f"""ASTER EXTERNAL GAP WATCH — bounded model acquisition
 
-Candidate priority: {candidate}
+Candidate priority: {candidate_label}
 Repository: {REPOSITORY_ROOT}
 Current source commit: {observations.get('git', {}).get('application_source_commit') or observations.get('git', {}).get('commit', 'unknown')}
 Evidence: {evidence}
@@ -2588,7 +2589,12 @@ def _bounded_sleep(seconds: float) -> None:
         remaining -= interval
 
 
-def _watch_action(candidate: str, candidate_state: str) -> str:
+def _watch_action(candidate: str | None, candidate_state: str) -> str:
+    if not candidate:
+        return (
+            "No eligible coding candidate is currently available; preserve all "
+            "exclusions and continue the bounded external watch."
+        )
     if candidate_state in {
         "AVAILABLE_LOCAL",
         "AVAILABLE_LOCAL_INTEGRITY_VERIFIED",
@@ -2711,7 +2717,12 @@ def watch_external_iteration(
         max_download_seconds=effective_max_download_seconds,
     )
     write_json(watch_root / "candidate-discovery.json", discovery)
-    candidate = str(discovery.get("candidate") or candidate_hint)
+    discovered_candidate = discovery.get("candidate")
+    candidate = (
+        str(discovered_candidate)
+        if isinstance(discovered_candidate, str) and discovered_candidate
+        else None
+    )
     candidate_state = str(discovery.get("candidate_state") or "UNKNOWN")
     persisted_rejected_candidates = sorted(
         {
