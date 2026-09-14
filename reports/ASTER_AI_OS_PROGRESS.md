@@ -2,7 +2,7 @@
 ASTER / PERSONAL AI OS AUTONOMOUS STATUS
 ========================================================
 READINESS      : NOT READY
-BENCHMARK      : 97.82 / 100
+BENCHMARK      : 97.83 / 100
 PASS           : 457
 PARTIAL        : 1
 FAIL           : 1
@@ -15,12 +15,12 @@ AI OS→ASTER    : BLOCKED_EXTERNAL: parent MCP/reverse callback is not availabl
 DEX            : BLOCKED_EXTERNAL: strict host sandbox fails closed with RTM_NEWADDR EPERM; synthetic trans
 VOICE          : BLOCKED_EXTERNAL: ASTER-028 installed voice-model/acoustic variability is preserved with e
 SECURITY       : PASS_WITH_RECORDED_RISK
-PROVENANCE     : NOT_PROVEN
+PROVENANCE     : PASS
 BACKEND        : 3152 PASS
 WEB            : 206 PASS
 MOBILE         : 64 PASS
-PERFORMANCE    : mean 8.1264s / P95 16.554s
+PERFORMANCE    : mean 8.1462s / P95 16.5442s
 GIT            : DIRTY
-COMMIT         : 04db80134cb7ffb3ba6c0f7c133f9faa9b342c37
+COMMIT         : a2ad36e69da1f8a9ceb063ab359b7b17fb9aed8e
 NEXT ACTION    : No eligible coding candidate is currently available; preserve all exclusions and continue the bounded external watch.
 ========================================================
