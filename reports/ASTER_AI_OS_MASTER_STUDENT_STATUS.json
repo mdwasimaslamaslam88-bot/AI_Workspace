@@ -2,9 +2,9 @@
   "schema_version": 4,
   "iteration": 4,
   "status": "NOT_READY",
-  "updated_at": "2026-09-14T19:54:07.858429+00:00",
+  "updated_at": "2026-09-14T19:59:11.399315+00:00",
   "current_issue": [],
-  "current_commit": "826b1e2db99cf79b4b8f1a96bece7d8776e6b08a",
+  "current_commit": "a36652d87f7936a94616bcecbe5010a2dded8a45",
   "current_runtime": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260914-current-provenance-after-sdk/runtime-identity-current.json",
   "current_artifact": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260914-current-provenance-after-sdk/artifact-attestation-current.json",
   "issues": [
@@ -2519,27 +2519,27 @@
   "acceptance": {
     "master_student": "PARTIAL: current owner-authenticated HTTP exchange and integrity verified; fabricated execution claims rejected. Parent MCP rejected and live reverse DEX blocked.",
     "dex": "BLOCKED_EXTERNAL: strict host sandbox fails closed with RTM_NEWADDR EPERM; synthetic transport and lifecycle repairs independently verified.",
-    "desktop": "PENDING_CURRENT_DEPLOYMENT_AND_FINAL_VERIFICATION; prior release evidence retained in previous report snapshot.",
-    "pwa": "PENDING_CURRENT_DEPLOYMENT_AND_FINAL_VERIFICATION; prior release evidence retained in previous report snapshot.",
-    "chat": "PENDING_CURRENT_DEPLOYMENT_AND_FINAL_VERIFICATION; prior release evidence retained in previous report snapshot.",
-    "tools": "PENDING_CURRENT_DEPLOYMENT_AND_FINAL_VERIFICATION; prior release evidence retained in previous report snapshot.",
-    "agent_os": "PENDING_CURRENT_DEPLOYMENT_AND_FINAL_VERIFICATION; prior release evidence retained in previous report snapshot.",
-    "missions": "PENDING_CURRENT_DEPLOYMENT_AND_FINAL_VERIFICATION; prior release evidence retained in previous report snapshot.",
-    "workflows": "PENDING_CURRENT_DEPLOYMENT_AND_FINAL_VERIFICATION; prior release evidence retained in previous report snapshot.",
-    "memory": "PENDING_CURRENT_DEPLOYMENT_AND_FINAL_VERIFICATION; prior release evidence retained in previous report snapshot.",
-    "rag": "PENDING_CURRENT_DEPLOYMENT_AND_FINAL_VERIFICATION; prior release evidence retained in previous report snapshot.",
-    "vision": "PENDING_CURRENT_DEPLOYMENT_AND_FINAL_VERIFICATION; prior release evidence retained in previous report snapshot.",
-    "image": "PENDING_CURRENT_DEPLOYMENT_AND_FINAL_VERIFICATION; prior release evidence retained in previous report snapshot.",
-    "voice": "PENDING_CURRENT_DEPLOYMENT_AND_FINAL_VERIFICATION; prior release evidence retained in previous report snapshot.",
-    "learning": "PENDING_CURRENT_DEPLOYMENT_AND_FINAL_VERIFICATION; prior release evidence retained in previous report snapshot.",
-    "finance_paper": "PENDING_CURRENT_DEPLOYMENT_AND_FINAL_VERIFICATION; prior release evidence retained in previous report snapshot.",
+    "desktop": "CURRENT_SOURCE_RELEASE_PASS; native GUI launch is BLOCKED_EXTERNAL when no inspectable X11 display is available.",
+    "pwa": "CURRENT_SOURCE_RELEASE_PASS; current PWA artifact hash is verified.",
+    "chat": "CURRENT_SOURCE_RUNTIME_PASS; current release runtime E2E passed.",
+    "tools": "CURRENT_SOURCE_RUNTIME_PASS; current release runtime E2E passed.",
+    "agent_os": "CURRENT_SOURCE_RUNTIME_PASS; current release runtime E2E passed.",
+    "missions": "CURRENT_SOURCE_RUNTIME_PASS; current release runtime E2E passed.",
+    "workflows": "CURRENT_SOURCE_RUNTIME_PASS; current release runtime E2E passed.",
+    "memory": "CURRENT_SOURCE_RUNTIME_PASS; current release runtime E2E passed.",
+    "rag": "CURRENT_SOURCE_RUNTIME_PASS; current release runtime E2E passed.",
+    "vision": "CURRENT_SOURCE_RUNTIME_PASS; current release runtime E2E passed.",
+    "image": "CURRENT_SOURCE_RUNTIME_PASS; current release runtime E2E passed.",
+    "voice": "CURRENT_SOURCE_RUNTIME_PASS; exact-WAV acoustic replay limitation remains BLOCKED_EXTERNAL.",
+    "learning": "CURRENT_SOURCE_RUNTIME_PASS; current release runtime E2E passed.",
+    "finance_paper": "CURRENT_SOURCE_RUNTIME_PASS; current release runtime E2E passed.",
     "private_remote": "PARTIAL: eight current Serve TLS owner-isolation/revocation checks pass; current deployment recheck and off-device browser pending.",
-    "security": "CURRENT_SCOPED_CHECKS_PASS: fresh npm audit0 and focused auth/owner/audit/cancellation tests pass. Full deployment/release verification pending; live DEX sandbox unavailable.",
-    "performance": "PENDING_CURRENT_DEPLOYMENT_AND_FINAL_VERIFICATION; prior release evidence retained in previous report snapshot.",
-    "full_regression": "PENDING_CURRENT_DEPLOYMENT_AND_FINAL_VERIFICATION; prior release evidence retained in previous report snapshot.",
-    "release": "PENDING_CURRENT_DEPLOYMENT_AND_FINAL_VERIFICATION; prior release evidence retained in previous report snapshot.",
-    "runtime_identity": "PENDING_CURRENT_DEPLOYMENT_AND_FINAL_VERIFICATION; prior release evidence retained in previous report snapshot.",
-    "benchmark": "PENDING_FULL_UNCHANGED_CANONICAL_RUN; baseline97.80 with457PASS/1PARTIAL/1FAIL."
+    "security": "CURRENT_SOURCE_SECURITY_PASS: explicit current security audit and full current release gate passed; live DEX sandbox remains BLOCKED_EXTERNAL.",
+    "performance": "CURRENT_CANONICAL: mean 8.1462 seconds, P95 16.5442 seconds.",
+    "full_regression": "CURRENT_SOURCE_RELEASE_PASS: backend, web, mobile and runtime regression passed.",
+    "release": "CURRENT_SOURCE_RELEASE_PASS: no-display release gate passed; desktop GUI and native Android remain explicitly external.",
+    "runtime_identity": "CURRENT_SOURCE_RUNTIME_IDENTITY_PASS: authenticated runtime attestation matches a2ad36e.",
+    "benchmark": "CURRENT_UNCHANGED_CANONICAL: 97.83/100 with 457 PASS, 1 PARTIAL and 1 FAIL; coder gaps remain."
   },
   "evidence_root": "/home/md-wasim/AI_Workspace_Data/aster-evidence",
   "failed_attempts": [
@@ -2960,8 +2960,10 @@
     "total": 31
   },
   "performance": {
-    "canonical_mean_seconds": 8.2534,
-    "canonical_p95_seconds": 16.7391,
+    "canonical_mean_seconds": 8.1462,
+    "canonical_p95_seconds": 16.5442,
+    "source_commit": "a2ad36e69da1f8a9ceb063ab359b7b17fb9aed8e",
+    "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260914-current-provenance-after-sdk/Work_Station_Benchmark/benchmark-summary.json",
     "live_dex_latency": "UNMEASURABLE_EXTERNAL"
   },
   "security": {
@@ -3030,16 +3032,17 @@
     "feature_registry_evidence": "feature_registry.json"
   },
   "release": {
-    "application_commit": "bfcd805f95569cfad4216855e36a06487defb646",
+    "application_commit": "a2ad36e69da1f8a9ceb063ab359b7b17fb9aed8e",
     "overall_ready": false,
     "backend_deployed": true,
-    "packaged_artifact_scope": "rebuilt bfcd805 controller-tip desktop/PWA",
+    "packaged_artifact_scope": "rebuilt a2ad36e current-source desktop/PWA",
     "external_blockers": [
       "strict DEX sandbox",
       "parent MCP callback rejection",
       "off-device browser"
     ],
-    "final_report_tip_attestation": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-current-release-bfcd805/artifact-attestation-current.json"
+    "final_report_tip_attestation": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260914-current-provenance-after-sdk/artifact-attestation-current.json",
+    "historical_attestation_preserved": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-current-release-bfcd805/artifact-attestation-current.json"
   },
   "previous_run": {
     "report_commit": "da1d0ad41ea96f2a633aa3efdb862c8f0ff9a77f",
@@ -3197,10 +3200,10 @@
       ]
     },
     "last_result": {
-      "timestamp": "2026-09-14T19:54:07.567302+00:00",
+      "timestamp": "2026-09-14T19:59:11.092508+00:00",
       "iteration": 4,
       "attempt": 26,
-      "cycle": 601,
+      "cycle": 602,
       "issue": null,
       "status": "NOT_READY",
       "action": "No eligible coding candidate is currently available; preserve all exclusions and continue the bounded external watch.",
@@ -3249,25 +3252,25 @@
           "both_limits_required": true
         }
       },
-      "evidence_dir": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0601",
+      "evidence_dir": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0602",
       "before": {
-        "timestamp": "2026-09-14T19:54:07.465221+00:00",
-        "cycle": 601,
+        "timestamp": "2026-09-14T19:59:10.987533+00:00",
+        "cycle": 602,
         "phase": "WATCH_EXTERNAL_GAP",
         "candidate_hint": "qwen2.5-coder:3b",
         "observations": {
-          "timestamp": "2026-09-14T19:54:07.294130+00:00",
+          "timestamp": "2026-09-14T19:59:10.813505+00:00",
           "git": {
             "branch": "main",
-            "commit": "826b1e2db99cf79b4b8f1a96bece7d8776e6b08a",
+            "commit": "a36652d87f7936a94616bcecbe5010a2dded8a45",
             "application_source_commit": "a2ad36e69da1f8a9ceb063ab359b7b17fb9aed8e",
             "upstream": "origin/main",
             "upstream_error": null,
             "ahead": 0,
             "behind": 0,
-            "clean": true,
-            "status_porcelain": "",
-            "status": "CLEAN_SYNCED"
+            "clean": false,
+            "status_porcelain": "M reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.json",
+            "status": "DIRTY"
           },
           "benchmark": {
             "path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260914-current-provenance-after-sdk/Work_Station_Benchmark/benchmark-summary.json",
@@ -3302,7 +3305,7 @@
               ],
               "cwd": "/home/md-wasim/Projects/AI_Workspace",
               "exit_code": 0,
-              "duration_seconds": 0.0065,
+              "duration_seconds": 0.0071,
               "stdout": "{\"status\":\"alive\"}",
               "stderr": "",
               "stdout_sha256": "bc24b0b5a305d5afc198c725890c8fb91053be2dbd8672779de73cac19a008fa",
@@ -3323,7 +3326,7 @@
               "passed": 64
             },
             "status": "PASS",
-            "acceptance_hint": "PENDING_CURRENT_DEPLOYMENT_AND_FINAL_VERIFICATION; prior release evidence retained in previous report snapshot."
+            "acceptance_hint": "CURRENT_SOURCE_RELEASE_PASS: backend, web, mobile and runtime regression passed."
           },
           "queue": {
             "total": 31,
@@ -3419,31 +3422,31 @@
         },
         "git": {
           "branch": "main",
-          "commit": "826b1e2db99cf79b4b8f1a96bece7d8776e6b08a",
+          "commit": "a36652d87f7936a94616bcecbe5010a2dded8a45",
           "application_source_commit": "a2ad36e69da1f8a9ceb063ab359b7b17fb9aed8e",
           "upstream": "origin/main",
           "upstream_error": null,
           "ahead": 0,
           "behind": 0,
-          "clean": true,
-          "status_porcelain": "",
-          "status": "CLEAN_SYNCED"
+          "clean": false,
+          "status_porcelain": "M reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.json",
+          "status": "DIRTY"
         }
       },
       "after": {
         "observations": {
-          "timestamp": "2026-09-14T19:54:07.659088+00:00",
+          "timestamp": "2026-09-14T19:59:11.192931+00:00",
           "git": {
             "branch": "main",
-            "commit": "826b1e2db99cf79b4b8f1a96bece7d8776e6b08a",
+            "commit": "a36652d87f7936a94616bcecbe5010a2dded8a45",
             "application_source_commit": "a2ad36e69da1f8a9ceb063ab359b7b17fb9aed8e",
             "upstream": "origin/main",
             "upstream_error": null,
             "ahead": 0,
             "behind": 0,
-            "clean": true,
-            "status_porcelain": "",
-            "status": "CLEAN_SYNCED"
+            "clean": false,
+            "status_porcelain": "M reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.json",
+            "status": "DIRTY"
           },
           "benchmark": {
             "path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260914-current-provenance-after-sdk/Work_Station_Benchmark/benchmark-summary.json",
@@ -3478,7 +3481,7 @@
               ],
               "cwd": "/home/md-wasim/Projects/AI_Workspace",
               "exit_code": 0,
-              "duration_seconds": 0.0061,
+              "duration_seconds": 0.0067,
               "stdout": "{\"status\":\"alive\"}",
               "stderr": "",
               "stdout_sha256": "bc24b0b5a305d5afc198c725890c8fb91053be2dbd8672779de73cac19a008fa",
@@ -3499,7 +3502,7 @@
               "passed": 64
             },
             "status": "PASS",
-            "acceptance_hint": "PENDING_CURRENT_DEPLOYMENT_AND_FINAL_VERIFICATION; prior release evidence retained in previous report snapshot."
+            "acceptance_hint": "CURRENT_SOURCE_RELEASE_PASS: backend, web, mobile and runtime regression passed."
           },
           "queue": {
             "total": 31,
@@ -3595,22 +3598,22 @@
         },
         "git": {
           "branch": "main",
-          "commit": "826b1e2db99cf79b4b8f1a96bece7d8776e6b08a",
+          "commit": "a36652d87f7936a94616bcecbe5010a2dded8a45",
           "application_source_commit": "a2ad36e69da1f8a9ceb063ab359b7b17fb9aed8e",
           "upstream": "origin/main",
           "upstream_error": null,
           "ahead": 0,
           "behind": 0,
-          "clean": true,
-          "status_porcelain": "",
-          "status": "CLEAN_SYNCED"
+          "clean": false,
+          "status_porcelain": "M reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.json",
+          "status": "DIRTY"
         }
       },
-      "next_retry_at": "2026-09-14T19:59:07.567288+00:00"
+      "next_retry_at": "2026-09-14T20:04:11.092494+00:00"
     },
     "external_watch": {
       "status": "NOT_READY",
-      "cycle": 601,
+      "cycle": 602,
       "candidate": null,
       "candidate_state": "NOT_CACHED_DOWNLOAD_TOO_SLOW_OR_UNAVAILABLE",
       "candidate_priority": [
@@ -3636,13 +3639,13 @@
       "requested_max_download_seconds": 10800,
       "requested_max_estimated_download_hours": 3.0,
       "genericity_and_canonical_validation_allowed": false,
-      "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0601",
-      "next_retry_at": "2026-09-14T19:59:07.567288+00:00",
+      "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0602",
+      "next_retry_at": "2026-09-14T20:04:11.092494+00:00",
       "current_action": "No eligible coding candidate is currently available; preserve all exclusions and continue the bounded external watch."
     }
   },
-  "report_generated_from_commit": "826b1e2db99cf79b4b8f1a96bece7d8776e6b08a",
-  "report_tip_commit": "826b1e2db99cf79b4b8f1a96bece7d8776e6b08a",
+  "report_generated_from_commit": "a36652d87f7936a94616bcecbe5010a2dded8a45",
+  "report_tip_commit": "a36652d87f7936a94616bcecbe5010a2dded8a45",
   "post_watch_git_verification": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0001/post-watch-git-verification.json",
   "post_watch_git_verification_sha256": "119c0f0c77af049af664482efdfe4f662a473d933649cd83a804ccfd9b1c72a1",
   "evidence_provenance": {
