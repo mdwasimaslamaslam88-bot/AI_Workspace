@@ -3049,6 +3049,7 @@ def watch_external_iteration(
     state["resume_required"] = False
     state["child_suggested_next_prompt"] = ""
     state["next_prompt_source"] = "controller_derived"
+    state["next_prompt_source_commit"] = observed_source_commit(observations_before)
     state["next_prompt"] = build_external_watch_prompt(
         next_prompt_candidate, observations_before, str(watch_root)
     )

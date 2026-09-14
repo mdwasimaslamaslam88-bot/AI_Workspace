@@ -331,6 +331,7 @@ def test_all_excluded_candidates_do_not_fall_back_to_priority_display():
     assert "qwen2.5-coder:3b" not in state["current_action"]
     assert "NONE (all configured candidates excluded or unavailable)" in state["next_prompt"]
     assert "No eligible coding candidate" in state["current_action"]
+    assert state["next_prompt_source_commit"] == _observations()["git"]["application_source_commit"]
 
 
 def test_watch_recovers_rejection_from_prior_trusted_evidence():
