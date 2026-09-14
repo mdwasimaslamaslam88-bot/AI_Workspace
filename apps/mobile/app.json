@@ -69,7 +69,8 @@
       ],
       "expo-secure-store",
       "expo-audio",
-      "expo-image"
+      "expo-image",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,
