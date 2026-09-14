@@ -2968,6 +2968,11 @@
   },
   "security": {
     "npm_audit_findings": 0,
+    "current_source_audit": {
+      "status": "PASS",
+      "source_commit": "a2ad36e69da1f8a9ceb063ab359b7b17fb9aed8e",
+      "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260914-current-provenance-after-sdk/security-audit-current.json"
+    },
     "cors_exact_origin": "PASS",
     "attacker_origin": "DENIED",
     "credential_scan": {
