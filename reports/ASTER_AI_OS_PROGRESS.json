@@ -1,15 +1,15 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-14T17:06:34.681222+00:00",
+  "generated_at": "2026-09-14T17:11:41.087294+00:00",
   "source": {
     "state": "/home/md-wasim/AI_Workspace_Data/aster-evidence/current_state.json",
     "status": "/home/md-wasim/Projects/AI_Workspace/reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.json",
     "queue": "/home/md-wasim/Projects/AI_Workspace/reports/ASTER_AI_OS_ISSUE_QUEUE.json",
     "observations": {
-      "timestamp": "2026-09-14T17:06:34.447090+00:00",
+      "timestamp": "2026-09-14T17:11:40.845261+00:00",
       "git": {
         "branch": "main",
-        "commit": "51f012c3c52ec9b306abc1b79b0febd946c029eb",
+        "commit": "e445577d44975e82777b1ef025d21037779233dc",
         "application_source_commit": "b174d1f5837d348f6965dc4d5c1419933b9afefc",
         "upstream": "origin/main",
         "upstream_error": null,
@@ -37,7 +37,6 @@
         "source_matches_current": true,
         "matches": {
           "source_commit": true,
-          "source_commit_acceptance": "PASS: bounded report-only alias from report tip to application source tip",
           "backend_source_sha256": true,
           "web_bundle_sha256": true
         },
@@ -53,7 +52,7 @@
           ],
           "cwd": "/home/md-wasim/Projects/AI_Workspace",
           "exit_code": 0,
-          "duration_seconds": 0.0061,
+          "duration_seconds": 0.008,
           "stdout": "{\"status\":\"alive\"}",
           "stderr": "",
           "stdout_sha256": "bc24b0b5a305d5afc198c725890c8fb91053be2dbd8672779de73cac19a008fa",
@@ -86,7 +85,7 @@
         "current_source_commit": "b174d1f5837d348f6965dc4d5c1419933b9afefc",
         "components": {
           "source_commit": "PASS",
-          "runtime": "FAIL",
+          "runtime": "PASS",
           "backend_hash": "PASS",
           "web_artifact_hash": "PASS",
           "benchmark": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE",
@@ -105,7 +104,7 @@
             "source_commit": false,
             "backend_source_sha256": true,
             "web_bundle_sha256": true,
-            "declared_matches": false
+            "declared_matches": true
           }
         },
         "benchmark": {
@@ -183,7 +182,7 @@
   "controller_phase": "WATCH_EXTERNAL_GAP",
   "external_watch": {
     "status": "NOT_READY",
-    "cycle": 586,
+    "cycle": 587,
     "candidate": null,
     "candidate_state": "NOT_CACHED_DOWNLOAD_TOO_SLOW_OR_UNAVAILABLE",
     "candidate_priority": [
@@ -209,8 +208,8 @@
     "requested_max_download_seconds": 10800,
     "requested_max_estimated_download_hours": 3.0,
     "genericity_and_canonical_validation_allowed": false,
-    "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0586",
-    "next_retry_at": "2026-09-14T17:11:34.310020+00:00",
+    "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0587",
+    "next_retry_at": "2026-09-14T17:16:40.698416+00:00",
     "current_action": "No eligible coding candidate is currently available; preserve all exclusions and continue the bounded external watch."
   },
   "last_verification": "PARTIAL",
@@ -237,7 +236,7 @@
   "performance_mean": 8.062,
   "performance_p95": 16.5064,
   "git_status": "CLEAN_SYNCED",
-  "current_commit": "51f012c3c52ec9b306abc1b79b0febd946c029eb",
+  "current_commit": "e445577d44975e82777b1ef025d21037779233dc",
   "application_source_commit": "b174d1f5837d348f6965dc4d5c1419933b9afefc",
   "last_successful_commit": "70335a71c9a1ef410a5976d6ba687712b983610b",
   "codex_cli": {
@@ -273,7 +272,7 @@
       }
     ]
   },
-  "report_tip_commit": "51f012c3c52ec9b306abc1b79b0febd946c029eb",
+  "report_tip_commit": "e445577d44975e82777b1ef025d21037779233dc",
   "last_artifact_verification": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260911-final-gap-release-1a02fe0/artifact-attestation-current.json",
   "last_failure": {
     "timestamp": "2026-09-12T15:43:47.325405+00:00",
