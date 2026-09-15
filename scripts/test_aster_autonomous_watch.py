@@ -68,6 +68,42 @@ def test_external_download_policy_is_bounded_at_three_hours():
     ).max_download_seconds == 10_800
 
 
+def test_persist_state_merges_new_candidate_rejection_across_restart(tmp_path):
+    """A stale controller snapshot cannot erase a newer trusted decision."""
+    evidence_root = tmp_path / "evidence"
+    initial = {
+        "iteration": 4,
+        "attempt": 1,
+        "overall_ready": False,
+        "external_watch": {"cycle": 10, "rejected_candidates": []},
+        "history": [],
+    }
+    controller.persist_state(initial, evidence_root)
+    stale = controller.load_or_create_state(evidence_root)
+    fresh = controller.load_or_create_state(evidence_root)
+
+    fresh["external_watch"]["cycle"] = 11
+    fresh["external_watch"]["rejected_candidates"] = ["qwen3.5:9b-q4_K_M"]
+    fresh["last_candidate_decision"] = {
+        "candidate": "qwen3.5:9b-q4_K_M",
+        "timestamp": "2026-09-15T16:00:00+00:00",
+        "decision": "REJECTED_OBJECTIVE_FOCUSED_GATE",
+    }
+    controller.persist_state(fresh, evidence_root)
+
+    stale["external_watch"]["cycle"] = 12
+    stale["external_watch"]["current_action"] = "stale watcher action"
+    controller.persist_state(stale, evidence_root)
+
+    recovered = controller.load_or_create_state(evidence_root)
+    assert "qwen3.5:9b-q4_K_M" in recovered["external_watch"]["rejected_candidates"]
+    assert recovered["last_candidate_decision"]["decision"] == "REJECTED_OBJECTIVE_FOCUSED_GATE"
+    assert recovered["external_watch"]["cycle"] == 12
+
+    restarted = controller.load_or_create_state(evidence_root)
+    assert "qwen3.5:9b-q4_K_M" in restarted["external_watch"]["rejected_candidates"]
+
+
 def test_terminal_queue_enters_watch():
     state = {"overall_ready": False, "next_prompt": "wait for candidate"}
     queue = {"issues": [{"id": "ASTER-006", "status": "BLOCKED_EXTERNAL"}]}

@@ -14,6 +14,7 @@ does not silently advance the queue or lose the prompt.
 from __future__ import annotations
 
 import argparse
+import copy
 from contextlib import contextmanager
 from datetime import datetime, timezone
 import fcntl
@@ -85,6 +86,7 @@ UNRESOLVED_STATUSES = {
 }
 TERMINAL_QUEUE_STATUSES = {"VERIFIED", "CLOSED", "BLOCKED_EXTERNAL"}
 REPORT_ONLY_PATH_PREFIXES = ("reports/ASTER_AI_OS_",)
+STATE_INTERNAL_BASE_SNAPSHOT = "_aster_persist_base_snapshot"
 
 
 def utc_now() -> str:
@@ -718,6 +720,8 @@ def load_or_create_state(evidence_root: Path) -> dict[str, Any]:
     value.setdefault("last_codex_cli", None)
     value.setdefault("controller_phase", "RUNNING")
     value.setdefault("external_watch", {})
+    value.pop(STATE_INTERNAL_BASE_SNAPSHOT, None)
+    value[STATE_INTERNAL_BASE_SNAPSHOT] = copy.deepcopy(value)
     return value
 
 
@@ -746,10 +750,147 @@ def restore_resumable_attempt(state: dict[str, Any]) -> None:
         state["resume_recovered_at"] = utc_now()
 
 
+def _persistable_state(state: dict[str, Any]) -> dict[str, Any]:
+    return {
+        key: copy.deepcopy(value)
+        for key, value in state.items()
+        if key != STATE_INTERNAL_BASE_SNAPSHOT
+    }
+
+
+def _event_order(value: Any) -> tuple[int, int, int, int, str]:
+    if not isinstance(value, dict):
+        return (-1, -1, -1, -1, "")
+
+    def integer(key: str) -> int:
+        try:
+            return int(value.get(key, -1))
+        except (TypeError, ValueError):
+            return -1
+
+    timestamp = str(
+        value.get("timestamp")
+        or value.get("recorded_at")
+        or value.get("updated_at")
+        or ""
+    )
+    return (
+        integer("cycle"),
+        integer("iteration"),
+        integer("attempt"),
+        integer("sequence"),
+        timestamp,
+    )
+
+
+def _newer_event(disk_value: Any, local_value: Any) -> Any:
+    if disk_value is None:
+        return copy.deepcopy(local_value)
+    if local_value is None:
+        return copy.deepcopy(disk_value)
+    return copy.deepcopy(
+        local_value
+        if _event_order(local_value) >= _event_order(disk_value)
+        else disk_value
+    )
+
+
+def _merge_history(disk_value: Any, local_value: Any) -> list[Any]:
+    values = []
+    for collection in (disk_value, local_value):
+        if isinstance(collection, list):
+            values.extend(copy.deepcopy(collection))
+    unique: dict[str, Any] = {}
+    for item in values:
+        try:
+            identity = json.dumps(item, sort_keys=True, separators=(",", ":"))
+        except (TypeError, ValueError):
+            identity = repr(item)
+        unique.setdefault(identity, item)
+    return sorted(unique.values(), key=_event_order)[-MAX_HISTORY:]
+
+
+def _merge_external_watch(disk_value: Any, local_value: Any) -> dict[str, Any]:
+    disk = disk_value if isinstance(disk_value, dict) else {}
+    local = local_value if isinstance(local_value, dict) else {}
+    merged = copy.deepcopy(disk)
+    disk_cycle = _event_order(disk)[0]
+    local_cycle = _event_order(local)[0]
+    for key, value in local.items():
+        if key in {"rejected_candidates", "acquisition_blocked_candidates"}:
+            candidates = set()
+            for source in (disk.get(key), value):
+                if isinstance(source, list):
+                    candidates.update(str(item) for item in source)
+            merged[key] = sorted(candidates)
+        elif key in {"last_candidate_decision", "candidate_decision"}:
+            merged[key] = _newer_event(disk.get(key), value)
+        elif key == "candidate_priority" and disk.get(key):
+            # A stale writer must not replace the current admission order.
+            continue
+        elif disk_cycle > local_cycle and key in {
+            "status",
+            "candidate",
+            "candidate_state",
+            "current_action",
+            "next_retry_at",
+            "report_commit",
+            "evidence",
+        }:
+            continue
+        else:
+            merged[key] = copy.deepcopy(value)
+    return merged
+
+
+def _merge_persisted_state(
+    disk_state: dict[str, Any],
+    state: dict[str, Any],
+    base_state: dict[str, Any] | None,
+) -> dict[str, Any]:
+    disk = _persistable_state(disk_state)
+    local = _persistable_state(state)
+    base = _persistable_state(base_state) if isinstance(base_state, dict) else None
+    if base is None:
+        changes = local
+    else:
+        changes = {
+            key: value
+            for key, value in local.items()
+            if key != "updated_at" and (key not in base or value != base[key])
+        }
+    merged = copy.deepcopy(disk)
+    for key, value in changes.items():
+        if key == "external_watch":
+            merged[key] = _merge_external_watch(disk.get(key), value)
+        elif key == "history":
+            merged[key] = _merge_history(disk.get(key), value)
+        elif key in {"last_result", "last_failure", "last_candidate_decision"}:
+            merged[key] = _newer_event(disk.get(key), value)
+        else:
+            merged[key] = copy.deepcopy(value)
+    merged["updated_at"] = utc_now()
+    merged["history"] = _merge_history(disk.get("history"), merged.get("history"))
+    return merged
+
+
 def persist_state(state: dict[str, Any], evidence_root: Path) -> None:
-    state["updated_at"] = utc_now()
-    state["history"] = state.get("history", [])[-MAX_HISTORY:]
-    write_json(evidence_root / "current_state.json", state)
+    """Persist state without allowing a stale writer to erase newer evidence."""
+    evidence_root.mkdir(parents=True, exist_ok=True)
+    state_path = evidence_root / "current_state.json"
+    lock_path = evidence_root / "state.lock"
+    with lock_path.open("a+", encoding="utf-8") as lock_handle:
+        fcntl.flock(lock_handle.fileno(), fcntl.LOCK_EX)
+        disk_value = read_json(state_path, {})
+        disk_state = disk_value if isinstance(disk_value, dict) else {}
+        merged = _merge_persisted_state(
+            disk_state, state, state.get(STATE_INTERNAL_BASE_SNAPSHOT)
+        )
+        write_json(state_path, merged)
+        state.clear()
+        state.update(merged)
+        state[STATE_INTERNAL_BASE_SNAPSHOT] = copy.deepcopy(merged)
+        fcntl.flock(lock_handle.fileno(), fcntl.LOCK_UN)
 
 
 def discover_latest_benchmark(evidence_root: Path, queue: dict[str, Any]) -> tuple[dict[str, Any], str | None]:
