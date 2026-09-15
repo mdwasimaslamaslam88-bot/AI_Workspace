@@ -7,8 +7,8 @@ PASS           : 457
 PARTIAL        : 1
 FAIL           : 1
 ISSUES         : 0
-CURRENT        : NONE
-PHASE          : WATCH_EXTERNAL_GAP
+CURRENT        : ASTER-RUNTIME-PROVENANCE-001
+PHASE          : ACCEPTANCE_TASK
 CANDIDATE      : None
 ASTER→AI OS    : PARTIAL: current owner-authenticated HTTP exchange and integrity verified; fabricated exec
 AI OS→ASTER    : BLOCKED_EXTERNAL: parent MCP/reverse callback is not available; no bidirectional verificat
@@ -21,6 +21,6 @@ WEB            : 206 PASS
 MOBILE         : 64 PASS
 PERFORMANCE    : mean 8.1462s / P95 16.5442s
 GIT            : CLEAN_SYNCED
-COMMIT         : a5f31a06e08bfc4c0e7557e717fa039a348c0b04
-NEXT ACTION    : No eligible coding candidate is currently available; preserve all exclusions and continue the bounded external watch.
+COMMIT         : a9692a8acfb9d162ca44b6b150d9eb4bd1b37c32
+NEXT ACTION    : Re-observe the authenticated current runtime and validate source, backend and web identity against the current application source.
 ========================================================
