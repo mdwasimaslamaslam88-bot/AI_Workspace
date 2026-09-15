@@ -2,16 +2,16 @@
 
 Iteration 4. Overall readiness is **NOT READY**.
 
-Current source commit: `75f9f69300c607717409afead2b2b016c0e731a7`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
+Current source commit: `997c6ae851b9f957a23ac745b6d8219664ad16d9`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
 
 ## Current measured state
 
 - Canonical benchmark: **97.83/100**, 457 PASS, 1 PARTIAL, 1 FAIL; mean 8.1462s, P95 16.5442s.
 - Issues: 0 locally unresolved, 24 fixed/verified, 7 externally blocked.
-- Current issue/action: `NONE` — No eligible coding candidate is currently available; preserve all exclusions and continue the bounded external watch.
-- Controller phase: **WATCH_EXTERNAL_GAP**.
-- Runtime identity: **HISTORICAL_PASS_REQUIRES_CURRENT_ATTESTATION**; evidence `/home/md-wasim/AI_Workspace_Data/aster-evidence/20260916-current-provenance/runtime-identity-current.json`.
-- Git: **CLEAN_SYNCED** at `75f9f69300c607717409afead2b2b016c0e731a7`.
+- Current issue/action: `ASTER-RUNTIME-PROVENANCE-001` — Re-observe the authenticated current runtime and validate source, backend and web identity against the current application source.
+- Controller phase: **ACCEPTANCE_TASK**.
+- Runtime identity: **PASS**; evidence `/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-0868/runtime-identity-current.json`.
+- Git: **CLEAN_SYNCED** at `997c6ae851b9f957a23ac745b6d8219664ad16d9`.
 
 ## Queue classifications
 
@@ -54,7 +54,7 @@ Current source commit: `75f9f69300c607717409afead2b2b016c0e731a7`. Evidence root
 | Task | Status | Dependencies | Blocker |
 | --- | --- | --- | --- |
 | ASTER-STATE-MERGE-001 | COMPLETE | none |  |
-| ASTER-RUNTIME-PROVENANCE-001 | FAILED | ASTER-STATE-MERGE-001 | Child identity or trusted parent verification failed; do not promote the task. |
+| ASTER-RUNTIME-PROVENANCE-001 | RETRY | ASTER-STATE-MERGE-001 | Application source changed from a9692a8acfb9d162ca44b6b150d9eb4bd1b37c32 to 997c6ae851b9f957a23ac745b6d8219664ad16d9; current-source evidence must be recaptured. |
 | ASTER-RELEASE-VALIDATION-001 | PENDING | ASTER-RUNTIME-PROVENANCE-001 | Application source changed from 91714006aa0dfb8b2fd33a35fc61a65c2db937a0 to a9692a8acfb9d162ca44b6b150d9eb4bd1b37c32; current-source evidence must be recaptured. |
 | ASTER-CANONICAL-CODER-001 | BLOCKED_EXTERNAL | none | All configured candidates are rejected or acquisition-blocked; a new eligible verified model/digest is required. |
 | ASTER-REVERSE-CALLBACK-001 | BLOCKED_EXTERNAL | none | The supported parent MCP/reverse callback endpoint rejects the available credential or is unavailable. |
