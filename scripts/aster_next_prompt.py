@@ -30,6 +30,8 @@ import sys
 import tempfile
 import time
 from typing import Any, Iterator
+import urllib.error
+import urllib.request
 
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -542,6 +544,144 @@ def command_record(
             "stderr_sha256": sha256_bytes(str(error).encode()),
             "timed_out": False,
         }
+
+
+def capture_current_runtime_attestation(
+    evidence_dir: Path, source_commit: str | None
+) -> dict[str, Any]:
+    """Capture authenticated current-runtime identity without persisting secrets."""
+    started = time.monotonic()
+    api_origin = os.environ.get(
+        "ASTER_RUNTIME_API_ORIGIN", "http://127.0.0.1:8000"
+    ).rstrip("/")
+    token_path = Path.home() / ".ai_workspace_provisioning_token"
+    records: dict[str, Any] = {
+        "timestamp": utc_now(),
+        "api_origin": api_origin,
+        "source_commit": source_commit,
+        "token_path": str(token_path),
+        "authenticated_exchange": {},
+        "session_revocation": {},
+    }
+    access_token = ""
+
+    def request_json(
+        method: str,
+        path: str,
+        *,
+        headers: dict[str, str] | None = None,
+        body: bytes | None = None,
+        timeout: float = 15,
+    ) -> tuple[int, bytes, dict[str, Any]]:
+        request = urllib.request.Request(
+            f"{api_origin}{path}",
+            data=body,
+            headers=headers or {},
+            method=method,
+        )
+        request_started = time.monotonic()
+        try:
+            opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+            with opener.open(request, timeout=timeout) as response:
+                payload = response.read()
+                return int(response.status), payload, {
+                    "status": int(response.status),
+                    "duration_seconds": round(time.monotonic() - request_started, 4),
+                    "response_bytes": len(payload),
+                    "response_sha256": sha256_bytes(payload),
+                }
+        except urllib.error.HTTPError as error:
+            payload = error.read(4096) if hasattr(error, "read") else b""
+            return int(error.code), payload, {
+                "status": int(error.code),
+                "duration_seconds": round(time.monotonic() - request_started, 4),
+                "response_bytes": len(payload),
+                "response_sha256": sha256_bytes(payload),
+                "error": "HTTP_ERROR",
+            }
+        except (OSError, urllib.error.URLError, TimeoutError) as error:
+            return 0, b"", {
+                "status": 0,
+                "duration_seconds": round(time.monotonic() - request_started, 4),
+                "response_bytes": 0,
+                "response_sha256": sha256_bytes(b""),
+                "error": type(error).__name__,
+            }
+
+    try:
+        token = token_path.read_text(encoding="utf-8").strip()
+        if not token:
+            raise ValueError("provisioning token is empty")
+        provision_status, provision_body, provision_record = request_json(
+            "POST",
+            "/api/v1/users",
+            headers={
+                "Content-Type": "application/json",
+                "X-User-Provisioning-Token": token,
+            },
+            body=b"{}",
+        )
+        records["authenticated_exchange"]["provision"] = provision_record
+        if provision_status != 201:
+            raise RuntimeError("user provisioning was not accepted")
+        provisioned = json.loads(provision_body.decode("utf-8"))
+        access_token = str(provisioned.get("access_token", ""))
+        if not access_token:
+            raise RuntimeError("provisioning response did not contain an access token")
+        runtime_status, runtime_body, runtime_record = request_json(
+            "GET",
+            "/api/v1/diagnostics/runtime-identity",
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+        records["authenticated_exchange"]["runtime_identity"] = runtime_record
+        if runtime_status != 200:
+            raise RuntimeError("runtime identity request was not accepted")
+        runtime_payload = json.loads(runtime_body.decode("utf-8"))
+        if not isinstance(runtime_payload, dict):
+            raise ValueError("runtime identity response was not an object")
+        records["runtime"] = runtime_payload
+        expected_backend = tree_digest(
+            REPOSITORY_ROOT / "backend" / "app",
+            suffixes=frozenset({".py", ".json"}),
+        )
+        expected_web = tree_digest(REPOSITORY_ROOT / "frontend" / "dist")
+        records["expected"] = {
+            "source_commit": source_commit,
+            "backend_source_sha256": expected_backend,
+            "web_bundle_sha256": expected_web,
+        }
+        records["matches"] = {
+            "source_commit": runtime_payload.get("source_commit") == source_commit,
+            "backend_source_sha256": runtime_payload.get("backend_source_sha256") == expected_backend,
+            "web_bundle_sha256": runtime_payload.get("web_bundle_sha256") == expected_web,
+        }
+    except (OSError, ValueError, RuntimeError, json.JSONDecodeError) as error:
+        records["error"] = type(error).__name__
+    finally:
+        if access_token:
+            revoke_status, _revoke_body, revoke_record = request_json(
+                "DELETE",
+                "/api/v1/users/me/sessions/current",
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+            records["session_revocation"] = revoke_record
+            records["session_revocation"]["accepted"] = revoke_status == 204
+        else:
+            records["session_revocation"] = {
+                "status": 0,
+                "accepted": False,
+                "error": "NO_ACCESS_TOKEN",
+            }
+        records["duration_seconds"] = round(time.monotonic() - started, 4)
+        records["objective_pass"] = bool(
+            isinstance(records.get("runtime"), dict)
+            and isinstance(records.get("matches"), dict)
+            and records["matches"]
+            and all(records["matches"].values())
+            and records.get("session_revocation", {}).get("accepted") is True
+        )
+        write_json(evidence_dir / "runtime-identity-current.json", records, mode=0o600)
+    return records
 
 
 def application_source_commit(head: str | None = None) -> str | None:
@@ -3225,11 +3365,14 @@ def verify_acceptance_task(
         passed = verification.get("exit_code") == 0
         reason = "isolated cycle/evidence bundle regression passed" if passed else "state merge regression failed"
     elif task_id == "ASTER-RUNTIME-PROVENANCE-001":
+        source_commit = observed_source_commit(observe(evidence_root))
+        attestation = capture_current_runtime_attestation(evidence_dir, source_commit)
         observations = observe(evidence_root)
         runtime = observations.get("runtime", {})
         runtime_evidence = runtime.get("evidence")
         passed = bool(
-            runtime.get("status") == "PASS"
+            attestation.get("objective_pass") is True
+            and runtime.get("status") == "PASS"
             and isinstance(runtime_evidence, str)
             and Path(runtime_evidence).is_file()
             and runtime.get("source_matches_current") is True
@@ -3243,6 +3386,7 @@ def verify_acceptance_task(
             "exit_code": 0 if passed else 1,
             "observations": observations,
             "runtime_evidence": runtime_evidence,
+            "fresh_attestation": attestation,
         }
         reason = "authenticated current runtime identity is content-verified" if passed else "current runtime identity is not fully proven"
     elif task_id == "ASTER-RELEASE-VALIDATION-001":

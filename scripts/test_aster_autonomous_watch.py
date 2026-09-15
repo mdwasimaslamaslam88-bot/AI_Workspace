@@ -835,7 +835,13 @@ def test_runtime_provenance_parent_check_reads_nested_runtime_matches():
             "web_bundle_sha256": True,
         },
     }
-    with TemporaryDirectory() as directory, patch.object(controller, "observe", return_value=observations):
+    with TemporaryDirectory() as directory, patch.object(
+        controller, "observe", return_value=observations
+    ), patch.object(
+        controller,
+        "capture_current_runtime_attestation",
+        return_value={"objective_pass": True},
+    ):
         result = controller.verify_acceptance_task(
             {
                 "id": "ASTER-RUNTIME-PROVENANCE-001",
