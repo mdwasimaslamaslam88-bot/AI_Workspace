@@ -183,8 +183,14 @@ def test_source_change_reopens_current_runtime_and_release_gates(tmp_path):
     current = "b" * 40
     for task_id in ("ASTER-RUNTIME-PROVENANCE-001", "ASTER-RELEASE-VALIDATION-001"):
         task = state["acceptance_tasks"][task_id]
-        task.update({"status": "COMPLETE", "validated_source_commit": old})
+        task.update({"status": "COMPLETE", "validated_source_commit": old, "updated_at": "2020-01-01T00:00:01+00:00"})
+    controller.persist_state(state, tmp_path / "source-refresh")
+    stale = controller.load_or_create_state(tmp_path / "source-refresh")
+    state = controller.load_or_create_state(tmp_path / "source-refresh")
     assert controller.refresh_source_bound_acceptance_tasks(state, current) is True
+    controller.persist_state(state, tmp_path / "source-refresh")
+    controller.persist_state(stale, tmp_path / "source-refresh")
+    state = controller.load_or_create_state(tmp_path / "source-refresh")
     assert state["acceptance_tasks"]["ASTER-RUNTIME-PROVENANCE-001"]["status"] == "RETRY"
     assert state["acceptance_tasks"]["ASTER-RELEASE-VALIDATION-001"]["status"] == "PENDING"
 

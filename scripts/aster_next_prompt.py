@@ -1212,9 +1212,15 @@ def _merge_acceptance_tasks(disk_value: Any, local_value: Any) -> dict[str, Any]
             continue
         disk_status = disk_task.get("status")
         local_status = local_task.get("status")
-        if disk_status in terminal and local_status not in terminal:
+        if (
+            disk_status in terminal
+            and local_status not in terminal
+            and _event_order(local_task) <= _event_order(disk_task)
+        ):
             # A later stale writer may still have READY/PENDING in memory;
-            # completed decisions and their evidence are durable facts.
+            # completed decisions and their evidence are durable facts. A
+            # deliberately newer source-freshness invalidation is allowed to
+            # reopen the gate and is identified by its newer updated_at.
             selected = copy.deepcopy(disk_task)
         else:
             selected = _newer_event(disk_task, local_task)
