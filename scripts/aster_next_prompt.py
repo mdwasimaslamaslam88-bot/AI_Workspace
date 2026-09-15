@@ -958,7 +958,7 @@ def refresh_source_bound_acceptance_tasks(
     for task_id in ("ASTER-RUNTIME-PROVENANCE-001", "ASTER-RELEASE-VALIDATION-001"):
         task = tasks.get(task_id)
         if not isinstance(task, dict) or task.get("status") not in {
-            "COMPLETE", "COMPLETE_WITH_EXTERNAL"
+            "COMPLETE", "COMPLETE_WITH_EXTERNAL", "FAILED"
         }:
             continue
         validated = _task_validated_source_commit(task)
@@ -3518,6 +3518,7 @@ def acceptance_task_iteration(
     task["updated_at"] = utc_now()
     task_status = str(task.get("status"))
     task_blocker = task.get("blocker")
+    task_decision = copy.deepcopy(task)
     next_task = choose_acceptance_task(state)
     next_prompt = (
         build_acceptance_task_prompt(next_task, parent.get("verification", {}).get("observations", observations), str(cycle_root))
@@ -3564,6 +3565,17 @@ def acceptance_task_iteration(
     # render_reports persists and replaces the state mapping; reapply the
     # terminal decision to the current mapping before the final checkpoint.
     current_task = state["acceptance_tasks"][task_id]
+    for key in (
+        "status",
+        "blocker",
+        "attempts",
+        "evidence",
+        "last_result",
+        "validated_source_commit",
+        "updated_at",
+    ):
+        if key in task_decision:
+            current_task[key] = copy.deepcopy(task_decision[key])
     current_task["status"] = task_status
     current_task["blocker"] = task_blocker
     current_task["last_report_commit"] = report_commit
