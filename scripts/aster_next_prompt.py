@@ -487,8 +487,20 @@ def command_record(
     timeout: float = 30,
     input_text: str | None = None,
     environment: dict[str, str] | None = None,
+    output_directory: Path | None = None,
 ) -> dict[str, Any]:
     started = time.monotonic()
+
+    def persist_output(stdout: str, stderr: str) -> dict[str, str]:
+        if output_directory is None:
+            return {}
+        output_directory.mkdir(parents=True, exist_ok=True)
+        stdout_path = output_directory / "command.stdout.log"
+        stderr_path = output_directory / "command.stderr.log"
+        atomic_write(stdout_path, stdout, mode=0o600)
+        atomic_write(stderr_path, stderr, mode=0o600)
+        return {"stdout_path": str(stdout_path), "stderr_path": str(stderr_path)}
+
     try:
         completed = subprocess.run(
             command,
@@ -503,7 +515,7 @@ def command_record(
         )
         stdout = completed.stdout or ""
         stderr = completed.stderr or ""
-        return {
+        record = {
             "command": command,
             "cwd": str(cwd),
             "exit_code": completed.returncode,
@@ -514,6 +526,8 @@ def command_record(
             "stderr_sha256": sha256_bytes(stderr.encode()),
             "timed_out": False,
         }
+        record.update(persist_output(stdout, stderr))
+        return record
     except subprocess.TimeoutExpired as error:
         stdout = error.stdout or ""
         stderr = error.stderr or ""
@@ -521,7 +535,7 @@ def command_record(
             stdout = stdout.decode(errors="replace")
         if isinstance(stderr, bytes):
             stderr = stderr.decode(errors="replace")
-        return {
+        record = {
             "command": command,
             "cwd": str(cwd),
             "exit_code": 124,
@@ -532,8 +546,10 @@ def command_record(
             "stderr_sha256": sha256_bytes(stderr.encode()),
             "timed_out": True,
         }
+        record.update(persist_output(stdout, stderr))
+        return record
     except OSError as error:
-        return {
+        record = {
             "command": command,
             "cwd": str(cwd),
             "exit_code": 127,
@@ -544,6 +560,8 @@ def command_record(
             "stderr_sha256": sha256_bytes(str(error).encode()),
             "timed_out": False,
         }
+        record.update(persist_output("", record["stderr"]))
+        return record
 
 
 def capture_current_runtime_attestation(
@@ -3396,6 +3414,7 @@ def verify_acceptance_task(
             REPOSITORY_ROOT,
             timeout=1800,
             environment=node_runtime["environment"],
+            output_directory=evidence_dir,
         )
         verification["runtime"] = {
             "node_path": node_runtime["node_path"],
@@ -3404,6 +3423,29 @@ def verify_acceptance_task(
             "selection": node_runtime["selection"],
             "candidates": node_runtime["candidates"],
         }
+        release_git = git_snapshot()
+        release_output_path = verification.get("stdout_path")
+        release_stderr_path = verification.get("stderr_path")
+        release_evidence = {
+            "timestamp": utc_now(),
+            "status": "PASS" if verification.get("exit_code") == 0 else "FAIL",
+            "exit_code": verification.get("exit_code"),
+            "commit": release_git.get("commit"),
+            "application_source_commit": release_git.get("application_source_commit"),
+            "output_path": release_output_path,
+            "output_sha256": sha256_file(Path(release_output_path)) if isinstance(release_output_path, str) else None,
+            "stderr_path": release_stderr_path,
+            "stderr_sha256": sha256_file(Path(release_stderr_path)) if isinstance(release_stderr_path, str) else None,
+            "checks": {
+                "security": "PASS; release reached and passed the security audit"
+                if verification.get("exit_code") == 0
+                else "NOT_PROVEN; release stopped before all gates completed",
+            },
+            "runtime": verification["runtime"],
+        }
+        release_evidence_path = evidence_dir / "release-check-current.json"
+        write_json(release_evidence_path, release_evidence)
+        verification["release_evidence"] = str(release_evidence_path)
         passed = verification.get("exit_code") == 0
         reason = "current-source release gate passed" if passed else "release gate produced a current failure/blocker"
     else:

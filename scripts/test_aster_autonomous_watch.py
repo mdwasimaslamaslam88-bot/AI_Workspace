@@ -236,6 +236,20 @@ def test_trusted_parent_release_gate_resolves_current_node_under_service_path():
     assert resolved["environment"]["PATH"].startswith(str(Path(resolved["node_path"]).parent))
 
 
+def test_parent_command_record_can_persist_untruncated_output(tmp_path):
+    result = controller.command_record(
+        [sys.executable, "-c", "print('stdout-' + 'x' * 6000)"],
+        tmp_path,
+        timeout=10,
+        output_directory=tmp_path / "evidence",
+    )
+    stdout_path = Path(result["stdout_path"])
+    assert result["exit_code"] == 0
+    assert stdout_path.read_text(encoding="utf-8").startswith("stdout-")
+    assert len(stdout_path.read_text(encoding="utf-8")) > 4000
+    assert _file_digest(stdout_path) == result["stdout_sha256"]
+
+
 def test_discovery_freshly_probes_all_exact_candidates_and_requires_both_limits():
     references = list(controller.HOST_CONTROLLER_CANDIDATES)
     probed = []
