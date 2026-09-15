@@ -7,7 +7,7 @@ PASS           : 457
 PARTIAL        : 1
 FAIL           : 1
 ISSUES         : 0
-CURRENT        : ASTER-STATE-MERGE-001
+CURRENT        : ASTER-RUNTIME-PROVENANCE-001
 PHASE          : ACCEPTANCE_TASK
 CANDIDATE      : None
 ASTER→AI OS    : PARTIAL: current owner-authenticated HTTP exchange and integrity verified; fabricated exec
@@ -21,6 +21,6 @@ WEB            : 206 PASS
 MOBILE         : 64 PASS
 PERFORMANCE    : mean 8.1462s / P95 16.5442s
 GIT            : CLEAN_SYNCED
-COMMIT         : 4c9b37a1c94193aa974166eb505eb05011e6afb6
-NEXT ACTION    : Run the isolated both-write-order and restart regression for the external-watch cycle metadata bundle.
+COMMIT         : 825cbfb47537b58fda055ce10c46874863b1cdcf
+NEXT ACTION    : Re-observe the authenticated current runtime and validate source, backend and web identity against the current application source.
 ========================================================

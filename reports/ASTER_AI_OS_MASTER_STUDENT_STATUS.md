@@ -2,16 +2,16 @@
 
 Iteration 4. Overall readiness is **NOT READY**.
 
-Current source commit: `4c9b37a1c94193aa974166eb505eb05011e6afb6`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
+Current source commit: `825cbfb47537b58fda055ce10c46874863b1cdcf`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
 
 ## Current measured state
 
 - Canonical benchmark: **97.83/100**, 457 PASS, 1 PARTIAL, 1 FAIL; mean 8.1462s, P95 16.5442s.
 - Issues: 0 locally unresolved, 24 fixed/verified, 7 externally blocked.
-- Current issue/action: `ASTER-STATE-MERGE-001` — Run the isolated both-write-order and restart regression for the external-watch cycle metadata bundle.
+- Current issue/action: `ASTER-RUNTIME-PROVENANCE-001` — Re-observe the authenticated current runtime and validate source, backend and web identity against the current application source.
 - Controller phase: **ACCEPTANCE_TASK**.
 - Runtime identity: **HISTORICAL_PASS_REQUIRES_CURRENT_ATTESTATION**; evidence `/home/md-wasim/AI_Workspace_Data/aster-evidence/20260915-current-provenance/runtime-identity-current.json`.
-- Git: **CLEAN_SYNCED** at `4c9b37a1c94193aa974166eb505eb05011e6afb6`.
+- Git: **CLEAN_SYNCED** at `825cbfb47537b58fda055ce10c46874863b1cdcf`.
 
 ## Queue classifications
 
@@ -53,7 +53,7 @@ Current source commit: `4c9b37a1c94193aa974166eb505eb05011e6afb6`. Evidence root
 
 | Task | Status | Dependencies | Blocker |
 | --- | --- | --- | --- |
-| ASTER-STATE-MERGE-001 | READY | none |  |
+| ASTER-STATE-MERGE-001 | COMPLETE | none |  |
 | ASTER-RUNTIME-PROVENANCE-001 | PENDING | ASTER-STATE-MERGE-001 |  |
 | ASTER-RELEASE-VALIDATION-001 | PENDING | ASTER-RUNTIME-PROVENANCE-001 |  |
 | ASTER-CANONICAL-CODER-001 | BLOCKED_EXTERNAL | none | All configured candidates are rejected or acquisition-blocked; a new eligible verified model/digest is required. |
