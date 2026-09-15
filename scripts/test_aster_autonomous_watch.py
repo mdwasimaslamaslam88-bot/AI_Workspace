@@ -162,6 +162,16 @@ def test_codex_resolver_finds_verified_current_cli_with_service_like_path():
     assert "/.nvm/versions/node/" in resolved["path"]
 
 
+def test_trusted_parent_release_gate_resolves_current_node_under_service_path():
+    """Parent release checks must not inherit systemd's stale Node 18 PATH."""
+    service_path = "/home/md-wasim/.local/bin:/usr/bin"
+    with patch.dict(os.environ, {"PATH": service_path}, clear=False):
+        resolved = controller.resolve_node_runtime()
+    assert resolved["node_version"] == "24.19.0"
+    assert "/.nvm/versions/node/" in resolved["node_path"]
+    assert resolved["environment"]["PATH"].startswith(str(Path(resolved["node_path"]).parent))
+
+
 def test_discovery_freshly_probes_all_exact_candidates_and_requires_both_limits():
     references = list(controller.HOST_CONTROLLER_CANDIDATES)
     probed = []

@@ -246,6 +246,7 @@ def safe_text(value: Any, limit: int = 4000) -> str:
 
 
 CODEX_VERSION_PATTERN = re.compile(r"codex-cli\s+v?(\d+)\.(\d+)\.(\d+)", re.IGNORECASE)
+NODE_VERSION_PATTERN = re.compile(r"v?(\d+)\.(\d+)\.(\d+)")
 COMMIT_PATTERN = re.compile(r"^[0-9a-f]{40,64}$")
 SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 
@@ -382,6 +383,98 @@ def resolve_codex_cli() -> dict[str, Any]:
         "version": selected["version"],
         "selection": "explicit" if explicit else "highest_verified_semver",
         "candidates": tested,
+    }
+
+
+def resolve_node_runtime(base_environment: dict[str, str] | None = None) -> dict[str, Any]:
+    """Resolve a supported Node/npm pair for trusted parent-side gates.
+
+    systemd user services intentionally have a minimal PATH.  If that PATH
+    selects an older system Node, modern workspace tooling can fail before the
+    release gate starts (for example, ``node:util`` lacking ``styleText``).
+    Discover user-managed NVM installations as well as PATH candidates and
+    select the highest verified semantic version without pinning a stale
+    release.  The returned environment only prepends the selected bin
+    directory; all other variables remain unchanged.
+    """
+    environment = dict(base_environment or os.environ)
+    path_value = environment.get("PATH", "")
+    raw_nodes: list[Path] = []
+    for entry in path_value.split(os.pathsep):
+        if entry:
+            raw_nodes.append(Path(entry) / "node")
+    located = shutil.which("node", path=path_value)
+    if located:
+        raw_nodes.append(Path(located))
+    nvm_root = Path.home() / ".nvm" / "versions" / "node"
+    try:
+        raw_nodes.extend(sorted(nvm_root.glob("*/bin/node")))
+    except OSError:
+        pass
+
+    candidates: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for raw in raw_nodes:
+        try:
+            path = raw.resolve(strict=True)
+        except OSError:
+            continue
+        key = str(path)
+        if key in seen or not path.is_file() or not os.access(path, os.X_OK):
+            continue
+        seen.add(key)
+        try:
+            version_result = subprocess.run(
+                [str(path), "--version"],
+                cwd=str(REPOSITORY_ROOT),
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                timeout=5,
+                check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired) as error:
+            candidates.append({"path": str(path), "status": f"VERSION_PROBE_FAILED: {error}"})
+            continue
+        version_output = f"{version_result.stdout}\n{version_result.stderr}".strip()
+        match = NODE_VERSION_PATTERN.fullmatch(version_output)
+        npm_path = path.parent / "npm"
+        if version_result.returncode != 0 or not match or not npm_path.is_file() or not os.access(npm_path, os.X_OK):
+            candidates.append(
+                {
+                    "path": str(path),
+                    "npm_path": str(npm_path),
+                    "status": "VERSION_INVALID_OR_NPM_MISSING",
+                    "exit_code": version_result.returncode,
+                    "output": safe_text(version_output, 500),
+                }
+            )
+            continue
+        version = ".".join(match.groups())
+        candidates.append(
+            {
+                "path": str(path),
+                "npm_path": str(npm_path),
+                "version": version,
+                "version_sort_key": [int(part) for part in match.groups()],
+                "status": "VERIFIED",
+            }
+        )
+
+    verified = [item for item in candidates if item.get("status") == "VERIFIED"]
+    if not verified:
+        raise RuntimeError(f"no verified Node/npm runtime found: {candidates}")
+    selected = max(verified, key=lambda item: tuple(item["version_sort_key"]))
+    bin_dir = str(Path(str(selected["path"])).parent)
+    existing_path = environment.get("PATH", "")
+    environment["PATH"] = bin_dir + (os.pathsep + existing_path if existing_path else "")
+    return {
+        "node_path": selected["path"],
+        "npm_path": selected["npm_path"],
+        "node_version": selected["version"],
+        "selection": "highest_verified_semver",
+        "candidates": candidates,
+        "environment": environment,
     }
 
 
@@ -3074,11 +3167,20 @@ def verify_acceptance_task(
         }
         reason = "authenticated current runtime identity is content-verified" if passed else "current runtime identity is not fully proven"
     elif task_id == "ASTER-RELEASE-VALIDATION-001":
+        node_runtime = resolve_node_runtime()
         verification = command_record(
             [str(REPOSITORY_ROOT / "scripts/release_check.sh"), "--with-runtime", "--require-clean"],
             REPOSITORY_ROOT,
             timeout=1800,
+            environment=node_runtime["environment"],
         )
+        verification["runtime"] = {
+            "node_path": node_runtime["node_path"],
+            "npm_path": node_runtime["npm_path"],
+            "node_version": node_runtime["node_version"],
+            "selection": node_runtime["selection"],
+            "candidates": node_runtime["candidates"],
+        }
         passed = verification.get("exit_code") == 0
         reason = "current-source release gate passed" if passed else "release gate produced a current failure/blocker"
     else:
