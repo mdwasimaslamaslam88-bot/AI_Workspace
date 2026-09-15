@@ -31,6 +31,7 @@ import tempfile
 import time
 from typing import Any, Iterator
 import urllib.error
+from urllib.parse import urlsplit
 import urllib.request
 
 
@@ -582,6 +583,32 @@ def capture_current_runtime_attestation(
         "session_revocation": {},
     }
     access_token = ""
+    try:
+        parsed_origin = urlsplit(api_origin)
+        if (
+            parsed_origin.scheme != "http"
+            or parsed_origin.hostname != "127.0.0.1"
+            or parsed_origin.username
+            or parsed_origin.password
+            or parsed_origin.path not in {"", "/"}
+            or parsed_origin.query
+            or parsed_origin.fragment
+            or not 1 <= (parsed_origin.port or 80) <= 65535
+        ):
+            raise ValueError("runtime attestation origin must be loopback HTTP")
+        api_origin = f"http://127.0.0.1:{parsed_origin.port or 80}"
+        records["api_origin"] = api_origin
+    except ValueError as error:
+        records["error"] = type(error).__name__
+        records["session_revocation"] = {
+            "status": 0,
+            "accepted": False,
+            "error": "NO_ACCESS_TOKEN",
+        }
+        records["duration_seconds"] = round(time.monotonic() - started, 4)
+        records["objective_pass"] = False
+        write_json(evidence_dir / "runtime-identity-current.json", records, mode=0o600)
+        return records
 
     def request_json(
         method: str,

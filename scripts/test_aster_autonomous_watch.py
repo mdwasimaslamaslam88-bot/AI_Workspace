@@ -250,6 +250,14 @@ def test_parent_command_record_can_persist_untruncated_output(tmp_path):
     assert _file_digest(stdout_path) == result["stdout_sha256"]
 
 
+def test_runtime_attestation_rejects_non_loopback_origin_without_request(tmp_path):
+    with patch.dict(os.environ, {"ASTER_RUNTIME_API_ORIGIN": "https://attacker.invalid"}):
+        result = controller.capture_current_runtime_attestation(tmp_path, "a" * 40)
+    assert result["objective_pass"] is False
+    assert result["error"] == "ValueError"
+    assert result["session_revocation"]["error"] == "NO_ACCESS_TOKEN"
+
+
 def test_discovery_freshly_probes_all_exact_candidates_and_requires_both_limits():
     references = list(controller.HOST_CONTROLLER_CANDIDATES)
     probed = []
