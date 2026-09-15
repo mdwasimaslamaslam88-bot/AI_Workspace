@@ -779,6 +779,60 @@ def acceptance_task_records(state: dict[str, Any]) -> dict[str, dict[str, Any]]:
     return raw
 
 
+def _task_validated_source_commit(task: dict[str, Any]) -> str | None:
+    value = task.get("validated_source_commit")
+    if isinstance(value, str) and COMMIT_PATTERN.fullmatch(value):
+        return value
+    last_result = task.get("last_result")
+    if isinstance(last_result, dict):
+        parent = last_result.get("parent_verification")
+        verification = parent.get("verification") if isinstance(parent, dict) else None
+        observations = verification.get("observations") if isinstance(verification, dict) else None
+        git = observations.get("git") if isinstance(observations, dict) else None
+        value = git.get("application_source_commit") if isinstance(git, dict) else None
+        if isinstance(value, str) and COMMIT_PATTERN.fullmatch(value):
+            return value
+    report_commit = task.get("last_report_commit")
+    if isinstance(report_commit, dict):
+        git = report_commit.get("git")
+        value = git.get("application_source_commit") if isinstance(git, dict) else None
+        if isinstance(value, str) and COMMIT_PATTERN.fullmatch(value):
+            return value
+    return None
+
+
+def refresh_source_bound_acceptance_tasks(
+    state: dict[str, Any], source_commit: str | None
+) -> bool:
+    """Reopen current-source gates when application code has changed.
+
+    Report-only commits do not invalidate application evidence because
+    ``source_commit`` is the bounded application ancestry tip. A real source
+    change does invalidate runtime/release attestations and must schedule
+    those gates again before they can support readiness.
+    """
+    if not isinstance(source_commit, str) or not COMMIT_PATTERN.fullmatch(source_commit):
+        return False
+    changed = False
+    tasks = acceptance_task_records(state)
+    for task_id in ("ASTER-RUNTIME-PROVENANCE-001", "ASTER-RELEASE-VALIDATION-001"):
+        task = tasks.get(task_id)
+        if not isinstance(task, dict) or task.get("status") not in {
+            "COMPLETE", "COMPLETE_WITH_EXTERNAL"
+        }:
+            continue
+        validated = _task_validated_source_commit(task)
+        if validated and validated != source_commit:
+            task["status"] = "RETRY" if task_id == "ASTER-RUNTIME-PROVENANCE-001" else "PENDING"
+            task["blocker"] = (
+                f"Application source changed from {validated} to {source_commit}; "
+                "current-source evidence must be recaptured."
+            )
+            task["updated_at"] = utc_now()
+            changed = True
+    return changed
+
+
 def choose_acceptance_task(state: dict[str, Any]) -> dict[str, Any] | None:
     tasks = acceptance_task_records(state)
     order = {"P0": 0, "P1": 1, "P2": 2, "P3": 3, "P4": 4}
@@ -1144,7 +1198,7 @@ def _merge_external_watch(disk_value: Any, local_value: Any) -> dict[str, Any]:
 
 
 def _merge_acceptance_tasks(disk_value: Any, local_value: Any) -> dict[str, Any]:
-    """Merge task decisions without allowing a stale owner to reopen work."""
+    """Merge task decisions without losing evidence or reopening newer work."""
     disk = disk_value if isinstance(disk_value, dict) else {}
     local = local_value if isinstance(local_value, dict) else {}
     merged = copy.deepcopy(disk)
@@ -1161,14 +1215,33 @@ def _merge_acceptance_tasks(disk_value: Any, local_value: Any) -> dict[str, Any]
         if disk_status in terminal and local_status not in terminal:
             # A later stale writer may still have READY/PENDING in memory;
             # completed decisions and their evidence are durable facts.
-            continue
-        merged[task_id] = _newer_event(disk_task, local_task)
+            selected = copy.deepcopy(disk_task)
+        else:
+            selected = _newer_event(disk_task, local_task)
+        # Task-level timestamps protect status/blocker decisions, while the
+        # nested result has its own cycle/attempt timestamp. Merge it
+        # independently so a later report/watch writer cannot erase a trusted
+        # parent result merely because its task snapshot is stale.
+        for key in ("last_result", "last_report_commit"):
+            selected[key] = _newer_event(disk_task.get(key), local_task.get(key))
+        selected["attempts"] = max(
+            int(disk_task.get("attempts", 0) or 0),
+            int(local_task.get("attempts", 0) or 0),
+        )
         if isinstance(disk_task.get("evidence"), list) or isinstance(local_task.get("evidence"), list):
             evidence = []
             for source in (disk_task.get("evidence"), local_task.get("evidence")):
                 if isinstance(source, list):
                     evidence.extend(str(item) for item in source)
-            merged[task_id]["evidence"] = list(dict.fromkeys(evidence))[-20:]
+            selected["evidence"] = list(dict.fromkeys(evidence))[-20:]
+        # Source binding is part of the decision, not cosmetic report data.
+        # Preserve the newest valid binding even when a stale task snapshot is
+        # otherwise selected.
+        selected["validated_source_commit"] = _newer_event(
+            disk_task.get("validated_source_commit"),
+            local_task.get("validated_source_commit"),
+        )
+        merged[task_id] = selected
     return merged
 
 
@@ -3274,6 +3347,7 @@ def acceptance_task_iteration(
         "parent_verification": parent,
         "child": child,
     }
+    task["validated_source_commit"] = source_commit
     task.setdefault("evidence", []).append(str(cycle_root))
     task["evidence"] = task["evidence"][-20:]
     if objective_pass:
@@ -3291,6 +3365,7 @@ def acceptance_task_iteration(
     else:
         task["status"] = "FAILED"
         task["blocker"] = "Child identity or trusted parent verification failed; do not promote the task."
+    task["updated_at"] = utc_now()
     task_status = str(task.get("status"))
     task_blocker = task.get("blocker")
     next_task = choose_acceptance_task(state)
@@ -3838,6 +3913,13 @@ def run_external_watch(args: argparse.Namespace, state: dict[str, Any], evidence
     for offset in range(args.max_watch_cycles):
         queue = current_queue()
         observations = observe(evidence_root)
+        if refresh_source_bound_acceptance_tasks(
+            state, observed_source_commit(observations)
+        ):
+            # Source-bound runtime/release decisions were invalidated by a
+            # real application change; checkpoint before selecting the next
+            # child so a restart cannot lose the revalidation requirement.
+            persist_state(state, evidence_root)
         if readiness(queue, observations)[0]:
             state["controller_phase"] = "READY"
             persist_state(state, evidence_root)

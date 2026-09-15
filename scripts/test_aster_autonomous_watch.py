@@ -131,6 +131,64 @@ def test_persist_state_cycle_bundle_survives_both_write_orders(tmp_path):
         _persist_cycle_race(tmp_path / f"order-{first_cycle}-{second_cycle}", first_cycle, second_cycle)
 
 
+def test_acceptance_result_and_exclusion_survive_stale_writer_restart(tmp_path):
+    """A stale task snapshot cannot erase a newer trusted result or evidence."""
+    for first, second in (("fresh", "stale"), ("stale", "fresh")):
+        root = tmp_path / f"task-order-{first}-{second}"
+        initial = controller.load_or_create_state(root)
+        controller.persist_state(initial, root)
+        fresh = controller.load_or_create_state(root)
+        stale = controller.load_or_create_state(root)
+        fresh_task = fresh["acceptance_tasks"]["ASTER-STATE-MERGE-001"]
+        fresh_task.update(
+            {
+                "status": "COMPLETE",
+                "attempts": 2,
+                "updated_at": "2026-09-16T00:00:12+00:00",
+                "validated_source_commit": "b" * 40,
+                "evidence": ["/evidence/cycle-0012"],
+                "last_result": {
+                    "timestamp": "2026-09-16T00:00:12+00:00",
+                    "cycle": 12,
+                    "objective_pass": True,
+                    "excluded_candidate": "rejected:1b",
+                },
+            }
+        )
+        stale_task = stale["acceptance_tasks"]["ASTER-STATE-MERGE-001"]
+        stale_task.update(
+            {
+                "status": "READY",
+                "attempts": 1,
+                "updated_at": "2026-09-16T00:00:11+00:00",
+                "evidence": ["/evidence/cycle-0011"],
+                "last_result": None,
+            }
+        )
+        writers = {"fresh": fresh, "stale": stale}
+        controller.persist_state(writers[first], root)
+        controller.persist_state(writers[second], root)
+        recovered = controller.load_or_create_state(root)
+        result = recovered["acceptance_tasks"]["ASTER-STATE-MERGE-001"]
+        assert result["status"] == "COMPLETE"
+        assert result["attempts"] == 2
+        assert result["validated_source_commit"] == "b" * 40
+        assert result["last_result"]["cycle"] == 12
+        assert set(result["evidence"]) == {"/evidence/cycle-0011", "/evidence/cycle-0012"}
+
+
+def test_source_change_reopens_current_runtime_and_release_gates(tmp_path):
+    state = controller.load_or_create_state(tmp_path / "source-refresh")
+    old = "a" * 40
+    current = "b" * 40
+    for task_id in ("ASTER-RUNTIME-PROVENANCE-001", "ASTER-RELEASE-VALIDATION-001"):
+        task = state["acceptance_tasks"][task_id]
+        task.update({"status": "COMPLETE", "validated_source_commit": old})
+    assert controller.refresh_source_bound_acceptance_tasks(state, current) is True
+    assert state["acceptance_tasks"]["ASTER-RUNTIME-PROVENANCE-001"]["status"] == "RETRY"
+    assert state["acceptance_tasks"]["ASTER-RELEASE-VALIDATION-001"]["status"] == "PENDING"
+
+
 def test_terminal_queue_enters_watch():
     state = {"overall_ready": False, "next_prompt": "wait for candidate"}
     queue = {"issues": [{"id": "ASTER-006", "status": "BLOCKED_EXTERNAL"}]}
