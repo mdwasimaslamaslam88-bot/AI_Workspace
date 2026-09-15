@@ -2876,7 +2876,7 @@ def render_reports(
         "",
         f"Iteration {state.get('iteration', 0)}. Overall readiness is **{'TRUE' if ready else 'NOT READY'}**.",
         "",
-        f"Current source commit: `{git.get('commit', 'unknown')}`. Evidence root: `{evidence_root}`.",
+        f"Current application source commit: `{git.get('application_source_commit') or git.get('commit', 'unknown')}`. Report tip commit: `{git.get('commit', 'unknown')}`. Evidence root: `{evidence_root}`.",
         "",
         "## Current measured state",
         "",
@@ -3014,6 +3014,7 @@ def render_reports(
             f"PERFORMANCE    : mean {benchmark.get('mean', '?')}s / P95 {benchmark.get('p95', '?')}s",
             f"GIT            : {git.get('status', 'UNKNOWN')}",
             f"COMMIT         : {git.get('commit', 'unknown')}",
+            f"SOURCE         : {git.get('application_source_commit') or git.get('commit', 'unknown')}",
             f"NEXT ACTION    : {state.get('current_action')}",
             "========================================================",
         ]
