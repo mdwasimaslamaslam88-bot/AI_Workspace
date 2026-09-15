@@ -2,16 +2,16 @@
 
 Iteration 4. Overall readiness is **NOT READY**.
 
-Current source commit: `3c2b65b52812e1442582e90028e69962a79de36b`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
+Current source commit: `96b2d9c50e7d890bc8d5f68fc6efd889d6cbd651`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
 
 ## Current measured state
 
 - Canonical benchmark: **97.83/100**, 457 PASS, 1 PARTIAL, 1 FAIL; mean 8.1462s, P95 16.5442s.
 - Issues: 0 locally unresolved, 24 fixed/verified, 7 externally blocked.
-- Current issue/action: `ASTER-RELEASE-VALIDATION-001` — Run the existing current-source release/security/artifact validation at the settled source tip and preserve every external failure.
-- Controller phase: **ACCEPTANCE_TASK**.
+- Current issue/action: `NONE` — No eligible coding candidate is currently available; preserve all exclusions and continue the bounded external watch.
+- Controller phase: **WATCH_EXTERNAL_GAP**.
 - Runtime identity: **PASS**; evidence `/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-0868/runtime-identity-current.json`.
-- Git: **CLEAN_SYNCED** at `3c2b65b52812e1442582e90028e69962a79de36b`.
+- Git: **CLEAN_SYNCED** at `96b2d9c50e7d890bc8d5f68fc6efd889d6cbd651`.
 
 ## Queue classifications
 
@@ -55,7 +55,7 @@ Current source commit: `3c2b65b52812e1442582e90028e69962a79de36b`. Evidence root
 | --- | --- | --- | --- |
 | ASTER-STATE-MERGE-001 | COMPLETE | none |  |
 | ASTER-RUNTIME-PROVENANCE-001 | COMPLETE | ASTER-STATE-MERGE-001 |  |
-| ASTER-RELEASE-VALIDATION-001 | PENDING | ASTER-RUNTIME-PROVENANCE-001 | Application source changed from 91714006aa0dfb8b2fd33a35fc61a65c2db937a0 to a9692a8acfb9d162ca44b6b150d9eb4bd1b37c32; current-source evidence must be recaptured. |
+| ASTER-RELEASE-VALIDATION-001 | COMPLETE_WITH_EXTERNAL | ASTER-RUNTIME-PROVENANCE-001 | Current release validation did not pass; preserve its exact output and continue with external/native blockers visible. |
 | ASTER-CANONICAL-CODER-001 | BLOCKED_EXTERNAL | none | All configured candidates are rejected or acquisition-blocked; a new eligible verified model/digest is required. |
 | ASTER-REVERSE-CALLBACK-001 | BLOCKED_EXTERNAL | none | The supported parent MCP/reverse callback endpoint rejects the available credential or is unavailable. |
 | ASTER-DEX-001 | BLOCKED_EXTERNAL | none | The host sandbox denies the required network namespace operation (RTM_NEWADDR/EPERM). |

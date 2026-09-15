@@ -7,8 +7,8 @@ PASS           : 457
 PARTIAL        : 1
 FAIL           : 1
 ISSUES         : 0
-CURRENT        : ASTER-RELEASE-VALIDATION-001
-PHASE          : ACCEPTANCE_TASK
+CURRENT        : NONE
+PHASE          : WATCH_EXTERNAL_GAP
 CANDIDATE      : None
 ASTER→AI OS    : PARTIAL: current owner-authenticated HTTP exchange and integrity verified; fabricated exec
 AI OS→ASTER    : BLOCKED_EXTERNAL: parent MCP/reverse callback is not available; no bidirectional verificat
@@ -21,6 +21,6 @@ WEB            : 206 PASS
 MOBILE         : 64 PASS
 PERFORMANCE    : mean 8.1462s / P95 16.5442s
 GIT            : CLEAN_SYNCED
-COMMIT         : 3c2b65b52812e1442582e90028e69962a79de36b
-NEXT ACTION    : Run the existing current-source release/security/artifact validation at the settled source tip and preserve every external failure.
+COMMIT         : 96b2d9c50e7d890bc8d5f68fc6efd889d6cbd651
+NEXT ACTION    : No eligible coding candidate is currently available; preserve all exclusions and continue the bounded external watch.
 ========================================================
