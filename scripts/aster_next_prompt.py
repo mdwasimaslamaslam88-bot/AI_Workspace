@@ -106,6 +106,92 @@ WATCH_CYCLE_METADATA_KEYS = frozenset(
     }
 )
 
+# The issue queue records product defects and external blockers.  It is not a
+# complete release work queue: current-source provenance and controller
+# integrity still need work after all queue entries become terminal.  Keep
+# those bounded tasks in the same persisted controller state so the canonical
+# owner can select them before returning to external model watch.
+ACCEPTANCE_TASK_SPECS = (
+    {
+        "id": "ASTER-STATE-MERGE-001",
+        "priority": "P0",
+        "title": "Verify monotonic persisted state merge",
+        "action": "Run the isolated both-write-order and restart regression for the external-watch cycle metadata bundle.",
+        "dependencies": [],
+        "verification": "The focused regression passes in a temporary evidence root and proves cycle, evidence, action, decision and exclusions remain consistent after restart.",
+    },
+    {
+        "id": "ASTER-RUNTIME-PROVENANCE-001",
+        "priority": "P1",
+        "title": "Verify current runtime identity",
+        "action": "Re-observe the authenticated current runtime and validate source, backend and web identity against the current application source.",
+        "dependencies": ["ASTER-STATE-MERGE-001"],
+        "verification": "Parent-side observation reports runtime identity PASS with current-source content hashes; historical benchmark/release gaps remain explicit.",
+    },
+    {
+        "id": "ASTER-RELEASE-VALIDATION-001",
+        "priority": "P1",
+        "title": "Run current-source release validation",
+        "action": "Run the existing current-source release/security/artifact validation at the settled source tip and preserve every external failure.",
+        "dependencies": ["ASTER-RUNTIME-PROVENANCE-001"],
+        "verification": "The existing release gate produces hashable current evidence or a precise external/native-platform blocker; no historical report is relabeled.",
+    },
+    {
+        "id": "ASTER-CANONICAL-CODER-001",
+        "priority": "P2",
+        "title": "Resolve unchanged canonical coder cases",
+        "action": "Admit a genuinely new coding-capable model only through the existing integrity and trusted 8-record gate.",
+        "dependencies": [],
+        "verification": "Both unchanged coder cases pass all eight objective route/case records and the unchanged 459-case benchmark has no non-pass.",
+        "external_blocker": "All configured candidates are rejected or acquisition-blocked; a new eligible verified model/digest is required.",
+    },
+    {
+        "id": "ASTER-REVERSE-CALLBACK-001",
+        "priority": "P4",
+        "title": "Verify AI OS to ASTER callback",
+        "action": "Execute the authenticated reverse callback through the supported parent MCP transport.",
+        "dependencies": [],
+        "verification": "Executable owner/capability/correlation-validated callback and audit evidence exists in the current runtime.",
+        "external_blocker": "The supported parent MCP/reverse callback endpoint rejects the available credential or is unavailable.",
+    },
+    {
+        "id": "ASTER-DEX-001",
+        "priority": "P4",
+        "title": "Verify DEX live boundary",
+        "action": "Re-test the existing DEX gateway under the current host permissions without bypassing the sandbox.",
+        "dependencies": [],
+        "verification": "Live DEX communication has capability/provenance evidence, or the host restriction is reproduced and fail-closed evidence is preserved.",
+        "external_blocker": "The host sandbox denies the required network namespace operation (RTM_NEWADDR/EPERM).",
+    },
+    {
+        "id": "ASTER-VOICE-001",
+        "priority": "P4",
+        "title": "Verify canonical voice path",
+        "action": "Re-run the current voice path and exact-WAV replay with objective transcript and cleanup evidence.",
+        "dependencies": [],
+        "verification": "Voice result is classified LOCAL_PASS, PARTIAL or BLOCKED_EXTERNAL from current evidence; no model prose is accepted.",
+        "external_blocker": "Stable provider/hardware behavior for the remaining acoustic/model variance is unavailable.",
+    },
+)
+
+
+def default_acceptance_tasks() -> dict[str, dict[str, Any]]:
+    now = utc_now()
+    tasks: dict[str, dict[str, Any]] = {}
+    for spec in ACCEPTANCE_TASK_SPECS:
+        task = copy.deepcopy(spec)
+        task.update(
+            {
+                "status": "READY" if not spec.get("dependencies") and "external_blocker" not in spec else ("PENDING" if spec.get("dependencies") else "BLOCKED_EXTERNAL"),
+                "attempts": 0,
+                "updated_at": now,
+                "evidence": [],
+                "last_result": None,
+            }
+        )
+        tasks[str(spec["id"])] = task
+    return tasks
+
 
 def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -559,6 +645,47 @@ def choose_issue(queue: dict[str, Any]) -> dict[str, Any] | None:
     )[0]
 
 
+def acceptance_task_records(state: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    raw = state.get("acceptance_tasks")
+    if not isinstance(raw, dict):
+        raw = default_acceptance_tasks()
+        state["acceptance_tasks"] = raw
+    # Add newly introduced task definitions without resetting existing status,
+    # evidence, exclusions or retry budgets from an older controller.
+    for task_id, spec in default_acceptance_tasks().items():
+        current = raw.get(task_id)
+        if not isinstance(current, dict):
+            raw[task_id] = spec
+            continue
+        for key, value in spec.items():
+            current.setdefault(key, copy.deepcopy(value))
+    return raw
+
+
+def choose_acceptance_task(state: dict[str, Any]) -> dict[str, Any] | None:
+    tasks = acceptance_task_records(state)
+    order = {"P0": 0, "P1": 1, "P2": 2, "P3": 3, "P4": 4}
+    eligible: list[dict[str, Any]] = []
+    terminal = {"COMPLETE", "COMPLETE_WITH_EXTERNAL", "BLOCKED_EXTERNAL"}
+    for task in tasks.values():
+        if not isinstance(task, dict) or task.get("status") not in {"READY", "PENDING", "RETRY"}:
+            continue
+        dependencies = task.get("dependencies", [])
+        if not isinstance(dependencies, list):
+            dependencies = []
+        if any(
+            not isinstance(tasks.get(str(dependency)), dict)
+            or tasks[str(dependency)].get("status") not in terminal
+            for dependency in dependencies
+        ):
+            continue
+        eligible.append(task)
+    return sorted(
+        eligible,
+        key=lambda item: (order.get(str(item.get("priority")), 9), str(item.get("id", ""))),
+    )[0] if eligible else None
+
+
 def evidence_items(issue: dict[str, Any]) -> list[str]:
     values = issue.get("evidence", [])
     if isinstance(values, list):
@@ -712,6 +839,47 @@ NEXT_PROMPT_END
 """
 
 
+def build_acceptance_task_prompt(
+    task: dict[str, Any], observations: dict[str, Any], evidence: str
+) -> str:
+    source_commit = observed_source_commit(observations) or "unknown"
+    dependencies = ", ".join(str(item) for item in task.get("dependencies", [])) or "none"
+    return f"""ASTER ACCEPTANCE TASK — {task.get('id')}
+
+This is one bounded child in the existing ASTER controller. Do not create a
+new orchestration layer and do not commit source changes from the child.
+Repository: {REPOSITORY_ROOT}
+Current application source commit: {source_commit}
+Evidence directory: {evidence}
+Task title: {task.get('title')}
+Dependencies: {dependencies}
+
+Required action:
+{task.get('action')}
+
+Inspect the current source, persisted reports and linked evidence. Separate
+current evidence from historical evidence. Do not claim a runtime, release,
+security, callback, DEX, voice or benchmark PASS from prose or file presence.
+The trusted parent will independently run the task verification and may keep
+the task incomplete even if your inspection is optimistic.
+
+Verification criteria:
+{task.get('verification')}
+
+At the end emit exactly one result block with CURRENT_ISSUE set to
+{task.get('id')} and a concrete next prompt for the next eligible task:
+ASTER_LOOP_RESULT
+STATUS=<READY|NOT_READY|BLOCKED|FAILED>
+ISSUES_REMAINING=<integer>
+CURRENT_ISSUE={task.get('id')}
+ACTION=<short action>
+VERIFICATION=<PASS|FAIL|PARTIAL|BLOCKED>
+NEXT_PROMPT_BEGIN
+<exact concrete next prompt>
+NEXT_PROMPT_END
+"""
+
+
 def load_or_create_state(evidence_root: Path) -> dict[str, Any]:
     path = evidence_root / "current_state.json"
     value = read_json(path, {})
@@ -738,6 +906,8 @@ def load_or_create_state(evidence_root: Path) -> dict[str, Any]:
     value.setdefault("last_codex_cli", None)
     value.setdefault("controller_phase", "RUNNING")
     value.setdefault("external_watch", {})
+    value.setdefault("acceptance_tasks", default_acceptance_tasks())
+    acceptance_task_records(value)
     value.pop(STATE_INTERNAL_BASE_SNAPSHOT, None)
     value[STATE_INTERNAL_BASE_SNAPSHOT] = copy.deepcopy(value)
     return value
@@ -856,6 +1026,35 @@ def _merge_external_watch(disk_value: Any, local_value: Any) -> dict[str, Any]:
     return merged
 
 
+def _merge_acceptance_tasks(disk_value: Any, local_value: Any) -> dict[str, Any]:
+    """Merge task decisions without allowing a stale owner to reopen work."""
+    disk = disk_value if isinstance(disk_value, dict) else {}
+    local = local_value if isinstance(local_value, dict) else {}
+    merged = copy.deepcopy(disk)
+    terminal = {"COMPLETE", "COMPLETE_WITH_EXTERNAL", "BLOCKED_EXTERNAL"}
+    for task_id, local_task in local.items():
+        if not isinstance(local_task, dict):
+            continue
+        disk_task = disk.get(task_id)
+        if not isinstance(disk_task, dict):
+            merged[task_id] = copy.deepcopy(local_task)
+            continue
+        disk_status = disk_task.get("status")
+        local_status = local_task.get("status")
+        if disk_status in terminal and local_status not in terminal:
+            # A later stale writer may still have READY/PENDING in memory;
+            # completed decisions and their evidence are durable facts.
+            continue
+        merged[task_id] = _newer_event(disk_task, local_task)
+        if isinstance(disk_task.get("evidence"), list) or isinstance(local_task.get("evidence"), list):
+            evidence = []
+            for source in (disk_task.get("evidence"), local_task.get("evidence")):
+                if isinstance(source, list):
+                    evidence.extend(str(item) for item in source)
+            merged[task_id]["evidence"] = list(dict.fromkeys(evidence))[-20:]
+    return merged
+
+
 def _merge_persisted_state(
     disk_state: dict[str, Any],
     state: dict[str, Any],
@@ -876,6 +1075,8 @@ def _merge_persisted_state(
     for key, value in changes.items():
         if key == "external_watch":
             merged[key] = _merge_external_watch(disk.get(key), value)
+        elif key == "acceptance_tasks":
+            merged[key] = _merge_acceptance_tasks(disk.get(key), value)
         elif key == "history":
             merged[key] = _merge_history(disk.get(key), value)
         elif key in {"last_result", "last_failure", "last_candidate_decision"}:
@@ -2081,7 +2282,7 @@ Only if both objective cases PASS may the parent proceed to genericity and full 
 
 def prompt_source_commit(prompt: str) -> str | None:
     match = re.search(
-        r"(?:Required|Current) source commit(?: at selection)?:\s*`?([0-9a-f]{40,64})",
+        r"(?:Required|Current) (?:application )?source commit(?: at selection)?:\s*`?([0-9a-f]{40,64})",
         prompt,
         re.IGNORECASE,
     )
@@ -2173,6 +2374,7 @@ def render_reports(
 ) -> dict[str, Any]:
     synchronize_queue_benchmark(queue, observations)
     selected = choose_issue(queue)
+    selected_task = choose_acceptance_task(state) if selected is None else None
     ready, readiness_reason = readiness(queue, observations)
     local_unresolved = [
         issue for issue in unresolved_issues(queue) if issue.get("status") != "BLOCKED_EXTERNAL"
@@ -2201,10 +2403,14 @@ def render_reports(
     # report-only commit is intentionally represented separately by the Git
     # history; this prevents self-referential commit claims.
     state["report_tip_commit"] = git.get("commit")
-    current_issue = selected.get("id") if selected else None
+    current_issue = selected.get("id") if selected else (selected_task.get("id") if selected_task else None)
     watch = state.get("external_watch") if isinstance(state.get("external_watch"), dict) else {}
     watch_action = watch.get("current_action") if isinstance(watch.get("current_action"), str) else None
-    current_action = required_action(selected) if selected else (watch_action or "Run final comprehensive validation and release gate.")
+    current_action = (
+        required_action(selected)
+        if selected
+        else (str(selected_task.get("action")) if selected_task else (watch_action or "Run final comprehensive validation and release gate."))
+    )
     remaining_internal_ids = [
         str(issue.get("id"))
         for issue in queue.get("issues", [])
@@ -2226,7 +2432,16 @@ def render_reports(
             "issues_fixed": len(fixed),
             "issues_blocked_externally": len(external_blocked),
             "next_prompt": state.get("next_prompt")
-            or (build_prompt(selected, observations) if selected else ""),
+            or (
+                build_prompt(selected, observations)
+                if selected
+                else (
+                    build_acceptance_task_prompt(selected_task, observations, str(evidence_root))
+                    if selected_task
+                    else ""
+                )
+            ),
+            "acceptance_tasks": state.get("acceptance_tasks", {}),
         }
     )
     persist_state(state, evidence_root)
@@ -2262,6 +2477,7 @@ def render_reports(
                 "last_codex_cli": state.get("last_codex_cli"),
                 "last_result": last_result,
                 "external_watch": state.get("external_watch", {}),
+                "acceptance_tasks": state.get("acceptance_tasks", {}),
             },
             "issues": queue.get("issues", []),
             "issue_counts": {
@@ -2300,6 +2516,19 @@ def render_reports(
             continue
         status_lines.append(
             f"| {issue.get('id')} | {issue.get('status')} | {issue_classification(issue)} | {issue_priority(issue)} |"
+        )
+    status_lines += [
+        "",
+        "## Acceptance task lane",
+        "",
+        "| Task | Status | Dependencies | Blocker |",
+        "| --- | --- | --- | --- |",
+    ]
+    for task in state.get("acceptance_tasks", {}).values():
+        if not isinstance(task, dict):
+            continue
+        status_lines.append(
+            f"| {task.get('id')} | {task.get('status')} | {', '.join(str(item) for item in task.get('dependencies', [])) or 'none'} | {task.get('blocker') or task.get('external_blocker') or ''} |"
         )
     status_lines += [
         "",
@@ -2372,6 +2601,8 @@ def render_reports(
         "last_artifact_verification": artifact_evidence_path,
         "last_failure": state.get("last_failure"),
         "next_action": state.get("current_action"),
+        "current_task": current_issue if selected_task else None,
+        "acceptance_tasks": state.get("acceptance_tasks", {}),
         "readiness_reason": readiness_reason,
     }
     write_json(PROGRESS_JSON, progress, mode=0o644)
@@ -2778,6 +3009,209 @@ def _watch_result_block(result: dict[str, Any], state: dict[str, Any]) -> str:
             "NEXT_PROMPT_END",
         ]
     )
+
+
+def verify_acceptance_task(
+    task: dict[str, Any], *, evidence_dir: Path, evidence_root: Path
+) -> dict[str, Any]:
+    """Run the trusted parent-side proof for one non-queue acceptance task."""
+    task_id = str(task.get("id"))
+    if task_id == "ASTER-STATE-MERGE-001":
+        command = [
+            str(REPOSITORY_ROOT / "backend/.venv/bin/pytest"),
+            "-q",
+            "scripts/test_aster_autonomous_watch.py",
+            "-k",
+            "persist_state_cycle_bundle_survives_both_write_orders",
+            "--disable-warnings",
+        ]
+        verification = command_record(command, REPOSITORY_ROOT, timeout=120)
+        passed = verification.get("exit_code") == 0
+        reason = "isolated cycle/evidence bundle regression passed" if passed else "state merge regression failed"
+    elif task_id == "ASTER-RUNTIME-PROVENANCE-001":
+        observations = observe(evidence_root)
+        runtime = observations.get("runtime", {})
+        runtime_evidence = runtime.get("evidence")
+        passed = bool(
+            runtime.get("status") == "PASS"
+            and isinstance(runtime_evidence, str)
+            and Path(runtime_evidence).is_file()
+            and runtime.get("source_matches_current") is True
+            and runtime.get("backend_source_sha256_matches") is True
+            and runtime.get("web_bundle_sha256_matches") is True
+        )
+        verification = {
+            "command": ["controller.observe", "controller.validate_current_provenance"],
+            "cwd": str(REPOSITORY_ROOT),
+            "exit_code": 0 if passed else 1,
+            "observations": observations,
+            "runtime_evidence": runtime_evidence,
+        }
+        reason = "authenticated current runtime identity is content-verified" if passed else "current runtime identity is not fully proven"
+    elif task_id == "ASTER-RELEASE-VALIDATION-001":
+        verification = command_record(
+            [str(REPOSITORY_ROOT / "scripts/release_check.sh"), "--with-runtime", "--require-clean"],
+            REPOSITORY_ROOT,
+            timeout=1800,
+        )
+        passed = verification.get("exit_code") == 0
+        reason = "current-source release gate passed" if passed else "release gate produced a current failure/blocker"
+    else:
+        verification = {
+            "command": [],
+            "cwd": str(REPOSITORY_ROOT),
+            "exit_code": 1,
+            "reason": "no trusted local executor is available for this external task",
+        }
+        passed = False
+        reason = "external dependency remains unavailable"
+    record = {
+        "timestamp": utc_now(),
+        "task_id": task_id,
+        "reason": reason,
+        "objective_pass": passed,
+        "verification": verification,
+        "evidence_dir": str(evidence_dir),
+    }
+    write_json(evidence_dir / "parent-verification.json", record)
+    return record
+
+
+def acceptance_task_iteration(
+    state: dict[str, Any],
+    *,
+    evidence_root: Path,
+    cycle: int,
+    execute_codex: bool,
+    timeout_seconds: int,
+) -> dict[str, Any] | None:
+    task = choose_acceptance_task(state)
+    if task is None:
+        return None
+    task_id = str(task.get("id"))
+    cycle_root = evidence_root / "autonomous-loop" / "acceptance" / f"cycle-{cycle:04d}"
+    cycle_root.mkdir(parents=True, exist_ok=True)
+    observations = observe(evidence_root)
+    source_commit = observed_source_commit(observations)
+    prompt = build_acceptance_task_prompt(task, observations, str(cycle_root))
+    state["current_issue"] = task_id
+    state["current_action"] = str(task.get("action"))
+    state["controller_phase"] = "ACCEPTANCE_TASK"
+    state["last_prompt"] = prompt
+    state["next_prompt"] = prompt
+    state["next_prompt_source"] = "controller_derived"
+    state["next_prompt_source_commit"] = source_commit
+    # persist_state replaces the caller's mapping with the merged durable
+    # snapshot; refresh the task reference before recording the result so a
+    # detached pre-persist object cannot lose the decision.
+    task = state["acceptance_tasks"][task_id]
+    task["attempts"] = int(task.get("attempts", 0) or 0) + 1
+    task["updated_at"] = utc_now()
+    persist_state(state, evidence_root)
+    write_json(
+        cycle_root / "before.json",
+        {"timestamp": utc_now(), "cycle": cycle, "task": task, "observations": observations, "git": git_snapshot()},
+    )
+    if execute_codex:
+        child = run_codex_child(prompt, cycle_root, timeout_seconds=timeout_seconds, evidence_root=evidence_root)
+    else:
+        child = {
+            "command": [],
+            "cwd": str(REPOSITORY_ROOT),
+            "exit_code": 0,
+            "timed_out": False,
+            "parsed": parse_result_text(
+                "ASTER_LOOP_RESULT\nSTATUS=NOT_READY\nISSUES_REMAINING=0\n"
+                f"CURRENT_ISSUE={task_id}\nACTION=observe\nVERIFICATION=PARTIAL\n"
+                "NEXT_PROMPT_BEGIN\nParent verification required.\nNEXT_PROMPT_END\n"
+            ),
+        }
+    parsed = child.get("parsed", {}) if isinstance(child, dict) else {}
+    prompt_source_ok = prompt_source_commit(prompt) == source_commit
+    child_identity_ok = bool(
+        child.get("exit_code") == 0
+        and parsed.get("parsed") is True
+        and parsed.get("current_issue") == task_id
+        and prompt_source_ok
+    )
+    parent = verify_acceptance_task(task, evidence_dir=cycle_root, evidence_root=evidence_root)
+    objective_pass = bool(child_identity_ok and parent.get("objective_pass") is True)
+    task["last_result"] = {
+        "timestamp": utc_now(),
+        "cycle": cycle,
+        "child_identity_verified": child_identity_ok,
+        "parent_verification": parent,
+        "child": child,
+    }
+    task.setdefault("evidence", []).append(str(cycle_root))
+    task["evidence"] = task["evidence"][-20:]
+    if objective_pass:
+        task["status"] = "COMPLETE"
+        task["blocker"] = None
+    elif parent.get("objective_pass") is False and task_id == "ASTER-RELEASE-VALIDATION-001" and child_identity_ok:
+        task["status"] = "COMPLETE_WITH_EXTERNAL"
+        task["blocker"] = "Current release validation did not pass; preserve its exact output and continue with external/native blockers visible."
+    elif child.get("timed_out") or child.get("exit_code") == 127:
+        task["status"] = "RETRY" if task.get("attempts", 0) < 2 else "BLOCKED_EXTERNAL"
+        task["blocker"] = "Codex child execution was temporary/unavailable; retry budget is bounded."
+    else:
+        task["status"] = "FAILED"
+        task["blocker"] = "Child identity or trusted parent verification failed; do not promote the task."
+    task_status = str(task.get("status"))
+    task_blocker = task.get("blocker")
+    next_task = choose_acceptance_task(state)
+    next_prompt = (
+        build_acceptance_task_prompt(next_task, parent.get("verification", {}).get("observations", observations), str(cycle_root))
+        if next_task
+        else build_external_watch_prompt(None, parent.get("verification", {}).get("observations", observations), str(cycle_root))
+    )
+    state["next_prompt"] = next_prompt
+    state["next_prompt_source"] = "controller_derived"
+    state["next_prompt_source_commit"] = source_commit
+    state["child_suggested_next_prompt"] = parsed.get("next_prompt", "") if parsed.get("parsed") else ""
+    state["last_result"] = {
+        "timestamp": utc_now(),
+        "cycle": cycle,
+        "issue": task_id,
+        "status": "NOT_READY",
+        "action": task.get("action"),
+        "verification": "PASS" if objective_pass else "PARTIAL",
+        "classification": task.get("status"),
+        "child": child,
+        "parent_verification": parent,
+        "evidence_dir": str(cycle_root),
+    }
+    state["iterations_completed"] = int(state.get("iterations_completed", 0)) + (1 if objective_pass else 0)
+    state["in_progress"] = False
+    state["resume_required"] = False
+    state["history"].append(
+        {
+            "timestamp": utc_now(),
+            "iteration": int(state.get("iteration", 0)),
+            "attempt": int(state.get("attempt", 0)),
+            "issue": task_id,
+            "status": "NOT_READY",
+            "verification": "PASS" if objective_pass else "PARTIAL",
+            "classification": task.get("status"),
+            "evidence": str(cycle_root),
+            "resumable": False,
+        }
+    )
+    persist_state(state, evidence_root)
+    queue = current_queue()
+    observations_after = observe(evidence_root)
+    render_reports(state, queue, observations_after, evidence_root=evidence_root)
+    report_commit = persist_watch_report_commit(cycle)
+    # render_reports persists and replaces the state mapping; reapply the
+    # terminal decision to the current mapping before the final checkpoint.
+    current_task = state["acceptance_tasks"][task_id]
+    current_task["status"] = task_status
+    current_task["blocker"] = task_blocker
+    current_task["last_report_commit"] = report_commit
+    current_task["updated_at"] = utc_now()
+    write_json(cycle_root / "result.json", state["last_result"] | {"report_commit": report_commit})
+    persist_state(state, evidence_root)
+    return state["last_result"]
 
 
 def watch_external_iteration(
@@ -3276,6 +3710,26 @@ def run_external_watch(args: argparse.Namespace, state: dict[str, Any], evidence
             render_reports(state, queue, observations, evidence_root=evidence_root)
             return 0
         cycle = start_cycle + offset + 1
+        # Queue exhaustion is not completion.  Run one persisted local
+        # acceptance task before probing external model availability.  When a
+        # task completes and unlocks another task, the next child is launched
+        # in the same bounded owner loop without manual prompt relay.
+        acceptance_task_records(state)
+        task = choose_acceptance_task(state)
+        if task is not None:
+            result = acceptance_task_iteration(
+                state,
+                evidence_root=evidence_root,
+                cycle=cycle,
+                execute_codex=not args.no_codex,
+                timeout_seconds=args.timeout_seconds,
+            )
+            if result is not None:
+                print(_watch_result_block(result, state))
+            if state.get("overall_ready"):
+                return 0
+            if choose_acceptance_task(state) is not None and offset + 1 < args.max_watch_cycles:
+                continue
         result = watch_external_iteration(
             state,
             evidence_root=evidence_root,

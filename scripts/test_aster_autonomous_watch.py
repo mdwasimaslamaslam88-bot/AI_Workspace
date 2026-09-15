@@ -641,6 +641,103 @@ def test_candidate_child_handoff_repeats_without_copy_paste():
     assert child_prompts[1] == child_outputs[0]
 
 
+def test_terminal_issue_queue_selects_persisted_acceptance_work_before_external_watch():
+    state = {"acceptance_tasks": controller.default_acceptance_tasks()}
+    queue = {"issues": [{"id": "ASTER-006", "status": "BLOCKED_EXTERNAL"}]}
+    assert controller.choose_issue(queue) is None
+    selected = controller.choose_acceptance_task(state)
+    assert selected is not None
+    assert selected["id"] == "ASTER-STATE-MERGE-001"
+    selected["status"] = "COMPLETE"
+    selected = controller.choose_acceptance_task(state)
+    assert selected is not None
+    assert selected["id"] == "ASTER-RUNTIME-PROVENANCE-001"
+
+
+def test_acceptance_task_merge_preserves_completed_decision_from_stale_writer():
+    disk = {
+        "ASTER-STATE-MERGE-001": {
+            "id": "ASTER-STATE-MERGE-001",
+            "status": "COMPLETE",
+            "attempts": 1,
+            "updated_at": "2026-09-15T18:00:00+00:00",
+            "evidence": ["/evidence/complete"],
+        }
+    }
+    stale = {
+        "ASTER-STATE-MERGE-001": {
+            "id": "ASTER-STATE-MERGE-001",
+            "status": "READY",
+            "attempts": 0,
+            "updated_at": "2026-09-15T17:59:00+00:00",
+            "evidence": [],
+        }
+    }
+    merged = controller._merge_acceptance_tasks(disk, stale)
+    assert merged["ASTER-STATE-MERGE-001"]["status"] == "COMPLETE"
+    assert merged["ASTER-STATE-MERGE-001"]["evidence"] == ["/evidence/complete"]
+
+
+def test_acceptance_lane_links_two_source_bound_children_without_queue_items():
+    state = {
+        "iteration": 4,
+        "attempt": 26,
+        "overall_ready": False,
+        "history": [],
+        "acceptance_tasks": controller.default_acceptance_tasks(),
+    }
+    child_calls = []
+
+    def fake_child(prompt: str, iteration_dir: Path, *, timeout_seconds: int, evidence_root: Path) -> dict:
+        task_id = "ASTER-STATE-MERGE-001" if not child_calls else "ASTER-RUNTIME-PROVENANCE-001"
+        child_calls.append((task_id, prompt, iteration_dir))
+        return {
+            "command": ["codex", "exec"],
+            "cwd": str(controller.REPOSITORY_ROOT),
+            "exit_code": 0,
+            "timed_out": False,
+            "parsed": controller.parse_result_text(
+                "ASTER_LOOP_RESULT\nSTATUS=NOT_READY\nISSUES_REMAINING=0\n"
+                f"CURRENT_ISSUE={task_id}\nACTION=review\nVERIFICATION=PARTIAL\n"
+                "NEXT_PROMPT_BEGIN\nReview the next current task.\nNEXT_PROMPT_END\n"
+            ),
+        }
+
+    def fake_parent(task, *, evidence_dir, evidence_root):
+        return {
+            "timestamp": "2026-09-15T18:00:00+00:00",
+            "task_id": task["id"],
+            "objective_pass": True,
+            "verification": {"observations": _observations()},
+            "evidence_dir": str(evidence_dir),
+        }
+
+    with TemporaryDirectory() as directory, patch.object(
+        controller, "observe", return_value=_observations()
+    ), patch.object(controller, "current_queue", return_value={"issues": [{"id": "ASTER-006", "status": "BLOCKED_EXTERNAL"}]}), patch.object(
+        controller, "run_codex_child", side_effect=fake_child
+    ), patch.object(controller, "verify_acceptance_task", side_effect=fake_parent), patch.object(
+        controller, "render_reports", return_value={}
+    ), patch.object(controller, "persist_watch_report_commit", return_value={"attempted": False}), patch.object(
+        controller, "git_snapshot", return_value=_observations()["git"]
+    ):
+        first = controller.acceptance_task_iteration(
+            state, evidence_root=Path(directory), cycle=100, execute_codex=True, timeout_seconds=30
+        )
+        second = controller.acceptance_task_iteration(
+            state, evidence_root=Path(directory), cycle=101, execute_codex=True, timeout_seconds=30
+        )
+
+    assert first["issue"] == "ASTER-STATE-MERGE-001"
+    assert second["issue"] == "ASTER-RUNTIME-PROVENANCE-001"
+    assert [item[0] for item in child_calls] == [
+        "ASTER-STATE-MERGE-001",
+        "ASTER-RUNTIME-PROVENANCE-001",
+    ]
+    assert state["acceptance_tasks"]["ASTER-STATE-MERGE-001"]["status"] == "COMPLETE"
+    assert state["acceptance_tasks"]["ASTER-RUNTIME-PROVENANCE-001"]["status"] == "COMPLETE"
+
+
 def test_host_recovery_prompt_is_not_dispatched_even_for_current_source():
     current_commit = "b" * 40
     state = {
