@@ -1246,7 +1246,11 @@ def terminal_queue_requires_external_watch(
 
 
 def _safe_model_reference(reference: str) -> bool:
-    return bool(re.fullmatch(r"[a-z0-9][a-z0-9._-]*:[a-z0-9][a-z0-9._-]*", reference))
+    # Ollama quantized tags conventionally contain uppercase tokens such as
+    # q4_K_M. Keep the reference grammar strict while accepting those valid
+    # tags; path separators, whitespace, and shell metacharacters remain
+    # invalid.
+    return bool(re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*:[A-Za-z0-9][A-Za-z0-9._-]*", reference))
 
 
 def _model_registry_parts(reference: str) -> tuple[str, str] | None:

@@ -6,6 +6,7 @@ from __future__ import annotations
 from pathlib import Path
 import hashlib
 import json
+import subprocess
 import sys
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
@@ -30,6 +31,29 @@ def _file_digest(path: Path) -> str | None:
         return hashlib.sha256(path.read_bytes()).hexdigest()
     except FileNotFoundError:
         return None
+
+
+def _git(repo: Path, *arguments: str) -> str:
+    result = subprocess.run(
+        ["git", *arguments],
+        cwd=repo,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return result.stdout.strip()
+
+
+def _synthetic_watch_repository(tmp_path: Path) -> tuple[Path, str]:
+    repo = tmp_path / "synthetic-watch-repository"
+    repo.mkdir()
+    _git(repo, "init", "--initial-branch=main")
+    _git(repo, "config", "user.email", "aster-test@example.invalid")
+    _git(repo, "config", "user.name", "ASTER isolated test")
+    (repo / "application.txt").write_text("synthetic application\n", encoding="utf-8")
+    _git(repo, "add", "application.txt")
+    _git(repo, "commit", "-m", "synthetic application commit")
+    return repo, _git(repo, "rev-parse", "HEAD")
 
 
 def test_external_download_policy_is_bounded_at_three_hours():
@@ -58,6 +82,12 @@ def test_host_controller_candidate_set_is_exact_and_excludes_tested_model():
         "starcoder2:3b",
         "codegemma:2b",
     ]
+
+
+def test_model_reference_accepts_ollama_quantization_case_without_path_chars():
+    assert controller._safe_model_reference("qwen3.5:9b-q4_K_M") is True
+    assert controller._safe_model_reference("qwen3.5:9b q4_K_M") is False
+    assert controller._safe_model_reference("qwen3.5:9b/../../unsafe") is False
 
 
 def test_discovery_freshly_probes_all_exact_candidates_and_requires_both_limits():
@@ -281,16 +311,9 @@ def test_no_qualifying_candidate_persists_not_ready_without_child():
 
 
 def test_watch_fixture_isolated_from_production_writes_and_processes(tmp_path, monkeypatch):
-    """The no-candidate fixture may persist only under its temporary root."""
-    production_paths = [
-        controller.STATUS_JSON,
-        controller.STATUS_MD,
-        controller.QUEUE_JSON,
-        controller.PROGRESS_JSON,
-        controller.PROGRESS_MD,
-    ]
-    production_digests = {path: _file_digest(path) for path in production_paths}
-    production_head = controller.git_snapshot()["commit"]
+    """The no-candidate fixture uses only synthetic Git and report roots."""
+    isolated_repository, isolated_head = _synthetic_watch_repository(tmp_path)
+    monkeypatch.setattr(controller, "REPOSITORY_ROOT", isolated_repository)
     temporary_reports = tmp_path / "reports"
     temporary_evidence = tmp_path / "evidence"
     monkeypatch.setattr(controller, "STATUS_JSON", temporary_reports / "status.json")
@@ -298,6 +321,14 @@ def test_watch_fixture_isolated_from_production_writes_and_processes(tmp_path, m
     monkeypatch.setattr(controller, "QUEUE_JSON", temporary_reports / "queue.json")
     monkeypatch.setattr(controller, "PROGRESS_JSON", temporary_reports / "progress.json")
     monkeypatch.setattr(controller, "PROGRESS_MD", temporary_reports / "progress.md")
+    isolated_paths = [
+        controller.STATUS_JSON,
+        controller.STATUS_MD,
+        controller.QUEUE_JSON,
+        controller.PROGRESS_JSON,
+        controller.PROGRESS_MD,
+    ]
+    isolated_digests_before = {path: _file_digest(path) for path in isolated_paths}
 
     state = {
         "iteration": 4,
@@ -340,8 +371,8 @@ def test_watch_fixture_isolated_from_production_writes_and_processes(tmp_path, m
     report_commit.assert_called_once()
     assert result["status"] == "NOT_READY"
     assert (temporary_evidence / "current_state.json").exists()
-    assert {path: _file_digest(path) for path in production_paths} == production_digests
-    assert controller.git_snapshot()["commit"] == production_head
+    assert {path: _file_digest(path) for path in isolated_paths} == isolated_digests_before
+    assert _git(isolated_repository, "rev-parse", "HEAD") == isolated_head
     assert json.loads((temporary_evidence / "current_state.json").read_text())["external_watch"]["cycle"] == 1
 
 
