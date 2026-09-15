@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 from pathlib import Path
+import hashlib
+import json
 import sys
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
@@ -21,6 +23,13 @@ def _observations() -> dict:
         "git": {"status": "CLEAN_SYNCED", "commit": "a" * 40, "application_source_commit": "b" * 40},
         "tests": {},
     }
+
+
+def _file_digest(path: Path) -> str | None:
+    try:
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+    except FileNotFoundError:
+        return None
 
 
 def test_external_download_policy_is_bounded_at_three_hours():
@@ -269,6 +278,71 @@ def test_no_qualifying_candidate_persists_not_ready_without_child():
     assert state["in_progress"] is False
     assert state["resume_required"] is False
     assert state["external_watch"]["rejected_candidates"] == ["qwen2.5-coder:1.5b"]
+
+
+def test_watch_fixture_isolated_from_production_writes_and_processes(tmp_path, monkeypatch):
+    """The no-candidate fixture may persist only under its temporary root."""
+    production_paths = [
+        controller.STATUS_JSON,
+        controller.STATUS_MD,
+        controller.QUEUE_JSON,
+        controller.PROGRESS_JSON,
+        controller.PROGRESS_MD,
+    ]
+    production_digests = {path: _file_digest(path) for path in production_paths}
+    production_head = controller.git_snapshot()["commit"]
+    temporary_reports = tmp_path / "reports"
+    temporary_evidence = tmp_path / "evidence"
+    monkeypatch.setattr(controller, "STATUS_JSON", temporary_reports / "status.json")
+    monkeypatch.setattr(controller, "STATUS_MD", temporary_reports / "status.md")
+    monkeypatch.setattr(controller, "QUEUE_JSON", temporary_reports / "queue.json")
+    monkeypatch.setattr(controller, "PROGRESS_JSON", temporary_reports / "progress.json")
+    monkeypatch.setattr(controller, "PROGRESS_MD", temporary_reports / "progress.md")
+
+    state = {
+        "iteration": 4,
+        "attempt": 26,
+        "overall_ready": False,
+        "next_prompt": "isolated watch fixture",
+        "external_watch": {"watch_interval_seconds": 0},
+        "history": [],
+    }
+    discovery = {
+        "status": "NOT_READY",
+        "candidate": None,
+        "candidate_state": "NOT_CACHED_DOWNLOAD_TOO_SLOW_OR_UNAVAILABLE",
+        "candidate_policy": {"candidate_references": [], "excluded_reference_absent": False},
+        "local": [],
+        "remote": [],
+    }
+    with patch.object(controller, "current_queue", return_value={"issues": []}), patch.object(
+        controller, "observe", return_value=_observations()
+    ), patch.object(
+        controller, "git_snapshot", return_value={"commit": "a" * 40, "status": "CLEAN_SYNCED"}
+    ), patch.object(
+        controller, "discover_watch_candidates", return_value=discovery
+    ), patch.object(controller, "run_codex_child") as child, patch.object(
+        controller, "render_reports", return_value={}
+    ), patch.object(
+        controller, "persist_watch_report_commit", return_value={"attempted": False}
+    ) as report_commit:
+        result = controller.watch_external_iteration(
+            state,
+            evidence_root=temporary_evidence,
+            cycle=1,
+            execute_codex=True,
+            timeout_seconds=30,
+            max_download_seconds=900,
+            max_estimated_hours=0.5,
+        )
+
+    child.assert_not_called()
+    report_commit.assert_called_once()
+    assert result["status"] == "NOT_READY"
+    assert (temporary_evidence / "current_state.json").exists()
+    assert {path: _file_digest(path) for path in production_paths} == production_digests
+    assert controller.git_snapshot()["commit"] == production_head
+    assert json.loads((temporary_evidence / "current_state.json").read_text())["external_watch"]["cycle"] == 1
 
 
 def test_all_excluded_candidates_do_not_fall_back_to_priority_display():

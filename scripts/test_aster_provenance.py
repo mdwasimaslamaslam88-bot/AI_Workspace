@@ -32,6 +32,45 @@ def _write(path: Path, value: object) -> None:
     path.write_text(json.dumps(value, indent=2) + "\n", encoding="utf-8")
 
 
+def _git(repo: Path, *arguments: str) -> str:
+    result = subprocess.run(
+        ["git", *arguments],
+        cwd=repo,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=True,
+    )
+    return result.stdout.strip()
+
+
+def _synthetic_git_history(tmp_path: Path) -> tuple[Path, str, str, str]:
+    """Build source and report-only tips without touching the real checkout."""
+    repo = tmp_path / "synthetic-repository"
+    repo.mkdir()
+    _git(repo, "init", "--initial-branch=main")
+    _git(repo, "config", "user.name", "ASTER test fixture")
+    _git(repo, "config", "user.email", "aster-fixture@example.invalid")
+
+    (repo / "application.txt").write_text("application\n", encoding="utf-8")
+    _git(repo, "add", "application.txt")
+    _git(repo, "commit", "-m", "synthetic application source")
+    source_commit = _git(repo, "rev-parse", "HEAD")
+
+    report = repo / "reports" / "ASTER_AI_OS_PROGRESS.json"
+    report.parent.mkdir()
+    report.write_text('{"cycle": 1}\n', encoding="utf-8")
+    _git(repo, "add", "reports/ASTER_AI_OS_PROGRESS.json")
+    _git(repo, "commit", "-m", "synthetic report tip one")
+    first_report_tip = _git(repo, "rev-parse", "HEAD")
+
+    report.write_text('{"cycle": 2}\n', encoding="utf-8")
+    _git(repo, "add", "reports/ASTER_AI_OS_PROGRESS.json")
+    _git(repo, "commit", "-m", "synthetic report tip two")
+    second_report_tip = _git(repo, "rev-parse", "HEAD")
+    return repo, source_commit, first_report_tip, second_report_tip
+
+
 def _fixture(tmp_path: Path):
     controller = _load_controller()
     commit = _current_commit()
@@ -197,30 +236,28 @@ def test_runtime_discovery_accepts_only_bounded_report_tip_alias(tmp_path, monke
     assert result["source_matches_current"] is True
 
 
-def test_application_source_commit_walks_consecutive_report_tips():
+def test_application_source_commit_walks_consecutive_report_tips(tmp_path, monkeypatch):
     controller = _load_controller()
-    report_tip = _current_commit()
-    parent = subprocess.check_output(
-        ["git", "rev-parse", f"{report_tip}^"], cwd=REPOSITORY_ROOT, text=True
-    ).strip()
-    if report_tip == parent:
-        raise AssertionError("Git report-tip ancestry did not advance")
-    changed = subprocess.check_output(
-        ["git", "diff-tree", "--no-commit-id", "--name-only", "-r", report_tip],
-        cwd=REPOSITORY_ROOT,
-        text=True,
-    ).splitlines()
-    if changed and all(path.startswith("reports/ASTER_AI_OS_") for path in changed):
-        assert controller.application_source_commit(report_tip) == controller.application_source_commit(parent)
+    repo, source, first_report_tip, second_report_tip = _synthetic_git_history(tmp_path)
+    monkeypatch.setattr(controller, "REPOSITORY_ROOT", repo)
+
+    # Both the application HEAD and consecutive report-only descendants are
+    # tested explicitly. No assertion depends on the production checkout's
+    # current report-commit timing.
+    assert controller.application_source_commit(source) == source
+    assert controller.application_source_commit(first_report_tip) == source
+    assert controller.application_source_commit(second_report_tip) == source
 
 
-def test_report_only_commit_aliases_are_bounded_to_current_source():
+def test_report_only_commit_aliases_are_bounded_to_current_source(tmp_path, monkeypatch):
     controller = _load_controller()
-    report_tip = _current_commit()
-    source = controller.application_source_commit(report_tip)
-    if source == report_tip:
-        raise AssertionError("fixture requires a report-only tip after the source tip")
-    aliases = controller.report_only_commit_aliases(report_tip, source)
-    assert report_tip in aliases
+    repo, source, first_report_tip, second_report_tip = _synthetic_git_history(tmp_path)
+    monkeypatch.setattr(controller, "REPOSITORY_ROOT", repo)
+
+    # Application HEAD has no report-only alias; a report descendant has only
+    # the bounded report ancestry between it and the application source tip.
+    assert controller.report_only_commit_aliases(source, source) == ()
+    aliases = controller.report_only_commit_aliases(second_report_tip, source)
+    assert aliases == (second_report_tip, first_report_tip)
     assert source not in aliases
-    assert controller.report_only_commit_aliases(report_tip, "f" * 40) == ()
+    assert controller.report_only_commit_aliases(second_report_tip, "f" * 40) == ()
