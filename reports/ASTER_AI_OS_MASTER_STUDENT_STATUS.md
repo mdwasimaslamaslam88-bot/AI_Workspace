@@ -2,7 +2,7 @@
 
 Iteration 4. Overall readiness is **NOT READY**.
 
-Current source commit: `4859f2f3d5a0bb644efcd190ebd5f1bbcc900131`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
+Current source commit: `ea459f33d71b20f3ca09d2c9f4b7ddbec26b6563`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
 
 ## Current measured state
 
@@ -11,7 +11,7 @@ Current source commit: `4859f2f3d5a0bb644efcd190ebd5f1bbcc900131`. Evidence root
 - Current issue/action: `NONE` — No eligible coding candidate is currently available; preserve all exclusions and continue the bounded external watch.
 - Controller phase: **WATCH_EXTERNAL_GAP**.
 - Runtime identity: **PASS**; evidence `/home/md-wasim/AI_Workspace_Data/aster-evidence/20260914-current-provenance-after-sdk/runtime-identity-current.json`.
-- Git: **CLEAN_SYNCED** at `4859f2f3d5a0bb644efcd190ebd5f1bbcc900131`.
+- Git: **CLEAN_SYNCED** at `ea459f33d71b20f3ca09d2c9f4b7ddbec26b6563`.
 
 ## Queue classifications
 
