@@ -87,6 +87,24 @@ UNRESOLVED_STATUSES = {
 TERMINAL_QUEUE_STATUSES = {"VERIFIED", "CLOSED", "BLOCKED_EXTERNAL"}
 REPORT_ONLY_PATH_PREFIXES = ("reports/ASTER_AI_OS_",)
 STATE_INTERNAL_BASE_SNAPSHOT = "_aster_persist_base_snapshot"
+WATCH_CYCLE_METADATA_KEYS = frozenset(
+    {
+        "cycle",
+        "status",
+        "candidate",
+        "candidate_state",
+        "current_action",
+        "next_retry_at",
+        "report_commit",
+        "evidence",
+        "child_result",
+        "trusted_parent_gate",
+        "focused_objective_gate",
+        "all_eight_objective_pass",
+        "genericity_and_canonical_validation_allowed",
+        "rejection_reason",
+    }
+)
 
 
 def utc_now() -> str:
@@ -828,15 +846,10 @@ def _merge_external_watch(disk_value: Any, local_value: Any) -> dict[str, Any]:
         elif key == "candidate_priority" and disk.get(key):
             # A stale writer must not replace the current admission order.
             continue
-        elif disk_cycle > local_cycle and key in {
-            "status",
-            "candidate",
-            "candidate_state",
-            "current_action",
-            "next_retry_at",
-            "report_commit",
-            "evidence",
-        }:
+        elif disk_cycle > local_cycle and key in WATCH_CYCLE_METADATA_KEYS:
+            # Cycle identity and its associated evidence/action form one
+            # durable event. A stale writer must not split that bundle by
+            # replacing only the cycle number while leaving newer evidence.
             continue
         else:
             merged[key] = copy.deepcopy(value)

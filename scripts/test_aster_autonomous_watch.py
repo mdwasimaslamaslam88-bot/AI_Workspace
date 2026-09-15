@@ -68,40 +68,66 @@ def test_external_download_policy_is_bounded_at_three_hours():
     ).max_download_seconds == 10_800
 
 
-def test_persist_state_merges_new_candidate_rejection_across_restart(tmp_path):
-    """A stale controller snapshot cannot erase a newer trusted decision."""
-    evidence_root = tmp_path / "evidence"
+def _persist_cycle_race(evidence_root: Path, first_cycle: int, second_cycle: int):
+    """Persist two independent snapshots in a specified order."""
     initial = {
         "iteration": 4,
         "attempt": 1,
         "overall_ready": False,
-        "external_watch": {"cycle": 10, "rejected_candidates": []},
+        "external_watch": {
+            "cycle": 10,
+            "evidence": "/evidence/cycle-0010",
+            "current_action": "cycle 10 action",
+            "rejected_candidates": [],
+        },
         "history": [],
     }
     controller.persist_state(initial, evidence_root)
-    stale = controller.load_or_create_state(evidence_root)
-    fresh = controller.load_or_create_state(evidence_root)
+    disk_advancer = controller.load_or_create_state(evidence_root)
+    stale_writer = controller.load_or_create_state(evidence_root)
 
-    fresh["external_watch"]["cycle"] = 11
-    fresh["external_watch"]["rejected_candidates"] = ["qwen3.5:9b-q4_K_M"]
-    fresh["last_candidate_decision"] = {
-        "candidate": "qwen3.5:9b-q4_K_M",
-        "timestamp": "2026-09-15T16:00:00+00:00",
-        "decision": "REJECTED_OBJECTIVE_FOCUSED_GATE",
-    }
-    controller.persist_state(fresh, evidence_root)
+    for state, cycle, candidate in (
+        (disk_advancer, 12, "qwen3.5:9b-q4_K_M"),
+        (stale_writer, 11, "stale:1b"),
+    ):
+        state["external_watch"].update(
+            {
+                "cycle": cycle,
+                "evidence": f"/evidence/cycle-{cycle:04d}",
+                "current_action": f"cycle {cycle} action",
+                "rejected_candidates": [candidate],
+            }
+        )
+        state["last_candidate_decision"] = {
+            "candidate": candidate,
+            "timestamp": f"2026-09-15T16:{cycle:02d}:00+00:00",
+            "cycle": cycle,
+            "decision": "REJECTED_OBJECTIVE_FOCUSED_GATE",
+        }
 
-    stale["external_watch"]["cycle"] = 12
-    stale["external_watch"]["current_action"] = "stale watcher action"
-    controller.persist_state(stale, evidence_root)
+    states_by_cycle = {12: disk_advancer, 11: stale_writer}
+    controller.persist_state(states_by_cycle[first_cycle], evidence_root)
+    controller.persist_state(states_by_cycle[second_cycle], evidence_root)
 
     recovered = controller.load_or_create_state(evidence_root)
     assert "qwen3.5:9b-q4_K_M" in recovered["external_watch"]["rejected_candidates"]
-    assert recovered["last_candidate_decision"]["decision"] == "REJECTED_OBJECTIVE_FOCUSED_GATE"
+    assert "stale:1b" in recovered["external_watch"]["rejected_candidates"]
     assert recovered["external_watch"]["cycle"] == 12
+    assert recovered["external_watch"]["evidence"] == "/evidence/cycle-0012"
+    assert recovered["external_watch"]["current_action"] == "cycle 12 action"
+    assert recovered["last_candidate_decision"]["decision"] == "REJECTED_OBJECTIVE_FOCUSED_GATE"
+    assert recovered["last_candidate_decision"]["cycle"] == 12
 
     restarted = controller.load_or_create_state(evidence_root)
     assert "qwen3.5:9b-q4_K_M" in restarted["external_watch"]["rejected_candidates"]
+    assert restarted["external_watch"]["cycle"] == 12
+    assert restarted["external_watch"]["evidence"] == "/evidence/cycle-0012"
+
+
+def test_persist_state_cycle_bundle_survives_both_write_orders(tmp_path):
+    """The durable cycle/evidence/action tuple is monotonic in either order."""
+    for first_cycle, second_cycle in ((12, 11), (11, 12)):
+        _persist_cycle_race(tmp_path / f"order-{first_cycle}-{second_cycle}", first_cycle, second_cycle)
 
 
 def test_terminal_queue_enters_watch():
