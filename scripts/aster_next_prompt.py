@@ -303,6 +303,18 @@ def resolve_codex_cli() -> dict[str, Any]:
         located = shutil.which("codex")
         if located:
             raw_candidates.append(located)
+        # systemd/user services commonly receive a minimal PATH and therefore
+        # miss the interactive NVM installation. Discover the same current
+        # user-managed installations explicitly, then select the highest
+        # verified semantic version. This is discovery, not a stale version
+        # pin; an unavailable path is simply ignored.
+        nvm_root = Path.home() / ".nvm" / "versions" / "node"
+        try:
+            raw_candidates.extend(str(path) for path in sorted(nvm_root.glob("*/bin/codex")))
+        except OSError:
+            pass
+        for directory in (Path.home() / ".local" / "bin", Path("/usr/local/bin"), Path("/snap/bin")):
+            raw_candidates.append(str(directory / "codex"))
 
     paths: list[Path] = []
     seen: set[str] = set()
@@ -3094,6 +3106,10 @@ def acceptance_task_iteration(
     observations = observe(evidence_root)
     source_commit = observed_source_commit(observations)
     prompt = build_acceptance_task_prompt(task, observations, str(cycle_root))
+    state.setdefault("external_watch", {})["cycle"] = cycle
+    state["external_watch"]["status"] = "ACCEPTANCE_TASK"
+    state["external_watch"]["evidence"] = str(cycle_root)
+    state["external_watch"]["current_action"] = str(task.get("action"))
     state["current_issue"] = task_id
     state["current_action"] = str(task.get("action"))
     state["controller_phase"] = "ACCEPTANCE_TASK"

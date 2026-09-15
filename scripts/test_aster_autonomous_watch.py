@@ -9,6 +9,7 @@ import json
 import subprocess
 import sys
 from tempfile import TemporaryDirectory
+import os
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -150,6 +151,15 @@ def test_model_reference_accepts_ollama_quantization_case_without_path_chars():
     assert controller._safe_model_reference("qwen3.5:9b-q4_K_M") is True
     assert controller._safe_model_reference("qwen3.5:9b q4_K_M") is False
     assert controller._safe_model_reference("qwen3.5:9b/../../unsafe") is False
+
+
+def test_codex_resolver_finds_verified_current_cli_with_service_like_path():
+    service_path = "/home/md-wasim/.local/bin:/usr/bin"
+    with patch.dict(os.environ, {"PATH": service_path}, clear=False):
+        os.environ.pop("ASTER_CODEX_BIN", None)
+        resolved = controller.resolve_codex_cli()
+    assert resolved["version"] == "0.153.4"
+    assert "/.nvm/versions/node/" in resolved["path"]
 
 
 def test_discovery_freshly_probes_all_exact_candidates_and_requires_both_limits():
@@ -736,6 +746,7 @@ def test_acceptance_lane_links_two_source_bound_children_without_queue_items():
     ]
     assert state["acceptance_tasks"]["ASTER-STATE-MERGE-001"]["status"] == "COMPLETE"
     assert state["acceptance_tasks"]["ASTER-RUNTIME-PROVENANCE-001"]["status"] == "COMPLETE"
+    assert state["external_watch"]["cycle"] == 101
 
 
 def test_host_recovery_prompt_is_not_dispatched_even_for_current_source():
