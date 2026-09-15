@@ -1,16 +1,16 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-15T16:57:19.349745+00:00",
+  "generated_at": "2026-09-15T16:58:52.644947+00:00",
   "source": {
     "state": "/home/md-wasim/AI_Workspace_Data/aster-evidence/current_state.json",
     "status": "/home/md-wasim/Projects/AI_Workspace/reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.json",
     "queue": "/home/md-wasim/Projects/AI_Workspace/reports/ASTER_AI_OS_ISSUE_QUEUE.json",
     "observations": {
-      "timestamp": "2026-09-15T16:57:19.050453+00:00",
+      "timestamp": "2026-09-15T16:58:52.424664+00:00",
       "git": {
         "branch": "main",
-        "commit": "854e6c32cc7199a25cded3e555349892688c76bd",
-        "application_source_commit": "7486296b101afff395d1bf1ced130510fe285c41",
+        "commit": "6fb2e9dc5315c5ff296f1f96e026adc2fe915a55",
+        "application_source_commit": "6fb2e9dc5315c5ff296f1f96e026adc2fe915a55",
         "upstream": "origin/main",
         "upstream_error": null,
         "ahead": 0,
@@ -33,7 +33,7 @@
         "status": "HISTORICAL_PASS_REQUIRES_CURRENT_ATTESTATION",
         "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260914-current-provenance-after-sdk/runtime-identity-post-isolation.json",
         "source_commit": "aebd3049a2cbab632ddc59ae8843858a057168d2",
-        "current_commit": "7486296b101afff395d1bf1ced130510fe285c41",
+        "current_commit": "6fb2e9dc5315c5ff296f1f96e026adc2fe915a55",
         "source_matches_current": false,
         "matches": {
           "source_commit": true,
@@ -82,7 +82,7 @@
       },
       "provenance": {
         "status": "NOT_PROVEN",
-        "current_source_commit": "7486296b101afff395d1bf1ced130510fe285c41",
+        "current_source_commit": "6fb2e9dc5315c5ff296f1f96e026adc2fe915a55",
         "components": {
           "source_commit": "PASS",
           "runtime": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE",
@@ -196,6 +196,7 @@
       "codegemma:2b",
       "deepseek-coder:1.3b",
       "qwen2.5-coder:1.5b",
+      "qwen3.5:9b-q4_K_M",
       "starcoder2:3b"
     ],
     "acquisition_blocked_candidates": [
@@ -210,7 +211,48 @@
     "genericity_and_canonical_validation_allowed": false,
     "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0845",
     "next_retry_at": "2026-09-15T17:02:18.850138+00:00",
-    "current_action": "No eligible coding candidate is currently available; preserve all exclusions and continue the bounded external watch."
+    "current_action": "No eligible coding candidate is currently available; preserve all exclusions and continue the bounded external watch.",
+    "report_commit": {
+      "attempted": true,
+      "committed": true,
+      "commit": "cea6e96b69b726724d47f6d77983dc8b5353a9f3",
+      "paths": [
+        "reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.json",
+        "reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.md",
+        "reports/ASTER_AI_OS_PROGRESS.json",
+        "reports/ASTER_AI_OS_PROGRESS.md"
+      ],
+      "push": {
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": "To https://github.com/mdwasimaslamaslam88-bot/AI_Workspace.git\n   854e6c3..cea6e96  HEAD -> main\n",
+        "status": "PUSHED"
+      },
+      "git": {
+        "branch": "main",
+        "commit": "cea6e96b69b726724d47f6d77983dc8b5353a9f3",
+        "application_source_commit": "7486296b101afff395d1bf1ced130510fe285c41",
+        "upstream": "origin/main",
+        "upstream_error": null,
+        "ahead": 0,
+        "behind": 0,
+        "clean": true,
+        "status_porcelain": "",
+        "status": "CLEAN_SYNCED"
+      }
+    },
+    "last_candidate_decision": {
+      "candidate": "qwen3.5:9b-q4_K_M",
+      "timestamp": "2026-09-15T16:58:52.615764+00:00",
+      "model_digest": "sha256:dec52a44569a2a25341c4e4d3fee25846eed4f6f0b936278e3a3c900bb99d37c",
+      "decision": "REJECTED_OBJECTIVE_FOCUSED_GATE",
+      "objective_pass_count": 2,
+      "all_eight_objective_pass": false,
+      "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260915-qwen35-candidate/controller-owned-current/focused-candidate-gate.json",
+      "evidence_sha256": "d82a1f0ea54db82d6167747d1daf63729650d56484838fd4bf307962842b8b41",
+      "source_commit": "7486296b101afff395d1bf1ced130510fe285c41",
+      "production_routing_modified": false
+    }
   },
   "last_verification": "PARTIAL",
   "backend_tests": {
@@ -236,8 +278,8 @@
   "performance_mean": 8.1462,
   "performance_p95": 16.5442,
   "git_status": "CLEAN_SYNCED",
-  "current_commit": "854e6c32cc7199a25cded3e555349892688c76bd",
-  "application_source_commit": "7486296b101afff395d1bf1ced130510fe285c41",
+  "current_commit": "6fb2e9dc5315c5ff296f1f96e026adc2fe915a55",
+  "application_source_commit": "6fb2e9dc5315c5ff296f1f96e026adc2fe915a55",
   "last_successful_commit": "a2ad36e69da1f8a9ceb063ab359b7b17fb9aed8e",
   "codex_cli": {
     "path": "/home/md-wasim/.nvm/versions/node/v24.19.0/lib/node_modules/@openai/codex/bin/codex.js",
@@ -272,7 +314,7 @@
       }
     ]
   },
-  "report_tip_commit": "854e6c32cc7199a25cded3e555349892688c76bd",
+  "report_tip_commit": "6fb2e9dc5315c5ff296f1f96e026adc2fe915a55",
   "last_artifact_verification": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260914-current-provenance-after-sdk/artifact-attestation-current.json",
   "last_failure": {
     "timestamp": "2026-09-12T15:43:47.325405+00:00",
