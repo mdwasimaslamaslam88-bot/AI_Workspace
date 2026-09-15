@@ -671,6 +671,18 @@ def acceptance_task_records(state: dict[str, Any]) -> dict[str, dict[str, Any]]:
             continue
         for key, value in spec.items():
             current.setdefault(key, copy.deepcopy(value))
+        # A prior controller version classified a stale runtime attestation as
+        # FAILED after its parent check completed.  That is a resumable local
+        # provenance task, not a permanent decision; migrate it once into the
+        # bounded retry state so a current attestation can be captured.
+        if (
+            task_id == "ASTER-RUNTIME-PROVENANCE-001"
+            and current.get("status") == "FAILED"
+            and int(current.get("attempts", 0) or 0) < 2
+        ):
+            current["status"] = "RETRY"
+            current["blocker"] = "Previous runtime attestation was historical; recapture authenticated current-source identity."
+            current["updated_at"] = utc_now()
     return raw
 
 
@@ -3049,8 +3061,9 @@ def verify_acceptance_task(
             and isinstance(runtime_evidence, str)
             and Path(runtime_evidence).is_file()
             and runtime.get("source_matches_current") is True
-            and runtime.get("backend_source_sha256_matches") is True
-            and runtime.get("web_bundle_sha256_matches") is True
+            and isinstance(runtime.get("matches"), dict)
+            and runtime["matches"].get("backend_source_sha256") is True
+            and runtime["matches"].get("web_bundle_sha256") is True
         )
         verification = {
             "command": ["controller.observe", "controller.validate_current_provenance"],
@@ -3167,6 +3180,9 @@ def acceptance_task_iteration(
     elif parent.get("objective_pass") is False and task_id == "ASTER-RELEASE-VALIDATION-001" and child_identity_ok:
         task["status"] = "COMPLETE_WITH_EXTERNAL"
         task["blocker"] = "Current release validation did not pass; preserve its exact output and continue with external/native blockers visible."
+    elif task_id == "ASTER-RUNTIME-PROVENANCE-001" and task.get("attempts", 0) < 2:
+        task["status"] = "RETRY"
+        task["blocker"] = "Current authenticated runtime identity is still historical; refresh the deployment attestation before retrying the parent check."
     elif child.get("timed_out") or child.get("exit_code") == 127:
         task["status"] = "RETRY" if task.get("attempts", 0) < 2 else "BLOCKED_EXTERNAL"
         task["blocker"] = "Codex child execution was temporary/unavailable; retry budget is bounded."

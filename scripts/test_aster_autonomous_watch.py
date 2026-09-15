@@ -749,6 +749,31 @@ def test_acceptance_lane_links_two_source_bound_children_without_queue_items():
     assert state["external_watch"]["cycle"] == 101
 
 
+def test_runtime_provenance_parent_check_reads_nested_runtime_matches():
+    observations = _observations()
+    observations["runtime"] = {
+        "status": "PASS",
+        "evidence": str(Path(__file__).resolve()),
+        "source_matches_current": True,
+        "matches": {
+            "source_commit": True,
+            "backend_source_sha256": True,
+            "web_bundle_sha256": True,
+        },
+    }
+    with TemporaryDirectory() as directory, patch.object(controller, "observe", return_value=observations):
+        result = controller.verify_acceptance_task(
+            {
+                "id": "ASTER-RUNTIME-PROVENANCE-001",
+                "status": "RETRY",
+                "attempts": 1,
+            },
+            evidence_dir=Path(directory),
+            evidence_root=Path(directory),
+        )
+    assert result["objective_pass"] is True
+
+
 def test_host_recovery_prompt_is_not_dispatched_even_for_current_source():
     current_commit = "b" * 40
     state = {
