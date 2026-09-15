@@ -1,16 +1,16 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-09-15T17:56:50.368002+00:00",
+  "generated_at": "2026-09-15T18:16:03.110984+00:00",
   "source": {
     "state": "/home/md-wasim/AI_Workspace_Data/aster-evidence/current_state.json",
     "status": "/home/md-wasim/Projects/AI_Workspace/reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.json",
     "queue": "/home/md-wasim/Projects/AI_Workspace/reports/ASTER_AI_OS_ISSUE_QUEUE.json",
     "observations": {
-      "timestamp": "2026-09-15T17:56:49.728891+00:00",
+      "timestamp": "2026-09-15T18:16:02.898076+00:00",
       "git": {
         "branch": "main",
-        "commit": "c6c0857a3a415807abe276bae98bb695ec9a20f5",
-        "application_source_commit": "bad218868c8f90bea0b49eddf9575152dcaf20c4",
+        "commit": "4c9b37a1c94193aa974166eb505eb05011e6afb6",
+        "application_source_commit": "4c9b37a1c94193aa974166eb505eb05011e6afb6",
         "upstream": "origin/main",
         "upstream_error": null,
         "ahead": 0,
@@ -30,11 +30,11 @@
         "p95": 16.5442
       },
       "runtime": {
-        "status": "PASS",
+        "status": "HISTORICAL_PASS_REQUIRES_CURRENT_ATTESTATION",
         "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260915-current-provenance/runtime-identity-current.json",
         "source_commit": "5fe9c4c9dc70dbd563e25a4c79df06d8b69f973e",
-        "current_commit": "bad218868c8f90bea0b49eddf9575152dcaf20c4",
-        "source_matches_current": true,
+        "current_commit": "4c9b37a1c94193aa974166eb505eb05011e6afb6",
+        "source_matches_current": false,
         "matches": {
           "source_commit": true,
           "backend_source_sha256": true,
@@ -52,7 +52,7 @@
           ],
           "cwd": "/home/md-wasim/Projects/AI_Workspace",
           "exit_code": 0,
-          "duration_seconds": 0.0064,
+          "duration_seconds": 0.0062,
           "stdout": "{\"status\":\"alive\"}",
           "stderr": "",
           "stdout_sha256": "bc24b0b5a305d5afc198c725890c8fb91053be2dbd8672779de73cac19a008fa",
@@ -82,10 +82,10 @@
       },
       "provenance": {
         "status": "NOT_PROVEN",
-        "current_source_commit": "bad218868c8f90bea0b49eddf9575152dcaf20c4",
+        "current_source_commit": "4c9b37a1c94193aa974166eb505eb05011e6afb6",
         "components": {
           "source_commit": "PASS",
-          "runtime": "PASS",
+          "runtime": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE",
           "backend_hash": "PASS",
           "web_artifact_hash": "PASS",
           "benchmark": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE",
@@ -173,16 +173,16 @@
   "pass": 457,
   "partial": 1,
   "fail": 1,
-  "iterations_completed": 4,
+  "iterations_completed": 5,
   "issues_remaining": 0,
   "issues_fixed": 24,
   "issues_blocked_externally": 7,
-  "current_issue": null,
-  "current_action": "No eligible coding candidate is currently available; preserve all exclusions and continue the bounded external watch.",
-  "controller_phase": "WATCH_EXTERNAL_GAP",
+  "current_issue": "ASTER-STATE-MERGE-001",
+  "current_action": "Run the isolated both-write-order and restart regression for the external-watch cycle metadata bundle.",
+  "controller_phase": "ACCEPTANCE_TASK",
   "external_watch": {
-    "status": "NOT_READY",
-    "cycle": 859,
+    "status": "ACCEPTANCE_TASK",
+    "cycle": 860,
     "candidate": null,
     "candidate_state": "NOT_CACHED_DOWNLOAD_TOO_SLOW_OR_UNAVAILABLE",
     "candidate_priority": [
@@ -209,13 +209,13 @@
     "requested_max_download_seconds": 10800,
     "requested_max_estimated_download_hours": 3.0,
     "genericity_and_canonical_validation_allowed": false,
-    "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0859",
+    "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-0860",
     "next_retry_at": "2026-09-15T18:01:49.618751+00:00",
-    "current_action": "No eligible coding candidate is currently available; preserve all exclusions and continue the bounded external watch.",
+    "current_action": "Run the isolated both-write-order and restart regression for the external-watch cycle metadata bundle.",
     "report_commit": {
       "attempted": true,
       "committed": true,
-      "commit": "c6c0857a3a415807abe276bae98bb695ec9a20f5",
+      "commit": "50b49eb877cf478f0806c6b031d3bc7b5cfeef7e",
       "paths": [
         "reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.json",
         "reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.md",
@@ -225,12 +225,12 @@
       "push": {
         "exit_code": 0,
         "stdout": "",
-        "stderr": "To https://github.com/mdwasimaslamaslam88-bot/AI_Workspace.git\n   5fe9c4c..c6c0857  HEAD -> main\n",
+        "stderr": "To https://github.com/mdwasimaslamaslam88-bot/AI_Workspace.git\n   c6c0857..50b49eb  HEAD -> main\n",
         "status": "PUSHED"
       },
       "git": {
         "branch": "main",
-        "commit": "c6c0857a3a415807abe276bae98bb695ec9a20f5",
+        "commit": "50b49eb877cf478f0806c6b031d3bc7b5cfeef7e",
         "application_source_commit": "bad218868c8f90bea0b49eddf9575152dcaf20c4",
         "upstream": "origin/main",
         "upstream_error": null,
@@ -256,7 +256,7 @@
     "watch_interval_seconds": 300.0,
     "max_watch_cycles": 1000
   },
-  "last_verification": "PARTIAL",
+  "last_verification": "PASS",
   "backend_tests": {
     "passed": 3152,
     "skipped": 55
@@ -268,7 +268,7 @@
     "passed": 64
   },
   "security_status": "PASS_WITH_RECORDED_RISK",
-  "runtime_identity_status": "PASS",
+  "runtime_identity_status": "HISTORICAL_PASS_REQUIRES_CURRENT_ATTESTATION",
   "evidence_provenance": "NOT_PROVEN",
   "benchmark_provenance": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE",
   "artifact_provenance": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE",
@@ -280,8 +280,8 @@
   "performance_mean": 8.1462,
   "performance_p95": 16.5442,
   "git_status": "CLEAN_SYNCED",
-  "current_commit": "c6c0857a3a415807abe276bae98bb695ec9a20f5",
-  "application_source_commit": "bad218868c8f90bea0b49eddf9575152dcaf20c4",
+  "current_commit": "4c9b37a1c94193aa974166eb505eb05011e6afb6",
+  "application_source_commit": "4c9b37a1c94193aa974166eb505eb05011e6afb6",
   "last_successful_commit": "a2ad36e69da1f8a9ceb063ab359b7b17fb9aed8e",
   "codex_cli": {
     "path": "/home/md-wasim/.nvm/versions/node/v24.19.0/lib/node_modules/@openai/codex/bin/codex.js",
@@ -299,6 +299,12 @@
         "status": "VERIFIED"
       },
       {
+        "path": "/usr/bin/snap",
+        "status": "VERSION_INVALID",
+        "exit_code": 0,
+        "output": "snap          2.76.3\nsnapd         2.76.3\nseries        16\nubuntu        24.04\nkernel        7.0.0-30-generic\narchitecture  amd64"
+      },
+      {
         "path": "/home/md-wasim/.nvm/versions/node/v24.19.0/lib/node_modules/@openai/codex/bin/codex.js",
         "version": "0.153.4",
         "version_sort_key": [
@@ -307,16 +313,10 @@
           4
         ],
         "status": "VERIFIED"
-      },
-      {
-        "path": "/usr/bin/snap",
-        "status": "VERSION_INVALID",
-        "exit_code": 0,
-        "output": "snap          2.76.3\nsnapd         2.76.3\nseries        16\nubuntu        24.04\nkernel        7.0.0-30-generic\narchitecture  amd64"
       }
     ]
   },
-  "report_tip_commit": "c6c0857a3a415807abe276bae98bb695ec9a20f5",
+  "report_tip_commit": "4c9b37a1c94193aa974166eb505eb05011e6afb6",
   "last_artifact_verification": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260914-current-provenance-after-sdk/artifact-attestation-current.json",
   "last_failure": {
     "timestamp": "2026-09-12T15:43:47.325405+00:00",
@@ -326,6 +326,108 @@
     "stderr_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0047/codex.stderr.log",
     "error_excerpt": ""
   },
-  "next_action": "No eligible coding candidate is currently available; preserve all exclusions and continue the bounded external watch.",
+  "next_action": "Run the isolated both-write-order and restart regression for the external-watch cycle metadata bundle.",
+  "current_task": "ASTER-STATE-MERGE-001",
+  "acceptance_tasks": {
+    "ASTER-STATE-MERGE-001": {
+      "id": "ASTER-STATE-MERGE-001",
+      "priority": "P0",
+      "title": "Verify monotonic persisted state merge",
+      "action": "Run the isolated both-write-order and restart regression for the external-watch cycle metadata bundle.",
+      "dependencies": [],
+      "verification": "The focused regression passes in a temporary evidence root and proves cycle, evidence, action, decision and exclusions remain consistent after restart.",
+      "status": "READY",
+      "attempts": 2,
+      "updated_at": "2026-09-15T18:10:29.398338+00:00",
+      "evidence": [],
+      "last_result": null
+    },
+    "ASTER-RUNTIME-PROVENANCE-001": {
+      "id": "ASTER-RUNTIME-PROVENANCE-001",
+      "priority": "P1",
+      "title": "Verify current runtime identity",
+      "action": "Re-observe the authenticated current runtime and validate source, backend and web identity against the current application source.",
+      "dependencies": [
+        "ASTER-STATE-MERGE-001"
+      ],
+      "verification": "Parent-side observation reports runtime identity PASS with current-source content hashes; historical benchmark/release gaps remain explicit.",
+      "status": "PENDING",
+      "attempts": 0,
+      "updated_at": "2026-09-15T18:08:05.936181+00:00",
+      "evidence": [],
+      "last_result": null
+    },
+    "ASTER-RELEASE-VALIDATION-001": {
+      "id": "ASTER-RELEASE-VALIDATION-001",
+      "priority": "P1",
+      "title": "Run current-source release validation",
+      "action": "Run the existing current-source release/security/artifact validation at the settled source tip and preserve every external failure.",
+      "dependencies": [
+        "ASTER-RUNTIME-PROVENANCE-001"
+      ],
+      "verification": "The existing release gate produces hashable current evidence or a precise external/native-platform blocker; no historical report is relabeled.",
+      "status": "PENDING",
+      "attempts": 0,
+      "updated_at": "2026-09-15T18:08:05.936181+00:00",
+      "evidence": [],
+      "last_result": null
+    },
+    "ASTER-CANONICAL-CODER-001": {
+      "id": "ASTER-CANONICAL-CODER-001",
+      "priority": "P2",
+      "title": "Resolve unchanged canonical coder cases",
+      "action": "Admit a genuinely new coding-capable model only through the existing integrity and trusted 8-record gate.",
+      "dependencies": [],
+      "verification": "Both unchanged coder cases pass all eight objective route/case records and the unchanged 459-case benchmark has no non-pass.",
+      "external_blocker": "All configured candidates are rejected or acquisition-blocked; a new eligible verified model/digest is required.",
+      "status": "BLOCKED_EXTERNAL",
+      "attempts": 0,
+      "updated_at": "2026-09-15T18:08:05.936181+00:00",
+      "evidence": [],
+      "last_result": null
+    },
+    "ASTER-REVERSE-CALLBACK-001": {
+      "id": "ASTER-REVERSE-CALLBACK-001",
+      "priority": "P4",
+      "title": "Verify AI OS to ASTER callback",
+      "action": "Execute the authenticated reverse callback through the supported parent MCP transport.",
+      "dependencies": [],
+      "verification": "Executable owner/capability/correlation-validated callback and audit evidence exists in the current runtime.",
+      "external_blocker": "The supported parent MCP/reverse callback endpoint rejects the available credential or is unavailable.",
+      "status": "BLOCKED_EXTERNAL",
+      "attempts": 0,
+      "updated_at": "2026-09-15T18:08:05.936181+00:00",
+      "evidence": [],
+      "last_result": null
+    },
+    "ASTER-DEX-001": {
+      "id": "ASTER-DEX-001",
+      "priority": "P4",
+      "title": "Verify DEX live boundary",
+      "action": "Re-test the existing DEX gateway under the current host permissions without bypassing the sandbox.",
+      "dependencies": [],
+      "verification": "Live DEX communication has capability/provenance evidence, or the host restriction is reproduced and fail-closed evidence is preserved.",
+      "external_blocker": "The host sandbox denies the required network namespace operation (RTM_NEWADDR/EPERM).",
+      "status": "BLOCKED_EXTERNAL",
+      "attempts": 0,
+      "updated_at": "2026-09-15T18:08:05.936181+00:00",
+      "evidence": [],
+      "last_result": null
+    },
+    "ASTER-VOICE-001": {
+      "id": "ASTER-VOICE-001",
+      "priority": "P4",
+      "title": "Verify canonical voice path",
+      "action": "Re-run the current voice path and exact-WAV replay with objective transcript and cleanup evidence.",
+      "dependencies": [],
+      "verification": "Voice result is classified LOCAL_PASS, PARTIAL or BLOCKED_EXTERNAL from current evidence; no model prose is accepted.",
+      "external_blocker": "Stable provider/hardware behavior for the remaining acoustic/model variance is unavailable.",
+      "status": "BLOCKED_EXTERNAL",
+      "attempts": 0,
+      "updated_at": "2026-09-15T18:08:05.936181+00:00",
+      "evidence": [],
+      "last_result": null
+    }
+  },
   "readiness_reason": "CANONICAL_NONPASS_REMAINS"
 }
