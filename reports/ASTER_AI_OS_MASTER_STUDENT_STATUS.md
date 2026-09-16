@@ -2,16 +2,16 @@
 
 Iteration 4. Overall readiness is **NOT READY**.
 
-Current application source commit: `9001cec7ec17811e6bf180a600bf4c4a52461dba`. Report tip commit: `8369fda24d81e2321e8e5f8586c05aaa5821a360`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
+Current application source commit: `7e41f3b7d5a3b1020423adbadd18e9df34250abe`. Report tip commit: `7e41f3b7d5a3b1020423adbadd18e9df34250abe`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
 
 ## Current measured state
 
 - Canonical benchmark: **97.83/100**, 457 PASS, 1 PARTIAL, 1 FAIL; mean 8.1462s, P95 16.5442s.
 - Issues: 0 locally unresolved, 24 fixed/verified, 7 externally blocked.
-- Current issue/action: `ASTER-RELEASE-VALIDATION-001` — Run the existing current-source release/security/artifact validation at the settled source tip and preserve every external failure.
+- Current issue/action: `ASTER-REPAIR-ASTER-RUNTIME-PROVENANCE-001-004` — Use the trusted parent executor to restart work-station-backend.service, verify loopback health, and recapture authenticated current-source runtime identity. Failure evidence: /home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1127.
 - Controller phase: **ACCEPTANCE_TASK**.
-- Runtime identity: **PASS**; evidence `/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1122/runtime-identity-current.json`.
-- Git: **CLEAN_SYNCED** at `8369fda24d81e2321e8e5f8586c05aaa5821a360`.
+- Runtime identity: **FAIL**; evidence `/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1127/runtime-identity-current.json`.
+- Git: **CLEAN_SYNCED** at `7e41f3b7d5a3b1020423adbadd18e9df34250abe`.
 
 ## Queue classifications
 
@@ -54,8 +54,8 @@ Current application source commit: `9001cec7ec17811e6bf180a600bf4c4a52461dba`. R
 | Task | Status | Dependencies | Blocker |
 | --- | --- | --- | --- |
 | ASTER-STATE-MERGE-001 | COMPLETE | none |  |
-| ASTER-RUNTIME-PROVENANCE-001 | COMPLETE | ASTER-STATE-MERGE-001 |  |
-| ASTER-RELEASE-VALIDATION-001 | PENDING | ASTER-RUNTIME-PROVENANCE-001 | Dependency correction completed; run the full current-source release gate. |
+| ASTER-RUNTIME-PROVENANCE-001 | RETRY | ASTER-STATE-MERGE-001 | Application source changed from 9001cec7ec17811e6bf180a600bf4c4a52461dba to 7e41f3b7d5a3b1020423adbadd18e9df34250abe; current-source evidence must be recaptured. |
+| ASTER-RELEASE-VALIDATION-001 | PENDING | ASTER-RUNTIME-PROVENANCE-001 | Application source changed from 9001cec7ec17811e6bf180a600bf4c4a52461dba to 7e41f3b7d5a3b1020423adbadd18e9df34250abe; current-source evidence must be recaptured. |
 | ASTER-CANONICAL-CODER-001 | BLOCKED_EXTERNAL | none | All configured candidates are rejected or acquisition-blocked; a new eligible verified model/digest is required. |
 | ASTER-REVERSE-CALLBACK-001 | BLOCKED_EXTERNAL | none | The supported parent MCP/reverse callback endpoint rejects the available credential or is unavailable. |
 | ASTER-DEX-001 | BLOCKED_EXTERNAL | none | The host sandbox denies the required network namespace operation (RTM_NEWADDR/EPERM). |
@@ -68,6 +68,7 @@ Current application source commit: `9001cec7ec17811e6bf180a600bf4c4a52461dba`. R
 | ASTER-REPAIR-ASTER-RELEASE-VALIDATION-001-003 | SUPERSEDED | none | Superseded because preserved evidence does not prove the exact Expo dependency mismatch; the originating release failure remains authoritative. |
 | ASTER-REPAIR-ASTER-RELEASE-VALIDATION-001-004 | SUPERSEDED | none | Superseded because preserved evidence does not prove the exact Expo dependency mismatch; the originating release failure remains authoritative. |
 | ASTER-REPAIR-ASTER-RELEASE-VALIDATION-001-005 | SUPERSEDED | none | Superseded because preserved evidence does not prove the exact Expo dependency mismatch; the originating release failure remains authoritative. |
+| ASTER-REPAIR-ASTER-RUNTIME-PROVENANCE-001-004 | READY | none |  |
 
 The issue queue and machine-readable controller state are authoritative. A child model response cannot mark an issue complete without objective evidence.
 
