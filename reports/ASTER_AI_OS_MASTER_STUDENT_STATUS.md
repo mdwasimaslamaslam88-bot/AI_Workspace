@@ -2,7 +2,7 @@
 
 Iteration 4. Overall readiness is **NOT READY**.
 
-Current application source commit: `7082dada3e9dac2e876e95532392a0827bf7ebcd`. Report tip commit: `7082dada3e9dac2e876e95532392a0827bf7ebcd`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
+Current application source commit: `7082dada3e9dac2e876e95532392a0827bf7ebcd`. Report tip commit: `e4dabfc43c7351bd7f00c1b715483c4b8b7bd15f`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
 
 ## Current measured state
 
@@ -11,7 +11,7 @@ Current application source commit: `7082dada3e9dac2e876e95532392a0827bf7ebcd`. R
 - Current issue/action: `ASTER-RELEASE-VALIDATION-001` — Run the existing current-source release/security/artifact validation at the settled source tip and preserve every external failure.
 - Controller phase: **ACCEPTANCE_TASK**.
 - Runtime identity: **PASS**; evidence `/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1109/runtime-repair/attestation/runtime-identity-current.json`.
-- Git: **CLEAN_SYNCED** at `7082dada3e9dac2e876e95532392a0827bf7ebcd`.
+- Git: **CLEAN_SYNCED** at `e4dabfc43c7351bd7f00c1b715483c4b8b7bd15f`.
 
 ## Queue classifications
 
@@ -60,8 +60,9 @@ Current application source commit: `7082dada3e9dac2e876e95532392a0827bf7ebcd`. R
 | ASTER-REVERSE-CALLBACK-001 | BLOCKED_EXTERNAL | none | The supported parent MCP/reverse callback endpoint rejects the available credential or is unavailable. |
 | ASTER-DEX-001 | BLOCKED_EXTERNAL | none | The host sandbox denies the required network namespace operation (RTM_NEWADDR/EPERM). |
 | ASTER-VOICE-001 | BLOCKED_EXTERNAL | none | Stable provider/hardware behavior for the remaining acoustic/model variance is unavailable. |
-| ASTER-REPAIR-ASTER-RUNTIME-PROVENANCE-001 | RETRY | none | One bounded retry granted for the validated service-readiness probe fix. |
+| ASTER-REPAIR-ASTER-RUNTIME-PROVENANCE-001 | COMPLETE | none |  |
 | ASTER-REPAIR-ASTER-RUNTIME-PROVENANCE-001-002 | SUPERSEDED | none | Superseded by the canonical bounded repair ASTER-REPAIR-ASTER-RUNTIME-PROVENANCE-001; historical evidence retained. |
+| ASTER-REPAIR-ASTER-RELEASE-VALIDATION-001 | READY | none |  |
 
 The issue queue and machine-readable controller state are authoritative. A child model response cannot mark an issue complete without objective evidence.
 
