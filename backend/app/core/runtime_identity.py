@@ -9,6 +9,10 @@ import subprocess
 from pydantic import BaseModel, ConfigDict, Field
 
 
+_REPORT_ONLY_PATH_PREFIXES = ("reports/ASTER_AI_OS_",)
+_MAX_REPORT_ONLY_ANCESTRY = 256
+
+
 class RuntimeIdentity(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -53,21 +57,60 @@ def tree_digest(root: Path, *, suffixes: frozenset[str] | None = None) -> str | 
         return None
 
 
+def application_source_commit(repository: Path) -> str | None:
+    """Resolve the executable source tip, excluding live report-only commits.
+
+    The ASTER controller may append report commits while the backend remains
+    the same application.  Runtime identity must therefore use the same
+    bounded ancestry rule as the controller instead of exposing the mutable
+    checkout ``HEAD``.  A non-report commit stops the walk; malformed or
+    excessively long ancestry fails closed.
+    """
+
+    def run_git(*arguments: str) -> str | None:
+        try:
+            result = subprocess.run(
+                ["git", "-C", str(repository), *arguments],
+                capture_output=True,
+                text=True,
+                check=True,
+                timeout=2,
+            )
+        except (OSError, subprocess.SubprocessError):
+            return None
+        return result.stdout.strip()
+
+    current = run_git("rev-parse", "HEAD")
+    if not current or len(current) not in (40, 64) or any(
+        character not in "0123456789abcdef" for character in current
+    ):
+        return None
+
+    for _ in range(_MAX_REPORT_ONLY_ANCESTRY):
+        changed = run_git(
+            "diff-tree", "--no-commit-id", "--name-only", "-r", current
+        )
+        paths = [path.strip() for path in (changed or "").splitlines() if path.strip()]
+        if not paths or not all(
+            any(path.startswith(prefix) for prefix in _REPORT_ONLY_PATH_PREFIXES)
+            for path in paths
+        ):
+            return current
+        parent = run_git("rev-parse", f"{current}^")
+        if not parent or len(parent) not in (40, 64) or any(
+            character not in "0123456789abcdef" for character in parent
+        ):
+            return None
+        current = parent
+
+    return None
+
+
 def capture_runtime_identity(repository: Path, web_root: Path | None, version: str) -> RuntimeIdentity:
-    commit = None
-    try:
-        captured = subprocess.run(
-            ["git", "-C", str(repository), "rev-parse", "HEAD"],
-            capture_output=True, text=True, check=True, timeout=2,
-        ).stdout.strip()
-        if len(captured) in (40, 64) and all(c in "0123456789abcdef" for c in captured):
-            commit = captured
-    except (OSError, subprocess.SubprocessError):
-        pass
     return RuntimeIdentity(
         captured_at=datetime.now(timezone.utc),
         version=version,
-        source_commit=commit,
+        source_commit=application_source_commit(repository),
         backend_source_sha256=tree_digest(
             repository / "backend" / "app", suffixes=frozenset({".py", ".json"})
         ),
