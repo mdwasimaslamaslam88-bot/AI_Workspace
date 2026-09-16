@@ -1012,7 +1012,7 @@ def test_automatic_repair_chain_runs_original_failure_then_repair_child(tmp_path
         "ASTER-RELEASE-VALIDATION-001",
         "ASTER-REPAIR-ASTER-RELEASE-VALIDATION-001",
     ]
-    assert state["acceptance_tasks"]["ASTER-RELEASE-VALIDATION-001"]["status"] == "FAILED"
+    assert state["acceptance_tasks"]["ASTER-RELEASE-VALIDATION-001"]["status"] == "PENDING"
     assert state["acceptance_tasks"]["ASTER-REPAIR-ASTER-RELEASE-VALIDATION-001"]["status"] == "COMPLETE"
 
 

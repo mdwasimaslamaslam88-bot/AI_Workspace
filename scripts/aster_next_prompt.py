@@ -998,6 +998,31 @@ def acceptance_task_records(state: dict[str, Any]) -> dict[str, dict[str, Any]]:
             duplicate["status"] = "SUPERSEDED"
             duplicate["blocker"] = f"Superseded by the canonical bounded repair {keep.get('id')}; historical evidence retained."
             duplicate["updated_at"] = utc_now()
+    # A completed repair is a durable resolution of its parent acceptance
+    # task. Reapply that relationship after restart before dependency
+    # selection, while retaining the parent's original failed result.
+    for current in raw.values():
+        if not isinstance(current, dict) or current.get("status") != "COMPLETE":
+            continue
+        parent_id = current.get("parent_task_id")
+        parent = raw.get(parent_id) if isinstance(parent_id, str) else None
+        if not isinstance(parent, dict):
+            continue
+        repair_kind = current.get("repair_kind")
+        if repair_kind == "runtime_deployment_repair":
+            if parent.get("status") != "COMPLETE":
+                parent["status"] = "COMPLETE"
+                parent["blocker"] = None
+                parent["repair_resolution"] = {
+                    "repair_task_id": current.get("id"),
+                    "updated_at": current.get("updated_at"),
+                    "evidence": current.get("evidence", []),
+                }
+                parent["updated_at"] = utc_now()
+        elif repair_kind == "release_dependency_alignment" and parent.get("status") == "FAILED":
+            parent["status"] = "PENDING"
+            parent["blocker"] = "Dependency correction completed; run the full current-source release gate."
+            parent["updated_at"] = utc_now()
     return raw
 
 
@@ -4123,6 +4148,21 @@ def acceptance_task_iteration(
                 "Objective verification failed; dispatched bounded local diagnosis/repair task "
                 f"{repair_task.get('id') if repair_task else 'already-present-or-unavailable'}."
             )
+    if objective_pass and task.get("parent_task_id"):
+        parent_task = state["acceptance_tasks"].get(str(task["parent_task_id"]))
+        if isinstance(parent_task, dict):
+            if task.get("repair_kind") == "runtime_deployment_repair":
+                parent_task["status"] = "COMPLETE"
+                parent_task["blocker"] = None
+            elif task.get("repair_kind") == "release_dependency_alignment":
+                parent_task["status"] = "PENDING"
+                parent_task["blocker"] = "Dependency correction completed; run the full current-source release gate."
+            parent_task["repair_resolution"] = {
+                "repair_task_id": task.get("id"),
+                "updated_at": utc_now(),
+                "evidence": task.get("evidence", []),
+            }
+            parent_task["updated_at"] = utc_now()
     task["updated_at"] = utc_now()
     task_status = str(task.get("status"))
     task_blocker = task.get("blocker")
