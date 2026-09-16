@@ -4143,6 +4143,19 @@ def acceptance_task_iteration(
         and prompt_source_ok
     )
     parent = verify_acceptance_task(task, evidence_dir=cycle_root, evidence_root=evidence_root)
+    post_repair_observations = parent.get("verification", {}).get("observations")
+    production_commit = parent.get("verification", {}).get("production_commit")
+    if isinstance(production_commit, dict) and production_commit.get("commit"):
+        # A trusted repair may change application source (for example, the
+        # Expo manifest correction). Re-observe immediately so stale runtime
+        # and release decisions cannot be selected in the same owner cycle.
+        refreshed = observe(evidence_root)
+        refreshed_source = observed_source_commit(refreshed)
+        if refresh_source_bound_acceptance_tasks(state, refreshed_source):
+            persist_state(state, evidence_root)
+        post_repair_observations = refreshed
+        if refreshed_source:
+            source_commit = refreshed_source
     objective_pass = bool(child_identity_ok and parent.get("objective_pass") is True)
     task["last_result"] = {
         "timestamp": utc_now(),
@@ -4205,9 +4218,9 @@ def acceptance_task_iteration(
     task_decision = copy.deepcopy(task)
     next_task = choose_acceptance_task(state)
     next_prompt = (
-        build_acceptance_task_prompt(next_task, parent.get("verification", {}).get("observations", observations), str(cycle_root))
+        build_acceptance_task_prompt(next_task, post_repair_observations or parent.get("verification", {}).get("observations", observations), str(cycle_root))
         if next_task
-        else build_external_watch_prompt(None, parent.get("verification", {}).get("observations", observations), str(cycle_root))
+        else build_external_watch_prompt(None, post_repair_observations or parent.get("verification", {}).get("observations", observations), str(cycle_root))
     )
     state["next_prompt"] = next_prompt
     state["next_prompt_source"] = "controller_derived"
