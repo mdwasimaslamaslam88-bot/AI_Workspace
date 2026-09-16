@@ -2,16 +2,16 @@
 
 Iteration 4. Overall readiness is **NOT READY**.
 
-Current application source commit: `8e0dfed8cd5b99edf9c274e33e62e9dfa7d38544`. Report tip commit: `5d25a5afedb90dd2476f5ba9586f1abcd63fe699`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
+Current application source commit: `8e0dfed8cd5b99edf9c274e33e62e9dfa7d38544`. Report tip commit: `e781e3c7c57b1a80472364bcfbdc45ca7e658726`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
 
 ## Current measured state
 
 - Canonical benchmark: **97.83/100**, 457 PASS, 1 PARTIAL, 1 FAIL; mean 8.1462s, P95 16.5442s.
 - Issues: 0 locally unresolved, 24 fixed/verified, 7 externally blocked.
-- Current issue/action: `NONE` — Use the trusted parent executor to restart work-station-backend.service, verify loopback health, and recapture authenticated current-source runtime identity. Failure evidence: /home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1114.
-- Controller phase: **ACCEPTANCE_TASK**.
+- Current issue/action: `NONE` — No eligible coding candidate is currently available; preserve all exclusions and continue the bounded external watch.
+- Controller phase: **WATCH_EXTERNAL_GAP**.
 - Runtime identity: **FAIL**; evidence `/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1116/runtime-repair/attestation/runtime-identity-current.json`.
-- Git: **CLEAN_SYNCED** at `5d25a5afedb90dd2476f5ba9586f1abcd63fe699`.
+- Git: **CLEAN_SYNCED** at `e781e3c7c57b1a80472364bcfbdc45ca7e658726`.
 
 ## Queue classifications
 
@@ -63,7 +63,7 @@ Current application source commit: `8e0dfed8cd5b99edf9c274e33e62e9dfa7d38544`. R
 | ASTER-REPAIR-ASTER-RUNTIME-PROVENANCE-001 | COMPLETE | none |  |
 | ASTER-REPAIR-ASTER-RUNTIME-PROVENANCE-001-002 | SUPERSEDED | none | Superseded by the canonical bounded repair ASTER-REPAIR-ASTER-RUNTIME-PROVENANCE-001; historical evidence retained. |
 | ASTER-REPAIR-ASTER-RELEASE-VALIDATION-001 | COMPLETE | none |  |
-| ASTER-REPAIR-ASTER-RUNTIME-PROVENANCE-001-003 | RETRY | none | Previous bounded repair failed locally; retry after the repair implementation was corrected. |
+| ASTER-REPAIR-ASTER-RUNTIME-PROVENANCE-001-003 | FAILED | none | Bounded repair attempt failed objective verification; preserve the evidence and do not manufacture an unbounded repair-of-repair chain. |
 
 The issue queue and machine-readable controller state are authoritative. A child model response cannot mark an issue complete without objective evidence.
 
