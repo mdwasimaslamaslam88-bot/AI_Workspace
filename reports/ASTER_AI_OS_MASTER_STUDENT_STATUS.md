@@ -2,16 +2,16 @@
 
 Iteration 4. Overall readiness is **NOT READY**.
 
-Current application source commit: `8e0dfed8cd5b99edf9c274e33e62e9dfa7d38544`. Report tip commit: `107b67f61d02677dbec0827afb80ec39fdd9f705`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
+Current application source commit: `8e0dfed8cd5b99edf9c274e33e62e9dfa7d38544`. Report tip commit: `5d25a5afedb90dd2476f5ba9586f1abcd63fe699`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
 
 ## Current measured state
 
 - Canonical benchmark: **97.83/100**, 457 PASS, 1 PARTIAL, 1 FAIL; mean 8.1462s, P95 16.5442s.
 - Issues: 0 locally unresolved, 24 fixed/verified, 7 externally blocked.
-- Current issue/action: `ASTER-REPAIR-ASTER-RUNTIME-PROVENANCE-001-003` — Use the trusted parent executor to restart work-station-backend.service, verify loopback health, and recapture authenticated current-source runtime identity. Failure evidence: /home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1114.
+- Current issue/action: `NONE` — Use the trusted parent executor to restart work-station-backend.service, verify loopback health, and recapture authenticated current-source runtime identity. Failure evidence: /home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1114.
 - Controller phase: **ACCEPTANCE_TASK**.
-- Runtime identity: **FAIL**; evidence `/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1115/runtime-repair/attestation/runtime-identity-current.json`.
-- Git: **CLEAN_SYNCED** at `107b67f61d02677dbec0827afb80ec39fdd9f705`.
+- Runtime identity: **FAIL**; evidence `/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1116/runtime-repair/attestation/runtime-identity-current.json`.
+- Git: **CLEAN_SYNCED** at `5d25a5afedb90dd2476f5ba9586f1abcd63fe699`.
 
 ## Queue classifications
 
@@ -63,7 +63,7 @@ Current application source commit: `8e0dfed8cd5b99edf9c274e33e62e9dfa7d38544`. R
 | ASTER-REPAIR-ASTER-RUNTIME-PROVENANCE-001 | COMPLETE | none |  |
 | ASTER-REPAIR-ASTER-RUNTIME-PROVENANCE-001-002 | SUPERSEDED | none | Superseded by the canonical bounded repair ASTER-REPAIR-ASTER-RUNTIME-PROVENANCE-001; historical evidence retained. |
 | ASTER-REPAIR-ASTER-RELEASE-VALIDATION-001 | COMPLETE | none |  |
-| ASTER-REPAIR-ASTER-RUNTIME-PROVENANCE-001-003 | READY | none |  |
+| ASTER-REPAIR-ASTER-RUNTIME-PROVENANCE-001-003 | RETRY | none | Previous bounded repair failed locally; retry after the repair implementation was corrected. |
 
 The issue queue and machine-readable controller state are authoritative. A child model response cannot mark an issue complete without objective evidence.
 
