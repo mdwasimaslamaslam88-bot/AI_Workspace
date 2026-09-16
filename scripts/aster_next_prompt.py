@@ -975,6 +975,29 @@ def acceptance_task_records(state: dict[str, Any]) -> dict[str, dict[str, Any]]:
             current["status"] = "RETRY"
             current["blocker"] = "Previous bounded repair failed locally; retry after the repair implementation was corrected."
             current["updated_at"] = utc_now()
+    # A pre-fix owner could have created suffixed repairs for the same
+    # acceptance failure. Keep one deterministic active repair and retain the
+    # other records as historical evidence instead of executing duplicates.
+    repair_groups: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    for current in raw.values():
+        if not isinstance(current, dict):
+            continue
+        parent_id = current.get("parent_task_id")
+        repair_kind = current.get("repair_kind")
+        if isinstance(parent_id, str) and isinstance(repair_kind, str):
+            repair_groups.setdefault((parent_id, repair_kind), []).append(current)
+    active_statuses = {"READY", "PENDING", "RETRY"}
+    for group in repair_groups.values():
+        active = [task for task in group if task.get("status") in active_statuses]
+        if len(active) < 2:
+            continue
+        keep = sorted(active, key=lambda task: str(task.get("id", "")))[0]
+        for duplicate in active:
+            if duplicate is keep:
+                continue
+            duplicate["status"] = "SUPERSEDED"
+            duplicate["blocker"] = f"Superseded by the canonical bounded repair {keep.get('id')}; historical evidence retained."
+            duplicate["updated_at"] = utc_now()
     return raw
 
 

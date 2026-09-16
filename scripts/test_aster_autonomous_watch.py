@@ -1105,6 +1105,40 @@ def test_failed_dynamic_repair_reopens_only_within_its_finite_budget():
     assert state["acceptance_tasks"]["ASTER-REPAIR-TEST"]["status"] == "FAILED"
 
 
+def test_duplicate_active_repairs_are_reconciled_without_losing_history():
+    state = {"acceptance_tasks": controller.default_acceptance_tasks()}
+    state["acceptance_tasks"].update(
+        {
+            "ASTER-REPAIR-RUNTIME-001": {
+                "id": "ASTER-REPAIR-RUNTIME-001",
+                "priority": "P0",
+                "parent_task_id": "ASTER-RUNTIME-PROVENANCE-001",
+                "repair_kind": "runtime_deployment_repair",
+                "status": "FAILED",
+                "attempts": 1,
+                "max_attempts": 2,
+                "evidence": ["/evidence/old"],
+            },
+            "ASTER-REPAIR-RUNTIME-001-002": {
+                "id": "ASTER-REPAIR-RUNTIME-001-002",
+                "priority": "P0",
+                "parent_task_id": "ASTER-RUNTIME-PROVENANCE-001",
+                "repair_kind": "runtime_deployment_repair",
+                "status": "READY",
+                "attempts": 0,
+                "max_attempts": 2,
+                "evidence": ["/evidence/new"],
+            },
+        }
+    )
+    state["acceptance_tasks"]["ASTER-STATE-MERGE-001"]["status"] = "COMPLETE"
+    state["acceptance_tasks"]["ASTER-RUNTIME-PROVENANCE-001"]["status"] = "COMPLETE"
+    controller.acceptance_task_records(state)
+    assert state["acceptance_tasks"]["ASTER-REPAIR-RUNTIME-001"]["status"] == "RETRY"
+    assert state["acceptance_tasks"]["ASTER-REPAIR-RUNTIME-001-002"]["status"] == "SUPERSEDED"
+    assert controller.choose_acceptance_task(state)["id"] == "ASTER-REPAIR-RUNTIME-001"
+
+
 def test_release_repair_requires_proof_and_runs_bounded_workspace_commands(tmp_path):
     evidence_dir = tmp_path / "failed-release"
     evidence_dir.mkdir()
