@@ -7,8 +7,8 @@ PASS           : 457
 PARTIAL        : 1
 FAIL           : 1
 ISSUES         : 0
-CURRENT        : NONE
-PHASE          : WATCH_EXTERNAL_GAP
+CURRENT        : ASTER-REPAIR-ASTER-RUNTIME-PROVENANCE-001
+PHASE          : ACCEPTANCE_TASK
 CANDIDATE      : None
 ASTER→AI OS    : PARTIAL: current owner-authenticated HTTP exchange and integrity verified; fabricated exec
 AI OS→ASTER    : BLOCKED_EXTERNAL: parent MCP/reverse callback is not available; no bidirectional verificat
@@ -20,8 +20,8 @@ BACKEND        : 3152 PASS
 WEB            : 206 PASS
 MOBILE         : 64 PASS
 PERFORMANCE    : mean 8.1462s / P95 16.5442s
-GIT            : CLEAN_SYNCED
-COMMIT         : a78b7c910ff1009c35a37f0c19eebaa7abaf27ca
-SOURCE         : 3caaf7abae882b0d83db679ce80d56def1da1a00
-NEXT ACTION    : No eligible coding candidate is currently available; preserve all exclusions and continue the bounded external watch.
+GIT            : DIRTY
+COMMIT         : 2292411a64a930f22bb7a6f974401b518850447f
+SOURCE         : 2292411a64a930f22bb7a6f974401b518850447f
+NEXT ACTION    : Use the trusted parent executor to restart work-station-backend.service, verify loopback health, and recapture authenticated current-source runtime identity. Failure evidence: /home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1103.
 ========================================================
