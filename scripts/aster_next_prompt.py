@@ -975,6 +975,24 @@ def acceptance_task_records(state: dict[str, Any]) -> dict[str, dict[str, Any]]:
             current["status"] = "RETRY"
             current["blocker"] = "Previous bounded repair failed locally; retry after the repair implementation was corrected."
             current["updated_at"] = utc_now()
+        if (
+            isinstance(current, dict)
+            and current.get("repair_kind") == "runtime_deployment_repair"
+            and current.get("status") == "RETRY"
+            and int(current.get("attempts", 0) or 0) >= int(current.get("max_attempts", 2) or 2)
+            and not current.get("readiness_retry_granted")
+            and isinstance(current.get("last_result"), dict)
+            and current["last_result"].get("parent_verification", {}).get("failure_classification")
+            == "LOCAL_RUNTIME_HEALTH_FAILED"
+        ):
+            # One failed attempt used the pre-fix immediate probe and one was
+            # interrupted before parent verification. Grant exactly one
+            # explicit retry for the now-validated readiness-wait fix; do not
+            # reset the cumulative attempt count or create an endless budget.
+            current["max_attempts"] = int(current.get("attempts", 0) or 0) + 1
+            current["readiness_retry_granted"] = True
+            current["blocker"] = "One bounded retry granted for the validated service-readiness probe fix."
+            current["updated_at"] = utc_now()
     # A pre-fix owner could have created suffixed repairs for the same
     # acceptance failure. Keep one deterministic active repair and retain the
     # other records as historical evidence instead of executing duplicates.
@@ -1087,6 +1105,24 @@ def choose_acceptance_task(state: dict[str, Any]) -> dict[str, Any] | None:
     terminal = {"COMPLETE", "COMPLETE_WITH_EXTERNAL", "BLOCKED_EXTERNAL"}
     for task in tasks.values():
         if not isinstance(task, dict) or task.get("status") not in {"READY", "PENDING", "RETRY"}:
+            continue
+        child_repairs = [
+            candidate for candidate in tasks.values()
+            if isinstance(candidate, dict)
+            and candidate.get("parent_task_id") == task.get("id")
+        ]
+        if any(
+            candidate.get("status") == "FAILED"
+            or (
+                candidate.get("status") in {"READY", "PENDING", "RETRY"}
+                and candidate.get("max_attempts") is not None
+                and int(candidate.get("attempts", 0) or 0) >= int(candidate.get("max_attempts") or 0)
+            )
+            for candidate in child_repairs
+        ):
+            # A parent with an exhausted repair must not be blindly rerun.
+            # Its objective failure stays visible until a new evidence-backed
+            # repair becomes available.
             continue
         max_attempts = task.get("max_attempts")
         if max_attempts is not None:

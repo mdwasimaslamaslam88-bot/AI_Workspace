@@ -1139,6 +1139,33 @@ def test_duplicate_active_repairs_are_reconciled_without_losing_history():
     assert controller.choose_acceptance_task(state)["id"] == "ASTER-REPAIR-RUNTIME-001"
 
 
+def test_runtime_readiness_fix_grants_exactly_one_new_bounded_attempt():
+    state = {"acceptance_tasks": controller.default_acceptance_tasks()}
+    state["acceptance_tasks"].update(
+        {
+            "ASTER-REPAIR-RUNTIME-001": {
+                "id": "ASTER-REPAIR-RUNTIME-001",
+                "parent_task_id": "ASTER-RUNTIME-PROVENANCE-001",
+                "repair_kind": "runtime_deployment_repair",
+                "status": "RETRY",
+                "attempts": 2,
+                "max_attempts": 2,
+                "last_result": {
+                    "parent_verification": {
+                        "failure_classification": "LOCAL_RUNTIME_HEALTH_FAILED"
+                    }
+                },
+            }
+        }
+    )
+    controller.acceptance_task_records(state)
+    task = state["acceptance_tasks"]["ASTER-REPAIR-RUNTIME-001"]
+    assert task["max_attempts"] == 3
+    assert task["readiness_retry_granted"] is True
+    controller.acceptance_task_records(state)
+    assert task["max_attempts"] == 3
+
+
 def test_release_repair_requires_proof_and_runs_bounded_workspace_commands(tmp_path):
     evidence_dir = tmp_path / "failed-release"
     evidence_dir.mkdir()
