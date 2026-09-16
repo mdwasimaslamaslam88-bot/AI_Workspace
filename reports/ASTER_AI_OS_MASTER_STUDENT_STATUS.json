@@ -2,11 +2,9 @@
   "schema_version": 4,
   "iteration": 4,
   "status": "NOT_READY",
-  "updated_at": "2026-09-16T16:04:44.466264+00:00",
-  "current_issue": [
-    "ASTER-REPAIR-ASTER-RUNTIME-PROVENANCE-001"
-  ],
-  "current_commit": "8d356f9a84a4890339d6720e986eebbee07296af",
+  "updated_at": "2026-09-16T16:04:56.982860+00:00",
+  "current_issue": [],
+  "current_commit": "cf5690608395dd4532bf8e9d670b501b3faa9d39",
   "current_runtime": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1104/runtime-repair/attestation/runtime-identity-current.json",
   "current_artifact": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260914-current-provenance-after-sdk/artifact-attestation-current.json",
   "issues": [
@@ -3169,9 +3167,9 @@
   "controller": {
     "iteration": 4,
     "iterations_completed": 9,
-    "phase": "ACCEPTANCE_TASK",
+    "phase": "WATCH_EXTERNAL_GAP",
     "readiness_reason": "CANONICAL_NONPASS_REMAINS",
-    "current_action": "Use the trusted parent executor to restart work-station-backend.service, verify loopback health, and recapture authenticated current-source runtime identity. Failure evidence: /home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1103.",
+    "current_action": "No eligible coding candidate is currently available; preserve all exclusions and continue the bounded external watch.",
     "last_successful_commit": "a2ad36e69da1f8a9ceb063ab359b7b17fb9aed8e",
     "last_codex_cli": {
       "path": "/home/md-wasim/.nvm/versions/node/v24.19.0/lib/node_modules/@openai/codex/bin/codex.js",
@@ -3207,497 +3205,413 @@
       ]
     },
     "last_result": {
-      "timestamp": "2026-09-16T16:04:44.085265+00:00",
+      "timestamp": "2026-09-16T16:04:56.573820+00:00",
+      "iteration": 4,
+      "attempt": 26,
       "cycle": 1104,
-      "issue": "ASTER-REPAIR-ASTER-RUNTIME-PROVENANCE-001",
+      "issue": null,
       "status": "NOT_READY",
-      "action": "Use the trusted parent executor to restart work-station-backend.service, verify loopback health, and recapture authenticated current-source runtime identity. Failure evidence: /home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1103.",
-      "verification": "FAIL",
-      "objective_pass": false,
-      "classification": "FAILED",
-      "repair_task": null,
-      "child": {
-        "command": [
-          "/home/md-wasim/.nvm/versions/node/v24.19.0/lib/node_modules/@openai/codex/bin/codex.js",
-          "exec",
-          "--json",
-          "--color",
-          "never",
-          "--sandbox",
-          "workspace-write",
-          "--config",
-          "approval_policy=\"never\"",
-          "--cd",
-          "/home/md-wasim/Projects/AI_Workspace",
-          "--add-dir",
-          "/home/md-wasim/AI_Workspace_Data/aster-evidence",
-          "--output-last-message",
-          "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1104/codex.last-message.txt",
-          "-"
-        ],
-        "cwd": "/home/md-wasim/Projects/AI_Workspace",
-        "exit_code": 0,
-        "duration_seconds": 229.4288,
-        "timed_out": false,
-        "error": null,
-        "stdout_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1104/codex.stdout.jsonl",
-        "stderr_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1104/codex.stderr.log",
-        "stderr_tail": "",
-        "last_message_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1104/codex.last-message.txt",
-        "stdout_sha256": "c46fa1aeeaa700286fd2172c269c96f1f22fa740ec9787693331ad5e6f663df6",
-        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-        "last_message_sha256": "ac960fee75015e279f20efeffb282a4687972d8b915ddd506a91fae9ca49bbed",
-        "codex_executable": "/home/md-wasim/.nvm/versions/node/v24.19.0/lib/node_modules/@openai/codex/bin/codex.js",
-        "codex_version": "0.153.4",
-        "codex_resolution": {
-          "path": "/home/md-wasim/.nvm/versions/node/v24.19.0/lib/node_modules/@openai/codex/bin/codex.js",
-          "version": "0.153.4",
-          "selection": "highest_verified_semver",
-          "candidates": [
-            {
-              "path": "/home/md-wasim/.codex/packages/standalone/releases/0.147.0-x86_64-unknown-linux-musl/bin/codex",
-              "version": "0.147.0",
-              "version_sort_key": [
-                0,
-                147,
-                0
-              ],
-              "status": "VERIFIED"
-            },
-            {
-              "path": "/usr/bin/snap",
-              "status": "VERSION_INVALID",
-              "exit_code": 0,
-              "output": "snap          2.76.3\nsnapd         2.76.3\nseries        16\nubuntu        24.04\nkernel        7.0.0-30-generic\narchitecture  amd64"
-            },
-            {
-              "path": "/home/md-wasim/.nvm/versions/node/v24.19.0/lib/node_modules/@openai/codex/bin/codex.js",
-              "version": "0.153.4",
-              "version_sort_key": [
-                0,
-                153,
-                4
-              ],
-              "status": "VERIFIED"
-            }
-          ]
+      "action": "No eligible coding candidate is currently available; preserve all exclusions and continue the bounded external watch.",
+      "verification": "PARTIAL",
+      "classification": "NOT_READY",
+      "candidate": null,
+      "candidate_state": "NOT_CACHED_DOWNLOAD_TOO_SLOW_OR_UNAVAILABLE",
+      "discovery": {
+        "status": "NOT_READY",
+        "candidate": null,
+        "candidate_state": "NOT_CACHED_DOWNLOAD_TOO_SLOW_OR_UNAVAILABLE",
+        "candidate_policy": {
+          "candidate_references": [],
+          "all_candidate_references": [
+            "qwen2.5-coder:3b",
+            "qwen2.5-coder:1.5b",
+            "deepseek-coder:1.3b",
+            "starcoder2:3b",
+            "codegemma:2b"
+          ],
+          "constructed_exactly": true,
+          "rejected_references": [
+            "codegemma:2b",
+            "deepseek-coder:1.3b",
+            "qwen2.5-coder:1.5b",
+            "qwen3.5:9b-q4_K_M",
+            "starcoder2:3b"
+          ],
+          "acquisition_blocked_references": [
+            "qwen2.5-coder:3b"
+          ],
+          "excluded_references": [
+            "codegemma:2b",
+            "deepseek-coder:1.3b",
+            "qwen2.5-coder:1.5b",
+            "qwen2.5-coder:3b",
+            "qwen3.5:9b-q4_K_M",
+            "starcoder2:3b"
+          ],
+          "excluded_reference": "codegemma:2b",
+          "excluded_reference_absent": false
         },
-        "parsed": {
-          "parsed": true,
-          "status": "NOT_READY",
-          "issues_remaining": "1",
-          "current_issue": "ASTER-REPAIR-ASTER-RUNTIME-PROVENANCE-001",
-          "action": "Run trusted-parent runtime restart and authenticated provenance verification",
-          "verification": "PARTIAL",
-          "classification": "NOT_READY",
-          "next_prompt": "Execute the existing trusted-parent runtime_deployment_repair verifier for ASTER-REPAIR-ASTER-RUNTIME-PROVENANCE-001 in cycle-1104. Restart work-station-backend.service, require successful loopback health, then perform authenticated provisioning, GET /api/v1/diagnostics/runtime-identity, and current-session revocation. Require source commit 2292411a64a930f22bb7a6f974401b518850447f, backend SHA-256 eb699a17b5dcfbaac89b5c9eb9b0bd7e77242c0a04c40e7f23caa41771dc707a, web SHA-256 5c0075a4636f9d50eac0f543bb67eb424f335ee707926e7ddc7d2b4982172825, and HTTP 204 revocation. Persist credential-free evidence and rerun controller.observe plus controller.validate_current_provenance. Keep cycle-1103 runtime identity at source 2e7b587490625139d38e59e1e534b896ad3f39dc historical; keep benchmark/artifact evidence at a2ad36e69da1f8a9ceb063ab359b7b17fb9aed8e historical and release/security evidence FAIL/NOT_PROVEN. Do not infer callback, DEX, voice, benchmark, release, security, or artifact PASS. If parent verification passes, rerun ASTER-RUNTIME-PROVENANCE-001 before selecting ASTER-RELEASE-VALIDATION-001."
+        "local": [],
+        "remote": [],
+        "download_policy": {
+          "max_estimated_hours": 3.0,
+          "max_download_seconds": 10800,
+          "both_limits_required": true
         }
       },
-      "parent_verification": {
-        "timestamp": "2026-09-16T16:04:44.082876+00:00",
-        "task_id": "ASTER-REPAIR-ASTER-RUNTIME-PROVENANCE-001",
-        "reason": "backend restart completed but loopback health did not pass",
-        "objective_pass": false,
-        "failure_classification": "LOCAL_RUNTIME_HEALTH_FAILED",
-        "verification": {
-          "command": [
-            "systemctl --user restart work-station-backend.service",
-            "curl --fail --silent --show-error --max-time 5 http://127.0.0.1:8000/api/v1/health/live",
-            "controller.observe",
-            "controller.validate_current_provenance"
-          ],
-          "cwd": "/home/md-wasim/Projects/AI_Workspace",
-          "exit_code": 1,
-          "restart": {
-            "command": [
-              "systemctl",
-              "--user",
-              "restart",
-              "work-station-backend.service"
-            ],
-            "cwd": "/home/md-wasim/Projects/AI_Workspace",
-            "exit_code": 0,
-            "duration_seconds": 0.1389,
-            "stdout": "",
-            "stderr": "",
-            "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-            "timed_out": false,
-            "stdout_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1104/runtime-repair/restart/command.stdout.log",
-            "stderr_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1104/runtime-repair/restart/command.stderr.log"
+      "evidence_dir": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-1104",
+      "before": {
+        "timestamp": "2026-09-16T16:04:56.429765+00:00",
+        "cycle": 1104,
+        "phase": "WATCH_EXTERNAL_GAP",
+        "candidate_hint": "qwen2.5-coder:3b",
+        "observations": {
+          "timestamp": "2026-09-16T16:04:56.199841+00:00",
+          "git": {
+            "branch": "main",
+            "commit": "cf5690608395dd4532bf8e9d670b501b3faa9d39",
+            "application_source_commit": "2292411a64a930f22bb7a6f974401b518850447f",
+            "upstream": "origin/main",
+            "upstream_error": null,
+            "ahead": 0,
+            "behind": 0,
+            "clean": true,
+            "status_porcelain": "",
+            "status": "CLEAN_SYNCED"
           },
-          "health": {
-            "command": [
-              "curl",
-              "--fail",
-              "--silent",
-              "--show-error",
-              "--max-time",
-              "5",
-              "http://127.0.0.1:8000/api/v1/health/live"
-            ],
-            "cwd": "/home/md-wasim/Projects/AI_Workspace",
-            "exit_code": 7,
-            "duration_seconds": 0.0055,
-            "stdout": "",
-            "stderr": "curl: (7) Failed to connect to 127.0.0.1 port 8000 after 0 ms: Couldn't connect to server\n",
-            "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-            "stderr_sha256": "4244b013bed87daa6fd752b81ab21271c6df949c0a8c5cb6c9e9c907a733f571",
-            "timed_out": false,
-            "stdout_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1104/runtime-repair/health/command.stdout.log",
-            "stderr_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1104/runtime-repair/health/command.stderr.log"
+          "benchmark": {
+            "path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260914-current-provenance-after-sdk/Work_Station_Benchmark/benchmark-summary.json",
+            "commit": "a2ad36e69da1f8a9ceb063ab359b7b17fb9aed8e",
+            "score": 97.83,
+            "pass": 457,
+            "partial": 1,
+            "fail": 1,
+            "mean": 8.1462,
+            "p95": 16.5442
           },
-          "observations_before_attestation": {
-            "timestamp": "2026-09-16T16:04:43.498513+00:00",
-            "git": {
-              "branch": "main",
-              "commit": "8d356f9a84a4890339d6720e986eebbee07296af",
-              "application_source_commit": "2292411a64a930f22bb7a6f974401b518850447f",
-              "upstream": "origin/main",
-              "upstream_error": null,
-              "ahead": 0,
-              "behind": 0,
-              "clean": true,
-              "status_porcelain": "",
-              "status": "CLEAN_SYNCED"
-            },
-            "benchmark": {
-              "path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260914-current-provenance-after-sdk/Work_Station_Benchmark/benchmark-summary.json",
-              "commit": "a2ad36e69da1f8a9ceb063ab359b7b17fb9aed8e",
-              "score": 97.83,
-              "pass": 457,
-              "partial": 1,
-              "fail": 1,
-              "mean": 8.1462,
-              "p95": 16.5442
-            },
-            "runtime": {
-              "status": "FAIL",
-              "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1103/runtime-identity-current.json",
-              "source_commit": "2e7b587490625139d38e59e1e534b896ad3f39dc",
-              "current_commit": "2292411a64a930f22bb7a6f974401b518850447f",
-              "source_matches_current": false,
-              "matches": {
-                "source_commit": false,
-                "backend_source_sha256": true,
-                "web_bundle_sha256": true
-              },
-              "health_command": {
-                "command": [
-                  "curl",
-                  "--fail",
-                  "--silent",
-                  "--show-error",
-                  "--max-time",
-                  "3",
-                  "http://127.0.0.1:8000/api/v1/health/live"
-                ],
-                "cwd": "/home/md-wasim/Projects/AI_Workspace",
-                "exit_code": 7,
-                "duration_seconds": 0.0053,
-                "stdout": "",
-                "stderr": "curl: (7) Failed to connect to 127.0.0.1 port 8000 after 0 ms: Couldn't connect to server\n",
-                "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-                "stderr_sha256": "4244b013bed87daa6fd752b81ab21271c6df949c0a8c5cb6c9e9c907a733f571",
-                "timed_out": false
-              }
-            },
-            "tests": {
-              "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-canonical/full-regression.log",
-              "backend": {
-                "passed": 3152,
-                "skipped": 55
-              },
-              "web": {
-                "passed": 206
-              },
-              "mobile": {
-                "passed": 64
-              },
-              "status": "PASS",
-              "acceptance_hint": "CURRENT_SOURCE_RELEASE_PASS: backend, web, mobile and runtime regression passed."
-            },
-            "queue": {
-              "total": 31,
-              "unresolved": 0,
-              "local_unresolved": 0
-            },
-            "provenance": {
-              "status": "NOT_PROVEN",
-              "current_source_commit": "2292411a64a930f22bb7a6f974401b518850447f",
-              "components": {
-                "source_commit": "PASS",
-                "runtime": "FAIL",
-                "backend_hash": "PASS",
-                "web_artifact_hash": "PASS",
-                "benchmark": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE",
-                "security": "FAIL",
-                "release": "FAIL",
-                "artifact": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE"
-              },
-              "runtime": {
-                "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1103/runtime-identity-current.json",
-                "recorded_source_commit": "2e7b587490625139d38e59e1e534b896ad3f39dc",
-                "recorded_backend_source_sha256": "eb699a17b5dcfbaac89b5c9eb9b0bd7e77242c0a04c40e7f23caa41771dc707a",
-                "recorded_web_bundle_sha256": "5c0075a4636f9d50eac0f543bb67eb424f335ee707926e7ddc7d2b4982172825",
-                "expected_backend_source_sha256": "eb699a17b5dcfbaac89b5c9eb9b0bd7e77242c0a04c40e7f23caa41771dc707a",
-                "expected_web_bundle_sha256": "5c0075a4636f9d50eac0f543bb67eb424f335ee707926e7ddc7d2b4982172825",
-                "content_matches": {
-                  "source_commit": false,
-                  "backend_source_sha256": true,
-                  "web_bundle_sha256": true,
-                  "declared_matches": false
-                }
-              },
-              "benchmark": {
-                "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260914-current-provenance-after-sdk/Work_Station_Benchmark/benchmark-summary.json",
-                "results": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260914-current-provenance-after-sdk/Work_Station_Benchmark/benchmark-results.json",
-                "recorded_source_commit": "a2ad36e69da1f8a9ceb063ab359b7b17fb9aed8e",
-                "summary_sha256": "005990095040ae2008ab53be1d7b4dd19c6f5223c123407fecb7e50b73303f71",
-                "results_sha256": "b834eb4d20f42d82509180e66d03f08b0149617f334d7eca909dfffa99e16fe9",
-                "structural_valid": true,
-                "counts": {
-                  "PASS": 457,
-                  "PARTIAL": 1,
-                  "FAIL": 1
-                }
-              },
-              "release": {
-                "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-0873/release-check-current.json",
-                "recorded_source_commit": "1e5d8ce8bec0fabd3cffa6b9bd045fa52ff35c61",
-                "log": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-0873/command.stdout.log",
-                "log_sha256": "f6ba3f841015246725f11916d649e77cc10bb58668b11a69044e7b25221a5f99",
-                "structural_valid": false,
-                "security_check": "NOT_PROVEN; release stopped before all gates completed"
-              },
-              "artifact": {
-                "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260914-current-provenance-after-sdk/artifact-attestation-current.json",
-                "recorded_source_commit": "a2ad36e69da1f8a9ceb063ab359b7b17fb9aed8e",
-                "hashes_verified": {
-                  "Work_Station_Ubuntu.AppImage": true,
-                  "Work_Station_Ubuntu.deb": true,
-                  "Work_Station_PWA.tar.gz": true
-                },
-                "structural_valid": true,
-                "artifacts": [
-                  {
-                    "artifact": "Work_Station_Ubuntu.AppImage",
-                    "path": "/home/md-wasim/Projects/AI_Workspace/apps/desktop/src-tauri/target/release/bundle/appimage/WORK STATION_0.1.0_amd64.AppImage",
-                    "expected_sha256": "5d20bba68647cafb7ed3aa531a851d8d846a64b608cbdb263707177be85deb0b",
-                    "actual_sha256": "5d20bba68647cafb7ed3aa531a851d8d846a64b608cbdb263707177be85deb0b",
-                    "exists": true,
-                    "hash_verified": true
-                  },
-                  {
-                    "artifact": "Work_Station_Ubuntu.deb",
-                    "path": "/home/md-wasim/Projects/AI_Workspace/apps/desktop/src-tauri/target/release/bundle/deb/WORK STATION_0.1.0_amd64.deb",
-                    "expected_sha256": "dae14cbe517f7606449b71cc339ceb4beeddf4e088e2949feee75761866e5654",
-                    "actual_sha256": "dae14cbe517f7606449b71cc339ceb4beeddf4e088e2949feee75761866e5654",
-                    "exists": true,
-                    "hash_verified": true
-                  },
-                  {
-                    "artifact": "Work_Station_PWA.tar.gz",
-                    "path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260914-current-provenance-after-sdk/Work_Station_PWA.tar.gz",
-                    "expected_sha256": "0c36ca98bb7f8c1413c25c5b9d807d27559f9ff3500825887d1045f325d41c55",
-                    "actual_sha256": "0c36ca98bb7f8c1413c25c5b9d807d27559f9ff3500825887d1045f325d41c55",
-                    "exists": true,
-                    "hash_verified": true
-                  }
-                ]
-              },
-              "historical_evidence_rejected": true
-            }
-          },
-          "fresh_attestation": {
-            "timestamp": "2026-09-16T16:04:43.728321+00:00",
-            "api_origin": "http://127.0.0.1:8000",
+          "runtime": {
+            "status": "FAIL",
+            "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1104/runtime-repair/attestation/runtime-identity-current.json",
             "source_commit": "2292411a64a930f22bb7a6f974401b518850447f",
-            "token_path": "/home/md-wasim/.ai_workspace_provisioning_token",
-            "authenticated_exchange": {
-              "provision": {
-                "status": 0,
-                "duration_seconds": 0.0121,
-                "response_bytes": 0,
-                "response_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-                "error": "URLError"
-              }
-            },
-            "session_revocation": {
-              "status": 0,
-              "accepted": false,
-              "error": "NO_ACCESS_TOKEN"
-            },
-            "error": "RuntimeError",
-            "duration_seconds": 0.0122,
-            "objective_pass": false
-          },
-          "observations": {
-            "timestamp": "2026-09-16T16:04:43.855079+00:00",
-            "git": {
-              "branch": "main",
-              "commit": "8d356f9a84a4890339d6720e986eebbee07296af",
-              "application_source_commit": "2292411a64a930f22bb7a6f974401b518850447f",
-              "upstream": "origin/main",
-              "upstream_error": null,
-              "ahead": 0,
-              "behind": 0,
-              "clean": true,
-              "status_porcelain": "",
-              "status": "CLEAN_SYNCED"
-            },
-            "benchmark": {
-              "path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260914-current-provenance-after-sdk/Work_Station_Benchmark/benchmark-summary.json",
-              "commit": "a2ad36e69da1f8a9ceb063ab359b7b17fb9aed8e",
-              "score": 97.83,
-              "pass": 457,
-              "partial": 1,
-              "fail": 1,
-              "mean": 8.1462,
-              "p95": 16.5442
-            },
-            "runtime": {
-              "status": "FAIL",
-              "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1104/runtime-repair/attestation/runtime-identity-current.json",
-              "source_commit": "2292411a64a930f22bb7a6f974401b518850447f",
-              "current_commit": "2292411a64a930f22bb7a6f974401b518850447f",
-              "source_matches_current": true,
-              "matches": {},
-              "health_command": {
-                "command": [
-                  "curl",
-                  "--fail",
-                  "--silent",
-                  "--show-error",
-                  "--max-time",
-                  "3",
-                  "http://127.0.0.1:8000/api/v1/health/live"
-                ],
-                "cwd": "/home/md-wasim/Projects/AI_Workspace",
-                "exit_code": 7,
-                "duration_seconds": 0.0061,
-                "stdout": "",
-                "stderr": "curl: (7) Failed to connect to 127.0.0.1 port 8000 after 0 ms: Couldn't connect to server\n",
-                "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-                "stderr_sha256": "4244b013bed87daa6fd752b81ab21271c6df949c0a8c5cb6c9e9c907a733f571",
-                "timed_out": false
-              }
-            },
-            "tests": {
-              "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-canonical/full-regression.log",
-              "backend": {
-                "passed": 3152,
-                "skipped": 55
-              },
-              "web": {
-                "passed": 206
-              },
-              "mobile": {
-                "passed": 64
-              },
-              "status": "PASS",
-              "acceptance_hint": "CURRENT_SOURCE_RELEASE_PASS: backend, web, mobile and runtime regression passed."
-            },
-            "queue": {
-              "total": 31,
-              "unresolved": 0,
-              "local_unresolved": 0
-            },
-            "provenance": {
-              "status": "NOT_PROVEN",
-              "current_source_commit": "2292411a64a930f22bb7a6f974401b518850447f",
-              "components": {
-                "source_commit": "PASS",
-                "runtime": "FAIL",
-                "backend_hash": "FAIL",
-                "web_artifact_hash": "FAIL",
-                "benchmark": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE",
-                "security": "FAIL",
-                "release": "FAIL",
-                "artifact": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE"
-              },
-              "runtime": {
-                "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1104/runtime-repair/attestation/runtime-identity-current.json",
-                "recorded_source_commit": "2292411a64a930f22bb7a6f974401b518850447f",
-                "recorded_backend_source_sha256": null,
-                "recorded_web_bundle_sha256": null,
-                "expected_backend_source_sha256": "eb699a17b5dcfbaac89b5c9eb9b0bd7e77242c0a04c40e7f23caa41771dc707a",
-                "expected_web_bundle_sha256": "5c0075a4636f9d50eac0f543bb67eb424f335ee707926e7ddc7d2b4982172825",
-                "content_matches": {
-                  "source_commit": true,
-                  "backend_source_sha256": false,
-                  "web_bundle_sha256": false,
-                  "declared_matches": false
-                }
-              },
-              "benchmark": {
-                "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260914-current-provenance-after-sdk/Work_Station_Benchmark/benchmark-summary.json",
-                "results": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260914-current-provenance-after-sdk/Work_Station_Benchmark/benchmark-results.json",
-                "recorded_source_commit": "a2ad36e69da1f8a9ceb063ab359b7b17fb9aed8e",
-                "summary_sha256": "005990095040ae2008ab53be1d7b4dd19c6f5223c123407fecb7e50b73303f71",
-                "results_sha256": "b834eb4d20f42d82509180e66d03f08b0149617f334d7eca909dfffa99e16fe9",
-                "structural_valid": true,
-                "counts": {
-                  "PASS": 457,
-                  "PARTIAL": 1,
-                  "FAIL": 1
-                }
-              },
-              "release": {
-                "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-0873/release-check-current.json",
-                "recorded_source_commit": "1e5d8ce8bec0fabd3cffa6b9bd045fa52ff35c61",
-                "log": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-0873/command.stdout.log",
-                "log_sha256": "f6ba3f841015246725f11916d649e77cc10bb58668b11a69044e7b25221a5f99",
-                "structural_valid": false,
-                "security_check": "NOT_PROVEN; release stopped before all gates completed"
-              },
-              "artifact": {
-                "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260914-current-provenance-after-sdk/artifact-attestation-current.json",
-                "recorded_source_commit": "a2ad36e69da1f8a9ceb063ab359b7b17fb9aed8e",
-                "hashes_verified": {
-                  "Work_Station_Ubuntu.AppImage": true,
-                  "Work_Station_Ubuntu.deb": true,
-                  "Work_Station_PWA.tar.gz": true
-                },
-                "structural_valid": true,
-                "artifacts": [
-                  {
-                    "artifact": "Work_Station_Ubuntu.AppImage",
-                    "path": "/home/md-wasim/Projects/AI_Workspace/apps/desktop/src-tauri/target/release/bundle/appimage/WORK STATION_0.1.0_amd64.AppImage",
-                    "expected_sha256": "5d20bba68647cafb7ed3aa531a851d8d846a64b608cbdb263707177be85deb0b",
-                    "actual_sha256": "5d20bba68647cafb7ed3aa531a851d8d846a64b608cbdb263707177be85deb0b",
-                    "exists": true,
-                    "hash_verified": true
-                  },
-                  {
-                    "artifact": "Work_Station_Ubuntu.deb",
-                    "path": "/home/md-wasim/Projects/AI_Workspace/apps/desktop/src-tauri/target/release/bundle/deb/WORK STATION_0.1.0_amd64.deb",
-                    "expected_sha256": "dae14cbe517f7606449b71cc339ceb4beeddf4e088e2949feee75761866e5654",
-                    "actual_sha256": "dae14cbe517f7606449b71cc339ceb4beeddf4e088e2949feee75761866e5654",
-                    "exists": true,
-                    "hash_verified": true
-                  },
-                  {
-                    "artifact": "Work_Station_PWA.tar.gz",
-                    "path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260914-current-provenance-after-sdk/Work_Station_PWA.tar.gz",
-                    "expected_sha256": "0c36ca98bb7f8c1413c25c5b9d807d27559f9ff3500825887d1045f325d41c55",
-                    "actual_sha256": "0c36ca98bb7f8c1413c25c5b9d807d27559f9ff3500825887d1045f325d41c55",
-                    "exists": true,
-                    "hash_verified": true
-                  }
-                ]
-              },
-              "historical_evidence_rejected": true
+            "current_commit": "2292411a64a930f22bb7a6f974401b518850447f",
+            "source_matches_current": true,
+            "matches": {},
+            "health_command": {
+              "command": [
+                "curl",
+                "--fail",
+                "--silent",
+                "--show-error",
+                "--max-time",
+                "3",
+                "http://127.0.0.1:8000/api/v1/health/live"
+              ],
+              "cwd": "/home/md-wasim/Projects/AI_Workspace",
+              "exit_code": 0,
+              "duration_seconds": 0.012,
+              "stdout": "{\"status\":\"alive\"}",
+              "stderr": "",
+              "stdout_sha256": "bc24b0b5a305d5afc198c725890c8fb91053be2dbd8672779de73cac19a008fa",
+              "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "timed_out": false
             }
           },
-          "failure_classification": "LOCAL_RUNTIME_HEALTH_FAILED"
+          "tests": {
+            "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-canonical/full-regression.log",
+            "backend": {
+              "passed": 3152,
+              "skipped": 55
+            },
+            "web": {
+              "passed": 206
+            },
+            "mobile": {
+              "passed": 64
+            },
+            "status": "PASS",
+            "acceptance_hint": "CURRENT_SOURCE_RELEASE_PASS: backend, web, mobile and runtime regression passed."
+          },
+          "queue": {
+            "total": 31,
+            "unresolved": 0,
+            "local_unresolved": 0
+          },
+          "provenance": {
+            "status": "NOT_PROVEN",
+            "current_source_commit": "2292411a64a930f22bb7a6f974401b518850447f",
+            "components": {
+              "source_commit": "PASS",
+              "runtime": "FAIL",
+              "backend_hash": "FAIL",
+              "web_artifact_hash": "FAIL",
+              "benchmark": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE",
+              "security": "FAIL",
+              "release": "FAIL",
+              "artifact": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE"
+            },
+            "runtime": {
+              "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1104/runtime-repair/attestation/runtime-identity-current.json",
+              "recorded_source_commit": "2292411a64a930f22bb7a6f974401b518850447f",
+              "recorded_backend_source_sha256": null,
+              "recorded_web_bundle_sha256": null,
+              "expected_backend_source_sha256": "eb699a17b5dcfbaac89b5c9eb9b0bd7e77242c0a04c40e7f23caa41771dc707a",
+              "expected_web_bundle_sha256": "5c0075a4636f9d50eac0f543bb67eb424f335ee707926e7ddc7d2b4982172825",
+              "content_matches": {
+                "source_commit": true,
+                "backend_source_sha256": false,
+                "web_bundle_sha256": false,
+                "declared_matches": false
+              }
+            },
+            "benchmark": {
+              "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260914-current-provenance-after-sdk/Work_Station_Benchmark/benchmark-summary.json",
+              "results": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260914-current-provenance-after-sdk/Work_Station_Benchmark/benchmark-results.json",
+              "recorded_source_commit": "a2ad36e69da1f8a9ceb063ab359b7b17fb9aed8e",
+              "summary_sha256": "005990095040ae2008ab53be1d7b4dd19c6f5223c123407fecb7e50b73303f71",
+              "results_sha256": "b834eb4d20f42d82509180e66d03f08b0149617f334d7eca909dfffa99e16fe9",
+              "structural_valid": true,
+              "counts": {
+                "PASS": 457,
+                "PARTIAL": 1,
+                "FAIL": 1
+              }
+            },
+            "release": {
+              "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-0873/release-check-current.json",
+              "recorded_source_commit": "1e5d8ce8bec0fabd3cffa6b9bd045fa52ff35c61",
+              "log": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-0873/command.stdout.log",
+              "log_sha256": "f6ba3f841015246725f11916d649e77cc10bb58668b11a69044e7b25221a5f99",
+              "structural_valid": false,
+              "security_check": "NOT_PROVEN; release stopped before all gates completed"
+            },
+            "artifact": {
+              "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260914-current-provenance-after-sdk/artifact-attestation-current.json",
+              "recorded_source_commit": "a2ad36e69da1f8a9ceb063ab359b7b17fb9aed8e",
+              "hashes_verified": {
+                "Work_Station_Ubuntu.AppImage": true,
+                "Work_Station_Ubuntu.deb": true,
+                "Work_Station_PWA.tar.gz": true
+              },
+              "structural_valid": true,
+              "artifacts": [
+                {
+                  "artifact": "Work_Station_Ubuntu.AppImage",
+                  "path": "/home/md-wasim/Projects/AI_Workspace/apps/desktop/src-tauri/target/release/bundle/appimage/WORK STATION_0.1.0_amd64.AppImage",
+                  "expected_sha256": "5d20bba68647cafb7ed3aa531a851d8d846a64b608cbdb263707177be85deb0b",
+                  "actual_sha256": "5d20bba68647cafb7ed3aa531a851d8d846a64b608cbdb263707177be85deb0b",
+                  "exists": true,
+                  "hash_verified": true
+                },
+                {
+                  "artifact": "Work_Station_Ubuntu.deb",
+                  "path": "/home/md-wasim/Projects/AI_Workspace/apps/desktop/src-tauri/target/release/bundle/deb/WORK STATION_0.1.0_amd64.deb",
+                  "expected_sha256": "dae14cbe517f7606449b71cc339ceb4beeddf4e088e2949feee75761866e5654",
+                  "actual_sha256": "dae14cbe517f7606449b71cc339ceb4beeddf4e088e2949feee75761866e5654",
+                  "exists": true,
+                  "hash_verified": true
+                },
+                {
+                  "artifact": "Work_Station_PWA.tar.gz",
+                  "path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260914-current-provenance-after-sdk/Work_Station_PWA.tar.gz",
+                  "expected_sha256": "0c36ca98bb7f8c1413c25c5b9d807d27559f9ff3500825887d1045f325d41c55",
+                  "actual_sha256": "0c36ca98bb7f8c1413c25c5b9d807d27559f9ff3500825887d1045f325d41c55",
+                  "exists": true,
+                  "hash_verified": true
+                }
+              ]
+            },
+            "historical_evidence_rejected": true
+          }
         },
-        "evidence_dir": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1104"
+        "git": {
+          "branch": "main",
+          "commit": "cf5690608395dd4532bf8e9d670b501b3faa9d39",
+          "application_source_commit": "2292411a64a930f22bb7a6f974401b518850447f",
+          "upstream": "origin/main",
+          "upstream_error": null,
+          "ahead": 0,
+          "behind": 0,
+          "clean": true,
+          "status_porcelain": "",
+          "status": "CLEAN_SYNCED"
+        }
       },
-      "evidence_dir": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1104"
+      "after": {
+        "observations": {
+          "timestamp": "2026-09-16T16:04:56.691008+00:00",
+          "git": {
+            "branch": "main",
+            "commit": "cf5690608395dd4532bf8e9d670b501b3faa9d39",
+            "application_source_commit": "2292411a64a930f22bb7a6f974401b518850447f",
+            "upstream": "origin/main",
+            "upstream_error": null,
+            "ahead": 0,
+            "behind": 0,
+            "clean": true,
+            "status_porcelain": "",
+            "status": "CLEAN_SYNCED"
+          },
+          "benchmark": {
+            "path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260914-current-provenance-after-sdk/Work_Station_Benchmark/benchmark-summary.json",
+            "commit": "a2ad36e69da1f8a9ceb063ab359b7b17fb9aed8e",
+            "score": 97.83,
+            "pass": 457,
+            "partial": 1,
+            "fail": 1,
+            "mean": 8.1462,
+            "p95": 16.5442
+          },
+          "runtime": {
+            "status": "FAIL",
+            "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1104/runtime-repair/attestation/runtime-identity-current.json",
+            "source_commit": "2292411a64a930f22bb7a6f974401b518850447f",
+            "current_commit": "2292411a64a930f22bb7a6f974401b518850447f",
+            "source_matches_current": true,
+            "matches": {},
+            "health_command": {
+              "command": [
+                "curl",
+                "--fail",
+                "--silent",
+                "--show-error",
+                "--max-time",
+                "3",
+                "http://127.0.0.1:8000/api/v1/health/live"
+              ],
+              "cwd": "/home/md-wasim/Projects/AI_Workspace",
+              "exit_code": 0,
+              "duration_seconds": 0.0067,
+              "stdout": "{\"status\":\"alive\"}",
+              "stderr": "",
+              "stdout_sha256": "bc24b0b5a305d5afc198c725890c8fb91053be2dbd8672779de73cac19a008fa",
+              "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "timed_out": false
+            }
+          },
+          "tests": {
+            "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-canonical/full-regression.log",
+            "backend": {
+              "passed": 3152,
+              "skipped": 55
+            },
+            "web": {
+              "passed": 206
+            },
+            "mobile": {
+              "passed": 64
+            },
+            "status": "PASS",
+            "acceptance_hint": "CURRENT_SOURCE_RELEASE_PASS: backend, web, mobile and runtime regression passed."
+          },
+          "queue": {
+            "total": 31,
+            "unresolved": 0,
+            "local_unresolved": 0
+          },
+          "provenance": {
+            "status": "NOT_PROVEN",
+            "current_source_commit": "2292411a64a930f22bb7a6f974401b518850447f",
+            "components": {
+              "source_commit": "PASS",
+              "runtime": "FAIL",
+              "backend_hash": "FAIL",
+              "web_artifact_hash": "FAIL",
+              "benchmark": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE",
+              "security": "FAIL",
+              "release": "FAIL",
+              "artifact": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE"
+            },
+            "runtime": {
+              "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1104/runtime-repair/attestation/runtime-identity-current.json",
+              "recorded_source_commit": "2292411a64a930f22bb7a6f974401b518850447f",
+              "recorded_backend_source_sha256": null,
+              "recorded_web_bundle_sha256": null,
+              "expected_backend_source_sha256": "eb699a17b5dcfbaac89b5c9eb9b0bd7e77242c0a04c40e7f23caa41771dc707a",
+              "expected_web_bundle_sha256": "5c0075a4636f9d50eac0f543bb67eb424f335ee707926e7ddc7d2b4982172825",
+              "content_matches": {
+                "source_commit": true,
+                "backend_source_sha256": false,
+                "web_bundle_sha256": false,
+                "declared_matches": false
+              }
+            },
+            "benchmark": {
+              "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260914-current-provenance-after-sdk/Work_Station_Benchmark/benchmark-summary.json",
+              "results": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260914-current-provenance-after-sdk/Work_Station_Benchmark/benchmark-results.json",
+              "recorded_source_commit": "a2ad36e69da1f8a9ceb063ab359b7b17fb9aed8e",
+              "summary_sha256": "005990095040ae2008ab53be1d7b4dd19c6f5223c123407fecb7e50b73303f71",
+              "results_sha256": "b834eb4d20f42d82509180e66d03f08b0149617f334d7eca909dfffa99e16fe9",
+              "structural_valid": true,
+              "counts": {
+                "PASS": 457,
+                "PARTIAL": 1,
+                "FAIL": 1
+              }
+            },
+            "release": {
+              "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-0873/release-check-current.json",
+              "recorded_source_commit": "1e5d8ce8bec0fabd3cffa6b9bd045fa52ff35c61",
+              "log": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-0873/command.stdout.log",
+              "log_sha256": "f6ba3f841015246725f11916d649e77cc10bb58668b11a69044e7b25221a5f99",
+              "structural_valid": false,
+              "security_check": "NOT_PROVEN; release stopped before all gates completed"
+            },
+            "artifact": {
+              "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260914-current-provenance-after-sdk/artifact-attestation-current.json",
+              "recorded_source_commit": "a2ad36e69da1f8a9ceb063ab359b7b17fb9aed8e",
+              "hashes_verified": {
+                "Work_Station_Ubuntu.AppImage": true,
+                "Work_Station_Ubuntu.deb": true,
+                "Work_Station_PWA.tar.gz": true
+              },
+              "structural_valid": true,
+              "artifacts": [
+                {
+                  "artifact": "Work_Station_Ubuntu.AppImage",
+                  "path": "/home/md-wasim/Projects/AI_Workspace/apps/desktop/src-tauri/target/release/bundle/appimage/WORK STATION_0.1.0_amd64.AppImage",
+                  "expected_sha256": "5d20bba68647cafb7ed3aa531a851d8d846a64b608cbdb263707177be85deb0b",
+                  "actual_sha256": "5d20bba68647cafb7ed3aa531a851d8d846a64b608cbdb263707177be85deb0b",
+                  "exists": true,
+                  "hash_verified": true
+                },
+                {
+                  "artifact": "Work_Station_Ubuntu.deb",
+                  "path": "/home/md-wasim/Projects/AI_Workspace/apps/desktop/src-tauri/target/release/bundle/deb/WORK STATION_0.1.0_amd64.deb",
+                  "expected_sha256": "dae14cbe517f7606449b71cc339ceb4beeddf4e088e2949feee75761866e5654",
+                  "actual_sha256": "dae14cbe517f7606449b71cc339ceb4beeddf4e088e2949feee75761866e5654",
+                  "exists": true,
+                  "hash_verified": true
+                },
+                {
+                  "artifact": "Work_Station_PWA.tar.gz",
+                  "path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260914-current-provenance-after-sdk/Work_Station_PWA.tar.gz",
+                  "expected_sha256": "0c36ca98bb7f8c1413c25c5b9d807d27559f9ff3500825887d1045f325d41c55",
+                  "actual_sha256": "0c36ca98bb7f8c1413c25c5b9d807d27559f9ff3500825887d1045f325d41c55",
+                  "exists": true,
+                  "hash_verified": true
+                }
+              ]
+            },
+            "historical_evidence_rejected": true
+          }
+        },
+        "git": {
+          "branch": "main",
+          "commit": "cf5690608395dd4532bf8e9d670b501b3faa9d39",
+          "application_source_commit": "2292411a64a930f22bb7a6f974401b518850447f",
+          "upstream": "origin/main",
+          "upstream_error": null,
+          "ahead": 0,
+          "behind": 0,
+          "clean": true,
+          "status_porcelain": "",
+          "status": "CLEAN_SYNCED"
+        }
+      },
+      "next_retry_at": "2026-09-16T16:09:56.573801+00:00"
     },
     "external_watch": {
-      "status": "ACCEPTANCE_TASK",
+      "status": "NOT_READY",
       "cycle": 1104,
       "candidate": null,
       "candidate_state": "NOT_CACHED_DOWNLOAD_TOO_SLOW_OR_UNAVAILABLE",
@@ -3725,9 +3639,9 @@
       "requested_max_download_seconds": 10800,
       "requested_max_estimated_download_hours": 3.0,
       "genericity_and_canonical_validation_allowed": false,
-      "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1104",
-      "next_retry_at": "2026-09-16T15:55:18.849164+00:00",
-      "current_action": "Use the trusted parent executor to restart work-station-backend.service, verify loopback health, and recapture authenticated current-source runtime identity. Failure evidence: /home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1103.",
+      "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-1104",
+      "next_retry_at": "2026-09-16T16:09:56.573801+00:00",
+      "current_action": "No eligible coding candidate is currently available; preserve all exclusions and continue the bounded external watch.",
       "report_commit": {
         "attempted": false,
         "reason": "unexpected_changes_refused",
@@ -4417,14 +4331,497 @@
         "action": "Use the trusted parent executor to restart work-station-backend.service, verify loopback health, and recapture authenticated current-source runtime identity. Failure evidence: /home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1103.",
         "dependencies": [],
         "verification": "The restarted backend reports the current source commit and matching backend/web hashes, with session revocation accepted.",
-        "status": "READY",
+        "status": "FAILED",
         "attempts": 1,
         "max_attempts": 2,
-        "updated_at": "2026-09-16T16:00:53.604556+00:00",
+        "updated_at": "2026-09-16T16:04:56.057032+00:00",
         "evidence": [
-          "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1103"
+          "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1103",
+          "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1104"
         ],
-        "last_result": null,
+        "last_result": {
+          "timestamp": "2026-09-16T16:04:44.084864+00:00",
+          "cycle": 1104,
+          "child_identity_verified": true,
+          "parent_verification": {
+            "timestamp": "2026-09-16T16:04:44.082876+00:00",
+            "task_id": "ASTER-REPAIR-ASTER-RUNTIME-PROVENANCE-001",
+            "reason": "backend restart completed but loopback health did not pass",
+            "objective_pass": false,
+            "failure_classification": "LOCAL_RUNTIME_HEALTH_FAILED",
+            "verification": {
+              "command": [
+                "systemctl --user restart work-station-backend.service",
+                "curl --fail --silent --show-error --max-time 5 http://127.0.0.1:8000/api/v1/health/live",
+                "controller.observe",
+                "controller.validate_current_provenance"
+              ],
+              "cwd": "/home/md-wasim/Projects/AI_Workspace",
+              "exit_code": 1,
+              "restart": {
+                "command": [
+                  "systemctl",
+                  "--user",
+                  "restart",
+                  "work-station-backend.service"
+                ],
+                "cwd": "/home/md-wasim/Projects/AI_Workspace",
+                "exit_code": 0,
+                "duration_seconds": 0.1389,
+                "stdout": "",
+                "stderr": "",
+                "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                "timed_out": false,
+                "stdout_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1104/runtime-repair/restart/command.stdout.log",
+                "stderr_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1104/runtime-repair/restart/command.stderr.log"
+              },
+              "health": {
+                "command": [
+                  "curl",
+                  "--fail",
+                  "--silent",
+                  "--show-error",
+                  "--max-time",
+                  "5",
+                  "http://127.0.0.1:8000/api/v1/health/live"
+                ],
+                "cwd": "/home/md-wasim/Projects/AI_Workspace",
+                "exit_code": 7,
+                "duration_seconds": 0.0055,
+                "stdout": "",
+                "stderr": "curl: (7) Failed to connect to 127.0.0.1 port 8000 after 0 ms: Couldn't connect to server\n",
+                "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                "stderr_sha256": "4244b013bed87daa6fd752b81ab21271c6df949c0a8c5cb6c9e9c907a733f571",
+                "timed_out": false,
+                "stdout_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1104/runtime-repair/health/command.stdout.log",
+                "stderr_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1104/runtime-repair/health/command.stderr.log"
+              },
+              "observations_before_attestation": {
+                "timestamp": "2026-09-16T16:04:43.498513+00:00",
+                "git": {
+                  "branch": "main",
+                  "commit": "8d356f9a84a4890339d6720e986eebbee07296af",
+                  "application_source_commit": "2292411a64a930f22bb7a6f974401b518850447f",
+                  "upstream": "origin/main",
+                  "upstream_error": null,
+                  "ahead": 0,
+                  "behind": 0,
+                  "clean": true,
+                  "status_porcelain": "",
+                  "status": "CLEAN_SYNCED"
+                },
+                "benchmark": {
+                  "path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260914-current-provenance-after-sdk/Work_Station_Benchmark/benchmark-summary.json",
+                  "commit": "a2ad36e69da1f8a9ceb063ab359b7b17fb9aed8e",
+                  "score": 97.83,
+                  "pass": 457,
+                  "partial": 1,
+                  "fail": 1,
+                  "mean": 8.1462,
+                  "p95": 16.5442
+                },
+                "runtime": {
+                  "status": "FAIL",
+                  "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1103/runtime-identity-current.json",
+                  "source_commit": "2e7b587490625139d38e59e1e534b896ad3f39dc",
+                  "current_commit": "2292411a64a930f22bb7a6f974401b518850447f",
+                  "source_matches_current": false,
+                  "matches": {
+                    "source_commit": false,
+                    "backend_source_sha256": true,
+                    "web_bundle_sha256": true
+                  },
+                  "health_command": {
+                    "command": [
+                      "curl",
+                      "--fail",
+                      "--silent",
+                      "--show-error",
+                      "--max-time",
+                      "3",
+                      "http://127.0.0.1:8000/api/v1/health/live"
+                    ],
+                    "cwd": "/home/md-wasim/Projects/AI_Workspace",
+                    "exit_code": 7,
+                    "duration_seconds": 0.0053,
+                    "stdout": "",
+                    "stderr": "curl: (7) Failed to connect to 127.0.0.1 port 8000 after 0 ms: Couldn't connect to server\n",
+                    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                    "stderr_sha256": "4244b013bed87daa6fd752b81ab21271c6df949c0a8c5cb6c9e9c907a733f571",
+                    "timed_out": false
+                  }
+                },
+                "tests": {
+                  "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-canonical/full-regression.log",
+                  "backend": {
+                    "passed": 3152,
+                    "skipped": 55
+                  },
+                  "web": {
+                    "passed": 206
+                  },
+                  "mobile": {
+                    "passed": 64
+                  },
+                  "status": "PASS",
+                  "acceptance_hint": "CURRENT_SOURCE_RELEASE_PASS: backend, web, mobile and runtime regression passed."
+                },
+                "queue": {
+                  "total": 31,
+                  "unresolved": 0,
+                  "local_unresolved": 0
+                },
+                "provenance": {
+                  "status": "NOT_PROVEN",
+                  "current_source_commit": "2292411a64a930f22bb7a6f974401b518850447f",
+                  "components": {
+                    "source_commit": "PASS",
+                    "runtime": "FAIL",
+                    "backend_hash": "PASS",
+                    "web_artifact_hash": "PASS",
+                    "benchmark": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE",
+                    "security": "FAIL",
+                    "release": "FAIL",
+                    "artifact": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE"
+                  },
+                  "runtime": {
+                    "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1103/runtime-identity-current.json",
+                    "recorded_source_commit": "2e7b587490625139d38e59e1e534b896ad3f39dc",
+                    "recorded_backend_source_sha256": "eb699a17b5dcfbaac89b5c9eb9b0bd7e77242c0a04c40e7f23caa41771dc707a",
+                    "recorded_web_bundle_sha256": "5c0075a4636f9d50eac0f543bb67eb424f335ee707926e7ddc7d2b4982172825",
+                    "expected_backend_source_sha256": "eb699a17b5dcfbaac89b5c9eb9b0bd7e77242c0a04c40e7f23caa41771dc707a",
+                    "expected_web_bundle_sha256": "5c0075a4636f9d50eac0f543bb67eb424f335ee707926e7ddc7d2b4982172825",
+                    "content_matches": {
+                      "source_commit": false,
+                      "backend_source_sha256": true,
+                      "web_bundle_sha256": true,
+                      "declared_matches": false
+                    }
+                  },
+                  "benchmark": {
+                    "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260914-current-provenance-after-sdk/Work_Station_Benchmark/benchmark-summary.json",
+                    "results": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260914-current-provenance-after-sdk/Work_Station_Benchmark/benchmark-results.json",
+                    "recorded_source_commit": "a2ad36e69da1f8a9ceb063ab359b7b17fb9aed8e",
+                    "summary_sha256": "005990095040ae2008ab53be1d7b4dd19c6f5223c123407fecb7e50b73303f71",
+                    "results_sha256": "b834eb4d20f42d82509180e66d03f08b0149617f334d7eca909dfffa99e16fe9",
+                    "structural_valid": true,
+                    "counts": {
+                      "PASS": 457,
+                      "PARTIAL": 1,
+                      "FAIL": 1
+                    }
+                  },
+                  "release": {
+                    "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-0873/release-check-current.json",
+                    "recorded_source_commit": "1e5d8ce8bec0fabd3cffa6b9bd045fa52ff35c61",
+                    "log": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-0873/command.stdout.log",
+                    "log_sha256": "f6ba3f841015246725f11916d649e77cc10bb58668b11a69044e7b25221a5f99",
+                    "structural_valid": false,
+                    "security_check": "NOT_PROVEN; release stopped before all gates completed"
+                  },
+                  "artifact": {
+                    "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260914-current-provenance-after-sdk/artifact-attestation-current.json",
+                    "recorded_source_commit": "a2ad36e69da1f8a9ceb063ab359b7b17fb9aed8e",
+                    "hashes_verified": {
+                      "Work_Station_Ubuntu.AppImage": true,
+                      "Work_Station_Ubuntu.deb": true,
+                      "Work_Station_PWA.tar.gz": true
+                    },
+                    "structural_valid": true,
+                    "artifacts": [
+                      {
+                        "artifact": "Work_Station_Ubuntu.AppImage",
+                        "path": "/home/md-wasim/Projects/AI_Workspace/apps/desktop/src-tauri/target/release/bundle/appimage/WORK STATION_0.1.0_amd64.AppImage",
+                        "expected_sha256": "5d20bba68647cafb7ed3aa531a851d8d846a64b608cbdb263707177be85deb0b",
+                        "actual_sha256": "5d20bba68647cafb7ed3aa531a851d8d846a64b608cbdb263707177be85deb0b",
+                        "exists": true,
+                        "hash_verified": true
+                      },
+                      {
+                        "artifact": "Work_Station_Ubuntu.deb",
+                        "path": "/home/md-wasim/Projects/AI_Workspace/apps/desktop/src-tauri/target/release/bundle/deb/WORK STATION_0.1.0_amd64.deb",
+                        "expected_sha256": "dae14cbe517f7606449b71cc339ceb4beeddf4e088e2949feee75761866e5654",
+                        "actual_sha256": "dae14cbe517f7606449b71cc339ceb4beeddf4e088e2949feee75761866e5654",
+                        "exists": true,
+                        "hash_verified": true
+                      },
+                      {
+                        "artifact": "Work_Station_PWA.tar.gz",
+                        "path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260914-current-provenance-after-sdk/Work_Station_PWA.tar.gz",
+                        "expected_sha256": "0c36ca98bb7f8c1413c25c5b9d807d27559f9ff3500825887d1045f325d41c55",
+                        "actual_sha256": "0c36ca98bb7f8c1413c25c5b9d807d27559f9ff3500825887d1045f325d41c55",
+                        "exists": true,
+                        "hash_verified": true
+                      }
+                    ]
+                  },
+                  "historical_evidence_rejected": true
+                }
+              },
+              "fresh_attestation": {
+                "timestamp": "2026-09-16T16:04:43.728321+00:00",
+                "api_origin": "http://127.0.0.1:8000",
+                "source_commit": "2292411a64a930f22bb7a6f974401b518850447f",
+                "token_path": "/home/md-wasim/.ai_workspace_provisioning_token",
+                "authenticated_exchange": {
+                  "provision": {
+                    "status": 0,
+                    "duration_seconds": 0.0121,
+                    "response_bytes": 0,
+                    "response_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                    "error": "URLError"
+                  }
+                },
+                "session_revocation": {
+                  "status": 0,
+                  "accepted": false,
+                  "error": "NO_ACCESS_TOKEN"
+                },
+                "error": "RuntimeError",
+                "duration_seconds": 0.0122,
+                "objective_pass": false
+              },
+              "observations": {
+                "timestamp": "2026-09-16T16:04:43.855079+00:00",
+                "git": {
+                  "branch": "main",
+                  "commit": "8d356f9a84a4890339d6720e986eebbee07296af",
+                  "application_source_commit": "2292411a64a930f22bb7a6f974401b518850447f",
+                  "upstream": "origin/main",
+                  "upstream_error": null,
+                  "ahead": 0,
+                  "behind": 0,
+                  "clean": true,
+                  "status_porcelain": "",
+                  "status": "CLEAN_SYNCED"
+                },
+                "benchmark": {
+                  "path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260914-current-provenance-after-sdk/Work_Station_Benchmark/benchmark-summary.json",
+                  "commit": "a2ad36e69da1f8a9ceb063ab359b7b17fb9aed8e",
+                  "score": 97.83,
+                  "pass": 457,
+                  "partial": 1,
+                  "fail": 1,
+                  "mean": 8.1462,
+                  "p95": 16.5442
+                },
+                "runtime": {
+                  "status": "FAIL",
+                  "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1104/runtime-repair/attestation/runtime-identity-current.json",
+                  "source_commit": "2292411a64a930f22bb7a6f974401b518850447f",
+                  "current_commit": "2292411a64a930f22bb7a6f974401b518850447f",
+                  "source_matches_current": true,
+                  "matches": {},
+                  "health_command": {
+                    "command": [
+                      "curl",
+                      "--fail",
+                      "--silent",
+                      "--show-error",
+                      "--max-time",
+                      "3",
+                      "http://127.0.0.1:8000/api/v1/health/live"
+                    ],
+                    "cwd": "/home/md-wasim/Projects/AI_Workspace",
+                    "exit_code": 7,
+                    "duration_seconds": 0.0061,
+                    "stdout": "",
+                    "stderr": "curl: (7) Failed to connect to 127.0.0.1 port 8000 after 0 ms: Couldn't connect to server\n",
+                    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                    "stderr_sha256": "4244b013bed87daa6fd752b81ab21271c6df949c0a8c5cb6c9e9c907a733f571",
+                    "timed_out": false
+                  }
+                },
+                "tests": {
+                  "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-canonical/full-regression.log",
+                  "backend": {
+                    "passed": 3152,
+                    "skipped": 55
+                  },
+                  "web": {
+                    "passed": 206
+                  },
+                  "mobile": {
+                    "passed": 64
+                  },
+                  "status": "PASS",
+                  "acceptance_hint": "CURRENT_SOURCE_RELEASE_PASS: backend, web, mobile and runtime regression passed."
+                },
+                "queue": {
+                  "total": 31,
+                  "unresolved": 0,
+                  "local_unresolved": 0
+                },
+                "provenance": {
+                  "status": "NOT_PROVEN",
+                  "current_source_commit": "2292411a64a930f22bb7a6f974401b518850447f",
+                  "components": {
+                    "source_commit": "PASS",
+                    "runtime": "FAIL",
+                    "backend_hash": "FAIL",
+                    "web_artifact_hash": "FAIL",
+                    "benchmark": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE",
+                    "security": "FAIL",
+                    "release": "FAIL",
+                    "artifact": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE"
+                  },
+                  "runtime": {
+                    "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1104/runtime-repair/attestation/runtime-identity-current.json",
+                    "recorded_source_commit": "2292411a64a930f22bb7a6f974401b518850447f",
+                    "recorded_backend_source_sha256": null,
+                    "recorded_web_bundle_sha256": null,
+                    "expected_backend_source_sha256": "eb699a17b5dcfbaac89b5c9eb9b0bd7e77242c0a04c40e7f23caa41771dc707a",
+                    "expected_web_bundle_sha256": "5c0075a4636f9d50eac0f543bb67eb424f335ee707926e7ddc7d2b4982172825",
+                    "content_matches": {
+                      "source_commit": true,
+                      "backend_source_sha256": false,
+                      "web_bundle_sha256": false,
+                      "declared_matches": false
+                    }
+                  },
+                  "benchmark": {
+                    "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260914-current-provenance-after-sdk/Work_Station_Benchmark/benchmark-summary.json",
+                    "results": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260914-current-provenance-after-sdk/Work_Station_Benchmark/benchmark-results.json",
+                    "recorded_source_commit": "a2ad36e69da1f8a9ceb063ab359b7b17fb9aed8e",
+                    "summary_sha256": "005990095040ae2008ab53be1d7b4dd19c6f5223c123407fecb7e50b73303f71",
+                    "results_sha256": "b834eb4d20f42d82509180e66d03f08b0149617f334d7eca909dfffa99e16fe9",
+                    "structural_valid": true,
+                    "counts": {
+                      "PASS": 457,
+                      "PARTIAL": 1,
+                      "FAIL": 1
+                    }
+                  },
+                  "release": {
+                    "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-0873/release-check-current.json",
+                    "recorded_source_commit": "1e5d8ce8bec0fabd3cffa6b9bd045fa52ff35c61",
+                    "log": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-0873/command.stdout.log",
+                    "log_sha256": "f6ba3f841015246725f11916d649e77cc10bb58668b11a69044e7b25221a5f99",
+                    "structural_valid": false,
+                    "security_check": "NOT_PROVEN; release stopped before all gates completed"
+                  },
+                  "artifact": {
+                    "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260914-current-provenance-after-sdk/artifact-attestation-current.json",
+                    "recorded_source_commit": "a2ad36e69da1f8a9ceb063ab359b7b17fb9aed8e",
+                    "hashes_verified": {
+                      "Work_Station_Ubuntu.AppImage": true,
+                      "Work_Station_Ubuntu.deb": true,
+                      "Work_Station_PWA.tar.gz": true
+                    },
+                    "structural_valid": true,
+                    "artifacts": [
+                      {
+                        "artifact": "Work_Station_Ubuntu.AppImage",
+                        "path": "/home/md-wasim/Projects/AI_Workspace/apps/desktop/src-tauri/target/release/bundle/appimage/WORK STATION_0.1.0_amd64.AppImage",
+                        "expected_sha256": "5d20bba68647cafb7ed3aa531a851d8d846a64b608cbdb263707177be85deb0b",
+                        "actual_sha256": "5d20bba68647cafb7ed3aa531a851d8d846a64b608cbdb263707177be85deb0b",
+                        "exists": true,
+                        "hash_verified": true
+                      },
+                      {
+                        "artifact": "Work_Station_Ubuntu.deb",
+                        "path": "/home/md-wasim/Projects/AI_Workspace/apps/desktop/src-tauri/target/release/bundle/deb/WORK STATION_0.1.0_amd64.deb",
+                        "expected_sha256": "dae14cbe517f7606449b71cc339ceb4beeddf4e088e2949feee75761866e5654",
+                        "actual_sha256": "dae14cbe517f7606449b71cc339ceb4beeddf4e088e2949feee75761866e5654",
+                        "exists": true,
+                        "hash_verified": true
+                      },
+                      {
+                        "artifact": "Work_Station_PWA.tar.gz",
+                        "path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260914-current-provenance-after-sdk/Work_Station_PWA.tar.gz",
+                        "expected_sha256": "0c36ca98bb7f8c1413c25c5b9d807d27559f9ff3500825887d1045f325d41c55",
+                        "actual_sha256": "0c36ca98bb7f8c1413c25c5b9d807d27559f9ff3500825887d1045f325d41c55",
+                        "exists": true,
+                        "hash_verified": true
+                      }
+                    ]
+                  },
+                  "historical_evidence_rejected": true
+                }
+              },
+              "failure_classification": "LOCAL_RUNTIME_HEALTH_FAILED"
+            },
+            "evidence_dir": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1104"
+          },
+          "child": {
+            "command": [
+              "/home/md-wasim/.nvm/versions/node/v24.19.0/lib/node_modules/@openai/codex/bin/codex.js",
+              "exec",
+              "--json",
+              "--color",
+              "never",
+              "--sandbox",
+              "workspace-write",
+              "--config",
+              "approval_policy=\"never\"",
+              "--cd",
+              "/home/md-wasim/Projects/AI_Workspace",
+              "--add-dir",
+              "/home/md-wasim/AI_Workspace_Data/aster-evidence",
+              "--output-last-message",
+              "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1104/codex.last-message.txt",
+              "-"
+            ],
+            "cwd": "/home/md-wasim/Projects/AI_Workspace",
+            "exit_code": 0,
+            "duration_seconds": 229.4288,
+            "timed_out": false,
+            "error": null,
+            "stdout_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1104/codex.stdout.jsonl",
+            "stderr_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1104/codex.stderr.log",
+            "stderr_tail": "",
+            "last_message_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1104/codex.last-message.txt",
+            "stdout_sha256": "c46fa1aeeaa700286fd2172c269c96f1f22fa740ec9787693331ad5e6f663df6",
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "last_message_sha256": "ac960fee75015e279f20efeffb282a4687972d8b915ddd506a91fae9ca49bbed",
+            "codex_executable": "/home/md-wasim/.nvm/versions/node/v24.19.0/lib/node_modules/@openai/codex/bin/codex.js",
+            "codex_version": "0.153.4",
+            "codex_resolution": {
+              "path": "/home/md-wasim/.nvm/versions/node/v24.19.0/lib/node_modules/@openai/codex/bin/codex.js",
+              "version": "0.153.4",
+              "selection": "highest_verified_semver",
+              "candidates": [
+                {
+                  "path": "/home/md-wasim/.codex/packages/standalone/releases/0.147.0-x86_64-unknown-linux-musl/bin/codex",
+                  "version": "0.147.0",
+                  "version_sort_key": [
+                    0,
+                    147,
+                    0
+                  ],
+                  "status": "VERIFIED"
+                },
+                {
+                  "path": "/usr/bin/snap",
+                  "status": "VERSION_INVALID",
+                  "exit_code": 0,
+                  "output": "snap          2.76.3\nsnapd         2.76.3\nseries        16\nubuntu        24.04\nkernel        7.0.0-30-generic\narchitecture  amd64"
+                },
+                {
+                  "path": "/home/md-wasim/.nvm/versions/node/v24.19.0/lib/node_modules/@openai/codex/bin/codex.js",
+                  "version": "0.153.4",
+                  "version_sort_key": [
+                    0,
+                    153,
+                    4
+                  ],
+                  "status": "VERIFIED"
+                }
+              ]
+            },
+            "parsed": {
+              "parsed": true,
+              "status": "NOT_READY",
+              "issues_remaining": "1",
+              "current_issue": "ASTER-REPAIR-ASTER-RUNTIME-PROVENANCE-001",
+              "action": "Run trusted-parent runtime restart and authenticated provenance verification",
+              "verification": "PARTIAL",
+              "classification": "NOT_READY",
+              "next_prompt": "Execute the existing trusted-parent runtime_deployment_repair verifier for ASTER-REPAIR-ASTER-RUNTIME-PROVENANCE-001 in cycle-1104. Restart work-station-backend.service, require successful loopback health, then perform authenticated provisioning, GET /api/v1/diagnostics/runtime-identity, and current-session revocation. Require source commit 2292411a64a930f22bb7a6f974401b518850447f, backend SHA-256 eb699a17b5dcfbaac89b5c9eb9b0bd7e77242c0a04c40e7f23caa41771dc707a, web SHA-256 5c0075a4636f9d50eac0f543bb67eb424f335ee707926e7ddc7d2b4982172825, and HTTP 204 revocation. Persist credential-free evidence and rerun controller.observe plus controller.validate_current_provenance. Keep cycle-1103 runtime identity at source 2e7b587490625139d38e59e1e534b896ad3f39dc historical; keep benchmark/artifact evidence at a2ad36e69da1f8a9ceb063ab359b7b17fb9aed8e historical and release/security evidence FAIL/NOT_PROVEN. Do not infer callback, DEX, voice, benchmark, release, security, or artifact PASS. If parent verification passes, rerun ASTER-RUNTIME-PROVENANCE-001 before selecting ASTER-RELEASE-VALIDATION-001."
+            }
+          }
+        },
         "parent_task_id": "ASTER-RUNTIME-PROVENANCE-001",
         "repair_kind": "runtime_deployment_repair",
         "failure_signature": "ea40edfe9310a132dbc81c4a1d787df27feff1cb437116b74cc6489574923cdf",
@@ -4436,13 +4833,42 @@
           "child_exit_code": 0,
           "child_timed_out": false
         },
-        "last_report_commit": null,
-        "validated_source_commit": null
+        "last_report_commit": {
+          "attempted": true,
+          "committed": true,
+          "commit": "cf5690608395dd4532bf8e9d670b501b3faa9d39",
+          "paths": [
+            "reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.json",
+            "reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.md",
+            "reports/ASTER_AI_OS_PROGRESS.json",
+            "reports/ASTER_AI_OS_PROGRESS.md"
+          ],
+          "push": {
+            "exit_code": 0,
+            "stdout": "",
+            "stderr": "To https://github.com/mdwasimaslamaslam88-bot/AI_Workspace.git\n   8d356f9..cf56906  HEAD -> main\n",
+            "status": "PUSHED"
+          },
+          "git": {
+            "branch": "main",
+            "commit": "cf5690608395dd4532bf8e9d670b501b3faa9d39",
+            "application_source_commit": "2292411a64a930f22bb7a6f974401b518850447f",
+            "upstream": "origin/main",
+            "upstream_error": null,
+            "ahead": 0,
+            "behind": 0,
+            "clean": true,
+            "status_porcelain": "",
+            "status": "CLEAN_SYNCED"
+          }
+        },
+        "validated_source_commit": "2292411a64a930f22bb7a6f974401b518850447f",
+        "blocker": "Bounded repair attempt failed objective verification; preserve the evidence and do not manufacture an unbounded repair-of-repair chain."
       }
     }
   },
-  "report_generated_from_commit": "8d356f9a84a4890339d6720e986eebbee07296af",
-  "report_tip_commit": "8d356f9a84a4890339d6720e986eebbee07296af",
+  "report_generated_from_commit": "cf5690608395dd4532bf8e9d670b501b3faa9d39",
+  "report_tip_commit": "cf5690608395dd4532bf8e9d670b501b3faa9d39",
   "post_watch_git_verification": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0001/post-watch-git-verification.json",
   "post_watch_git_verification_sha256": "119c0f0c77af049af664482efdfe4f662a473d933649cd83a804ccfd9b1c72a1",
   "evidence_provenance": {

@@ -2,16 +2,16 @@
 
 Iteration 4. Overall readiness is **NOT READY**.
 
-Current application source commit: `2292411a64a930f22bb7a6f974401b518850447f`. Report tip commit: `8d356f9a84a4890339d6720e986eebbee07296af`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
+Current application source commit: `2292411a64a930f22bb7a6f974401b518850447f`. Report tip commit: `cf5690608395dd4532bf8e9d670b501b3faa9d39`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
 
 ## Current measured state
 
 - Canonical benchmark: **97.83/100**, 457 PASS, 1 PARTIAL, 1 FAIL; mean 8.1462s, P95 16.5442s.
 - Issues: 0 locally unresolved, 24 fixed/verified, 7 externally blocked.
-- Current issue/action: `ASTER-REPAIR-ASTER-RUNTIME-PROVENANCE-001` — Use the trusted parent executor to restart work-station-backend.service, verify loopback health, and recapture authenticated current-source runtime identity. Failure evidence: /home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1103.
-- Controller phase: **ACCEPTANCE_TASK**.
+- Current issue/action: `NONE` — No eligible coding candidate is currently available; preserve all exclusions and continue the bounded external watch.
+- Controller phase: **WATCH_EXTERNAL_GAP**.
 - Runtime identity: **FAIL**; evidence `/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1104/runtime-repair/attestation/runtime-identity-current.json`.
-- Git: **CLEAN_SYNCED** at `8d356f9a84a4890339d6720e986eebbee07296af`.
+- Git: **CLEAN_SYNCED** at `cf5690608395dd4532bf8e9d670b501b3faa9d39`.
 
 ## Queue classifications
 
@@ -60,7 +60,7 @@ Current application source commit: `2292411a64a930f22bb7a6f974401b518850447f`. R
 | ASTER-REVERSE-CALLBACK-001 | BLOCKED_EXTERNAL | none | The supported parent MCP/reverse callback endpoint rejects the available credential or is unavailable. |
 | ASTER-DEX-001 | BLOCKED_EXTERNAL | none | The host sandbox denies the required network namespace operation (RTM_NEWADDR/EPERM). |
 | ASTER-VOICE-001 | BLOCKED_EXTERNAL | none | Stable provider/hardware behavior for the remaining acoustic/model variance is unavailable. |
-| ASTER-REPAIR-ASTER-RUNTIME-PROVENANCE-001 | READY | none |  |
+| ASTER-REPAIR-ASTER-RUNTIME-PROVENANCE-001 | FAILED | none | Bounded repair attempt failed objective verification; preserve the evidence and do not manufacture an unbounded repair-of-repair chain. |
 
 The issue queue and machine-readable controller state are authoritative. A child model response cannot mark an issue complete without objective evidence.
 
