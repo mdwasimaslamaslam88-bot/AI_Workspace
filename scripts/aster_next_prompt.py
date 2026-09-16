@@ -961,6 +961,14 @@ def acceptance_task_records(state: dict[str, Any]) -> dict[str, dict[str, Any]]:
             current["status"] = "RETRY"
             current["blocker"] = "Previous runtime attestation was historical; recapture authenticated current-source identity."
             current["updated_at"] = utc_now()
+        if (
+            current.get("repair_kind")
+            and current.get("status") == "FAILED"
+            and int(current.get("attempts", 0) or 0) < int(current.get("max_attempts", 2) or 2)
+        ):
+            current["status"] = "RETRY"
+            current["blocker"] = "Previous bounded repair failed locally; retry after the repair implementation was corrected."
+            current["updated_at"] = utc_now()
     return raw
 
 
@@ -1075,6 +1083,47 @@ def _verified_external_failure(parent: dict[str, Any]) -> dict[str, Any] | None:
         "evidence": evidence_paths,
         "unblock_condition": unblock_condition.strip(),
         "reason": str(parent.get("reason") or "verified external dependency remains unavailable"),
+    }
+
+
+def trusted_loopback_health(evidence_dir: Path, *, max_attempts: int = 15) -> dict[str, Any]:
+    """Wait for the restarted service with a bounded, evidence-backed probe."""
+    attempts: list[dict[str, Any]] = []
+    for number in range(1, max_attempts + 1):
+        probe = command_record(
+            [
+                "curl",
+                "--fail",
+                "--silent",
+                "--show-error",
+                "--max-time",
+                "5",
+                "http://127.0.0.1:8000/api/v1/health/live",
+            ],
+            REPOSITORY_ROOT,
+            timeout=10,
+            output_directory=evidence_dir / f"attempt-{number:02d}",
+        )
+        probe["attempt"] = number
+        attempts.append(probe)
+        if probe.get("exit_code") == 0:
+            return {
+                "command": probe.get("command"),
+                "cwd": probe.get("cwd"),
+                "exit_code": 0,
+                "passed": True,
+                "attempt_count": number,
+                "attempts": attempts,
+            }
+        if number < max_attempts:
+            _bounded_sleep(1)
+    return {
+        "command": attempts[-1].get("command") if attempts else [],
+        "cwd": str(REPOSITORY_ROOT),
+        "exit_code": attempts[-1].get("exit_code", 1) if attempts else 1,
+        "passed": False,
+        "attempt_count": len(attempts),
+        "attempts": attempts,
     }
 
 
@@ -3658,20 +3707,7 @@ def verify_acceptance_task(
             timeout=60,
             output_directory=evidence_dir / "runtime-repair" / "restart",
         )
-        health = command_record(
-            [
-                "curl",
-                "--fail",
-                "--silent",
-                "--show-error",
-                "--max-time",
-                "5",
-                "http://127.0.0.1:8000/api/v1/health/live",
-            ],
-            REPOSITORY_ROOT,
-            timeout=10,
-            output_directory=evidence_dir / "runtime-repair" / "health",
-        )
+        health = trusted_loopback_health(evidence_dir / "runtime-repair" / "health")
         observations = observe(evidence_root)
         source_commit = observed_source_commit(observations)
         attestation = capture_current_runtime_attestation(
