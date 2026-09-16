@@ -1166,6 +1166,34 @@ def test_runtime_readiness_fix_grants_exactly_one_new_bounded_attempt():
     assert task["max_attempts"] == 3
 
 
+def test_completed_old_repair_does_not_undo_new_source_revalidation():
+    state = {"acceptance_tasks": controller.default_acceptance_tasks()}
+    runtime = state["acceptance_tasks"]["ASTER-RUNTIME-PROVENANCE-001"]
+    runtime.update(
+        {
+            "status": "COMPLETE",
+            "validated_source_commit": "a" * 40,
+            "repair_resolution": {
+                "repair_task_id": "ASTER-REPAIR-RUNTIME-001",
+                "evidence": ["/evidence/old-runtime"],
+            },
+        }
+    )
+    state["acceptance_tasks"]["ASTER-REPAIR-RUNTIME-001"] = {
+        "id": "ASTER-REPAIR-RUNTIME-001",
+        "parent_task_id": "ASTER-RUNTIME-PROVENANCE-001",
+        "repair_kind": "runtime_deployment_repair",
+        "status": "COMPLETE",
+        "attempts": 1,
+        "max_attempts": 2,
+    }
+    controller.acceptance_task_records(state)
+    assert controller.refresh_source_bound_acceptance_tasks(state, "b" * 40) is True
+    assert runtime["status"] == "RETRY"
+    controller.acceptance_task_records(state)
+    assert runtime["status"] == "RETRY"
+
+
 def test_release_repair_requires_proof_and_runs_bounded_workspace_commands(tmp_path):
     evidence_dir = tmp_path / "failed-release"
     evidence_dir.mkdir()

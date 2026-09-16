@@ -1028,7 +1028,7 @@ def acceptance_task_records(state: dict[str, Any]) -> dict[str, dict[str, Any]]:
             continue
         repair_kind = current.get("repair_kind")
         if repair_kind == "runtime_deployment_repair":
-            if parent.get("status") != "COMPLETE":
+            if parent.get("status") != "COMPLETE" and not parent.get("repair_resolution"):
                 parent["status"] = "COMPLETE"
                 parent["blocker"] = None
                 parent["repair_resolution"] = {
