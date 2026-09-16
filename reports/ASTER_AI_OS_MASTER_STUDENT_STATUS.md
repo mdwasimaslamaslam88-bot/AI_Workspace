@@ -2,16 +2,16 @@
 
 Iteration 4. Overall readiness is **NOT READY**.
 
-Current application source commit: `7e41f3b7d5a3b1020423adbadd18e9df34250abe`. Report tip commit: `b721fdc9280d393f8d7950f352d37a365db80536`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
+Current application source commit: `7e41f3b7d5a3b1020423adbadd18e9df34250abe`. Report tip commit: `78d422e4cca76340684a90b27bb7089250c172fa`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
 
 ## Current measured state
 
 - Canonical benchmark: **97.83/100**, 457 PASS, 1 PARTIAL, 1 FAIL; mean 8.1462s, P95 16.5442s.
 - Issues: 0 locally unresolved, 24 fixed/verified, 7 externally blocked.
-- Current issue/action: `ASTER-REPAIR-ASTER-RUNTIME-PROVENANCE-001-004` — Use the trusted parent executor to restart work-station-backend.service, verify loopback health, and recapture authenticated current-source runtime identity. Failure evidence: /home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1127.
+- Current issue/action: `ASTER-RELEASE-VALIDATION-001` — Run the existing current-source release/security/artifact validation at the settled source tip and preserve every external failure.
 - Controller phase: **ACCEPTANCE_TASK**.
 - Runtime identity: **PASS**; evidence `/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1128/runtime-repair/attestation/runtime-identity-current.json`.
-- Git: **CLEAN_SYNCED** at `b721fdc9280d393f8d7950f352d37a365db80536`.
+- Git: **CLEAN_SYNCED** at `78d422e4cca76340684a90b27bb7089250c172fa`.
 
 ## Queue classifications
 
@@ -68,7 +68,8 @@ Current application source commit: `7e41f3b7d5a3b1020423adbadd18e9df34250abe`. R
 | ASTER-REPAIR-ASTER-RELEASE-VALIDATION-001-003 | SUPERSEDED | none | Superseded because preserved evidence does not prove the exact Expo dependency mismatch; the originating release failure remains authoritative. |
 | ASTER-REPAIR-ASTER-RELEASE-VALIDATION-001-004 | SUPERSEDED | none | Superseded because preserved evidence does not prove the exact Expo dependency mismatch; the originating release failure remains authoritative. |
 | ASTER-REPAIR-ASTER-RELEASE-VALIDATION-001-005 | SUPERSEDED | none | Superseded because preserved evidence does not prove the exact Expo dependency mismatch; the originating release failure remains authoritative. |
-| ASTER-REPAIR-ASTER-RUNTIME-PROVENANCE-001-004 | READY | none |  |
+| ASTER-REPAIR-ASTER-RUNTIME-PROVENANCE-001-004 | COMPLETE | none |  |
+| ASTER-REPAIR-ASTER-RELEASE-VALIDATION-001-006 | READY | none |  |
 
 The issue queue and machine-readable controller state are authoritative. A child model response cannot mark an issue complete without objective evidence.
 

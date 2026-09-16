@@ -7,7 +7,7 @@ PASS           : 457
 PARTIAL        : 1
 FAIL           : 1
 ISSUES         : 0
-CURRENT        : ASTER-REPAIR-ASTER-RUNTIME-PROVENANCE-001-004
+CURRENT        : ASTER-RELEASE-VALIDATION-001
 PHASE          : ACCEPTANCE_TASK
 CANDIDATE      : None
 ASTER→AI OS    : PARTIAL: current owner-authenticated HTTP exchange and integrity verified; fabricated exec
@@ -21,7 +21,7 @@ WEB            : 206 PASS
 MOBILE         : 64 PASS
 PERFORMANCE    : mean 8.1462s / P95 16.5442s
 GIT            : CLEAN_SYNCED
-COMMIT         : b721fdc9280d393f8d7950f352d37a365db80536
+COMMIT         : 78d422e4cca76340684a90b27bb7089250c172fa
 SOURCE         : 7e41f3b7d5a3b1020423adbadd18e9df34250abe
-NEXT ACTION    : Use the trusted parent executor to restart work-station-backend.service, verify loopback health, and recapture authenticated current-source runtime identity. Failure evidence: /home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1127.
+NEXT ACTION    : Run the existing current-source release/security/artifact validation at the settled source tip and preserve every external failure.
 ========================================================
