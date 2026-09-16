@@ -972,6 +972,69 @@ def test_unknown_release_failure_dispatches_diagnosis_not_expo_repair(tmp_path):
     assert repairs[0]["repair_kind"] == "acceptance_failure_diagnosis"
 
 
+def test_historical_expo_mismatch_cannot_classify_current_native_failure(tmp_path):
+    """A prior mismatch must not contaminate the current release repair kind."""
+    state = _release_state()
+    historical = tmp_path / "cycle-0100" / "command.stdout.log"
+    historical.parent.mkdir(parents=True)
+    historical.write_text(
+        "expo                ~57.0.23  57.0.22\n"
+        "expo-image-picker   ~57.0.18  57.0.17\n"
+        "expo-notifications  ~57.0.19  57.0.18\n"
+        "3 packages out of date.\n",
+        encoding="utf-8",
+    )
+    current = tmp_path / "cycle-0101" / "command.stderr.log"
+    current.parent.mkdir(parents=True)
+    current.write_text("production-binary did not open its expected native window.\n", encoding="utf-8")
+    release = state["acceptance_tasks"]["ASTER-RELEASE-VALIDATION-001"]
+    release["evidence"] = [str(historical.parent)]
+    parent = {
+        "task_id": release["id"],
+        "objective_pass": False,
+        "reason": "current native launch failed",
+        "failure_classification": None,
+        "verification": {
+            "observations": _observations(),
+            "stderr_path": str(current),
+        },
+    }
+    repair = controller.enqueue_acceptance_failure_repair(
+        state,
+        release,
+        parent=parent,
+        child=_valid_child(release["id"]),
+        evidence_dir=current.parent,
+    )
+    assert repair is not None
+    assert repair["repair_kind"] == "acceptance_failure_diagnosis"
+
+
+def test_parent_diagnosis_executor_persists_current_root_cause(tmp_path):
+    current_root = tmp_path / "cycle-0200"
+    current_root.mkdir()
+    stderr = current_root / "command.stderr.log"
+    stderr.write_text("desktop_check.sh: command not found\n", encoding="utf-8")
+    task = {
+        "id": "ASTER-REPAIR-RELEASE-001",
+        "parent_task_id": "ASTER-RELEASE-VALIDATION-001",
+        "repair_kind": "acceptance_failure_diagnosis",
+        "failure_context": {
+            "evidence_dir": str(current_root),
+            "parent_stderr_path": str(stderr),
+        },
+    }
+    result = controller.verify_acceptance_task(
+        task, evidence_dir=tmp_path / "repair", evidence_root=tmp_path
+    )
+    assert result["objective_pass"] is True
+    assert result["verification"]["failure_classification"] == "LOCAL_EXECUTABLE_OR_ENVIRONMENT_FAILURE"
+    diagnosis_path = Path(result["verification"]["diagnosis"]["evidence_path"])
+    assert diagnosis_path.is_file()
+    diagnosis = json.loads(diagnosis_path.read_text(encoding="utf-8"))
+    assert diagnosis["evidence_scope"] == "current_failure_bundle_only"
+
+
 def test_verified_external_acceptance_failure_is_blocked_without_repair(tmp_path):
     state = _release_state()
     evidence = tmp_path / "external-proof.log"

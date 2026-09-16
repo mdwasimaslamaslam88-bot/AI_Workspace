@@ -960,13 +960,11 @@ def _release_dependency_mismatch_proven(
                 )
                 if isinstance(item, str)
             )
-        for item in task.get("evidence", []):
-            if not isinstance(item, str):
-                continue
-            root = Path(item)
-            candidate_paths.extend(
-                str(root / name) for name in ("command.stdout.log", "command.stderr.log")
-            )
+        # Do not search the task's complete historical evidence list here.
+        # An older release may legitimately contain an Expo mismatch even
+        # though the current failure is a native launch, tool, or test
+        # failure.  The repair kind must be derived only from the current
+        # parent result and its explicitly linked failure bundle.
     if evidence_dir is not None:
         candidate_paths.extend(
             str(evidence_dir / name) for name in ("command.stdout.log", "command.stderr.log")
@@ -3863,6 +3861,152 @@ def _bounded_sleep(seconds: float) -> None:
         remaining -= interval
 
 
+def diagnose_acceptance_failure(
+    task: dict[str, Any], *, evidence_dir: Path, evidence_root: Path
+) -> dict[str, Any]:
+    """Collect a bounded, parent-side diagnosis for an objective failure.
+
+    Diagnosis tasks are deliberately evidence-only.  They may inspect the
+    current failure bundle and harmless local runtime state, but they never
+    execute a child-provided command or turn a model claim into a repair.
+    This gives the existing repair lane a real trusted executor while keeping
+    unresolved product failures visible.
+    """
+    context = task.get("failure_context")
+    context = context if isinstance(context, dict) else {}
+    current_root = context.get("evidence_dir")
+    current_root_path = Path(current_root) if isinstance(current_root, str) else None
+    evidence_paths: list[Path] = []
+    for raw in (
+        context.get("parent_stdout_path"),
+        context.get("parent_stderr_path"),
+    ):
+        if isinstance(raw, str):
+            evidence_paths.append(Path(raw))
+    if current_root_path is not None:
+        evidence_paths.extend(
+            current_root_path / name
+            for name in ("command.stdout.log", "command.stderr.log")
+        )
+
+    evidence_root_resolved = evidence_root.resolve()
+    linked_logs: list[dict[str, Any]] = []
+    log_text: list[str] = []
+    for path in dict.fromkeys(evidence_paths):
+        try:
+            resolved = path.resolve(strict=True)
+            if not resolved.is_relative_to(evidence_root_resolved) or not resolved.is_file():
+                continue
+            content = resolved.read_text(encoding="utf-8", errors="replace")[:2_000_000]
+        except (OSError, RuntimeError):
+            continue
+        linked_logs.append(
+            {
+                "path": str(resolved),
+                "sha256": sha256_file(resolved),
+                "bytes": resolved.stat().st_size,
+            }
+        )
+        log_text.append(content)
+
+    combined = "\n".join(log_text)
+    patterns = (
+        ("native_window", re.compile(r"(?:production-binary|appimage) did not open its expected native window|lost its owned visible native window")),
+        ("command_not_found", re.compile(r"(?:command not found|No such file or directory)")),
+        ("sandbox_network", re.compile(r"RTM_NEWADDR|Operation not permitted|permission denied", re.IGNORECASE)),
+        ("test_failure", re.compile(r"(?:FAILED|failed|ERROR|error:)")),
+    )
+    matched_kind = None
+    first_failure = None
+    for kind, pattern in patterns:
+        match = pattern.search(combined)
+        if match:
+            matched_kind = kind
+            first_failure = match.group(0)
+            break
+
+    probes: list[dict[str, Any]] = []
+    if matched_kind == "native_window":
+        for command in (
+            ["ps", "-eo", "pid,ppid,pgid,stat,etime,cmd"],
+            ["xwininfo", "-root", "-tree"],
+        ):
+            if shutil.which(command[0]) is None:
+                probes.append({"command": command, "status": "NOT_INSTALLED"})
+                continue
+            probes.append(
+                command_record(
+                    command,
+                    REPOSITORY_ROOT,
+                    timeout=15,
+                    output_directory=evidence_dir / "diagnosis" / command[0],
+                )
+            )
+
+    process_output = ""
+    for probe in probes:
+        if probe.get("command", [None])[0] == "ps" and isinstance(probe.get("stdout_path"), str):
+            try:
+                process_output = Path(probe["stdout_path"]).read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                pass
+    existing_desktop_process = bool(
+        re.search(r"(?:^|\s)work-station-desktop(?:\s|$)", process_output)
+    )
+
+    if matched_kind == "native_window":
+        classification = (
+            "LOCAL_DESKTOP_NATIVE_LAUNCH_CONFLICT"
+            if existing_desktop_process
+            else "LOCAL_DESKTOP_NATIVE_LAUNCH_FAILED"
+        )
+        reason = (
+            "release native-window smoke collided with an existing desktop instance"
+            if existing_desktop_process
+            else "release native-window smoke failed without an existing desktop instance"
+        )
+        repair_action = (
+            "Run the desktop smoke in a supported isolated launch context or record the active "
+            "desktop instance as an explicit environment dependency; do not terminate the user's process."
+        )
+    elif matched_kind == "command_not_found":
+        classification = "LOCAL_EXECUTABLE_OR_ENVIRONMENT_FAILURE"
+        reason = "release evidence contains a missing executable or path failure"
+        repair_action = "Restore the required executable through the existing runtime environment and rerun the focused check."
+    elif matched_kind == "sandbox_network":
+        classification = "EXTERNAL_SANDBOX_RESTRICTION_REQUIRES_CONFIRMATION"
+        reason = "release evidence contains a host permission or sandbox restriction"
+        repair_action = "Re-run only when the supported host capability is available; preserve fail-closed behavior."
+    elif matched_kind == "test_failure":
+        classification = "LOCAL_TEST_OR_RUNTIME_FAILURE"
+        reason = "release evidence contains an objective test/runtime failure"
+        repair_action = "Trace the first failing test or command and apply the smallest verified local correction."
+    else:
+        classification = "LOCAL_FAILURE_ROOT_CAUSE_UNCONFIRMED"
+        reason = "current failure evidence does not identify a supported root cause"
+        repair_action = "Collect a more specific bounded diagnostic before attempting a repair."
+
+    diagnosis = {
+        "timestamp": utc_now(),
+        "task_id": str(task.get("id")),
+        "parent_task_id": task.get("parent_task_id"),
+        "evidence_scope": "current_failure_bundle_only",
+        "linked_logs": linked_logs,
+        "matched_failure_kind": matched_kind,
+        "first_failure_marker": first_failure,
+        "probes": probes,
+        "existing_desktop_process": existing_desktop_process,
+        "failure_classification": classification,
+        "reason": reason,
+        "repair_action": repair_action,
+        "objective_root_cause": matched_kind is not None,
+    }
+    diagnosis_path = evidence_dir / "diagnosis.json"
+    write_json(diagnosis_path, diagnosis)
+    diagnosis["evidence_path"] = str(diagnosis_path)
+    return diagnosis
+
+
 def _watch_action(candidate: str | None, candidate_state: str) -> str:
     if not candidate:
         return (
@@ -4084,15 +4228,26 @@ def verify_acceptance_task(
             "failure_classification": failure_classification,
         }
     elif repair_kind == "acceptance_failure_diagnosis":
+        diagnosis = diagnose_acceptance_failure(
+            task, evidence_dir=evidence_dir, evidence_root=evidence_root
+        )
+        # A diagnosis is not a product acceptance pass.  It is complete only
+        # when the parent-side executor has established a specific cause; the
+        # original acceptance task remains failed until a separate correction
+        # and verification actually pass.
+        passed = diagnosis.get("objective_root_cause") is True
         verification = {
-            "command": [],
+            "command": ["controller.diagnose_acceptance_failure"],
             "cwd": str(REPOSITORY_ROOT),
-            "exit_code": 1,
-            "reason": "bounded diagnosis task requires a concrete trusted executor before retry",
-            "failure_classification": "LOCAL_DIAGNOSIS_EXECUTOR_UNAVAILABLE",
+            "exit_code": 0 if passed else 1,
+            "diagnosis": diagnosis,
+            "failure_classification": diagnosis.get("failure_classification"),
         }
-        passed = False
-        reason = "bounded diagnosis could not establish an objective repair"
+        reason = (
+            "trusted parent diagnosis established an objective failure cause"
+            if passed
+            else "trusted parent diagnosis could not establish an objective failure cause"
+        )
     elif task_id == "ASTER-STATE-MERGE-001":
         command = [
             str(REPOSITORY_ROOT / "backend/.venv/bin/pytest"),
@@ -4318,6 +4473,20 @@ def acceptance_task_iteration(
             elif task.get("repair_kind") == "release_dependency_alignment":
                 parent_task["status"] = "PENDING"
                 parent_task["blocker"] = "Dependency correction completed; run the full current-source release gate."
+            elif task.get("repair_kind") == "acceptance_failure_diagnosis":
+                diagnosis = parent.get("verification", {}).get("diagnosis", {})
+                classification = diagnosis.get("failure_classification", "LOCAL_FAILURE_ROOT_CAUSE_UNCONFIRMED")
+                parent_task["status"] = "FAILED"
+                parent_task["blocker"] = (
+                    f"Bounded diagnosis established {classification}; no correction was applied. "
+                    "Preserve the objective failure and wait for the explicitly identified repair condition."
+                )
+                parent_task["failure_diagnosis"] = {
+                    "classification": classification,
+                    "reason": diagnosis.get("reason"),
+                    "repair_action": diagnosis.get("repair_action"),
+                    "evidence": [diagnosis.get("evidence_path")] if diagnosis.get("evidence_path") else [],
+                }
             parent_task["repair_resolution"] = {
                 "repair_task_id": task.get("id"),
                 "updated_at": utc_now(),
