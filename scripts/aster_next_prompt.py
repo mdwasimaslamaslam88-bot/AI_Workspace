@@ -1083,7 +1083,7 @@ def refresh_source_bound_acceptance_tasks(
     for task_id in ("ASTER-RUNTIME-PROVENANCE-001", "ASTER-RELEASE-VALIDATION-001"):
         task = tasks.get(task_id)
         if not isinstance(task, dict) or task.get("status") not in {
-            "COMPLETE", "COMPLETE_WITH_EXTERNAL", "FAILED"
+            "COMPLETE", "COMPLETE_WITH_EXTERNAL", "FAILED", "RETRY", "PENDING"
         }:
             continue
         validated = _task_validated_source_commit(task)
@@ -1095,6 +1095,26 @@ def refresh_source_bound_acceptance_tasks(
             )
             task["updated_at"] = utc_now()
             changed = True
+            # A failed repair is source-bound too.  Leaving it active after a
+            # real application change would make choose_acceptance_task skip
+            # the parent forever, even when the new source contains the
+            # correction that makes the original gate actionable again.
+            for repair in tasks.values():
+                if (
+                    not isinstance(repair, dict)
+                    or repair.get("parent_task_id") != task_id
+                    or repair.get("status") not in {"READY", "PENDING", "RETRY", "FAILED"}
+                ):
+                    continue
+                repair_source = _task_validated_source_commit(repair)
+                if repair_source and repair_source != source_commit:
+                    repair["status"] = "SUPERSEDED"
+                    repair["blocker"] = (
+                        f"Superseded after application source changed from {repair_source} "
+                        f"to {source_commit}; historical repair evidence retained."
+                    )
+                    repair["updated_at"] = utc_now()
+                    changed = True
     return changed
 
 

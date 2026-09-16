@@ -1194,6 +1194,35 @@ def test_completed_old_repair_does_not_undo_new_source_revalidation():
     assert runtime["status"] == "RETRY"
 
 
+def test_source_revalidation_supersedes_failed_repair_from_old_source():
+    state = {"acceptance_tasks": controller.default_acceptance_tasks()}
+    state["acceptance_tasks"]["ASTER-STATE-MERGE-001"]["status"] = "COMPLETE"
+    runtime = state["acceptance_tasks"]["ASTER-RUNTIME-PROVENANCE-001"]
+    runtime.update(
+        {
+            "status": "FAILED",
+            "validated_source_commit": "a" * 40,
+            "last_result": {"parent_verification": {"objective_pass": False}},
+        }
+    )
+    repair = {
+        "id": "ASTER-REPAIR-RUNTIME-OLD-SOURCE",
+        "parent_task_id": "ASTER-RUNTIME-PROVENANCE-001",
+        "repair_kind": "runtime_deployment_repair",
+        "status": "FAILED",
+        "attempts": 2,
+        "max_attempts": 2,
+        "validated_source_commit": "a" * 40,
+        "evidence": ["/evidence/old-repair"],
+    }
+    state["acceptance_tasks"][repair["id"]] = repair
+
+    assert controller.refresh_source_bound_acceptance_tasks(state, "b" * 40) is True
+    assert runtime["status"] == "RETRY"
+    assert repair["status"] == "SUPERSEDED"
+    assert controller.choose_acceptance_task(state)["id"] == runtime["id"]
+
+
 def test_release_repair_requires_proof_and_runs_bounded_workspace_commands(tmp_path):
     evidence_dir = tmp_path / "failed-release"
     evidence_dir.mkdir()
