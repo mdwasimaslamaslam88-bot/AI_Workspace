@@ -1087,6 +1087,24 @@ def test_failed_runtime_task_recovery_creates_one_persisted_repair_after_restart
     assert controller.recover_persisted_acceptance_failure_repairs(restarted) == [repair_tasks[0]]
 
 
+def test_failed_dynamic_repair_reopens_only_within_its_finite_budget():
+    state = {"acceptance_tasks": controller.default_acceptance_tasks()}
+    # The dynamic record is not in the static defaults, so seed it explicitly.
+    state["acceptance_tasks"]["ASTER-REPAIR-TEST"] = {
+        "id": "ASTER-REPAIR-TEST",
+        "status": "FAILED",
+        "repair_kind": "test_repair",
+        "attempts": 1,
+        "max_attempts": 2,
+    }
+    controller.acceptance_task_records(state)
+    assert state["acceptance_tasks"]["ASTER-REPAIR-TEST"]["status"] == "RETRY"
+    state["acceptance_tasks"]["ASTER-REPAIR-TEST"]["attempts"] = 2
+    state["acceptance_tasks"]["ASTER-REPAIR-TEST"]["status"] = "FAILED"
+    controller.acceptance_task_records(state)
+    assert state["acceptance_tasks"]["ASTER-REPAIR-TEST"]["status"] == "FAILED"
+
+
 def test_release_repair_requires_proof_and_runs_bounded_workspace_commands(tmp_path):
     evidence_dir = tmp_path / "failed-release"
     evidence_dir.mkdir()

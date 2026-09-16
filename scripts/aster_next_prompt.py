@@ -961,8 +961,14 @@ def acceptance_task_records(state: dict[str, Any]) -> dict[str, dict[str, Any]]:
             current["status"] = "RETRY"
             current["blocker"] = "Previous runtime attestation was historical; recapture authenticated current-source identity."
             current["updated_at"] = utc_now()
+    # Dynamic repair tasks are intentionally not part of the static default
+    # task definitions above.  Still recover a failed repair inside its own
+    # finite budget after restart; otherwise a stale FAILED record forces the
+    # original task to create a suffixed duplicate repair.
+    for current in raw.values():
         if (
-            current.get("repair_kind")
+            isinstance(current, dict)
+            and current.get("repair_kind")
             and current.get("status") == "FAILED"
             and int(current.get("attempts", 0) or 0) < int(current.get("max_attempts", 2) or 2)
         ):
