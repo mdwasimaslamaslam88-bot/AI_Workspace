@@ -2,16 +2,16 @@
 
 Iteration 4. Overall readiness is **NOT READY**.
 
-Current application source commit: `51dc6f6409eabdc7acd5d6213f420b5deb98c9b2`. Report tip commit: `51dc6f6409eabdc7acd5d6213f420b5deb98c9b2`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
+Current application source commit: `b2333b279ff9db5220fbbc04dde6d53fd8a956b6`. Report tip commit: `b2333b279ff9db5220fbbc04dde6d53fd8a956b6`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
 
 ## Current measured state
 
 - Canonical benchmark: **97.83/100**, 457 PASS, 1 PARTIAL, 1 FAIL; mean 8.1462s, P95 16.5442s.
 - Issues: 0 locally unresolved, 24 fixed/verified, 7 externally blocked.
-- Current issue/action: `NONE` — No eligible coding candidate is currently available; preserve all exclusions and continue the bounded external watch.
-- Controller phase: **WATCH_EXTERNAL_GAP**.
-- Runtime identity: **FAIL**; evidence `/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1116/runtime-repair/attestation/runtime-identity-current.json`.
-- Git: **CLEAN_SYNCED** at `51dc6f6409eabdc7acd5d6213f420b5deb98c9b2`.
+- Current issue/action: `ASTER-RUNTIME-PROVENANCE-001` — Re-observe the authenticated current runtime and validate source, backend and web identity against the current application source.
+- Controller phase: **ACCEPTANCE_TASK**.
+- Runtime identity: **PASS**; evidence `/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1118/runtime-identity-current.json`.
+- Git: **CLEAN_SYNCED** at `b2333b279ff9db5220fbbc04dde6d53fd8a956b6`.
 
 ## Queue classifications
 
@@ -54,8 +54,8 @@ Current application source commit: `51dc6f6409eabdc7acd5d6213f420b5deb98c9b2`. R
 | Task | Status | Dependencies | Blocker |
 | --- | --- | --- | --- |
 | ASTER-STATE-MERGE-001 | COMPLETE | none |  |
-| ASTER-RUNTIME-PROVENANCE-001 | RETRY | ASTER-STATE-MERGE-001 | Application source changed from 8e0dfed8cd5b99edf9c274e33e62e9dfa7d38544 to 51dc6f6409eabdc7acd5d6213f420b5deb98c9b2; current-source evidence must be recaptured. |
-| ASTER-RELEASE-VALIDATION-001 | PENDING | ASTER-RUNTIME-PROVENANCE-001 | Dependency correction completed; run the full current-source release gate. |
+| ASTER-RUNTIME-PROVENANCE-001 | RETRY | ASTER-STATE-MERGE-001 | Application source changed from 8e0dfed8cd5b99edf9c274e33e62e9dfa7d38544 to b2333b279ff9db5220fbbc04dde6d53fd8a956b6; current-source evidence must be recaptured. |
+| ASTER-RELEASE-VALIDATION-001 | PENDING | ASTER-RUNTIME-PROVENANCE-001 | Application source changed from 7082dada3e9dac2e876e95532392a0827bf7ebcd to b2333b279ff9db5220fbbc04dde6d53fd8a956b6; current-source evidence must be recaptured. |
 | ASTER-CANONICAL-CODER-001 | BLOCKED_EXTERNAL | none | All configured candidates are rejected or acquisition-blocked; a new eligible verified model/digest is required. |
 | ASTER-REVERSE-CALLBACK-001 | BLOCKED_EXTERNAL | none | The supported parent MCP/reverse callback endpoint rejects the available credential or is unavailable. |
 | ASTER-DEX-001 | BLOCKED_EXTERNAL | none | The host sandbox denies the required network namespace operation (RTM_NEWADDR/EPERM). |
@@ -63,7 +63,7 @@ Current application source commit: `51dc6f6409eabdc7acd5d6213f420b5deb98c9b2`. R
 | ASTER-REPAIR-ASTER-RUNTIME-PROVENANCE-001 | COMPLETE | none |  |
 | ASTER-REPAIR-ASTER-RUNTIME-PROVENANCE-001-002 | SUPERSEDED | none | Superseded by the canonical bounded repair ASTER-REPAIR-ASTER-RUNTIME-PROVENANCE-001; historical evidence retained. |
 | ASTER-REPAIR-ASTER-RELEASE-VALIDATION-001 | COMPLETE | none |  |
-| ASTER-REPAIR-ASTER-RUNTIME-PROVENANCE-001-003 | FAILED | none | Bounded repair attempt failed objective verification; preserve the evidence and do not manufacture an unbounded repair-of-repair chain. |
+| ASTER-REPAIR-ASTER-RUNTIME-PROVENANCE-001-003 | SUPERSEDED | none | Superseded after application source changed from 8e0dfed8cd5b99edf9c274e33e62e9dfa7d38544 to b2333b279ff9db5220fbbc04dde6d53fd8a956b6; historical repair evidence retained. |
 
 The issue queue and machine-readable controller state are authoritative. A child model response cannot mark an issue complete without objective evidence.
 
