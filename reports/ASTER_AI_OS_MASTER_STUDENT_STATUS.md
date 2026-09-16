@@ -2,7 +2,7 @@
 
 Iteration 4. Overall readiness is **NOT READY**.
 
-Current application source commit: `8e0dfed8cd5b99edf9c274e33e62e9dfa7d38544`. Report tip commit: `8e0dfed8cd5b99edf9c274e33e62e9dfa7d38544`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
+Current application source commit: `8e0dfed8cd5b99edf9c274e33e62e9dfa7d38544`. Report tip commit: `107b67f61d02677dbec0827afb80ec39fdd9f705`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
 
 ## Current measured state
 
@@ -10,8 +10,8 @@ Current application source commit: `8e0dfed8cd5b99edf9c274e33e62e9dfa7d38544`. R
 - Issues: 0 locally unresolved, 24 fixed/verified, 7 externally blocked.
 - Current issue/action: `ASTER-REPAIR-ASTER-RUNTIME-PROVENANCE-001-003` — Use the trusted parent executor to restart work-station-backend.service, verify loopback health, and recapture authenticated current-source runtime identity. Failure evidence: /home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1114.
 - Controller phase: **ACCEPTANCE_TASK**.
-- Runtime identity: **FAIL**; evidence `/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1114/runtime-identity-current.json`.
-- Git: **CLEAN_SYNCED** at `8e0dfed8cd5b99edf9c274e33e62e9dfa7d38544`.
+- Runtime identity: **FAIL**; evidence `/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1115/runtime-repair/attestation/runtime-identity-current.json`.
+- Git: **CLEAN_SYNCED** at `107b67f61d02677dbec0827afb80ec39fdd9f705`.
 
 ## Queue classifications
 
@@ -54,7 +54,7 @@ Current application source commit: `8e0dfed8cd5b99edf9c274e33e62e9dfa7d38544`. R
 | Task | Status | Dependencies | Blocker |
 | --- | --- | --- | --- |
 | ASTER-STATE-MERGE-001 | COMPLETE | none |  |
-| ASTER-RUNTIME-PROVENANCE-001 | RETRY | ASTER-STATE-MERGE-001 | Application source changed from bc57e47dd948eb6f8f041db1befa677d3d005cdc to 8e0dfed8cd5b99edf9c274e33e62e9dfa7d38544; current-source evidence must be recaptured. |
+| ASTER-RUNTIME-PROVENANCE-001 | FAILED | ASTER-STATE-MERGE-001 | Objective verification failed; dispatched bounded local diagnosis/repair task ASTER-REPAIR-ASTER-RUNTIME-PROVENANCE-001-003. |
 | ASTER-RELEASE-VALIDATION-001 | PENDING | ASTER-RUNTIME-PROVENANCE-001 | Dependency correction completed; run the full current-source release gate. |
 | ASTER-CANONICAL-CODER-001 | BLOCKED_EXTERNAL | none | All configured candidates are rejected or acquisition-blocked; a new eligible verified model/digest is required. |
 | ASTER-REVERSE-CALLBACK-001 | BLOCKED_EXTERNAL | none | The supported parent MCP/reverse callback endpoint rejects the available credential or is unavailable. |
