@@ -874,6 +874,7 @@ def _release_state() -> dict:
 
 def test_local_acceptance_failure_dispatches_bounded_repair_instead_of_external_completion():
     state = _release_state()
+    selected_repair_id = None
     parent = {
         "task_id": "ASTER-RELEASE-VALIDATION-001",
         "objective_pass": False,
@@ -896,6 +897,15 @@ def test_local_acceptance_failure_dispatches_bounded_repair_instead_of_external_
     ), patch.object(
         controller, "git_snapshot", return_value=_observations()["git"]
     ):
+        proof = Path(directory) / "command.stdout.log"
+        proof.write_text(
+            "expo                ~57.0.23  57.0.22\n"
+            "expo-image-picker   ~57.0.18  57.0.17\n"
+            "expo-notifications  ~57.0.19  57.0.18\n"
+            "3 packages out of date.\n",
+            encoding="utf-8",
+        )
+        parent["verification"]["stdout_path"] = str(proof)
         result = controller.acceptance_task_iteration(
             state,
             evidence_root=Path(directory),
@@ -903,6 +913,7 @@ def test_local_acceptance_failure_dispatches_bounded_repair_instead_of_external_
             execute_codex=True,
             timeout_seconds=30,
         )
+        selected_repair_id = controller.choose_acceptance_task(state)["id"]
 
     release = state["acceptance_tasks"]["ASTER-RELEASE-VALIDATION-001"]
     repairs = [
@@ -915,7 +926,50 @@ def test_local_acceptance_failure_dispatches_bounded_repair_instead_of_external_
     assert release["status"] != "COMPLETE_WITH_EXTERNAL"
     assert len(repairs) == 1
     assert repairs[0]["status"] == "READY"
-    assert controller.choose_acceptance_task(state)["id"] == repairs[0]["id"]
+    assert selected_repair_id == repairs[0]["id"]
+
+
+def test_unknown_release_failure_dispatches_diagnosis_not_expo_repair(tmp_path):
+    state = _release_state()
+    proof = tmp_path / "command.stderr.log"
+    proof.write_text("desktop_check.sh: line 129: rg: command not found\n", encoding="utf-8")
+    parent = {
+        "task_id": "ASTER-RELEASE-VALIDATION-001",
+        "objective_pass": False,
+        "reason": "release gate stopped with exit 127",
+        "failure_classification": None,
+        "verification": {"observations": _observations(), "stderr_path": str(proof)},
+    }
+    with TemporaryDirectory() as directory, patch.object(
+        controller, "observe", return_value=_observations()
+    ), patch.object(
+        controller, "current_queue", return_value={"issues": []}
+    ), patch.object(
+        controller, "run_codex_child", return_value=_valid_child("ASTER-RELEASE-VALIDATION-001")
+    ), patch.object(
+        controller, "verify_acceptance_task", return_value=parent
+    ), patch.object(
+        controller, "render_reports", return_value={}
+    ), patch.object(
+        controller, "persist_watch_report_commit", return_value={"attempted": False}
+    ), patch.object(
+        controller, "git_snapshot", return_value=_observations()["git"]
+    ):
+        result = controller.acceptance_task_iteration(
+            state,
+            evidence_root=Path(directory),
+            cycle=201,
+            execute_codex=True,
+            timeout_seconds=30,
+        )
+
+    assert result["verification"] == "FAIL"
+    repairs = [
+        task for task in state["acceptance_tasks"].values()
+        if isinstance(task, dict) and task.get("parent_task_id") == "ASTER-RELEASE-VALIDATION-001"
+    ]
+    assert len(repairs) == 1
+    assert repairs[0]["repair_kind"] == "acceptance_failure_diagnosis"
 
 
 def test_verified_external_acceptance_failure_is_blocked_without_repair(tmp_path):
@@ -967,13 +1021,22 @@ def test_verified_external_acceptance_failure_is_blocked_without_repair(tmp_path
 def test_automatic_repair_chain_runs_original_failure_then_repair_child(tmp_path):
     state = _release_state()
     child_calls = []
+    proof = tmp_path / "release-proof" / "command.stdout.log"
+    proof.parent.mkdir(parents=True)
+    proof.write_text(
+        "expo                ~57.0.23  57.0.22\n"
+        "expo-image-picker   ~57.0.18  57.0.17\n"
+        "expo-notifications  ~57.0.19  57.0.18\n"
+        "3 packages out of date.\n",
+        encoding="utf-8",
+    )
     parent_results = [
         {
             "task_id": "ASTER-RELEASE-VALIDATION-001",
             "objective_pass": False,
             "reason": "local mobile mismatch",
             "failure_classification": "LOCAL_MOBILE_DEPENDENCY_MISMATCH",
-            "verification": {"observations": _observations()},
+            "verification": {"observations": _observations(), "stdout_path": str(proof)},
         },
         {
             "task_id": "ASTER-REPAIR-ASTER-RELEASE-VALIDATION-001",

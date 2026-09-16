@@ -935,6 +935,60 @@ def choose_issue(queue: dict[str, Any]) -> dict[str, Any] | None:
     )[0]
 
 
+def _release_dependency_mismatch_proven(
+    parent: dict[str, Any] | None,
+    task: dict[str, Any] | None,
+    evidence_dir: Path | None = None,
+) -> bool:
+    """Require preserved Expo Doctor output before selecting that repair kind."""
+    candidate_paths: list[str] = []
+    verification = parent.get("verification") if isinstance(parent, dict) else None
+    if isinstance(verification, dict):
+        candidate_paths.extend(
+            item
+            for item in (verification.get("stdout_path"), verification.get("stderr_path"))
+            if isinstance(item, str)
+        )
+    if isinstance(task, dict):
+        failure_context = task.get("failure_context")
+        if isinstance(failure_context, dict):
+            candidate_paths.extend(
+                item
+                for item in (
+                    failure_context.get("parent_stdout_path"),
+                    failure_context.get("parent_stderr_path"),
+                )
+                if isinstance(item, str)
+            )
+        for item in task.get("evidence", []):
+            if not isinstance(item, str):
+                continue
+            root = Path(item)
+            candidate_paths.extend(
+                str(root / name) for name in ("command.stdout.log", "command.stderr.log")
+            )
+    if evidence_dir is not None:
+        candidate_paths.extend(
+            str(evidence_dir / name) for name in ("command.stdout.log", "command.stderr.log")
+        )
+    required = (
+        "expo                ~57.0.23",
+        "expo-image-picker   ~57.0.18",
+        "expo-notifications  ~57.0.19",
+        "packages out of date",
+    )
+    for raw_path in dict.fromkeys(candidate_paths):
+        path = Path(raw_path)
+        try:
+            if path.is_file():
+                content = path.read_text(encoding="utf-8", errors="replace")[:2_000_000]
+                if all(marker in content for marker in required):
+                    return True
+        except OSError:
+            continue
+    return False
+
+
 def acceptance_task_records(state: dict[str, Any]) -> dict[str, dict[str, Any]]:
     raw = state.get("acceptance_tasks")
     if not isinstance(raw, dict):
@@ -974,6 +1028,22 @@ def acceptance_task_records(state: dict[str, Any]) -> dict[str, dict[str, Any]]:
         ):
             current["status"] = "RETRY"
             current["blocker"] = "Previous bounded repair failed locally; retry after the repair implementation was corrected."
+            current["updated_at"] = utc_now()
+        if (
+            isinstance(current, dict)
+            and current.get("repair_kind") == "release_dependency_alignment"
+            and current.get("status") in {"READY", "PENDING", "RETRY"}
+            and not _release_dependency_mismatch_proven(None, current)
+        ):
+            # A release failure may be caused by a missing executable,
+            # packaging defect, or another local problem.  Never let a stale
+            # pre-classified Expo repair hide that failure without objective
+            # Expo Doctor output proving the dependency mismatch.
+            current["status"] = "SUPERSEDED"
+            current["blocker"] = (
+                "Superseded because preserved evidence does not prove the exact Expo dependency "
+                "mismatch; the originating release failure remains authoritative."
+            )
             current["updated_at"] = utc_now()
         if (
             isinstance(current, dict)
@@ -1257,6 +1327,16 @@ def enqueue_acceptance_failure_repair(
         "evidence_dir": str(evidence_dir),
         "parent_reason": parent.get("reason"),
         "parent_failure_classification": parent.get("failure_classification"),
+        "parent_stdout_path": (
+            parent.get("verification", {}).get("stdout_path")
+            if isinstance(parent.get("verification"), dict)
+            else None
+        ),
+        "parent_stderr_path": (
+            parent.get("verification", {}).get("stderr_path")
+            if isinstance(parent.get("verification"), dict)
+            else None
+        ),
         "child_exit_code": child.get("exit_code") if isinstance(child, dict) else None,
         "child_timed_out": child.get("timed_out") if isinstance(child, dict) else None,
     }
@@ -1282,16 +1362,28 @@ def enqueue_acceptance_failure_repair(
             f"Failure evidence: {evidence_dir}."
         )
         verification = "The restarted backend reports the current source commit and matching backend/web hashes, with session revocation accepted."
-    elif parent_task_id == "ASTER-RELEASE-VALIDATION-001":
+    elif parent_task_id == "ASTER-RELEASE-VALIDATION-001" and _release_dependency_mismatch_proven(
+        parent, failed_task, evidence_dir
+    ):
         repair_kind = "release_dependency_alignment"
         priority = "P1"
         title = "Repair proven Expo SDK dependency mismatch"
         action = (
-            "Verify the current release evidence identifies the exact Expo SDK package mismatch, "
-            "then use the existing npm workspace to align only those packages and run the focused "
-            f"mobile check. Failure evidence: {evidence_dir}."
+            "Use preserved Expo Doctor output to align only the proven mismatched packages, "
+            "then run the focused mobile check through the trusted parent executor. "
+            f"Failure evidence: {evidence_dir}."
         )
         verification = "The correction is committed through the existing validated-change boundary and the focused mobile check exits 0."
+    elif parent_task_id == "ASTER-RELEASE-VALIDATION-001":
+        repair_kind = "acceptance_failure_diagnosis"
+        priority = "P1"
+        title = "Diagnose current release validation failure"
+        action = (
+            "Inspect the complete current release stdout/stderr and parent verification, identify the "
+            "first local failure or prove a supported external dependency, and perform only a bounded "
+            f"trusted repair. Failure evidence: {evidence_dir}."
+        )
+        verification = "The first failure has objective root-cause evidence and either a verified repair or a bounded external blocker with an unblock condition."
     else:
         repair_kind = "acceptance_failure_diagnosis"
         priority = "P1"
