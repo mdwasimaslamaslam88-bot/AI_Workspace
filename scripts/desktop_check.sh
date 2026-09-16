@@ -126,7 +126,7 @@ if [[ "${gstreamer_app_plugin}" != /* || ! -f "${gstreamer_app_plugin}" ]]; then
   echo "The GStreamer appsink plugin is required for the desktop media runtime." >&2
   exit 1
 fi
-file "${gstreamer_app_plugin}" | rg -q 'ELF .* shared object'
+file "${gstreamer_app_plugin}" | grep -Eq 'ELF .* shared object'
 install -d -m 0755 "${appdir}/usr/lib/gstreamer-1.0"
 install -m 0644 \
   "${gstreamer_app_plugin}" \
@@ -143,14 +143,14 @@ if [[ ! -x "${gstreamer_plugin_scanner}" ]]; then
   echo "The version-matched GStreamer plugin scanner is required." >&2
   exit 1
 fi
-file "${gstreamer_plugin_scanner}" | rg -q 'ELF .* executable'
+file "${gstreamer_plugin_scanner}" | grep -Eq 'ELF .* executable'
 install -d -m 0755 "${appdir}/usr/libexec/gstreamer-1.0"
 install -m 0755 \
   "${gstreamer_plugin_scanner}" \
   "${appdir}/usr/libexec/gstreamer-1.0/gst-plugin-scanner"
 app_run_hook="${appdir}/apprun-hooks/linuxdeploy-plugin-gtk.sh"
 [[ -f "${app_run_hook}" ]]
-if ! rg -q '^export GST_PLUGIN_SCANNER=' "${app_run_hook}"; then
+if ! grep -Eq '^export GST_PLUGIN_SCANNER=' "${app_run_hook}"; then
   printf '%s\n' \
     'export GST_PLUGIN_SCANNER="$APPDIR/usr/libexec/gstreamer-1.0/gst-plugin-scanner"' \
     >>"${app_run_hook}"
@@ -186,7 +186,7 @@ install -m 0644 \
 # deliberately equal-length so embedded library offsets remain unchanged.
 while IFS= read -r -d '' bundled_file; do
   perl -0pi -e 's{/home/}{build:}g' "${bundled_file}"
-done < <(rg -l -0 -a -F '/home/' "${appdir}" || true)
+done < <(grep -rlZ -a -F '/home/' "${appdir}" || true)
 
 (
   cd "${work_root}"
@@ -211,15 +211,15 @@ perl -0pi -e 's{/home/}{build:}g' "${binary}"
 )
 
 [[ -s "${package}" && -x "${binary}" && -s "${appimage}" && -x "${appimage}" ]]
-file "${appimage}" | rg -q 'ELF .* executable'
+file "${appimage}" | grep -Eq 'ELF .* executable'
 dpkg-deb --info "${package}" >/dev/null
 dpkg-deb --extract "${package}" "${work_root}/deb-root"
-if rg -a -q -F '/home/' \
+if grep -a -q -F '/home/' \
   "${appimage}" "${binary}" "${appdir}" "${work_root}/deb-root"; then
   echo "Desktop artifacts contain a developer-machine home path." >&2
   exit 1
 fi
-if ldd "${binary}" | rg -q "not found"; then
+if ldd "${binary}" | grep -Eq "not found"; then
   echo "The desktop executable has unresolved shared libraries." >&2
   exit 1
 fi
@@ -288,7 +288,7 @@ desktop_window_is_owned() {
   [[ "${window_pid}" =~ ^[1-9][0-9]*$ ]] || return 1
   window_pgid="$(ps -o pgid= -p "${window_pid}" 2>/dev/null | tr -d ' ' || true)"
   [[ -n "${desktop_pgid}" && "${window_pgid}" == "${desktop_pgid}" ]] || return 1
-  xwininfo -id "${window_id}" -stats 2>/dev/null | rg -q 'Map State: IsViewable'
+  xwininfo -id "${window_id}" -stats 2>/dev/null | grep -Eq 'Map State: IsViewable'
 }
 
 find_owned_desktop_window() {
@@ -344,7 +344,7 @@ launch_and_verify() {
     fi
     sleep 0.25
   done
-  if rg -q 'GStreamer element appsink not found|External plugin loader failed' \
+  if grep -Eq 'GStreamer element appsink not found|External plugin loader failed' \
     "${work_root}/${label}.log"; then
     echo "${label} could not initialize its bundled GStreamer media runtime." >&2
     return 1

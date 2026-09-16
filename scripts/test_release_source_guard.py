@@ -2,6 +2,7 @@
 
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import tempfile
@@ -26,6 +27,13 @@ SCENARIOS = {
     ),
     "permissive_tracked_change": ("printf changed > tracked_source.txt", False, 0),
 }
+
+
+def test_desktop_check_does_not_require_unavailable_ripgrep():
+    source = (REPOSITORY / "scripts" / "desktop_check.sh").read_text(encoding="utf-8")
+    assert not any(re.search(r"\brg\b", line) for line in source.splitlines())
+    assert "grep -Eq" in source
+    assert "grep -rlZ" in source
 
 
 def executable(path: Path, content: str) -> None:

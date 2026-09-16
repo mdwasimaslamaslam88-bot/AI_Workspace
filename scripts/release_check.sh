@@ -39,7 +39,7 @@ if [[ "${require_clean}" == true && -n "$(git status --short)" ]]; then
   exit 1
 fi
 
-for executable in npm pg_dump pg_restore curl jq systemd-analyze; do
+for executable in grep npm pg_dump pg_restore curl jq systemd-analyze; do
   command -v "${executable}" >/dev/null
 done
 [[ -x /usr/bin/ffmpeg && -x /usr/bin/ffprobe ]]
