@@ -1026,6 +1026,13 @@ def choose_acceptance_task(state: dict[str, Any]) -> dict[str, Any] | None:
     for task in tasks.values():
         if not isinstance(task, dict) or task.get("status") not in {"READY", "PENDING", "RETRY"}:
             continue
+        max_attempts = task.get("max_attempts")
+        if max_attempts is not None:
+            try:
+                if int(task.get("attempts", 0) or 0) >= int(max_attempts):
+                    continue
+            except (TypeError, ValueError):
+                continue
         dependencies = task.get("dependencies", [])
         if not isinstance(dependencies, list):
             dependencies = []
@@ -1040,6 +1047,168 @@ def choose_acceptance_task(state: dict[str, Any]) -> dict[str, Any] | None:
         eligible,
         key=lambda item: (order.get(str(item.get("priority")), 9), str(item.get("id", ""))),
     )[0] if eligible else None
+
+
+def _verified_external_failure(parent: dict[str, Any]) -> dict[str, Any] | None:
+    """Accept an external classification only with explicit objective proof."""
+    if not isinstance(parent, dict) or parent.get("objective_pass") is not False:
+        return None
+    verification = parent.get("verification")
+    verification = verification if isinstance(verification, dict) else {}
+    classification = parent.get("failure_classification") or verification.get("failure_classification")
+    if classification != "BLOCKED_EXTERNAL":
+        return None
+    evidence = parent.get("external_evidence") or verification.get("external_evidence")
+    if isinstance(evidence, str):
+        evidence_paths = [evidence]
+    elif isinstance(evidence, list):
+        evidence_paths = [str(item) for item in evidence if str(item).strip()]
+    else:
+        evidence_paths = []
+    if not evidence_paths or not all(Path(item).exists() for item in evidence_paths):
+        return None
+    unblock_condition = parent.get("unblock_condition") or verification.get("unblock_condition")
+    if not isinstance(unblock_condition, str) or not unblock_condition.strip():
+        return None
+    return {
+        "classification": "BLOCKED_EXTERNAL",
+        "evidence": evidence_paths,
+        "unblock_condition": unblock_condition.strip(),
+        "reason": str(parent.get("reason") or "verified external dependency remains unavailable"),
+    }
+
+
+def enqueue_acceptance_failure_repair(
+    state: dict[str, Any],
+    failed_task: dict[str, Any],
+    *,
+    parent: dict[str, Any],
+    child: dict[str, Any],
+    evidence_dir: Path,
+) -> dict[str, Any] | None:
+    """Create one bounded actionable repair task for a non-external failure."""
+    parent_task_id = str(failed_task.get("id"))
+    # A repair task failing is itself the bounded diagnosis result; do not
+    # manufacture an unbounded chain of repair-of-repair tasks.
+    if failed_task.get("repair_kind") or failed_task.get("parent_task_id"):
+        return None
+    tasks = acceptance_task_records(state)
+    failure_context = {
+        "task_id": parent_task_id,
+        "evidence_dir": str(evidence_dir),
+        "parent_reason": parent.get("reason"),
+        "parent_failure_classification": parent.get("failure_classification"),
+        "child_exit_code": child.get("exit_code") if isinstance(child, dict) else None,
+        "child_timed_out": child.get("timed_out") if isinstance(child, dict) else None,
+    }
+    signature = sha256_bytes(json.dumps(failure_context, sort_keys=True, default=str).encode())
+    for existing in tasks.values():
+        if not isinstance(existing, dict):
+            continue
+        if existing.get("failure_signature") == signature:
+            return existing
+        if (
+            existing.get("parent_task_id") == parent_task_id
+            and existing.get("status") in {"READY", "PENDING", "RETRY"}
+        ):
+            return existing
+
+    if parent_task_id == "ASTER-RUNTIME-PROVENANCE-001":
+        repair_kind = "runtime_deployment_repair"
+        priority = "P0"
+        title = "Repair stale runtime deployment after provenance failure"
+        action = (
+            "Use the trusted parent executor to restart work-station-backend.service, "
+            "verify loopback health, and recapture authenticated current-source runtime identity. "
+            f"Failure evidence: {evidence_dir}."
+        )
+        verification = "The restarted backend reports the current source commit and matching backend/web hashes, with session revocation accepted."
+    elif parent_task_id == "ASTER-RELEASE-VALIDATION-001":
+        repair_kind = "release_dependency_alignment"
+        priority = "P1"
+        title = "Repair proven Expo SDK dependency mismatch"
+        action = (
+            "Verify the current release evidence identifies the exact Expo SDK package mismatch, "
+            "then use the existing npm workspace to align only those packages and run the focused "
+            f"mobile check. Failure evidence: {evidence_dir}."
+        )
+        verification = "The correction is committed through the existing validated-change boundary and the focused mobile check exits 0."
+    else:
+        repair_kind = "acceptance_failure_diagnosis"
+        priority = "P1"
+        title = f"Diagnose failed acceptance task {parent_task_id}"
+        action = (
+            f"Inspect the objective failure for {parent_task_id}, identify whether it is a local "
+            f"defect or a supported external dependency, and run the narrowest permitted repair or proof. "
+            f"Failure evidence: {evidence_dir}."
+        )
+        verification = "The failure has objective root-cause evidence and either a verified repair or a bounded external blocker with an unblock condition."
+
+    base_id = f"ASTER-REPAIR-{parent_task_id}"
+    repair_id = base_id
+    suffix = 1
+    while repair_id in tasks:
+        suffix += 1
+        repair_id = f"{base_id}-{suffix:03d}"
+    now = utc_now()
+    repair_task = {
+        "id": repair_id,
+        "priority": priority,
+        "title": title,
+        "action": action,
+        "dependencies": [],
+        "verification": verification,
+        "status": "READY",
+        "attempts": 0,
+        "max_attempts": 2,
+        "updated_at": now,
+        "evidence": [str(evidence_dir)],
+        "last_result": None,
+        "parent_task_id": parent_task_id,
+        "repair_kind": repair_kind,
+        "failure_signature": signature,
+        "failure_context": failure_context,
+    }
+    tasks[repair_id] = repair_task
+    return repair_task
+
+
+def recover_persisted_acceptance_failure_repairs(state: dict[str, Any]) -> list[dict[str, Any]]:
+    """Recreate actionable repairs for failures recorded by an older owner.
+
+    A controller restart must not turn a durable objective failure into an
+    invisible dead end.  Only original acceptance tasks are eligible here;
+    bounded repair tasks never recursively manufacture more repair tasks.
+    """
+    tasks = acceptance_task_records(state)
+    recovered: list[dict[str, Any]] = []
+    for task in list(tasks.values()):
+        if not isinstance(task, dict) or task.get("status") != "FAILED":
+            continue
+        if task.get("repair_kind") or task.get("parent_task_id"):
+            continue
+        last_result = task.get("last_result")
+        if not isinstance(last_result, dict):
+            continue
+        parent = last_result.get("parent_verification")
+        if not isinstance(parent, dict) or parent.get("objective_pass") is not False:
+            continue
+        evidence_dir_value = parent.get("evidence_dir")
+        if not isinstance(evidence_dir_value, str) or not evidence_dir_value:
+            evidence = task.get("evidence")
+            evidence_dir_value = evidence[-1] if isinstance(evidence, list) and evidence else None
+        if not isinstance(evidence_dir_value, str) or not evidence_dir_value:
+            continue
+        repair = enqueue_acceptance_failure_repair(
+            state,
+            task,
+            parent=parent,
+            child=last_result.get("child", {}),
+            evidence_dir=Path(evidence_dir_value),
+        )
+        if repair is not None:
+            recovered.append(repair)
+    return recovered
 
 
 def evidence_items(issue: dict[str, Any]) -> list[str]:
@@ -3254,6 +3423,89 @@ def safe_commit_if_validated(result: dict[str, Any], iteration: int) -> dict[str
     }
 
 
+def safe_commit_parent_repair(repair_kind: str, *, evidence_dir: Path) -> dict[str, Any]:
+    """Commit only the narrowly expected files from a trusted parent repair."""
+    paths = changed_paths()
+    allowed = {"apps/mobile/package.json", "package-lock.json"}
+    unexpected = [path for path in paths if path not in allowed]
+    if unexpected or not paths:
+        return {
+            "attempted": False,
+            "committed": False,
+            "reason": "unexpected_or_missing_repair_paths",
+            "repair_kind": repair_kind,
+            "paths": paths,
+            "unexpected": unexpected,
+        }
+    check = command_record(["git", "diff", "--check"], REPOSITORY_ROOT, timeout=30, output_directory=evidence_dir / "git-diff-check")
+    if check.get("exit_code") != 0:
+        return {
+            "attempted": False,
+            "committed": False,
+            "reason": "repair_diff_check_failed",
+            "repair_kind": repair_kind,
+            "paths": paths,
+            "diff_check": check,
+        }
+    subprocess.run(["git", "add", "--", *paths], cwd=str(REPOSITORY_ROOT), check=True)
+    staged_check = command_record(
+        ["git", "diff", "--cached", "--check"],
+        REPOSITORY_ROOT,
+        timeout=30,
+        output_directory=evidence_dir / "git-staged-diff-check",
+    )
+    if staged_check.get("exit_code") != 0:
+        subprocess.run(["git", "reset", "--", *paths], cwd=str(REPOSITORY_ROOT), check=False)
+        return {
+            "attempted": True,
+            "committed": False,
+            "reason": "repair_staged_diff_check_failed",
+            "repair_kind": repair_kind,
+            "paths": paths,
+            "diff_check": staged_check,
+        }
+    commit = subprocess.run(
+        ["git", "commit", "-m", "ASTER repair: align Expo SDK mobile dependencies"],
+        cwd=str(REPOSITORY_ROOT),
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if commit.returncode != 0:
+        return {
+            "attempted": True,
+            "committed": False,
+            "reason": "repair_commit_failed",
+            "repair_kind": repair_kind,
+            "paths": paths,
+            "exit_code": commit.returncode,
+            "stdout": safe_text(commit.stdout),
+            "stderr": safe_text(commit.stderr),
+        }
+    push = subprocess.run(
+        ["git", "push", "origin", "HEAD:main"],
+        cwd=str(REPOSITORY_ROOT),
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    return {
+        "attempted": True,
+        "committed": True,
+        "repair_kind": repair_kind,
+        "paths": paths,
+        "commit": git_snapshot().get("commit"),
+        "push": {
+            "exit_code": push.returncode,
+            "stdout": safe_text(push.stdout),
+            "stderr": safe_text(push.stderr),
+            "status": "PUSHED" if push.returncode == 0 else "PUSH_BLOCKED_EXTERNAL",
+        },
+    }
+
+
 WATCH_REPORT_PATHS = frozenset(
     {
         "reports/ASTER_AI_OS_PROGRESS.json",
@@ -3398,7 +3650,212 @@ def verify_acceptance_task(
 ) -> dict[str, Any]:
     """Run the trusted parent-side proof for one non-queue acceptance task."""
     task_id = str(task.get("id"))
-    if task_id == "ASTER-STATE-MERGE-001":
+    repair_kind = task.get("repair_kind")
+    if repair_kind == "runtime_deployment_repair":
+        restart = command_record(
+            ["systemctl", "--user", "restart", "work-station-backend.service"],
+            REPOSITORY_ROOT,
+            timeout=60,
+            output_directory=evidence_dir / "runtime-repair" / "restart",
+        )
+        health = command_record(
+            [
+                "curl",
+                "--fail",
+                "--silent",
+                "--show-error",
+                "--max-time",
+                "5",
+                "http://127.0.0.1:8000/api/v1/health/live",
+            ],
+            REPOSITORY_ROOT,
+            timeout=10,
+            output_directory=evidence_dir / "runtime-repair" / "health",
+        )
+        observations = observe(evidence_root)
+        source_commit = observed_source_commit(observations)
+        attestation = capture_current_runtime_attestation(
+            evidence_dir / "runtime-repair" / "attestation", source_commit
+        )
+        observations_after = observe(evidence_root)
+        runtime = observations_after.get("runtime", {})
+        runtime_evidence = runtime.get("evidence")
+        passed = bool(
+            restart.get("exit_code") == 0
+            and health.get("exit_code") == 0
+            and attestation.get("objective_pass") is True
+            and runtime.get("status") == "PASS"
+            and isinstance(runtime_evidence, str)
+            and Path(runtime_evidence).is_file()
+            and runtime.get("source_matches_current") is True
+            and isinstance(runtime.get("matches"), dict)
+            and runtime["matches"].get("backend_source_sha256") is True
+            and runtime["matches"].get("web_bundle_sha256") is True
+        )
+        if passed:
+            failure_classification = "OBJECTIVE_PASS"
+            reason = "runtime deployment restarted and current authenticated identity is content-verified"
+        elif restart.get("exit_code") != 0:
+            failure_classification = "LOCAL_RUNTIME_RESTART_FAILED"
+            reason = "trusted runtime repair could not restart the backend service"
+        elif health.get("exit_code") != 0:
+            failure_classification = "LOCAL_RUNTIME_HEALTH_FAILED"
+            reason = "backend restart completed but loopback health did not pass"
+        else:
+            failure_classification = "LOCAL_RUNTIME_PROVENANCE_FAILED"
+            reason = "backend restart completed but current runtime identity remains unproven"
+        verification = {
+            "command": [
+                "systemctl --user restart work-station-backend.service",
+                "curl --fail --silent --show-error --max-time 5 http://127.0.0.1:8000/api/v1/health/live",
+                "controller.observe",
+                "controller.validate_current_provenance",
+            ],
+            "cwd": str(REPOSITORY_ROOT),
+            "exit_code": 0 if passed else 1,
+            "restart": restart,
+            "health": health,
+            "observations_before_attestation": observations,
+            "fresh_attestation": attestation,
+            "observations": observations_after,
+            "failure_classification": failure_classification,
+        }
+    elif repair_kind == "release_dependency_alignment":
+        proof_paths: list[str] = []
+        proof_parts: list[str] = []
+        last_result = task.get("last_result") if isinstance(task.get("last_result"), dict) else {}
+        previous_parent = last_result.get("parent_verification") if isinstance(last_result, dict) else {}
+        previous_verification = previous_parent.get("verification") if isinstance(previous_parent, dict) else {}
+        candidate_paths = []
+        if isinstance(previous_verification, dict):
+            candidate_paths.extend(
+                item for item in (
+                    previous_verification.get("stdout_path"),
+                    previous_verification.get("stderr_path"),
+                ) if isinstance(item, str)
+            )
+        for item in task.get("evidence", []):
+            if not isinstance(item, str):
+                continue
+            root = Path(item)
+            candidate_paths.extend(
+                str(root / name)
+                for name in ("command.stdout.log", "command.stderr.log")
+            )
+        for raw_path in dict.fromkeys(candidate_paths):
+            path = Path(raw_path)
+            try:
+                if path.is_file():
+                    proof_paths.append(str(path))
+                    proof_parts.append(path.read_text(encoding="utf-8", errors="replace")[:2_000_000])
+            except OSError:
+                continue
+        proof_text = "\n".join(proof_parts)
+        expected_mismatches = (
+            "expo                ~57.0.23",
+            "expo-image-picker   ~57.0.18",
+            "expo-notifications  ~57.0.19",
+            "packages out of date",
+        )
+        proof_passed = bool(proof_paths) and all(item in proof_text for item in expected_mismatches)
+        node_runtime = resolve_node_runtime()
+        npm_install = {
+            "command": [],
+            "cwd": str(REPOSITORY_ROOT),
+            "exit_code": 1,
+            "reason": "exact current Expo mismatch was not proven from preserved release output",
+        }
+        mobile_check = {
+            "command": [],
+            "cwd": str(REPOSITORY_ROOT),
+            "exit_code": 1,
+            "reason": "not run until preserved release evidence proves the exact mismatch",
+        }
+        production_commit: dict[str, Any] = {
+            "attempted": False,
+            "committed": False,
+            "reason": "mobile correction not attempted",
+        }
+        if proof_passed:
+            npm_install = command_record(
+                [
+                    "npm",
+                    "install",
+                    "--workspace",
+                    "@work-station/mobile",
+                    "expo@~57.0.23",
+                    "expo-image-picker@~57.0.18",
+                    "expo-notifications@~57.0.19",
+                ],
+                REPOSITORY_ROOT,
+                timeout=1800,
+                environment=node_runtime["environment"],
+                output_directory=evidence_dir / "release-repair" / "npm-install",
+            )
+            if npm_install.get("exit_code") == 0:
+                mobile_check = command_record(
+                    [str(REPOSITORY_ROOT / "scripts/mobile_check.sh"), "--skip-native-android"],
+                    REPOSITORY_ROOT,
+                    timeout=1800,
+                    environment=node_runtime["environment"],
+                    output_directory=evidence_dir / "release-repair" / "mobile-check",
+                )
+            if npm_install.get("exit_code") == 0 and mobile_check.get("exit_code") == 0:
+                production_commit = safe_commit_parent_repair(
+                    "release_dependency_alignment", evidence_dir=evidence_dir / "release-repair"
+                )
+        passed = bool(
+            proof_passed
+            and npm_install.get("exit_code") == 0
+            and mobile_check.get("exit_code") == 0
+            and production_commit.get("committed") is True
+            and production_commit.get("push", {}).get("exit_code") == 0
+        )
+        if passed:
+            failure_classification = "OBJECTIVE_PASS"
+            reason = "proven Expo SDK mismatch was aligned and focused mobile validation passed"
+        elif not proof_passed:
+            failure_classification = "LOCAL_RELEASE_EVIDENCE_INSUFFICIENT"
+            reason = "preserved release evidence did not prove the exact dependency mismatch"
+        elif npm_install.get("exit_code") != 0:
+            failure_classification = "LOCAL_RELEASE_DEPENDENCY_REPAIR_FAILED"
+            reason = "bounded npm workspace dependency alignment failed"
+        elif mobile_check.get("exit_code") != 0:
+            failure_classification = "LOCAL_MOBILE_VALIDATION_FAILED"
+            reason = "Expo dependency alignment completed but focused mobile validation failed"
+        else:
+            failure_classification = "LOCAL_REPAIR_COMMIT_FAILED"
+            reason = "mobile validation passed but the guarded repair commit/push did not complete"
+        verification = {
+            "command": [
+                "preserved release output proof",
+                "npm install --workspace @work-station/mobile expo@~57.0.23 expo-image-picker@~57.0.18 expo-notifications@~57.0.19",
+                "scripts/mobile_check.sh --skip-native-android",
+            ],
+            "cwd": str(REPOSITORY_ROOT),
+            "exit_code": 0 if passed else 1,
+            "failure_evidence_paths": proof_paths,
+            "mismatch_proof": {
+                "required_strings": expected_mismatches,
+                "passed": proof_passed,
+            },
+            "node_runtime": node_runtime,
+            "npm_install": npm_install,
+            "mobile_check": mobile_check,
+            "production_commit": production_commit,
+            "failure_classification": failure_classification,
+        }
+    elif repair_kind == "acceptance_failure_diagnosis":
+        verification = {
+            "command": [],
+            "cwd": str(REPOSITORY_ROOT),
+            "exit_code": 1,
+            "reason": "bounded diagnosis task requires a concrete trusted executor before retry",
+            "failure_classification": "LOCAL_DIAGNOSIS_EXECUTOR_UNAVAILABLE",
+        }
+        passed = False
+        reason = "bounded diagnosis could not establish an objective repair"
+    elif task_id == "ASTER-STATE-MERGE-001":
         command = [
             str(REPOSITORY_ROOT / "backend/.venv/bin/pytest"),
             "-q",
@@ -3490,6 +3947,7 @@ def verify_acceptance_task(
         "task_id": task_id,
         "reason": reason,
         "objective_pass": passed,
+        "failure_classification": "OBJECTIVE_PASS" if passed else verification.get("failure_classification"),
         "verification": verification,
         "evidence_dir": str(evidence_dir),
     }
@@ -3570,21 +4028,36 @@ def acceptance_task_iteration(
     task["validated_source_commit"] = source_commit
     task.setdefault("evidence", []).append(str(cycle_root))
     task["evidence"] = task["evidence"][-20:]
+    external_failure = _verified_external_failure(parent) if child_identity_ok else None
+    repair_task = None
     if objective_pass:
         task["status"] = "COMPLETE"
         task["blocker"] = None
-    elif parent.get("objective_pass") is False and task_id == "ASTER-RELEASE-VALIDATION-001" and child_identity_ok:
-        task["status"] = "COMPLETE_WITH_EXTERNAL"
-        task["blocker"] = "Current release validation did not pass; preserve its exact output and continue with external/native blockers visible."
-    elif task_id == "ASTER-RUNTIME-PROVENANCE-001" and task.get("attempts", 0) < 2:
-        task["status"] = "RETRY"
-        task["blocker"] = "Current authenticated runtime identity is still historical; refresh the deployment attestation before retrying the parent check."
-    elif child.get("timed_out") or child.get("exit_code") == 127:
-        task["status"] = "RETRY" if task.get("attempts", 0) < 2 else "BLOCKED_EXTERNAL"
-        task["blocker"] = "Codex child execution was temporary/unavailable; retry budget is bounded."
+    elif external_failure is not None:
+        task["status"] = "BLOCKED_EXTERNAL"
+        task["blocker"] = (
+            f"{external_failure['reason']}; unblock condition: "
+            f"{external_failure['unblock_condition']}"
+        )
     else:
         task["status"] = "FAILED"
-        task["blocker"] = "Child identity or trusted parent verification failed; do not promote the task."
+        if task.get("repair_kind") or task.get("parent_task_id"):
+            task["blocker"] = (
+                "Bounded repair attempt failed objective verification; preserve the evidence and "
+                "do not manufacture an unbounded repair-of-repair chain."
+            )
+        else:
+            repair_task = enqueue_acceptance_failure_repair(
+                state,
+                task,
+                parent=parent,
+                child=child,
+                evidence_dir=cycle_root,
+            )
+            task["blocker"] = (
+                "Objective verification failed; dispatched bounded local diagnosis/repair task "
+                f"{repair_task.get('id') if repair_task else 'already-present-or-unavailable'}."
+            )
     task["updated_at"] = utc_now()
     task_status = str(task.get("status"))
     task_blocker = task.get("blocker")
@@ -3605,8 +4078,10 @@ def acceptance_task_iteration(
         "issue": task_id,
         "status": "NOT_READY",
         "action": task.get("action"),
-        "verification": "PASS" if objective_pass else "PARTIAL",
+        "verification": "PASS" if objective_pass else ("BLOCKED" if external_failure else "FAIL"),
+        "objective_pass": objective_pass,
         "classification": task.get("status"),
+        "repair_task": copy.deepcopy(repair_task) if repair_task else None,
         "child": child,
         "parent_verification": parent,
         "evidence_dir": str(cycle_root),
@@ -3621,7 +4096,7 @@ def acceptance_task_iteration(
             "attempt": int(state.get("attempt", 0)),
             "issue": task_id,
             "status": "NOT_READY",
-            "verification": "PASS" if objective_pass else "PARTIAL",
+            "verification": "PASS" if objective_pass else ("BLOCKED" if external_failure else "FAIL"),
             "classification": task.get("status"),
             "evidence": str(cycle_root),
             "resumable": False,
@@ -4163,6 +4638,12 @@ def run_external_watch(args: argparse.Namespace, state: dict[str, Any], evidence
         # task completes and unlocks another task, the next child is launched
         # in the same bounded owner loop without manual prompt relay.
         acceptance_task_records(state)
+        recovered_repairs = recover_persisted_acceptance_failure_repairs(state)
+        if recovered_repairs:
+            # This migration is intentionally persisted before selection.  It
+            # makes a failed result from an older controller actionable after
+            # restart instead of allowing the watch lane to hide it.
+            persist_state(state, evidence_root)
         task = choose_acceptance_task(state)
         if task is not None:
             result = acceptance_task_iteration(

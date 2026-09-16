@@ -845,6 +845,288 @@ def test_acceptance_lane_links_two_source_bound_children_without_queue_items():
     assert state["external_watch"]["cycle"] == 101
 
 
+def _valid_child(task_id: str) -> dict:
+    return {
+        "command": ["codex", "exec"],
+        "cwd": str(controller.REPOSITORY_ROOT),
+        "exit_code": 0,
+        "timed_out": False,
+        "parsed": controller.parse_result_text(
+            "ASTER_LOOP_RESULT\nSTATUS=NOT_READY\nISSUES_REMAINING=0\n"
+            f"CURRENT_ISSUE={task_id}\nACTION=review\nVERIFICATION=PARTIAL\n"
+            "NEXT_PROMPT_BEGIN\nReview the trusted result.\nNEXT_PROMPT_END\n"
+        ),
+    }
+
+
+def _release_state() -> dict:
+    state = {
+        "iteration": 4,
+        "attempt": 26,
+        "overall_ready": False,
+        "history": [],
+        "acceptance_tasks": controller.default_acceptance_tasks(),
+    }
+    state["acceptance_tasks"]["ASTER-STATE-MERGE-001"]["status"] = "COMPLETE"
+    state["acceptance_tasks"]["ASTER-RUNTIME-PROVENANCE-001"]["status"] = "COMPLETE"
+    return state
+
+
+def test_local_acceptance_failure_dispatches_bounded_repair_instead_of_external_completion():
+    state = _release_state()
+    parent = {
+        "task_id": "ASTER-RELEASE-VALIDATION-001",
+        "objective_pass": False,
+        "reason": "Expo Doctor found a local dependency mismatch",
+        "failure_classification": "LOCAL_MOBILE_DEPENDENCY_MISMATCH",
+        "verification": {"observations": _observations()},
+    }
+    with TemporaryDirectory() as directory, patch.object(
+        controller, "observe", return_value=_observations()
+    ), patch.object(
+        controller, "current_queue", return_value={"issues": []}
+    ), patch.object(
+        controller, "run_codex_child", return_value=_valid_child("ASTER-RELEASE-VALIDATION-001")
+    ), patch.object(
+        controller, "verify_acceptance_task", return_value=parent
+    ), patch.object(
+        controller, "render_reports", return_value={}
+    ), patch.object(
+        controller, "persist_watch_report_commit", return_value={"attempted": False}
+    ), patch.object(
+        controller, "git_snapshot", return_value=_observations()["git"]
+    ):
+        result = controller.acceptance_task_iteration(
+            state,
+            evidence_root=Path(directory),
+            cycle=200,
+            execute_codex=True,
+            timeout_seconds=30,
+        )
+
+    release = state["acceptance_tasks"]["ASTER-RELEASE-VALIDATION-001"]
+    repairs = [
+        task for task in state["acceptance_tasks"].values()
+        if isinstance(task, dict) and task.get("repair_kind") == "release_dependency_alignment"
+    ]
+    assert result["verification"] == "FAIL"
+    assert result["objective_pass"] is False
+    assert release["status"] == "FAILED"
+    assert release["status"] != "COMPLETE_WITH_EXTERNAL"
+    assert len(repairs) == 1
+    assert repairs[0]["status"] == "READY"
+    assert controller.choose_acceptance_task(state)["id"] == repairs[0]["id"]
+
+
+def test_verified_external_acceptance_failure_is_blocked_without_repair(tmp_path):
+    state = _release_state()
+    evidence = tmp_path / "external-proof.log"
+    evidence.write_text("provider endpoint rejected callback credential\n", encoding="utf-8")
+    parent = {
+        "task_id": "ASTER-RELEASE-VALIDATION-001",
+        "objective_pass": False,
+        "reason": "provider endpoint unavailable",
+        "failure_classification": "BLOCKED_EXTERNAL",
+        "external_evidence": [str(evidence)],
+        "unblock_condition": "Provider restores the authenticated endpoint",
+        "verification": {"observations": _observations()},
+    }
+    with TemporaryDirectory() as directory, patch.object(
+        controller, "observe", return_value=_observations()
+    ), patch.object(
+        controller, "current_queue", return_value={"issues": []}
+    ), patch.object(
+        controller, "run_codex_child", return_value=_valid_child("ASTER-RELEASE-VALIDATION-001")
+    ), patch.object(
+        controller, "verify_acceptance_task", return_value=parent
+    ), patch.object(
+        controller, "render_reports", return_value={}
+    ), patch.object(
+        controller, "persist_watch_report_commit", return_value={"attempted": False}
+    ), patch.object(
+        controller, "git_snapshot", return_value=_observations()["git"]
+    ):
+        result = controller.acceptance_task_iteration(
+            state,
+            evidence_root=Path(directory),
+            cycle=201,
+            execute_codex=True,
+            timeout_seconds=30,
+        )
+
+    release = state["acceptance_tasks"]["ASTER-RELEASE-VALIDATION-001"]
+    assert controller._verified_external_failure(parent)["classification"] == "BLOCKED_EXTERNAL"
+    assert result["verification"] == "BLOCKED"
+    assert release["status"] == "BLOCKED_EXTERNAL"
+    assert not any(
+        isinstance(task, dict) and task.get("parent_task_id") == release["id"]
+        for task in state["acceptance_tasks"].values()
+    )
+
+
+def test_automatic_repair_chain_runs_original_failure_then_repair_child(tmp_path):
+    state = _release_state()
+    child_calls = []
+    parent_results = [
+        {
+            "task_id": "ASTER-RELEASE-VALIDATION-001",
+            "objective_pass": False,
+            "reason": "local mobile mismatch",
+            "failure_classification": "LOCAL_MOBILE_DEPENDENCY_MISMATCH",
+            "verification": {"observations": _observations()},
+        },
+        {
+            "task_id": "ASTER-REPAIR-ASTER-RELEASE-VALIDATION-001",
+            "objective_pass": True,
+            "reason": "repair verified",
+            "verification": {"observations": _observations()},
+        },
+    ]
+
+    def fake_child(prompt, iteration_dir, *, timeout_seconds, evidence_root):
+        task_id = (
+            "ASTER-RELEASE-VALIDATION-001"
+            if not child_calls
+            else "ASTER-REPAIR-ASTER-RELEASE-VALIDATION-001"
+        )
+        child_calls.append(task_id)
+        return _valid_child(task_id)
+
+    with patch.object(controller, "observe", return_value=_observations()), patch.object(
+        controller, "current_queue", return_value={"issues": []}
+    ), patch.object(controller, "run_codex_child", side_effect=fake_child), patch.object(
+        controller, "verify_acceptance_task", side_effect=parent_results
+    ), patch.object(controller, "render_reports", return_value={}), patch.object(
+        controller, "persist_watch_report_commit", return_value={"attempted": False}
+    ), patch.object(controller, "git_snapshot", return_value=_observations()["git"]):
+        first = controller.acceptance_task_iteration(
+            state, evidence_root=tmp_path, cycle=202, execute_codex=True, timeout_seconds=30
+        )
+        second = controller.acceptance_task_iteration(
+            state, evidence_root=tmp_path, cycle=203, execute_codex=True, timeout_seconds=30
+        )
+
+    assert first["verification"] == "FAIL"
+    assert second["verification"] == "PASS"
+    assert child_calls == [
+        "ASTER-RELEASE-VALIDATION-001",
+        "ASTER-REPAIR-ASTER-RELEASE-VALIDATION-001",
+    ]
+    assert state["acceptance_tasks"]["ASTER-RELEASE-VALIDATION-001"]["status"] == "FAILED"
+    assert state["acceptance_tasks"]["ASTER-REPAIR-ASTER-RELEASE-VALIDATION-001"]["status"] == "COMPLETE"
+
+
+def test_runtime_repair_uses_trusted_parent_commands_and_current_attestation(tmp_path):
+    runtime_evidence = tmp_path / "runtime.json"
+    runtime_evidence.write_text("{}", encoding="utf-8")
+    observations = _observations()
+    observations["runtime"] = {
+        "status": "PASS",
+        "evidence": str(runtime_evidence),
+        "source_matches_current": True,
+        "matches": {"source_commit": True, "backend_source_sha256": True, "web_bundle_sha256": True},
+    }
+    commands = []
+
+    def fake_command(command, cwd, **kwargs):
+        commands.append(command)
+        return {"command": command, "cwd": str(cwd), "exit_code": 0, "stdout": "", "stderr": ""}
+
+    with patch.object(controller, "command_record", side_effect=fake_command), patch.object(
+        controller, "observe", return_value=observations
+    ), patch.object(
+        controller,
+        "capture_current_runtime_attestation",
+        return_value={"objective_pass": True},
+    ):
+        result = controller.verify_acceptance_task(
+            {"id": "ASTER-REPAIR-ASTER-RUNTIME-PROVENANCE-001", "repair_kind": "runtime_deployment_repair"},
+            evidence_dir=tmp_path / "repair",
+            evidence_root=tmp_path,
+        )
+
+    assert result["objective_pass"] is True
+    assert commands[0][:4] == ["systemctl", "--user", "restart", "work-station-backend.service"]
+    assert commands[1][0] == "curl"
+
+
+def test_failed_runtime_task_recovery_creates_one_persisted_repair_after_restart(tmp_path):
+    evidence_dir = tmp_path / "cycle-0874"
+    evidence_dir.mkdir()
+    state = controller.load_or_create_state(tmp_path / "state")
+    failed = state["acceptance_tasks"]["ASTER-RUNTIME-PROVENANCE-001"]
+    failed.update(
+        {
+            "status": "FAILED",
+            "attempts": 7,
+            "evidence": [str(evidence_dir)],
+            "last_result": {
+                "cycle": 874,
+                "child": {"exit_code": 0, "timed_out": False},
+                "parent_verification": {
+                    "objective_pass": False,
+                    "reason": "runtime reports historical source",
+                    "failure_classification": "LOCAL_RUNTIME_PROVENANCE_FAILED",
+                    "evidence_dir": str(evidence_dir),
+                },
+            },
+        }
+    )
+    controller.persist_state(state, tmp_path / "state")
+    recovered = controller.load_or_create_state(tmp_path / "state")
+    repairs = controller.recover_persisted_acceptance_failure_repairs(recovered)
+    controller.persist_state(recovered, tmp_path / "state")
+    restarted = controller.load_or_create_state(tmp_path / "state")
+    repair_tasks = [
+        task for task in restarted["acceptance_tasks"].values()
+        if isinstance(task, dict) and task.get("repair_kind") == "runtime_deployment_repair"
+    ]
+    assert len(repairs) == 1
+    assert len(repair_tasks) == 1
+    assert repair_tasks[0]["status"] == "READY"
+    assert controller.recover_persisted_acceptance_failure_repairs(restarted) == [repair_tasks[0]]
+
+
+def test_release_repair_requires_proof_and_runs_bounded_workspace_commands(tmp_path):
+    evidence_dir = tmp_path / "failed-release"
+    evidence_dir.mkdir()
+    (evidence_dir / "command.stdout.log").write_text(
+        "expo                ~57.0.23  57.0.22\n"
+        "expo-image-picker   ~57.0.18  57.0.17\n"
+        "expo-notifications  ~57.0.19  57.0.18\n"
+        "3 packages out of date.\n",
+        encoding="utf-8",
+    )
+    commands = []
+
+    def fake_command(command, cwd, **kwargs):
+        commands.append(command)
+        return {"command": command, "cwd": str(cwd), "exit_code": 0, "stdout": "", "stderr": ""}
+
+    with patch.object(controller, "command_record", side_effect=fake_command), patch.object(
+        controller,
+        "resolve_node_runtime",
+        return_value={"environment": {"PATH": os.environ.get("PATH", "")}, "node_version": "24.19.0"},
+    ), patch.object(
+        controller,
+        "safe_commit_parent_repair",
+        return_value={"committed": True, "push": {"exit_code": 0}},
+    ):
+        result = controller.verify_acceptance_task(
+            {
+                "id": "ASTER-REPAIR-ASTER-RELEASE-VALIDATION-001",
+                "repair_kind": "release_dependency_alignment",
+                "evidence": [str(evidence_dir)],
+            },
+            evidence_dir=tmp_path / "repair",
+            evidence_root=tmp_path,
+        )
+
+    assert result["objective_pass"] is True
+    assert commands[0][:4] == ["npm", "install", "--workspace", "@work-station/mobile"]
+    assert commands[1] == [str(controller.REPOSITORY_ROOT / "scripts/mobile_check.sh"), "--skip-native-android"]
+
+
 def test_runtime_provenance_parent_check_reads_nested_runtime_matches():
     observations = _observations()
     observations["runtime"] = {
