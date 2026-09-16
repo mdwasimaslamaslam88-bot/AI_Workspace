@@ -2,7 +2,7 @@
 
 Iteration 4. Overall readiness is **NOT READY**.
 
-Current application source commit: `9001cec7ec17811e6bf180a600bf4c4a52461dba`. Report tip commit: `066e3e98369f431a78bf20659ede8a95035e1266`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
+Current application source commit: `9001cec7ec17811e6bf180a600bf4c4a52461dba`. Report tip commit: `8369fda24d81e2321e8e5f8586c05aaa5821a360`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
 
 ## Current measured state
 
@@ -11,7 +11,7 @@ Current application source commit: `9001cec7ec17811e6bf180a600bf4c4a52461dba`. R
 - Current issue/action: `ASTER-RELEASE-VALIDATION-001` — Run the existing current-source release/security/artifact validation at the settled source tip and preserve every external failure.
 - Controller phase: **ACCEPTANCE_TASK**.
 - Runtime identity: **PASS**; evidence `/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1122/runtime-identity-current.json`.
-- Git: **CLEAN_SYNCED** at `066e3e98369f431a78bf20659ede8a95035e1266`.
+- Git: **CLEAN_SYNCED** at `8369fda24d81e2321e8e5f8586c05aaa5821a360`.
 
 ## Queue classifications
 
@@ -67,6 +67,7 @@ Current application source commit: `9001cec7ec17811e6bf180a600bf4c4a52461dba`. R
 | ASTER-REPAIR-ASTER-RELEASE-VALIDATION-001-002 | SUPERSEDED | none | Superseded because preserved evidence does not prove the exact Expo dependency mismatch; the originating release failure remains authoritative. |
 | ASTER-REPAIR-ASTER-RELEASE-VALIDATION-001-003 | SUPERSEDED | none | Superseded because preserved evidence does not prove the exact Expo dependency mismatch; the originating release failure remains authoritative. |
 | ASTER-REPAIR-ASTER-RELEASE-VALIDATION-001-004 | SUPERSEDED | none | Superseded because preserved evidence does not prove the exact Expo dependency mismatch; the originating release failure remains authoritative. |
+| ASTER-REPAIR-ASTER-RELEASE-VALIDATION-001-005 | SUPERSEDED | none | Superseded because preserved evidence does not prove the exact Expo dependency mismatch; the originating release failure remains authoritative. |
 
 The issue queue and machine-readable controller state are authoritative. A child model response cannot mark an issue complete without objective evidence.
 
