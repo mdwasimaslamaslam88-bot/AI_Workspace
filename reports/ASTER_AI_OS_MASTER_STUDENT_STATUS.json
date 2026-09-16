@@ -2,12 +2,12 @@
   "schema_version": 4,
   "iteration": 4,
   "status": "NOT_READY",
-  "updated_at": "2026-09-16T16:56:27.135978+00:00",
+  "updated_at": "2026-09-16T17:06:21.463631+00:00",
   "current_issue": [
-    "ASTER-RELEASE-VALIDATION-001"
+    "ASTER-REPAIR-ASTER-RUNTIME-PROVENANCE-001-003"
   ],
-  "current_commit": "4fc518dfadcc081f2313745db4a37985470b4185",
-  "current_runtime": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1109/runtime-repair/attestation/runtime-identity-current.json",
+  "current_commit": "8e0dfed8cd5b99edf9c274e33e62e9dfa7d38544",
+  "current_runtime": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1114/runtime-identity-current.json",
   "current_artifact": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260914-current-provenance-after-sdk/artifact-attestation-current.json",
   "issues": [
     {
@@ -3171,7 +3171,7 @@
     "iterations_completed": 11,
     "phase": "ACCEPTANCE_TASK",
     "readiness_reason": "CANONICAL_NONPASS_REMAINS",
-    "current_action": "Run the existing current-source release/security/artifact validation at the settled source tip and preserve every external failure.",
+    "current_action": "Use the trusted parent executor to restart work-station-backend.service, verify loopback health, and recapture authenticated current-source runtime identity. Failure evidence: /home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1114.",
     "last_successful_commit": "a2ad36e69da1f8a9ceb063ab359b7b17fb9aed8e",
     "last_codex_cli": {
       "path": "/home/md-wasim/.nvm/versions/node/v24.19.0/lib/node_modules/@openai/codex/bin/codex.js",
@@ -3207,15 +3207,41 @@
       ]
     },
     "last_result": {
-      "timestamp": "2026-09-16T16:56:26.775076+00:00",
-      "cycle": 1111,
-      "issue": "ASTER-REPAIR-ASTER-RELEASE-VALIDATION-001",
+      "timestamp": "2026-09-16T17:06:21.097742+00:00",
+      "cycle": 1114,
+      "issue": "ASTER-RUNTIME-PROVENANCE-001",
       "status": "NOT_READY",
-      "action": "Verify the current release evidence identifies the exact Expo SDK package mismatch, then use the existing npm workspace to align only those packages and run the focused mobile check. Failure evidence: /home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1110.",
-      "verification": "PASS",
-      "objective_pass": true,
-      "classification": "COMPLETE",
-      "repair_task": null,
+      "action": "Re-observe the authenticated current runtime and validate source, backend and web identity against the current application source.",
+      "verification": "FAIL",
+      "objective_pass": false,
+      "classification": "FAILED",
+      "repair_task": {
+        "id": "ASTER-REPAIR-ASTER-RUNTIME-PROVENANCE-001-003",
+        "priority": "P0",
+        "title": "Repair stale runtime deployment after provenance failure",
+        "action": "Use the trusted parent executor to restart work-station-backend.service, verify loopback health, and recapture authenticated current-source runtime identity. Failure evidence: /home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1114.",
+        "dependencies": [],
+        "verification": "The restarted backend reports the current source commit and matching backend/web hashes, with session revocation accepted.",
+        "status": "READY",
+        "attempts": 0,
+        "max_attempts": 2,
+        "updated_at": "2026-09-16T17:06:21.097434+00:00",
+        "evidence": [
+          "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1114"
+        ],
+        "last_result": null,
+        "parent_task_id": "ASTER-RUNTIME-PROVENANCE-001",
+        "repair_kind": "runtime_deployment_repair",
+        "failure_signature": "37d8f2f4d48525d3d3732376a946e6ed3c8f0a35224bc3757ad24d7760877886",
+        "failure_context": {
+          "task_id": "ASTER-RUNTIME-PROVENANCE-001",
+          "evidence_dir": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1114",
+          "parent_reason": "current runtime identity is not fully proven",
+          "parent_failure_classification": null,
+          "child_exit_code": 0,
+          "child_timed_out": false
+        }
+      },
       "child": {
         "command": [
           "/home/md-wasim/.nvm/versions/node/v24.19.0/lib/node_modules/@openai/codex/bin/codex.js",
@@ -3232,21 +3258,21 @@
           "--add-dir",
           "/home/md-wasim/AI_Workspace_Data/aster-evidence",
           "--output-last-message",
-          "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1111/codex.last-message.txt",
+          "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1114/codex.last-message.txt",
           "-"
         ],
         "cwd": "/home/md-wasim/Projects/AI_Workspace",
         "exit_code": 0,
-        "duration_seconds": 495.4487,
+        "duration_seconds": 277.121,
         "timed_out": false,
         "error": null,
-        "stdout_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1111/codex.stdout.jsonl",
-        "stderr_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1111/codex.stderr.log",
-        "stderr_tail": "2026-09-16T16:54:13.108567Z ERROR codex_core::tools::router: error=apply_patch verification failed: Failed to read file to update /home/md-wasim/Projects/AI_Workspace/apps/mobile/package.json: fs sandbox helper failed with status exit status: 1: bwrap: loopback: Failed RTM_NEWADDR: Operation not permitted\n",
-        "last_message_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1111/codex.last-message.txt",
-        "stdout_sha256": "4a6cc2549649dc2bcde6dc159d03db098a331eeee1b4c4233a08e23a4f15a8c7",
-        "stderr_sha256": "28fefe7012eefccc976341cf03a0e72e5e87824686457a166b511da480ea7b22",
-        "last_message_sha256": "496b13c566830e0e4a7793e98646a127ff291c5925e8f333247cebade31b5d9e",
+        "stdout_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1114/codex.stdout.jsonl",
+        "stderr_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1114/codex.stderr.log",
+        "stderr_tail": "",
+        "last_message_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1114/codex.last-message.txt",
+        "stdout_sha256": "cc26f68b257452a5bd7b9688b0a5ec7b4c335022b0c038d195764eac540ed08d",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "last_message_sha256": "3146881814b0c49e949e408d563ce3ea40fc807fb978ac168b57524a97627941",
         "codex_executable": "/home/md-wasim/.nvm/versions/node/v24.19.0/lib/node_modules/@openai/codex/bin/codex.js",
         "codex_version": "0.153.4",
         "codex_resolution": {
@@ -3284,178 +3310,245 @@
         },
         "parsed": {
           "parsed": true,
-          "status": "BLOCKED",
+          "status": "NOT_READY",
           "issues_remaining": "1",
-          "current_issue": "ASTER-REPAIR-ASTER-RELEASE-VALIDATION-001",
-          "action": "Retry exact Expo alignment in trusted parent executor",
-          "verification": "BLOCKED",
-          "classification": "BLOCKED_EXTERNAL",
-          "next_prompt": "In the trusted parent/native executor, verify cycle-1110 preserved output identifies `expo@~57.0.23`, `expo-image-picker@~57.0.18`, and `expo-notifications@~57.0.19`. At application source 7082dada3e9dac2e876e95532392a0827bf7ebcd, use the verified Node 24.19.0 environment to run `npm install --workspace @work-station/mobile expo@~57.0.23 expo-image-picker@~57.0.18 expo-notifications@~57.0.19`, require that only `apps/mobile/package.json` and `package-lock.json` change, then run `./scripts/mobile_check.sh --skip-native-android`. If it exits 0, commit and push only those files through the existing `safe_commit_parent_repair` validated-change boundary. Preserve full evidence and do not infer any broader release, security, artifact, runtime, callback, DEX, voice, or benchmark PASS. The child sandbox persistently failed before process launch with `bwrap: loopback: Failed RTM_NEWADDR: Operation not permitted`."
+          "current_issue": "ASTER-RUNTIME-PROVENANCE-001",
+          "action": "Run trusted-parent current-runtime attestation",
+          "verification": "PARTIAL",
+          "classification": "NOT_READY",
+          "next_prompt": "Verify ASTER-RUNTIME-PROVENANCE-001 against source 8e0dfed8cd5b99edf9c274e33e62e9dfa7d38544. Perform authenticated provisioning, GET /api/v1/diagnostics/runtime-identity, and HTTP 204 session revocation. Require the exact source commit plus backend hash eb699a17b5dcfbaac89b5c9eb9b0bd7e77242c0a04c40e7f23caa41771dc707a and web hash 5c0075a4636f9d50eac0f543bb67eb424f335ee707926e7ddc7d2b4982172825. If the runtime still reports historical commit 7082dada3e9dac2e876e95532392a0827bf7ebcd, run the existing bounded runtime-deployment repair, restart work-station-backend.service, wait for loopback health, and recapture authenticated evidence under cycle-1114. Keep benchmark evidence at a2ad36e69da1f8a9ceb063ab359b7b17fb9aed8e historical and release/security FAIL or NOT_PROVEN. Do not infer callback, DEX, voice, benchmark, release, security, or artifact PASS. Select ASTER-RELEASE-VALIDATION-001 only after parent runtime verification passes."
         }
       },
       "parent_verification": {
-        "timestamp": "2026-09-16T16:56:26.773196+00:00",
-        "task_id": "ASTER-REPAIR-ASTER-RELEASE-VALIDATION-001",
-        "reason": "proven Expo SDK mismatch was aligned and focused mobile validation passed",
-        "objective_pass": true,
-        "failure_classification": "OBJECTIVE_PASS",
+        "timestamp": "2026-09-16T17:06:21.095331+00:00",
+        "task_id": "ASTER-RUNTIME-PROVENANCE-001",
+        "reason": "current runtime identity is not fully proven",
+        "objective_pass": false,
+        "failure_classification": null,
         "verification": {
           "command": [
-            "preserved release output proof",
-            "npm install --workspace @work-station/mobile expo@~57.0.23 expo-image-picker@~57.0.18 expo-notifications@~57.0.19",
-            "scripts/mobile_check.sh --skip-native-android"
+            "controller.observe",
+            "controller.validate_current_provenance"
           ],
           "cwd": "/home/md-wasim/Projects/AI_Workspace",
-          "exit_code": 0,
-          "failure_evidence_paths": [
-            "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1110/command.stdout.log",
-            "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1110/command.stderr.log"
-          ],
-          "mismatch_proof": {
-            "required_strings": [
-              "expo                ~57.0.23",
-              "expo-image-picker   ~57.0.18",
-              "expo-notifications  ~57.0.19",
-              "packages out of date"
-            ],
-            "passed": true
-          },
-          "node_runtime": {
-            "node_path": "/home/md-wasim/.nvm/versions/node/v24.19.0/bin/node",
-            "npm_path": "/home/md-wasim/.nvm/versions/node/v24.19.0/bin/npm",
-            "node_version": "24.19.0",
-            "selection": "highest_verified_semver",
-            "candidates": [
-              {
-                "path": "/usr/bin/node",
-                "npm_path": "/usr/bin/npm",
-                "version": "18.19.1",
-                "version_sort_key": [
-                  18,
-                  19,
-                  1
-                ],
-                "status": "VERIFIED"
+          "exit_code": 1,
+          "observations": {
+            "timestamp": "2026-09-16T17:06:20.872269+00:00",
+            "git": {
+              "branch": "main",
+              "commit": "8e0dfed8cd5b99edf9c274e33e62e9dfa7d38544",
+              "application_source_commit": "8e0dfed8cd5b99edf9c274e33e62e9dfa7d38544",
+              "upstream": "origin/main",
+              "upstream_error": null,
+              "ahead": 0,
+              "behind": 0,
+              "clean": true,
+              "status_porcelain": "",
+              "status": "CLEAN_SYNCED"
+            },
+            "benchmark": {
+              "path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260914-current-provenance-after-sdk/Work_Station_Benchmark/benchmark-summary.json",
+              "commit": "a2ad36e69da1f8a9ceb063ab359b7b17fb9aed8e",
+              "score": 97.83,
+              "pass": 457,
+              "partial": 1,
+              "fail": 1,
+              "mean": 8.1462,
+              "p95": 16.5442
+            },
+            "runtime": {
+              "status": "FAIL",
+              "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1114/runtime-identity-current.json",
+              "source_commit": "7082dada3e9dac2e876e95532392a0827bf7ebcd",
+              "current_commit": "8e0dfed8cd5b99edf9c274e33e62e9dfa7d38544",
+              "source_matches_current": false,
+              "matches": {
+                "source_commit": false,
+                "backend_source_sha256": true,
+                "web_bundle_sha256": true
               },
-              {
-                "path": "/home/md-wasim/.nvm/versions/node/v24.19.0/bin/node",
-                "npm_path": "/home/md-wasim/.nvm/versions/node/v24.19.0/bin/npm",
-                "version": "24.19.0",
-                "version_sort_key": [
-                  24,
-                  19,
-                  0
+              "health_command": {
+                "command": [
+                  "curl",
+                  "--fail",
+                  "--silent",
+                  "--show-error",
+                  "--max-time",
+                  "3",
+                  "http://127.0.0.1:8000/api/v1/health/live"
                 ],
-                "status": "VERIFIED"
+                "cwd": "/home/md-wasim/Projects/AI_Workspace",
+                "exit_code": 0,
+                "duration_seconds": 0.0067,
+                "stdout": "{\"status\":\"alive\"}",
+                "stderr": "",
+                "stdout_sha256": "bc24b0b5a305d5afc198c725890c8fb91053be2dbd8672779de73cac19a008fa",
+                "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                "timed_out": false
               }
-            ],
-            "environment": {
-              "SHELL": "/bin/bash",
-              "SESSION_MANAGER": "local/ALIVE:@/tmp/.ICE-unix/25171,unix/ALIVE:/tmp/.ICE-unix/25171",
-              "QT_ACCESSIBILITY": "1",
-              "XDG_CONFIG_DIRS": "/etc/xdg/xdg-ubuntu:/etc/xdg",
-              "XDG_MENU_PREFIX": "gnome-",
-              "GNOME_DESKTOP_SESSION_ID": "this-is-deprecated",
-              "GNOME_SHELL_SESSION_MODE": "ubuntu",
-              "SSH_AUTH_SOCK": "/run/user/1000/keyring/ssh",
-              "MEMORY_PRESSURE_WRITE": "c29tZSAyMDAwMDAgMjAwMDAwMAA=",
-              "XMODIFIERS": "@im=ibus",
-              "DESKTOP_SESSION": "ubuntu",
-              "GTK_MODULES": "gail:atk-bridge",
-              "PWD": "/home/md-wasim/Projects/AI_Workspace",
-              "XDG_SESSION_DESKTOP": "ubuntu",
-              "LOGNAME": "md-wasim",
-              "XDG_SESSION_TYPE": "wayland",
-              "SYSTEMD_EXEC_PID": "3947387",
-              "XAUTHORITY": "/run/user/1000/.mutter-Xwaylandauth.ZBLBU3",
-              "HOME": "/home/md-wasim",
-              "USERNAME": "md-wasim",
-              "IM_CONFIG_PHASE": "1",
-              "LANG": "en_US.UTF-8",
-              "XDG_CURRENT_DESKTOP": "ubuntu:GNOME",
-              "MEMORY_PRESSURE_WATCH": "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/aster-autonomous-watcher.service/memory.pressure",
-              "WAYLAND_DISPLAY": "wayland-0",
-              "INVOCATION_ID": "01100093a80b498ab71a15bdf3f05aee",
-              "ASTER_EVIDENCE_ROOT": "/home/md-wasim/AI_Workspace_Data/aster-evidence",
-              "MANAGERPID": "1488",
-              "GNOME_SETUP_DISPLAY": ":1",
-              "XDG_SESSION_CLASS": "user",
-              "USER": "md-wasim",
-              "DISPLAY": ":0",
-              "SHLVL": "0",
-              "GSM_SKIP_SSH_AGENT_WORKAROUND": "true",
-              "QT_IM_MODULE": "ibus",
-              "XDG_RUNTIME_DIR": "/run/user/1000",
-              "DEBUGINFOD_URLS": "https://debuginfod.ubuntu.com ",
-              "XDG_DATA_DIRS": "/usr/share/ubuntu:/usr/share/gnome:/usr/local/share/:/usr/share/:/var/lib/snapd/desktop",
-              "PATH": "/home/md-wasim/.nvm/versions/node/v24.19.0/bin:/home/md-wasim/.cargo/bin:/home/md-wasim/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin",
-              "GDMSESSION": "ubuntu",
-              "DBUS_SESSION_BUS_ADDRESS": "unix:path=/run/user/1000/bus",
-              "OLDPWD": "/home/md-wasim/Projects/AI_Workspace"
+            },
+            "tests": {
+              "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260910-canonical/full-regression.log",
+              "backend": {
+                "passed": 3152,
+                "skipped": 55
+              },
+              "web": {
+                "passed": 206
+              },
+              "mobile": {
+                "passed": 64
+              },
+              "status": "PASS",
+              "acceptance_hint": "CURRENT_SOURCE_RELEASE_PASS: backend, web, mobile and runtime regression passed."
+            },
+            "queue": {
+              "total": 31,
+              "unresolved": 0,
+              "local_unresolved": 0
+            },
+            "provenance": {
+              "status": "NOT_PROVEN",
+              "current_source_commit": "8e0dfed8cd5b99edf9c274e33e62e9dfa7d38544",
+              "components": {
+                "source_commit": "PASS",
+                "runtime": "FAIL",
+                "backend_hash": "PASS",
+                "web_artifact_hash": "PASS",
+                "benchmark": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE",
+                "security": "FAIL",
+                "release": "FAIL",
+                "artifact": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE"
+              },
+              "runtime": {
+                "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1114/runtime-identity-current.json",
+                "recorded_source_commit": "7082dada3e9dac2e876e95532392a0827bf7ebcd",
+                "recorded_backend_source_sha256": "eb699a17b5dcfbaac89b5c9eb9b0bd7e77242c0a04c40e7f23caa41771dc707a",
+                "recorded_web_bundle_sha256": "5c0075a4636f9d50eac0f543bb67eb424f335ee707926e7ddc7d2b4982172825",
+                "expected_backend_source_sha256": "eb699a17b5dcfbaac89b5c9eb9b0bd7e77242c0a04c40e7f23caa41771dc707a",
+                "expected_web_bundle_sha256": "5c0075a4636f9d50eac0f543bb67eb424f335ee707926e7ddc7d2b4982172825",
+                "content_matches": {
+                  "source_commit": false,
+                  "backend_source_sha256": true,
+                  "web_bundle_sha256": true,
+                  "declared_matches": false
+                }
+              },
+              "benchmark": {
+                "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260914-current-provenance-after-sdk/Work_Station_Benchmark/benchmark-summary.json",
+                "results": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260914-current-provenance-after-sdk/Work_Station_Benchmark/benchmark-results.json",
+                "recorded_source_commit": "a2ad36e69da1f8a9ceb063ab359b7b17fb9aed8e",
+                "summary_sha256": "005990095040ae2008ab53be1d7b4dd19c6f5223c123407fecb7e50b73303f71",
+                "results_sha256": "b834eb4d20f42d82509180e66d03f08b0149617f334d7eca909dfffa99e16fe9",
+                "structural_valid": true,
+                "counts": {
+                  "PASS": 457,
+                  "PARTIAL": 1,
+                  "FAIL": 1
+                }
+              },
+              "release": {
+                "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1110/release-check-current.json",
+                "recorded_source_commit": "e4dabfc43c7351bd7f00c1b715483c4b8b7bd15f",
+                "log": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1110/command.stdout.log",
+                "log_sha256": "372a73d4e150c20211fbf89bbcdd25d0c27bdbbc6e4bb6db866233acd082da3f",
+                "structural_valid": false,
+                "security_check": "NOT_PROVEN; release stopped before all gates completed"
+              },
+              "artifact": {
+                "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260914-current-provenance-after-sdk/artifact-attestation-current.json",
+                "recorded_source_commit": "a2ad36e69da1f8a9ceb063ab359b7b17fb9aed8e",
+                "hashes_verified": {
+                  "Work_Station_Ubuntu.AppImage": true,
+                  "Work_Station_Ubuntu.deb": true,
+                  "Work_Station_PWA.tar.gz": true
+                },
+                "structural_valid": true,
+                "artifacts": [
+                  {
+                    "artifact": "Work_Station_Ubuntu.AppImage",
+                    "path": "/home/md-wasim/Projects/AI_Workspace/apps/desktop/src-tauri/target/release/bundle/appimage/WORK STATION_0.1.0_amd64.AppImage",
+                    "expected_sha256": "5d20bba68647cafb7ed3aa531a851d8d846a64b608cbdb263707177be85deb0b",
+                    "actual_sha256": "5d20bba68647cafb7ed3aa531a851d8d846a64b608cbdb263707177be85deb0b",
+                    "exists": true,
+                    "hash_verified": true
+                  },
+                  {
+                    "artifact": "Work_Station_Ubuntu.deb",
+                    "path": "/home/md-wasim/Projects/AI_Workspace/apps/desktop/src-tauri/target/release/bundle/deb/WORK STATION_0.1.0_amd64.deb",
+                    "expected_sha256": "dae14cbe517f7606449b71cc339ceb4beeddf4e088e2949feee75761866e5654",
+                    "actual_sha256": "dae14cbe517f7606449b71cc339ceb4beeddf4e088e2949feee75761866e5654",
+                    "exists": true,
+                    "hash_verified": true
+                  },
+                  {
+                    "artifact": "Work_Station_PWA.tar.gz",
+                    "path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260914-current-provenance-after-sdk/Work_Station_PWA.tar.gz",
+                    "expected_sha256": "0c36ca98bb7f8c1413c25c5b9d807d27559f9ff3500825887d1045f325d41c55",
+                    "actual_sha256": "0c36ca98bb7f8c1413c25c5b9d807d27559f9ff3500825887d1045f325d41c55",
+                    "exists": true,
+                    "hash_verified": true
+                  }
+                ]
+              },
+              "historical_evidence_rejected": true
             }
           },
-          "npm_install": {
-            "command": [
-              "npm",
-              "install",
-              "--workspace",
-              "@work-station/mobile",
-              "expo@~57.0.23",
-              "expo-image-picker@~57.0.18",
-              "expo-notifications@~57.0.19"
-            ],
-            "cwd": "/home/md-wasim/Projects/AI_Workspace",
-            "exit_code": 0,
-            "duration_seconds": 29.2685,
-            "stdout": "\nchanged 6 packages, and audited 1057 packages in 29s\n\n278 packages are looking for funding\n  run `npm fund` for details\n\nfound 0 vulnerabilities\n",
-            "stderr": "npm warn allow-scripts 1 package has install scripts not yet covered by allowScripts:\nnpm warn allow-scripts   unrs-resolver@1.12.2 (postinstall: node postinstall.js)\nnpm warn allow-scripts\nnpm warn allow-scripts Run `npm approve-scripts --allow-scripts-pending` to review, or `npm approve-scripts <pkg>` to allow.\n",
-            "stdout_sha256": "5ed1ee481826449230b899f8a6c4dd113d781f3ccc18a82ce5c7b840d62d7226",
-            "stderr_sha256": "5a99d8cf79bf8f08a3f7c1739db255c52a09073af249c75b0f650ed744535f17",
-            "timed_out": false,
-            "stdout_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1111/release-repair/npm-install/command.stdout.log",
-            "stderr_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1111/release-repair/npm-install/command.stderr.log"
-          },
-          "mobile_check": {
-            "command": [
-              "/home/md-wasim/Projects/AI_Workspace/scripts/mobile_check.sh",
-              "--skip-native-android"
-            ],
-            "cwd": "/home/md-wasim/Projects/AI_Workspace",
-            "exit_code": 0,
-            "duration_seconds": 21.4317,
-            "stdout": "\n> @work-station/mobile@0.1.0 test\n> vitest run\n\n\n\u001b[1m\u001b[30m\u001b[46m RUN \u001b[49m\u001b[39m\u001b[22m \u001b[36mv4.1.11 \u001b[39m\u001b[90m/home/md-wasim/Projects/AI_Workspace/apps/mobile\u001b[39m\n\n \u001b[32m✓\u001b[39m tests/network-security.test.ts \u001b[2m(\u001b[22m\u001b[2m2 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 4\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m tests/notifications.test.ts \u001b[2m(\u001b[22m\u001b[2m5 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 7\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m tests/theme.test.ts \u001b[2m(\u001b[22m\u001b[2m3 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 4\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m tests/session.test.ts \u001b[2m(\u001b[22m\u001b[2m2 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 6\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m tests/workflow-monitor.test.ts \u001b[2m(\u001b[22m\u001b[2m3 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 8\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m tests/message-content.test.ts \u001b[2m(\u001b[22m\u001b[2m3 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 8\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m tests/deep-links.test.ts \u001b[2m(\u001b[22m\u001b[2m10 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 5\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m tests/models.test.ts \u001b[2m(\u001b[22m\u001b[2m1 test\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 20\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m tests/marketing-api-client.test.ts \u001b[2m(\u001b[22m\u001b[2m1 test\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 37\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m tests/creative-api-client.test.ts \u001b[2m(\u001b[22m\u001b[2m1 test\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 39\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m tests/communications-api-client.test.ts \u001b[2m(\u001b[22m\u001b[2m2 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 35\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m tests/learning-api-client.test.ts \u001b[2m(\u001b[22m\u001b[2m1 test\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 40\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m tests/finance-api-client.test.ts \u001b[2m(\u001b[22m\u001b[2m2 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 44\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m tests/studio-input.test.ts \u001b[2m(\u001b[22m\u001b[2m2 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 5\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m tests/api-client.test.ts \u001b[2m(\u001b[22m\u001b[2m19 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 59\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m tests/transient-session.test.ts \u001b[2m(\u001b[22m\u001b[2m1 test\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 2\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m tests/presence-state.test.ts \u001b[2m(\u001b[22m\u001b[2m1 test\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 3\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m tests/citations.test.ts \u001b[2m(\u001b[22m\u001b[2m1 test\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 3\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m tests/accessibility-contract.test.ts \u001b[2m(\u001b[22m\u001b[2m4 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 87\u001b[2mms\u001b[22m\u001b[39m\n\n\u001b[2m Test Files \u001b[22m \u001b[1m\u001b[32m19 passed\u001b[39m\u001b[22m\u001b[90m (19)\u001b[39m\n\u001b[2m      Tests \u001b[22m \u001b[1m\u001b[32m64 passed\u001b[39m\u001b[22m\u001b[90m (64)\u001b[39m\n\u001b[2m   Start at \u001b[22m 22:26:03\n\u001b[2m   Duration \u001b[22m 649ms\u001b[2m (transform 2.33s, setup 0ms, import 3.49s, tests 417ms, environment 2ms)\u001b[22m\n\n\n> @work-station/mobile@0.1.0 typecheck\n> tsc --noEmit --pretty false && node scripts/validate-config.mjs\n\nmobile configuration: valid Android/iOS private client with one Expo-compatible React runtime\n\n> @work-station/mobile@0.1.0 lint\n> expo lint\n\n\n> @work-station/mobile@0.1.0 build:static\n> npm run build:static:android && npm run build:static:ios\n\n\n> @work-station/mobile@0.1.0 build:static:android\n> expo export --platform android --output-dir dist/android\n\nUsing src/app as the root directory for Expo Router.\nReact Compiler enabled\nExpo Autolinking module resolution enabled\nStarting Metro Bundler\n\nAndroid Bundled 6709ms node_modules/expo-router/entry.js (1385 modules)\n\n› Assets (29):\n../../node_modules/@expo-google-fonts/material-symbols/400Regular/MaterialSymbols_400Regular.ttf (967KB)\n../../node_modules/expo-router/assets/arrow_down.png (9.5KB)\n../../node_modules/expo-router/assets/arrow_right.xml (307B)\n../../node_modules/expo-router/assets/checkmark.xml (312B)\n../../node_modules/expo-router/assets/error.png (469B)\n../../node_modules/expo-router/assets/file.png (138B)\n../../node_modules/expo-router/assets/forward.png (188B)\n../../node_modules/expo-router/assets/pkg.png (364B)\n../../node_modules/expo-router/assets/react-navigation/elements/back-icon-mask.png (653B)\n../../node_modules/expo-router/assets/react-navigation/elements/back-icon.png (4 variations | 152B)\n../../node_modules/expo-router/assets/react-navigation/elements/clear-icon.png (4 variations | 425B)\n../../node_modules/expo-router/assets/react-navigation/elements/close-icon.png (4 variations | 235B)\n../../node_modules/expo\n...[truncated]",
-            "stderr": "",
-            "stdout_sha256": "b688d35e98b095bcff78e4776320ef6b8d18a7d8bcaab58ece995c6c1b5f13a9",
-            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
-            "timed_out": false,
-            "stdout_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1111/release-repair/mobile-check/command.stdout.log",
-            "stderr_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1111/release-repair/mobile-check/command.stderr.log"
-          },
-          "production_commit": {
-            "attempted": true,
-            "committed": true,
-            "repair_kind": "release_dependency_alignment",
-            "paths": [
-              "apps/mobile/package.json",
-              "package-lock.json"
-            ],
-            "commit": "4fc518dfadcc081f2313745db4a37985470b4185",
-            "push": {
-              "exit_code": 0,
-              "stdout": "",
-              "stderr": "To https://github.com/mdwasimaslamaslam88-bot/AI_Workspace.git\n   2b43020..4fc518d  HEAD -> main\n",
-              "status": "PUSHED"
-            }
-          },
-          "failure_classification": "OBJECTIVE_PASS"
+          "runtime_evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1114/runtime-identity-current.json",
+          "fresh_attestation": {
+            "timestamp": "2026-09-16T17:06:20.686595+00:00",
+            "api_origin": "http://127.0.0.1:8000",
+            "source_commit": "8e0dfed8cd5b99edf9c274e33e62e9dfa7d38544",
+            "token_path": "/home/md-wasim/.ai_workspace_provisioning_token",
+            "authenticated_exchange": {
+              "provision": {
+                "status": 201,
+                "duration_seconds": 0.0179,
+                "response_bytes": 214,
+                "response_sha256": "52d9f64cd95ece8378567c843ef41de491a0cf5c5b04f30126ddac714fa7b336"
+              },
+              "runtime_identity": {
+                "status": 200,
+                "duration_seconds": 0.0155,
+                "response_bytes": 300,
+                "response_sha256": "59b8d0fc0a56b960d63357602eea55110876f242695dcf4fcb72ffee74092b99"
+              }
+            },
+            "session_revocation": {
+              "status": 204,
+              "duration_seconds": 0.0169,
+              "response_bytes": 0,
+              "response_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "accepted": true
+            },
+            "runtime": {
+              "captured_at": "2026-09-16T16:38:23.745979Z",
+              "version": "0.1.0",
+              "source_commit": "7082dada3e9dac2e876e95532392a0827bf7ebcd",
+              "backend_source_sha256": "eb699a17b5dcfbaac89b5c9eb9b0bd7e77242c0a04c40e7f23caa41771dc707a",
+              "web_bundle_sha256": "5c0075a4636f9d50eac0f543bb67eb424f335ee707926e7ddc7d2b4982172825"
+            },
+            "expected": {
+              "source_commit": "8e0dfed8cd5b99edf9c274e33e62e9dfa7d38544",
+              "backend_source_sha256": "eb699a17b5dcfbaac89b5c9eb9b0bd7e77242c0a04c40e7f23caa41771dc707a",
+              "web_bundle_sha256": "5c0075a4636f9d50eac0f543bb67eb424f335ee707926e7ddc7d2b4982172825"
+            },
+            "matches": {
+              "source_commit": false,
+              "backend_source_sha256": true,
+              "web_bundle_sha256": true
+            },
+            "duration_seconds": 0.0782,
+            "objective_pass": false
+          }
         },
-        "evidence_dir": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1111"
+        "evidence_dir": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1114"
       },
-      "evidence_dir": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1111"
+      "evidence_dir": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1114"
     },
     "external_watch": {
       "status": "ACCEPTANCE_TASK",
-      "cycle": 1111,
+      "cycle": 1114,
       "candidate": null,
       "candidate_state": "NOT_CACHED_DOWNLOAD_TOO_SLOW_OR_UNAVAILABLE",
       "candidate_priority": [
@@ -3482,9 +3575,9 @@
       "requested_max_download_seconds": 10800,
       "requested_max_estimated_download_hours": 3.0,
       "genericity_and_canonical_validation_allowed": false,
-      "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1111",
+      "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1114",
       "next_retry_at": "2026-09-16T16:09:56.573801+00:00",
-      "current_action": "Verify the current release evidence identifies the exact Expo SDK package mismatch, then use the existing npm workspace to align only those packages and run the focused mobile check. Failure evidence: /home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1110.",
+      "current_action": "Re-observe the authenticated current runtime and validate source, backend and web identity against the current application source.",
       "report_commit": {
         "attempted": true,
         "committed": true,
@@ -3583,9 +3676,9 @@
           "ASTER-STATE-MERGE-001"
         ],
         "verification": "Parent-side observation reports runtime identity PASS with current-source content hashes; historical benchmark/release gaps remain explicit.",
-        "status": "COMPLETE",
-        "attempts": 10,
-        "updated_at": "2026-09-16T16:47:17.520224+00:00",
+        "status": "RETRY",
+        "attempts": 11,
+        "updated_at": "2026-09-16T17:01:43.028032+00:00",
         "evidence": [
           "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-0868",
           "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-0870",
@@ -3901,7 +3994,7 @@
             }
           }
         },
-        "blocker": null,
+        "blocker": "Application source changed from bc57e47dd948eb6f8f041db1befa677d3d005cdc to 8e0dfed8cd5b99edf9c274e33e62e9dfa7d38544; current-source evidence must be recaptured.",
         "last_report_commit": {
           "attempted": true,
           "committed": true,
@@ -3952,8 +4045,8 @@
         ],
         "verification": "The existing release gate produces hashable current evidence or a precise external/native-platform blocker; no historical report is relabeled.",
         "status": "PENDING",
-        "attempts": 5,
-        "updated_at": "2026-09-16T16:56:26.774842+00:00",
+        "attempts": 7,
+        "updated_at": "2026-09-16T16:59:16.088674+00:00",
         "evidence": [
           "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-0869",
           "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-0871",
@@ -5025,14 +5118,254 @@
         "action": "Verify the current release evidence identifies the exact Expo SDK package mismatch, then use the existing npm workspace to align only those packages and run the focused mobile check. Failure evidence: /home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1110.",
         "dependencies": [],
         "verification": "The correction is committed through the existing validated-change boundary and the focused mobile check exits 0.",
-        "status": "READY",
+        "status": "COMPLETE",
         "attempts": 1,
         "max_attempts": 2,
-        "updated_at": "2026-09-16T16:47:17.891047+00:00",
+        "updated_at": "2026-09-16T16:56:29.115166+00:00",
         "evidence": [
-          "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1110"
+          "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1110",
+          "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1111"
         ],
-        "last_result": null,
+        "last_result": {
+          "timestamp": "2026-09-16T16:56:26.774826+00:00",
+          "cycle": 1111,
+          "child_identity_verified": true,
+          "parent_verification": {
+            "timestamp": "2026-09-16T16:56:26.773196+00:00",
+            "task_id": "ASTER-REPAIR-ASTER-RELEASE-VALIDATION-001",
+            "reason": "proven Expo SDK mismatch was aligned and focused mobile validation passed",
+            "objective_pass": true,
+            "failure_classification": "OBJECTIVE_PASS",
+            "verification": {
+              "command": [
+                "preserved release output proof",
+                "npm install --workspace @work-station/mobile expo@~57.0.23 expo-image-picker@~57.0.18 expo-notifications@~57.0.19",
+                "scripts/mobile_check.sh --skip-native-android"
+              ],
+              "cwd": "/home/md-wasim/Projects/AI_Workspace",
+              "exit_code": 0,
+              "failure_evidence_paths": [
+                "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1110/command.stdout.log",
+                "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1110/command.stderr.log"
+              ],
+              "mismatch_proof": {
+                "required_strings": [
+                  "expo                ~57.0.23",
+                  "expo-image-picker   ~57.0.18",
+                  "expo-notifications  ~57.0.19",
+                  "packages out of date"
+                ],
+                "passed": true
+              },
+              "node_runtime": {
+                "node_path": "/home/md-wasim/.nvm/versions/node/v24.19.0/bin/node",
+                "npm_path": "/home/md-wasim/.nvm/versions/node/v24.19.0/bin/npm",
+                "node_version": "24.19.0",
+                "selection": "highest_verified_semver",
+                "candidates": [
+                  {
+                    "path": "/usr/bin/node",
+                    "npm_path": "/usr/bin/npm",
+                    "version": "18.19.1",
+                    "version_sort_key": [
+                      18,
+                      19,
+                      1
+                    ],
+                    "status": "VERIFIED"
+                  },
+                  {
+                    "path": "/home/md-wasim/.nvm/versions/node/v24.19.0/bin/node",
+                    "npm_path": "/home/md-wasim/.nvm/versions/node/v24.19.0/bin/npm",
+                    "version": "24.19.0",
+                    "version_sort_key": [
+                      24,
+                      19,
+                      0
+                    ],
+                    "status": "VERIFIED"
+                  }
+                ],
+                "environment": {
+                  "SHELL": "/bin/bash",
+                  "SESSION_MANAGER": "local/ALIVE:@/tmp/.ICE-unix/25171,unix/ALIVE:/tmp/.ICE-unix/25171",
+                  "QT_ACCESSIBILITY": "1",
+                  "XDG_CONFIG_DIRS": "/etc/xdg/xdg-ubuntu:/etc/xdg",
+                  "XDG_MENU_PREFIX": "gnome-",
+                  "GNOME_DESKTOP_SESSION_ID": "this-is-deprecated",
+                  "GNOME_SHELL_SESSION_MODE": "ubuntu",
+                  "SSH_AUTH_SOCK": "/run/user/1000/keyring/ssh",
+                  "MEMORY_PRESSURE_WRITE": "c29tZSAyMDAwMDAgMjAwMDAwMAA=",
+                  "XMODIFIERS": "@im=ibus",
+                  "DESKTOP_SESSION": "ubuntu",
+                  "GTK_MODULES": "gail:atk-bridge",
+                  "PWD": "/home/md-wasim/Projects/AI_Workspace",
+                  "XDG_SESSION_DESKTOP": "ubuntu",
+                  "LOGNAME": "md-wasim",
+                  "XDG_SESSION_TYPE": "wayland",
+                  "SYSTEMD_EXEC_PID": "3947387",
+                  "XAUTHORITY": "/run/user/1000/.mutter-Xwaylandauth.ZBLBU3",
+                  "HOME": "/home/md-wasim",
+                  "USERNAME": "md-wasim",
+                  "IM_CONFIG_PHASE": "1",
+                  "LANG": "en_US.UTF-8",
+                  "XDG_CURRENT_DESKTOP": "ubuntu:GNOME",
+                  "MEMORY_PRESSURE_WATCH": "/sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/aster-autonomous-watcher.service/memory.pressure",
+                  "WAYLAND_DISPLAY": "wayland-0",
+                  "INVOCATION_ID": "01100093a80b498ab71a15bdf3f05aee",
+                  "ASTER_EVIDENCE_ROOT": "/home/md-wasim/AI_Workspace_Data/aster-evidence",
+                  "MANAGERPID": "1488",
+                  "GNOME_SETUP_DISPLAY": ":1",
+                  "XDG_SESSION_CLASS": "user",
+                  "USER": "md-wasim",
+                  "DISPLAY": ":0",
+                  "SHLVL": "0",
+                  "GSM_SKIP_SSH_AGENT_WORKAROUND": "true",
+                  "QT_IM_MODULE": "ibus",
+                  "XDG_RUNTIME_DIR": "/run/user/1000",
+                  "DEBUGINFOD_URLS": "https://debuginfod.ubuntu.com ",
+                  "XDG_DATA_DIRS": "/usr/share/ubuntu:/usr/share/gnome:/usr/local/share/:/usr/share/:/var/lib/snapd/desktop",
+                  "PATH": "/home/md-wasim/.nvm/versions/node/v24.19.0/bin:/home/md-wasim/.cargo/bin:/home/md-wasim/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/snap/bin",
+                  "GDMSESSION": "ubuntu",
+                  "DBUS_SESSION_BUS_ADDRESS": "unix:path=/run/user/1000/bus",
+                  "OLDPWD": "/home/md-wasim/Projects/AI_Workspace"
+                }
+              },
+              "npm_install": {
+                "command": [
+                  "npm",
+                  "install",
+                  "--workspace",
+                  "@work-station/mobile",
+                  "expo@~57.0.23",
+                  "expo-image-picker@~57.0.18",
+                  "expo-notifications@~57.0.19"
+                ],
+                "cwd": "/home/md-wasim/Projects/AI_Workspace",
+                "exit_code": 0,
+                "duration_seconds": 29.2685,
+                "stdout": "\nchanged 6 packages, and audited 1057 packages in 29s\n\n278 packages are looking for funding\n  run `npm fund` for details\n\nfound 0 vulnerabilities\n",
+                "stderr": "npm warn allow-scripts 1 package has install scripts not yet covered by allowScripts:\nnpm warn allow-scripts   unrs-resolver@1.12.2 (postinstall: node postinstall.js)\nnpm warn allow-scripts\nnpm warn allow-scripts Run `npm approve-scripts --allow-scripts-pending` to review, or `npm approve-scripts <pkg>` to allow.\n",
+                "stdout_sha256": "5ed1ee481826449230b899f8a6c4dd113d781f3ccc18a82ce5c7b840d62d7226",
+                "stderr_sha256": "5a99d8cf79bf8f08a3f7c1739db255c52a09073af249c75b0f650ed744535f17",
+                "timed_out": false,
+                "stdout_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1111/release-repair/npm-install/command.stdout.log",
+                "stderr_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1111/release-repair/npm-install/command.stderr.log"
+              },
+              "mobile_check": {
+                "command": [
+                  "/home/md-wasim/Projects/AI_Workspace/scripts/mobile_check.sh",
+                  "--skip-native-android"
+                ],
+                "cwd": "/home/md-wasim/Projects/AI_Workspace",
+                "exit_code": 0,
+                "duration_seconds": 21.4317,
+                "stdout": "\n> @work-station/mobile@0.1.0 test\n> vitest run\n\n\n\u001b[1m\u001b[30m\u001b[46m RUN \u001b[49m\u001b[39m\u001b[22m \u001b[36mv4.1.11 \u001b[39m\u001b[90m/home/md-wasim/Projects/AI_Workspace/apps/mobile\u001b[39m\n\n \u001b[32m✓\u001b[39m tests/network-security.test.ts \u001b[2m(\u001b[22m\u001b[2m2 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 4\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m tests/notifications.test.ts \u001b[2m(\u001b[22m\u001b[2m5 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 7\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m tests/theme.test.ts \u001b[2m(\u001b[22m\u001b[2m3 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 4\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m tests/session.test.ts \u001b[2m(\u001b[22m\u001b[2m2 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 6\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m tests/workflow-monitor.test.ts \u001b[2m(\u001b[22m\u001b[2m3 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 8\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m tests/message-content.test.ts \u001b[2m(\u001b[22m\u001b[2m3 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 8\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m tests/deep-links.test.ts \u001b[2m(\u001b[22m\u001b[2m10 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 5\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m tests/models.test.ts \u001b[2m(\u001b[22m\u001b[2m1 test\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 20\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m tests/marketing-api-client.test.ts \u001b[2m(\u001b[22m\u001b[2m1 test\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 37\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m tests/creative-api-client.test.ts \u001b[2m(\u001b[22m\u001b[2m1 test\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 39\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m tests/communications-api-client.test.ts \u001b[2m(\u001b[22m\u001b[2m2 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 35\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m tests/learning-api-client.test.ts \u001b[2m(\u001b[22m\u001b[2m1 test\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 40\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m tests/finance-api-client.test.ts \u001b[2m(\u001b[22m\u001b[2m2 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 44\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m tests/studio-input.test.ts \u001b[2m(\u001b[22m\u001b[2m2 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 5\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m tests/api-client.test.ts \u001b[2m(\u001b[22m\u001b[2m19 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 59\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m tests/transient-session.test.ts \u001b[2m(\u001b[22m\u001b[2m1 test\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 2\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m tests/presence-state.test.ts \u001b[2m(\u001b[22m\u001b[2m1 test\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 3\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m tests/citations.test.ts \u001b[2m(\u001b[22m\u001b[2m1 test\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 3\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m tests/accessibility-contract.test.ts \u001b[2m(\u001b[22m\u001b[2m4 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 87\u001b[2mms\u001b[22m\u001b[39m\n\n\u001b[2m Test Files \u001b[22m \u001b[1m\u001b[32m19 passed\u001b[39m\u001b[22m\u001b[90m (19)\u001b[39m\n\u001b[2m      Tests \u001b[22m \u001b[1m\u001b[32m64 passed\u001b[39m\u001b[22m\u001b[90m (64)\u001b[39m\n\u001b[2m   Start at \u001b[22m 22:26:03\n\u001b[2m   Duration \u001b[22m 649ms\u001b[2m (transform 2.33s, setup 0ms, import 3.49s, tests 417ms, environment 2ms)\u001b[22m\n\n\n> @work-station/mobile@0.1.0 typecheck\n> tsc --noEmit --pretty false && node scripts/validate-config.mjs\n\nmobile configuration: valid Android/iOS private client with one Expo-compatible React runtime\n\n> @work-station/mobile@0.1.0 lint\n> expo lint\n\n\n> @work-station/mobile@0.1.0 build:static\n> npm run build:static:android && npm run build:static:ios\n\n\n> @work-station/mobile@0.1.0 build:static:android\n> expo export --platform android --output-dir dist/android\n\nUsing src/app as the root directory for Expo Router.\nReact Compiler enabled\nExpo Autolinking module resolution enabled\nStarting Metro Bundler\n\nAndroid Bundled 6709ms node_modules/expo-router/entry.js (1385 modules)\n\n› Assets (29):\n../../node_modules/@expo-google-fonts/material-symbols/400Regular/MaterialSymbols_400Regular.ttf (967KB)\n../../node_modules/expo-router/assets/arrow_down.png (9.5KB)\n../../node_modules/expo-router/assets/arrow_right.xml (307B)\n../../node_modules/expo-router/assets/checkmark.xml (312B)\n../../node_modules/expo-router/assets/error.png (469B)\n../../node_modules/expo-router/assets/file.png (138B)\n../../node_modules/expo-router/assets/forward.png (188B)\n../../node_modules/expo-router/assets/pkg.png (364B)\n../../node_modules/expo-router/assets/react-navigation/elements/back-icon-mask.png (653B)\n../../node_modules/expo-router/assets/react-navigation/elements/back-icon.png (4 variations | 152B)\n../../node_modules/expo-router/assets/react-navigation/elements/clear-icon.png (4 variations | 425B)\n../../node_modules/expo-router/assets/react-navigation/elements/close-icon.png (4 variations | 235B)\n../../node_modules/expo\n...[truncated]",
+                "stderr": "",
+                "stdout_sha256": "b688d35e98b095bcff78e4776320ef6b8d18a7d8bcaab58ece995c6c1b5f13a9",
+                "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                "timed_out": false,
+                "stdout_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1111/release-repair/mobile-check/command.stdout.log",
+                "stderr_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1111/release-repair/mobile-check/command.stderr.log"
+              },
+              "production_commit": {
+                "attempted": true,
+                "committed": true,
+                "repair_kind": "release_dependency_alignment",
+                "paths": [
+                  "apps/mobile/package.json",
+                  "package-lock.json"
+                ],
+                "commit": "4fc518dfadcc081f2313745db4a37985470b4185",
+                "push": {
+                  "exit_code": 0,
+                  "stdout": "",
+                  "stderr": "To https://github.com/mdwasimaslamaslam88-bot/AI_Workspace.git\n   2b43020..4fc518d  HEAD -> main\n",
+                  "status": "PUSHED"
+                }
+              },
+              "failure_classification": "OBJECTIVE_PASS"
+            },
+            "evidence_dir": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1111"
+          },
+          "child": {
+            "command": [
+              "/home/md-wasim/.nvm/versions/node/v24.19.0/lib/node_modules/@openai/codex/bin/codex.js",
+              "exec",
+              "--json",
+              "--color",
+              "never",
+              "--sandbox",
+              "workspace-write",
+              "--config",
+              "approval_policy=\"never\"",
+              "--cd",
+              "/home/md-wasim/Projects/AI_Workspace",
+              "--add-dir",
+              "/home/md-wasim/AI_Workspace_Data/aster-evidence",
+              "--output-last-message",
+              "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1111/codex.last-message.txt",
+              "-"
+            ],
+            "cwd": "/home/md-wasim/Projects/AI_Workspace",
+            "exit_code": 0,
+            "duration_seconds": 495.4487,
+            "timed_out": false,
+            "error": null,
+            "stdout_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1111/codex.stdout.jsonl",
+            "stderr_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1111/codex.stderr.log",
+            "stderr_tail": "2026-09-16T16:54:13.108567Z ERROR codex_core::tools::router: error=apply_patch verification failed: Failed to read file to update /home/md-wasim/Projects/AI_Workspace/apps/mobile/package.json: fs sandbox helper failed with status exit status: 1: bwrap: loopback: Failed RTM_NEWADDR: Operation not permitted\n",
+            "last_message_path": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1111/codex.last-message.txt",
+            "stdout_sha256": "4a6cc2549649dc2bcde6dc159d03db098a331eeee1b4c4233a08e23a4f15a8c7",
+            "stderr_sha256": "28fefe7012eefccc976341cf03a0e72e5e87824686457a166b511da480ea7b22",
+            "last_message_sha256": "496b13c566830e0e4a7793e98646a127ff291c5925e8f333247cebade31b5d9e",
+            "codex_executable": "/home/md-wasim/.nvm/versions/node/v24.19.0/lib/node_modules/@openai/codex/bin/codex.js",
+            "codex_version": "0.153.4",
+            "codex_resolution": {
+              "path": "/home/md-wasim/.nvm/versions/node/v24.19.0/lib/node_modules/@openai/codex/bin/codex.js",
+              "version": "0.153.4",
+              "selection": "highest_verified_semver",
+              "candidates": [
+                {
+                  "path": "/home/md-wasim/.codex/packages/standalone/releases/0.147.0-x86_64-unknown-linux-musl/bin/codex",
+                  "version": "0.147.0",
+                  "version_sort_key": [
+                    0,
+                    147,
+                    0
+                  ],
+                  "status": "VERIFIED"
+                },
+                {
+                  "path": "/usr/bin/snap",
+                  "status": "VERSION_INVALID",
+                  "exit_code": 0,
+                  "output": "snap          2.76.3\nsnapd         2.76.3\nseries        16\nubuntu        24.04\nkernel        7.0.0-30-generic\narchitecture  amd64"
+                },
+                {
+                  "path": "/home/md-wasim/.nvm/versions/node/v24.19.0/lib/node_modules/@openai/codex/bin/codex.js",
+                  "version": "0.153.4",
+                  "version_sort_key": [
+                    0,
+                    153,
+                    4
+                  ],
+                  "status": "VERIFIED"
+                }
+              ]
+            },
+            "parsed": {
+              "parsed": true,
+              "status": "BLOCKED",
+              "issues_remaining": "1",
+              "current_issue": "ASTER-REPAIR-ASTER-RELEASE-VALIDATION-001",
+              "action": "Retry exact Expo alignment in trusted parent executor",
+              "verification": "BLOCKED",
+              "classification": "BLOCKED_EXTERNAL",
+              "next_prompt": "In the trusted parent/native executor, verify cycle-1110 preserved output identifies `expo@~57.0.23`, `expo-image-picker@~57.0.18`, and `expo-notifications@~57.0.19`. At application source 7082dada3e9dac2e876e95532392a0827bf7ebcd, use the verified Node 24.19.0 environment to run `npm install --workspace @work-station/mobile expo@~57.0.23 expo-image-picker@~57.0.18 expo-notifications@~57.0.19`, require that only `apps/mobile/package.json` and `package-lock.json` change, then run `./scripts/mobile_check.sh --skip-native-android`. If it exits 0, commit and push only those files through the existing `safe_commit_parent_repair` validated-change boundary. Preserve full evidence and do not infer any broader release, security, artifact, runtime, callback, DEX, voice, or benchmark PASS. The child sandbox persistently failed before process launch with `bwrap: loopback: Failed RTM_NEWADDR: Operation not permitted`."
+            }
+          }
+        },
         "parent_task_id": "ASTER-RELEASE-VALIDATION-001",
         "repair_kind": "release_dependency_alignment",
         "failure_signature": "221be748e326d791ce7c6d9c02e9f53d96b19f718b09b71d07d129653d679f51",
@@ -5044,21 +5377,77 @@
           "child_exit_code": 0,
           "child_timed_out": false
         },
-        "last_report_commit": null,
-        "validated_source_commit": null
+        "last_report_commit": {
+          "attempted": true,
+          "committed": true,
+          "commit": "bce8b72543eae2c93b24327efec9af5a941730da",
+          "paths": [
+            "reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.json",
+            "reports/ASTER_AI_OS_MASTER_STUDENT_STATUS.md",
+            "reports/ASTER_AI_OS_PROGRESS.json",
+            "reports/ASTER_AI_OS_PROGRESS.md"
+          ],
+          "push": {
+            "exit_code": 0,
+            "stdout": "",
+            "stderr": "To https://github.com/mdwasimaslamaslam88-bot/AI_Workspace.git\n   4fc518d..bce8b72  HEAD -> main\n",
+            "status": "PUSHED"
+          },
+          "git": {
+            "branch": "main",
+            "commit": "bce8b72543eae2c93b24327efec9af5a941730da",
+            "application_source_commit": "4fc518dfadcc081f2313745db4a37985470b4185",
+            "upstream": "origin/main",
+            "upstream_error": null,
+            "ahead": 0,
+            "behind": 0,
+            "clean": true,
+            "status_porcelain": "",
+            "status": "CLEAN_SYNCED"
+          }
+        },
+        "validated_source_commit": "7082dada3e9dac2e876e95532392a0827bf7ebcd",
+        "blocker": null
+      },
+      "ASTER-REPAIR-ASTER-RUNTIME-PROVENANCE-001-003": {
+        "id": "ASTER-REPAIR-ASTER-RUNTIME-PROVENANCE-001-003",
+        "priority": "P0",
+        "title": "Repair stale runtime deployment after provenance failure",
+        "action": "Use the trusted parent executor to restart work-station-backend.service, verify loopback health, and recapture authenticated current-source runtime identity. Failure evidence: /home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1114.",
+        "dependencies": [],
+        "verification": "The restarted backend reports the current source commit and matching backend/web hashes, with session revocation accepted.",
+        "status": "READY",
+        "attempts": 0,
+        "max_attempts": 2,
+        "updated_at": "2026-09-16T17:06:21.097434+00:00",
+        "evidence": [
+          "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1114"
+        ],
+        "last_result": null,
+        "parent_task_id": "ASTER-RUNTIME-PROVENANCE-001",
+        "repair_kind": "runtime_deployment_repair",
+        "failure_signature": "37d8f2f4d48525d3d3732376a946e6ed3c8f0a35224bc3757ad24d7760877886",
+        "failure_context": {
+          "task_id": "ASTER-RUNTIME-PROVENANCE-001",
+          "evidence_dir": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1114",
+          "parent_reason": "current runtime identity is not fully proven",
+          "parent_failure_classification": null,
+          "child_exit_code": 0,
+          "child_timed_out": false
+        }
       }
     }
   },
-  "report_generated_from_commit": "4fc518dfadcc081f2313745db4a37985470b4185",
-  "report_tip_commit": "4fc518dfadcc081f2313745db4a37985470b4185",
+  "report_generated_from_commit": "8e0dfed8cd5b99edf9c274e33e62e9dfa7d38544",
+  "report_tip_commit": "8e0dfed8cd5b99edf9c274e33e62e9dfa7d38544",
   "post_watch_git_verification": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/watch-external/cycle-0001/post-watch-git-verification.json",
   "post_watch_git_verification_sha256": "119c0f0c77af049af664482efdfe4f662a473d933649cd83a804ccfd9b1c72a1",
   "evidence_provenance": {
     "status": "NOT_PROVEN",
-    "current_source_commit": "4fc518dfadcc081f2313745db4a37985470b4185",
+    "current_source_commit": "8e0dfed8cd5b99edf9c274e33e62e9dfa7d38544",
     "components": {
       "source_commit": "PASS",
-      "runtime": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE",
+      "runtime": "FAIL",
       "backend_hash": "PASS",
       "web_artifact_hash": "PASS",
       "benchmark": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE",
@@ -5067,7 +5456,7 @@
       "artifact": "HISTORICAL_PASS_REQUIRES_CURRENT_PROVENANCE"
     },
     "runtime": {
-      "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1109/runtime-repair/attestation/runtime-identity-current.json",
+      "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1114/runtime-identity-current.json",
       "recorded_source_commit": "7082dada3e9dac2e876e95532392a0827bf7ebcd",
       "recorded_backend_source_sha256": "eb699a17b5dcfbaac89b5c9eb9b0bd7e77242c0a04c40e7f23caa41771dc707a",
       "recorded_web_bundle_sha256": "5c0075a4636f9d50eac0f543bb67eb424f335ee707926e7ddc7d2b4982172825",
@@ -5077,7 +5466,7 @@
         "source_commit": false,
         "backend_source_sha256": true,
         "web_bundle_sha256": true,
-        "declared_matches": true
+        "declared_matches": false
       }
     },
     "benchmark": {
@@ -5139,7 +5528,7 @@
     },
     "historical_evidence_rejected": true
   },
-  "application_source_commit": "4fc518dfadcc081f2313745db4a37985470b4185",
+  "application_source_commit": "8e0dfed8cd5b99edf9c274e33e62e9dfa7d38544",
   "coding_capability_gap": {
     "evidence": "/home/md-wasim/AI_Workspace_Data/aster-evidence/20260912-coding-capability-gap/model-inventory-no-new-local-candidate.json",
     "evidence_sha256": "72c0d38d7f35f6408ac7b3e61a89e62a91ee60b94c1e506fd8ad85e8f735bd4c",
