@@ -7,7 +7,7 @@ PASS           : 457
 PARTIAL        : 1
 FAIL           : 1
 ISSUES         : 0
-CURRENT        : ASTER-RUNTIME-PROVENANCE-001
+CURRENT        : ASTER-RELEASE-VALIDATION-001
 PHASE          : ACCEPTANCE_TASK
 CANDIDATE      : None
 ASTER→AI OS    : PARTIAL: current owner-authenticated HTTP exchange and integrity verified; fabricated exec
@@ -21,7 +21,7 @@ WEB            : 206 PASS
 MOBILE         : 64 PASS
 PERFORMANCE    : mean 8.1462s / P95 16.5442s
 GIT            : CLEAN_SYNCED
-COMMIT         : 94cc553e2c18bf7d8036ad0e88e6611cbba829b2
+COMMIT         : 5facf5896c6d3051148c51050fd12ce685e29f51
 SOURCE         : 75f9a20554dd313a434fc139bcf5deca2be766f2
-NEXT ACTION    : Re-observe the authenticated current runtime and validate source, backend and web identity against the current application source.
+NEXT ACTION    : Run the existing current-source release/security/artifact validation at the settled source tip and preserve every external failure.
 ========================================================
