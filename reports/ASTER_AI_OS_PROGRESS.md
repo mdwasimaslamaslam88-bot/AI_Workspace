@@ -7,8 +7,8 @@ PASS           : 457
 PARTIAL        : 1
 FAIL           : 1
 ISSUES         : 0
-CURRENT        : ASTER-ARTIFACT-PROVENANCE-001
-PHASE          : ACCEPTANCE_TASK
+CURRENT        : NONE
+PHASE          : WATCH_EXTERNAL_GAP
 CANDIDATE      : None
 ASTER→AI OS    : PARTIAL: current owner-authenticated HTTP exchange and integrity verified; fabricated exec
 AI OS→ASTER    : BLOCKED_EXTERNAL: parent MCP/reverse callback is not available; no bidirectional verificat
@@ -21,7 +21,7 @@ WEB            : 206 PASS
 MOBILE         : 64 PASS
 PERFORMANCE    : mean 8.1462s / P95 16.5442s
 GIT            : CLEAN_SYNCED
-COMMIT         : 3d9cd8d1967cb52396d9da26dd662eac981f471c
+COMMIT         : 2a44942037982b491b3c3d46350f0a5a02b0efe8
 SOURCE         : cf75c2261caa7ed13a737370219a5e5280ee072d
-NEXT ACTION    : Bind the latest successful current-source release gate to the actual AppImage, Debian package and served PWA artifact hashes.
+NEXT ACTION    : No eligible coding candidate is currently available; preserve all exclusions and continue the bounded external watch.
 ========================================================

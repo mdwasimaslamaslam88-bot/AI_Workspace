@@ -2,16 +2,16 @@
 
 Iteration 4. Overall readiness is **NOT READY**.
 
-Current application source commit: `cf75c2261caa7ed13a737370219a5e5280ee072d`. Report tip commit: `3d9cd8d1967cb52396d9da26dd662eac981f471c`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
+Current application source commit: `cf75c2261caa7ed13a737370219a5e5280ee072d`. Report tip commit: `2a44942037982b491b3c3d46350f0a5a02b0efe8`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
 
 ## Current measured state
 
 - Canonical benchmark: **97.83/100**, 457 PASS, 1 PARTIAL, 1 FAIL; mean 8.1462s, P95 16.5442s.
 - Issues: 0 locally unresolved, 24 fixed/verified, 7 externally blocked.
-- Current issue/action: `ASTER-ARTIFACT-PROVENANCE-001` — Bind the latest successful current-source release gate to the actual AppImage, Debian package and served PWA artifact hashes.
-- Controller phase: **ACCEPTANCE_TASK**.
+- Current issue/action: `NONE` — No eligible coding candidate is currently available; preserve all exclusions and continue the bounded external watch.
+- Controller phase: **WATCH_EXTERNAL_GAP**.
 - Runtime identity: **PASS**; evidence `/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1283/runtime-repair/attestation/runtime-identity-current.json`.
-- Git: **CLEAN_SYNCED** at `3d9cd8d1967cb52396d9da26dd662eac981f471c`.
+- Git: **CLEAN_SYNCED** at `2a44942037982b491b3c3d46350f0a5a02b0efe8`.
 
 ## Queue classifications
 
@@ -75,7 +75,7 @@ Current application source commit: `cf75c2261caa7ed13a737370219a5e5280ee072d`. R
 | ASTER-REPAIR-ASTER-RELEASE-VALIDATION-001-007 | COMPLETE | none |  |
 | ASTER-REPAIR-ASTER-RUNTIME-PROVENANCE-001-007 | COMPLETE | none |  |
 | ASTER-REPAIR-ASTER-RUNTIME-PROVENANCE-001-008 | COMPLETE | none |  |
-| ASTER-ARTIFACT-PROVENANCE-001 | PENDING | ASTER-RELEASE-VALIDATION-001 | Application source changed from 2a476c4737858259f7c72a517a0a10b2b327070e to cf75c2261caa7ed13a737370219a5e5280ee072d; current-source evidence must be recaptured. |
+| ASTER-ARTIFACT-PROVENANCE-001 | COMPLETE | ASTER-RELEASE-VALIDATION-001 |  |
 | ASTER-REPAIR-ASTER-RUNTIME-PROVENANCE-001-009 | COMPLETE | none |  |
 | ASTER-REPAIR-ASTER-ARTIFACT-PROVENANCE-001 | SUPERSEDED | none | Superseded after application source changed from 2a476c4737858259f7c72a517a0a10b2b327070e to cf75c2261caa7ed13a737370219a5e5280ee072d; historical repair evidence retained. |
 | ASTER-REPAIR-ASTER-RUNTIME-PROVENANCE-001-010 | COMPLETE | none |  |
