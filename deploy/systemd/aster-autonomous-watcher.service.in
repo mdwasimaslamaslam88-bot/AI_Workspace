@@ -1,0 +1,24 @@
+[Unit]
+Description=ASTER bounded autonomous completion watcher
+After=default.target
+StartLimitIntervalSec=300
+StartLimitBurst=3
+
+[Service]
+Type=simple
+WorkingDirectory=@PROJECT_ROOT@
+Environment=ASTER_EVIDENCE_ROOT=@EVIDENCE_ROOT@
+# The lock is held by flock for the complete controller lifetime.  It is a
+# supervisor boundary, not a second orchestration layer: the repository's
+# existing controller remains the only owner of state and child dispatch.
+ExecStart=/usr/bin/flock --nonblock --exclusive @WATCHER_LOCK@ @PROJECT_ROOT@/scripts/aster_autonomous_loop.sh --watch-external --watch-interval-seconds 300 --max-watch-cycles 1000 --max-download-seconds 10800 --max-estimated-download-hours 3.0
+Restart=on-failure
+RestartSec=10
+KillMode=control-group
+TimeoutStopSec=30
+StandardOutput=append:@EVIDENCE_ROOT@/autonomous-loop/live-watcher.log
+StandardError=append:@EVIDENCE_ROOT@/autonomous-loop/live-watcher.log
+UMask=0077
+
+[Install]
+WantedBy=default.target

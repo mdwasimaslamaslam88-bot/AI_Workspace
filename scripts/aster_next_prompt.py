@@ -2240,6 +2240,19 @@ def build_current_artifact_attestation(
         if isinstance(release_log, str) and Path(release_log).is_file()
         else None
     )
+    recorded_manifest_hash = release_document.get("artifact_manifest_sha256")
+    manifest_path = (
+        Path(release_manifest_path)
+        if isinstance(release_manifest_path, str)
+        else None
+    )
+    consumed_manifest_hash = (
+        sha256_file(manifest_path)
+        if manifest_path is not None
+        and manifest_path.is_file()
+        and not manifest_path.is_symlink()
+        else None
+    )
     release_source = release_document.get("application_source_commit") or release_document.get("commit")
     release_ok = bool(
         release_document.get("status") == "PASS"
@@ -2247,6 +2260,7 @@ def build_current_artifact_attestation(
         and isinstance(release_path, str)
         and Path(release_path).is_file()
         and isinstance(release_document.get("output_sha256"), str)
+        and SHA256_PATTERN.fullmatch(release_document.get("output_sha256", ""))
         and release_document.get("output_sha256") == release_log_hash
         and release_source == source_commit
     )
@@ -2277,6 +2291,9 @@ def build_current_artifact_attestation(
         isinstance(persisted_manifest, dict)
         and isinstance(release_manifest, dict)
         and persisted_manifest == release_manifest
+        and isinstance(recorded_manifest_hash, str)
+        and bool(SHA256_PATTERN.fullmatch(recorded_manifest_hash))
+        and consumed_manifest_hash == recorded_manifest_hash
     )
     if isinstance(persisted_manifest, dict):
         release_manifest = persisted_manifest
@@ -2297,9 +2314,14 @@ def build_current_artifact_attestation(
         and release_manifest.get("objective_pass") is True
         and release_manifest.get("application_source_commit") == source_commit
         and release_manifest.get("release_gate") == release_path
+        and release_manifest.get("release_gate_output_sha256") == release_log_hash
+        and isinstance(release_manifest.get("release_gate_output_sha256"), str)
+        and bool(SHA256_PATTERN.fullmatch(release_manifest.get("release_gate_output_sha256", "")))
+        and release_manifest.get("release_gate_output_sha256") == release_document.get("output_sha256")
         and release_document.get("artifact_manifest") == release_manifest_path
-        and isinstance(release_manifest_path, str)
-        and Path(release_manifest_path).is_file()
+        and manifest_path is not None
+        and manifest_path.is_file()
+        and not manifest_path.is_symlink()
         and set(manifest_by_name) == CURRENT_RELEASE_ARTIFACT_NAMES
         and release_manifest.get("frontend_bundle_sha256")
         == release_manifest.get("served_web_bundle_sha256")
@@ -2357,10 +2379,9 @@ def build_current_artifact_attestation(
         "release_source_commit": release_source,
         "release_manifest": release_manifest_path,
         "release_manifest_sha256": (
-            sha256_file(Path(release_manifest_path))
-            if isinstance(release_manifest_path, str)
-            else None
+            consumed_manifest_hash
         ),
+        "recorded_release_manifest_sha256": recorded_manifest_hash,
         "git_refs": {
             "HEAD": git.get("commit"),
             "application_source_commit": git_source,

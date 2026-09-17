@@ -193,6 +193,7 @@ def test_current_artifact_attestation_recomputes_safe_hashes(tmp_path):
         "objective_pass": True,
         "application_source_commit": source_commit,
         "release_gate": str(release_path),
+        "release_gate_output_sha256": hashlib.sha256(release_log.read_bytes()).hexdigest(),
         "frontend_bundle_sha256": frontend_digest,
         "served_web_bundle_sha256": frontend_digest,
         "artifacts": [
@@ -226,6 +227,8 @@ def test_current_artifact_attestation_recomputes_safe_hashes(tmp_path):
     manifest_path = tmp_path / "release-artifact-manifest.json"
     _write(manifest_path, manifest)
     release["artifact_manifest"] = str(manifest_path)
+    original_manifest_sha256 = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+    release["artifact_manifest_sha256"] = original_manifest_sha256
     attestation, passed = controller.build_current_artifact_attestation(
         evidence_dir=tmp_path / "evidence",
         source_commit=source_commit,
@@ -314,6 +317,35 @@ def test_current_artifact_attestation_recomputes_safe_hashes(tmp_path):
         release_manifest_path=str(manifest_path),
     )
     assert symlink_passed is False
+
+    # Rewriting both an artifact and its manifest is still invalid when the
+    # release record binds the run to the original manifest digest.
+    rewritten_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    rewritten_manifest["artifacts"][0]["sha256"] = hashlib.sha256(
+        b"rewritten artifact\n"
+    ).hexdigest()
+    app.write_bytes(b"rewritten artifact\n")
+    _write(manifest_path, rewritten_manifest)
+    _, rewritten_manifest_passed = controller.build_current_artifact_attestation(
+        evidence_dir=tmp_path / "evidence-rewritten-manifest",
+        source_commit=source_commit,
+        release_document=release,
+        release_path=str(release_path),
+        artifact_paths=[
+            ("ubuntu-x86_64", "Work_Station_Ubuntu.AppImage", app),
+            ("ubuntu-x86_64", "Work_Station_Ubuntu.deb", deb),
+        ],
+        pwa_path=pwa,
+        git={
+            "commit": source_commit,
+            "application_source_commit": source_commit,
+            "clean": True,
+        },
+        release_manifest=rewritten_manifest,
+        release_manifest_path=str(manifest_path),
+    )
+    assert release["artifact_manifest_sha256"] == original_manifest_sha256
+    assert rewritten_manifest_passed is False
 
 
 def test_pwa_archive_rejects_root_and_nested_symlinks(tmp_path, monkeypatch):
