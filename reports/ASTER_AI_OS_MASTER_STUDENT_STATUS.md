@@ -2,16 +2,16 @@
 
 Iteration 4. Overall readiness is **NOT READY**.
 
-Current application source commit: `36795142d961fe06caad364e42d58d67c7102ca0`. Report tip commit: `7c420c0154dba9d8a3c3f88fc28c3b27d6ed62dd`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
+Current application source commit: `607d905273eec639596709cd9af23e2f4e900ec2`. Report tip commit: `607d905273eec639596709cd9af23e2f4e900ec2`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
 
 ## Current measured state
 
 - Canonical benchmark: **97.83/100**, 457 PASS, 1 PARTIAL, 1 FAIL; mean 8.1462s, P95 16.5442s.
 - Issues: 0 locally unresolved, 24 fixed/verified, 7 externally blocked.
-- Current issue/action: `ASTER-REPAIR-ASTER-RELEASE-VALIDATION-001-007` — Inspect the complete current release stdout/stderr and parent verification, identify the first local failure or prove a supported external dependency, and perform only a bounded trusted repair. Failure evidence: /home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1192.
+- Current issue/action: `ASTER-RELEASE-VALIDATION-001` — Run the existing current-source release/security/artifact validation at the settled source tip and preserve every external failure.
 - Controller phase: **ACCEPTANCE_TASK**.
-- Runtime identity: **PASS**; evidence `/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1191/runtime-repair/attestation/runtime-identity-current.json`.
-- Git: **CLEAN_SYNCED** at `7c420c0154dba9d8a3c3f88fc28c3b27d6ed62dd`.
+- Runtime identity: **HISTORICAL_PASS_REQUIRES_CURRENT_ATTESTATION**; evidence `/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1191/runtime-repair/attestation/runtime-identity-current.json`.
+- Git: **CLEAN_SYNCED** at `607d905273eec639596709cd9af23e2f4e900ec2`.
 
 ## Queue classifications
 
@@ -72,7 +72,7 @@ Current application source commit: `36795142d961fe06caad364e42d58d67c7102ca0`. R
 | ASTER-REPAIR-ASTER-RELEASE-VALIDATION-001-006 | SUPERSEDED | none | Superseded after application source changed from 946e5c583ef166e6582e4cdcdc8fdac2e4febfa4 to 36795142d961fe06caad364e42d58d67c7102ca0; historical repair evidence retained. |
 | ASTER-REPAIR-ASTER-RUNTIME-PROVENANCE-001-005 | COMPLETE | none |  |
 | ASTER-REPAIR-ASTER-RUNTIME-PROVENANCE-001-006 | COMPLETE | none |  |
-| ASTER-REPAIR-ASTER-RELEASE-VALIDATION-001-007 | READY | none |  |
+| ASTER-REPAIR-ASTER-RELEASE-VALIDATION-001-007 | COMPLETE | none |  |
 
 The issue queue and machine-readable controller state are authoritative. A child model response cannot mark an issue complete without objective evidence.
 
