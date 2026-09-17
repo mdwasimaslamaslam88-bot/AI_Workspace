@@ -2,7 +2,7 @@
 
 Iteration 4. Overall readiness is **NOT READY**.
 
-Current application source commit: `7e41f3b7d5a3b1020423adbadd18e9df34250abe`. Report tip commit: `90e29679ef1277f918f722eba295f6efc96a128b`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
+Current application source commit: `7e41f3b7d5a3b1020423adbadd18e9df34250abe`. Report tip commit: `c395c9ce3074b91370ab34fd0baa98f212af0f6b`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
 
 ## Current measured state
 
@@ -11,7 +11,7 @@ Current application source commit: `7e41f3b7d5a3b1020423adbadd18e9df34250abe`. R
 - Current issue/action: `ASTER-RELEASE-VALIDATION-001` — Run the existing current-source release/security/artifact validation at the settled source tip and preserve every external failure.
 - Controller phase: **ACCEPTANCE_TASK**.
 - Runtime identity: **PASS**; evidence `/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1128/runtime-repair/attestation/runtime-identity-current.json`.
-- Git: **CLEAN_SYNCED** at `90e29679ef1277f918f722eba295f6efc96a128b`.
+- Git: **CLEAN_SYNCED** at `c395c9ce3074b91370ab34fd0baa98f212af0f6b`.
 
 ## Queue classifications
 
