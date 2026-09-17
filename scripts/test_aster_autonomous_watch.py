@@ -1432,6 +1432,33 @@ def test_source_revalidation_supersedes_failed_repair_from_old_source():
     assert controller.choose_acceptance_task(state)["id"] == runtime["id"]
 
 
+def test_source_revalidation_supersedes_exhausted_release_diagnosis_from_old_source():
+    state = {"acceptance_tasks": controller.default_acceptance_tasks()}
+    state["acceptance_tasks"]["ASTER-STATE-MERGE-001"]["status"] = "COMPLETE"
+    state["acceptance_tasks"]["ASTER-RUNTIME-PROVENANCE-001"].update(
+        {"status": "COMPLETE", "validated_source_commit": "b" * 40}
+    )
+    release = state["acceptance_tasks"]["ASTER-RELEASE-VALIDATION-001"]
+    release.update({"status": "PENDING", "validated_source_commit": "a" * 40})
+    repair = {
+        "id": "ASTER-REPAIR-RELEASE-OLD-SOURCE",
+        "parent_task_id": release["id"],
+        "repair_kind": "acceptance_failure_diagnosis",
+        "status": "FAILED",
+        "attempts": 2,
+        "max_attempts": 2,
+        "validated_source_commit": "b" * 40,
+        "originating_failure_source_commit": "a" * 40,
+        "evidence": ["/evidence/old-release-diagnosis"],
+    }
+    state["acceptance_tasks"][repair["id"]] = repair
+
+    assert controller.refresh_source_bound_acceptance_tasks(state, "b" * 40) is True
+    assert repair["status"] == "SUPERSEDED"
+    assert release["status"] == "PENDING"
+    assert controller.choose_acceptance_task(state)["id"] == release["id"]
+
+
 def test_release_repair_requires_proof_and_runs_bounded_workspace_commands(tmp_path):
     evidence_dir = tmp_path / "failed-release"
     evidence_dir.mkdir()

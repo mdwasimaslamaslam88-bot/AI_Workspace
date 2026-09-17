@@ -1195,6 +1195,41 @@ def refresh_source_bound_acceptance_tasks(
                     )
                     repair["updated_at"] = utc_now()
                     changed = True
+    # Diagnosis repairs are bound to the application source that produced
+    # their originating failure.  An exhausted diagnosis from an older source
+    # must not strand a fresh parent gate after a later source-bound repair;
+    # retain it as historical evidence and let the parent run again.  A
+    # current-source failed diagnosis remains blocking.
+    for repair in tasks.values():
+        if (
+            not isinstance(repair, dict)
+            or repair.get("repair_kind") != "acceptance_failure_diagnosis"
+            or repair.get("status") != "FAILED"
+        ):
+            continue
+        parent_id = repair.get("parent_task_id")
+        parent = tasks.get(str(parent_id)) if isinstance(parent_id, str) else None
+        origin = repair.get("originating_failure_source_commit")
+        if not isinstance(origin, str) or not COMMIT_PATTERN.fullmatch(origin):
+            context = repair.get("failure_context")
+            origin = (
+                context.get("originating_failure_source_commit")
+                if isinstance(context, dict)
+                else None
+            )
+        if not isinstance(origin, str) or not COMMIT_PATTERN.fullmatch(origin):
+            origin = _task_validated_source_commit(parent) if isinstance(parent, dict) else None
+        if not isinstance(origin, str) or origin == source_commit:
+            continue
+        repair["status"] = "SUPERSEDED"
+        repair["blocker"] = (
+            f"Superseded because its originating acceptance failure was bound to {origin}, "
+            f"while the current application source is {source_commit}; historical diagnosis "
+            "is retained and the parent gate is eligible for fresh validation."
+        )
+        repair["superseded_by_source_commit"] = source_commit
+        repair["updated_at"] = utc_now()
+        changed = True
     return changed
 
 
@@ -1336,6 +1371,7 @@ def enqueue_acceptance_failure_repair(
 ) -> dict[str, Any] | None:
     """Create one bounded actionable repair task for a non-external failure."""
     parent_task_id = str(failed_task.get("id"))
+    originating_failure_source_commit = _task_validated_source_commit(failed_task)
     # A repair task failing is itself the bounded diagnosis result; do not
     # manufacture an unbounded chain of repair-of-repair tasks.
     if failed_task.get("repair_kind") or failed_task.get("parent_task_id"):
@@ -1343,6 +1379,7 @@ def enqueue_acceptance_failure_repair(
     tasks = acceptance_task_records(state)
     failure_context = {
         "task_id": parent_task_id,
+        "originating_failure_source_commit": originating_failure_source_commit,
         "evidence_dir": str(evidence_dir),
         "parent_reason": parent.get("reason"),
         "parent_failure_classification": parent.get("failure_classification"),
@@ -1438,6 +1475,7 @@ def enqueue_acceptance_failure_repair(
         "parent_task_id": parent_task_id,
         "repair_kind": repair_kind,
         "failure_signature": signature,
+        "originating_failure_source_commit": originating_failure_source_commit,
         "failure_context": failure_context,
     }
     tasks[repair_id] = repair_task
