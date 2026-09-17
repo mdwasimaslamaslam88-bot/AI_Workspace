@@ -187,6 +187,45 @@ def test_current_artifact_attestation_recomputes_safe_hashes(tmp_path):
     app.write_bytes(b"app\n")
     deb.write_bytes(b"deb\n")
     pwa.write_bytes(b"pwa\n")
+    frontend_digest = controller.tree_digest(REPOSITORY_ROOT / "frontend" / "dist")
+    manifest = {
+        "status": "PASS",
+        "objective_pass": True,
+        "application_source_commit": source_commit,
+        "release_gate": str(release_path),
+        "frontend_bundle_sha256": frontend_digest,
+        "served_web_bundle_sha256": frontend_digest,
+        "artifacts": [
+            {
+                "platform": "ubuntu-x86_64",
+                "artifact": "Work_Station_Ubuntu.AppImage",
+                "path": str(app),
+                "sha256": hashlib.sha256(app.read_bytes()).hexdigest(),
+                "exists": True,
+                "hash_verified": True,
+            },
+            {
+                "platform": "ubuntu-x86_64",
+                "artifact": "Work_Station_Ubuntu.deb",
+                "path": str(deb),
+                "sha256": hashlib.sha256(deb.read_bytes()).hexdigest(),
+                "exists": True,
+                "hash_verified": True,
+            },
+            {
+                "platform": "web-pwa",
+                "artifact": "Work_Station_PWA.tar.gz",
+                "path": str(pwa),
+                "sha256": hashlib.sha256(pwa.read_bytes()).hexdigest(),
+                "exists": True,
+                "hash_verified": True,
+                "source_tree_sha256": frontend_digest,
+            },
+        ],
+    }
+    manifest_path = tmp_path / "release-artifact-manifest.json"
+    _write(manifest_path, manifest)
+    release["artifact_manifest"] = str(manifest_path)
     attestation, passed = controller.build_current_artifact_attestation(
         evidence_dir=tmp_path / "evidence",
         source_commit=source_commit,
@@ -203,6 +242,8 @@ def test_current_artifact_attestation_recomputes_safe_hashes(tmp_path):
             "clean": True,
             "upstream": "origin/main",
         },
+        release_manifest=manifest,
+        release_manifest_path=str(manifest_path),
     )
 
     assert passed is True
@@ -210,24 +251,89 @@ def test_current_artifact_attestation_recomputes_safe_hashes(tmp_path):
     assert all(attestation["artifact_hashes_verified"].values())
     assert all(item["hash_verified"] for item in attestation["artifacts"])
 
-    bad = tmp_path / "bad.AppImage"
-    bad.write_bytes(b"bad\n")
-    bad.unlink()
-    bad.symlink_to(app)
-    _, bad_passed = controller.build_current_artifact_attestation(
+    _, missing_pwa_passed = controller.build_current_artifact_attestation(
         evidence_dir=tmp_path / "evidence-bad",
         source_commit=source_commit,
         release_document=release,
         release_path=str(release_path),
-        artifact_paths=[("ubuntu-x86_64", "bad", bad)],
+        artifact_paths=[
+            ("ubuntu-x86_64", "Work_Station_Ubuntu.AppImage", app),
+            ("ubuntu-x86_64", "Work_Station_Ubuntu.deb", deb),
+        ],
         pwa_path=None,
         git={
             "commit": source_commit,
             "application_source_commit": source_commit,
             "clean": True,
         },
+        release_manifest=manifest,
+        release_manifest_path=str(manifest_path),
     )
-    assert bad_passed is False
+    assert missing_pwa_passed is False
+
+    app.write_bytes(b"replacement\n")
+    _, replacement_passed = controller.build_current_artifact_attestation(
+        evidence_dir=tmp_path / "evidence-replacement",
+        source_commit=source_commit,
+        release_document=release,
+        release_path=str(release_path),
+        artifact_paths=[
+            ("ubuntu-x86_64", "Work_Station_Ubuntu.AppImage", app),
+            ("ubuntu-x86_64", "Work_Station_Ubuntu.deb", deb),
+        ],
+        pwa_path=pwa,
+        git={
+            "commit": source_commit,
+            "application_source_commit": source_commit,
+            "clean": True,
+        },
+        release_manifest=manifest,
+        release_manifest_path=str(manifest_path),
+    )
+    assert replacement_passed is False
+
+    app.write_bytes(b"app\n")
+    pwa_link = tmp_path / "pwa-link.tar.gz"
+    pwa_link.symlink_to(pwa)
+    _, symlink_passed = controller.build_current_artifact_attestation(
+        evidence_dir=tmp_path / "evidence-symlink",
+        source_commit=source_commit,
+        release_document=release,
+        release_path=str(release_path),
+        artifact_paths=[
+            ("ubuntu-x86_64", "Work_Station_Ubuntu.AppImage", app),
+            ("ubuntu-x86_64", "Work_Station_Ubuntu.deb", deb),
+        ],
+        pwa_path=pwa_link,
+        git={
+            "commit": source_commit,
+            "application_source_commit": source_commit,
+            "clean": True,
+        },
+        release_manifest=manifest,
+        release_manifest_path=str(manifest_path),
+    )
+    assert symlink_passed is False
+
+
+def test_pwa_archive_rejects_root_and_nested_symlinks(tmp_path, monkeypatch):
+    controller = _load_controller()
+    repository = tmp_path / "repo"
+    frontend = repository / "frontend"
+    frontend.mkdir(parents=True)
+    real_dist = tmp_path / "real-dist"
+    real_dist.mkdir()
+    (real_dist / "index.html").write_text("index", encoding="utf-8")
+    (frontend / "dist").symlink_to(real_dist, target_is_directory=True)
+    monkeypatch.setattr(controller, "REPOSITORY_ROOT", repository)
+    assert controller._write_current_pwa_archive(tmp_path / "root-link") is None
+
+    (frontend / "dist").unlink()
+    (frontend / "dist").mkdir()
+    outside = tmp_path / "outside.js"
+    outside.write_text("outside", encoding="utf-8")
+    (frontend / "dist" / "bundle.js").symlink_to(outside)
+    assert controller._write_current_pwa_archive(tmp_path / "nested-link") is None
 
 
 def test_current_provenance_rejects_stale_commit_claims(tmp_path):

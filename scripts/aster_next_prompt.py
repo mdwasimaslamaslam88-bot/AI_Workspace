@@ -66,6 +66,13 @@ HOST_CONTROLLER_CANDIDATES = (
     "starcoder2:3b",
     "codegemma:2b",
 )
+CURRENT_RELEASE_ARTIFACT_NAMES = frozenset(
+    {
+        "Work_Station_Ubuntu.AppImage",
+        "Work_Station_Ubuntu.deb",
+        "Work_Station_PWA.tar.gz",
+    }
+)
 WATCH_RANGE_BYTES = 1024 * 1024
 FOCUSED_ADMISSION_ROUTES = frozenset(
     {
@@ -2039,16 +2046,30 @@ def _write_current_pwa_archive(evidence_dir: Path) -> Path | None:
     task's evidence directory.  Refuse symlinks and preserve relative names;
     this is an attestation input, not a deployment operation.
     """
-    source = (REPOSITORY_ROOT / "frontend" / "dist").resolve()
-    if not source.is_dir() or source.is_symlink():
+    configured_source = REPOSITORY_ROOT / "frontend" / "dist"
+    allowed_root = REPOSITORY_ROOT / "frontend"
+    # Inspect the configured path before resolving it. Resolving first turns a
+    # symlink into an ordinary directory and could attest an out-of-tree bundle.
+    if configured_source.is_symlink() or not configured_source.is_dir():
+        return None
+    try:
+        source = configured_source.resolve(strict=True)
+        allowed = allowed_root.resolve(strict=True)
+        source.relative_to(allowed)
+    except (OSError, RuntimeError, ValueError):
         return None
     files: list[Path] = []
     try:
-        for path in source.rglob("*"):
+        for path in configured_source.rglob("*"):
             if path.is_symlink():
                 return None
             if path.is_file():
-                files.append(path)
+                resolved = path.resolve(strict=True)
+                try:
+                    resolved.relative_to(source)
+                except ValueError:
+                    return None
+                files.append(resolved)
     except OSError:
         return None
     if not files:
@@ -2077,6 +2098,124 @@ def _write_current_pwa_archive(evidence_dir: Path) -> Path | None:
     return archive if archive.is_file() and not archive.is_symlink() else None
 
 
+def _release_artifact_paths() -> list[tuple[str, str, Path]]:
+    package = read_json(REPOSITORY_ROOT / "apps" / "desktop" / "package.json", {})
+    version = package.get("version") if isinstance(package, dict) else None
+    if not isinstance(version, str) or not version.strip():
+        return []
+    bundle_root = REPOSITORY_ROOT / "apps" / "desktop" / "src-tauri" / "target" / "release" / "bundle"
+    return [
+        (
+            "ubuntu-x86_64",
+            "Work_Station_Ubuntu.AppImage",
+            bundle_root / "appimage" / f"WORK STATION_{version}_amd64.AppImage",
+        ),
+        (
+            "ubuntu-x86_64",
+            "Work_Station_Ubuntu.deb",
+            bundle_root / "deb" / f"WORK STATION_{version}_amd64.deb",
+        ),
+    ]
+
+
+def _safe_artifact_record(
+    platform: str, name: str, path: Path, *, built_by: str
+) -> dict[str, Any]:
+    safe = bool(path.is_absolute() and not path.is_symlink() and path.is_file())
+    digest = sha256_file(path) if safe else None
+    return {
+        "platform": platform,
+        "artifact": name,
+        "path": str(path),
+        "sha256": digest,
+        "exists": safe,
+        "hash_verified": bool(
+            safe and isinstance(digest, str) and SHA256_PATTERN.fullmatch(digest)
+        ),
+        "built_by": built_by,
+    }
+
+
+def capture_release_artifact_manifest(
+    *,
+    evidence_dir: Path,
+    source_commit: str,
+    release_document: dict[str, Any],
+    release_path: str,
+    git: dict[str, Any],
+    served_web_bundle_sha256: str | None,
+) -> tuple[dict[str, Any], bool, Path]:
+    """Capture the trusted release outputs before a later attestation."""
+    release_log = release_document.get("output_path")
+    release_log_hash = (
+        sha256_file(Path(release_log))
+        if isinstance(release_log, str) and Path(release_log).is_file()
+        else None
+    )
+    release_source = release_document.get("application_source_commit") or release_document.get("commit")
+    frontend_bundle_sha256 = tree_digest(REPOSITORY_ROOT / "frontend" / "dist")
+    pwa_path = _write_current_pwa_archive(evidence_dir / "release-artifacts")
+    records = [
+        _safe_artifact_record(platform, name, path, built_by=release_path)
+        for platform, name, path in _release_artifact_paths()
+    ]
+    if pwa_path is not None:
+        pwa_record = _safe_artifact_record(
+            "web-pwa", "Work_Station_PWA.tar.gz", pwa_path, built_by=release_path
+        )
+        pwa_record["source_tree_sha256"] = frontend_bundle_sha256
+        records.append(pwa_record)
+    names = {str(item.get("artifact")) for item in records}
+    release_ok = bool(
+        release_document.get("status") == "PASS"
+        and release_document.get("exit_code") == 0
+        and isinstance(release_path, str)
+        and Path(release_path).is_file()
+        and isinstance(release_document.get("output_sha256"), str)
+        and release_document.get("output_sha256") == release_log_hash
+        and release_source == source_commit
+    )
+    passed = bool(
+        release_ok
+        and git.get("clean") is True
+        and git.get("application_source_commit") == source_commit
+        and frontend_bundle_sha256
+        and served_web_bundle_sha256 == frontend_bundle_sha256
+        and names == CURRENT_RELEASE_ARTIFACT_NAMES
+        and all(item.get("exists") and item.get("hash_verified") for item in records)
+        and next(
+            (
+                item.get("source_tree_sha256") == frontend_bundle_sha256
+                for item in records
+                if item.get("artifact") == "Work_Station_PWA.tar.gz"
+            ),
+            False,
+        )
+    )
+    manifest = {
+        "schema_version": 1,
+        "timestamp": utc_now(),
+        "status": "PASS" if passed else "FAIL",
+        "objective_pass": passed,
+        "application_source_commit": source_commit,
+        "release_gate": release_path,
+        "release_gate_output_sha256": release_log_hash,
+        "release_source_commit": release_source,
+        "frontend_bundle_sha256": frontend_bundle_sha256,
+        "served_web_bundle_sha256": served_web_bundle_sha256,
+        "git": {
+            "HEAD": git.get("commit"),
+            "application_source_commit": git.get("application_source_commit"),
+            "upstream": git.get("upstream"),
+            "clean": git.get("clean"),
+        },
+        "artifacts": records,
+    }
+    manifest_path = evidence_dir / "release-artifact-manifest.json"
+    write_json(manifest_path, manifest)
+    return manifest, passed, manifest_path
+
+
 def build_current_artifact_attestation(
     *,
     evidence_dir: Path,
@@ -2086,6 +2225,8 @@ def build_current_artifact_attestation(
     artifact_paths: list[tuple[str, str, Path]],
     pwa_path: Path | None,
     git: dict[str, Any],
+    release_manifest: dict[str, Any] | None = None,
+    release_manifest_path: str | None = None,
 ) -> tuple[dict[str, Any], bool]:
     """Build and verify an attestation from the current release outputs.
 
@@ -2109,46 +2250,88 @@ def build_current_artifact_attestation(
         and release_document.get("output_sha256") == release_log_hash
         and release_source == source_commit
     )
-    records: list[dict[str, Any]] = []
-    for platform, name, path in artifact_paths:
-        safe = (
-            path.is_absolute()
-            and not path.is_symlink()
-            and path.is_file()
-        )
-        digest = sha256_file(path) if safe else None
-        records.append(
-            {
-                "platform": platform,
-                "artifact": name,
-                "path": str(path),
-                "sha256": digest,
-                "exists": safe,
-                "hash_verified": bool(safe and isinstance(digest, str) and SHA256_PATTERN.fullmatch(digest)),
-                "built_by": release_path,
-            }
-        )
+    records: list[dict[str, Any]] = [
+        _safe_artifact_record(platform, name, path, built_by=release_path)
+        for platform, name, path in artifact_paths
+    ]
     if pwa_path is not None:
-        safe = (
-            pwa_path.is_absolute()
-            and not pwa_path.is_symlink()
-            and pwa_path.is_file()
-        )
-        digest = sha256_file(pwa_path) if safe else None
         records.append(
-            {
-                "platform": "web-pwa",
-                "artifact": "Work_Station_PWA.tar.gz",
-                "path": str(pwa_path),
-                "sha256": digest,
-                "exists": safe,
-                "hash_verified": bool(safe and isinstance(digest, str) and SHA256_PATTERN.fullmatch(digest)),
-                "built_by": release_path,
-            }
+            _safe_artifact_record(
+                "web-pwa", "Work_Station_PWA.tar.gz", pwa_path, built_by=release_path
+            )
         )
+    record_by_name = {str(record.get("artifact")): record for record in records}
+    manifest_records = (
+        release_manifest.get("artifacts")
+        if isinstance(release_manifest, dict)
+        else None
+    )
+    persisted_manifest = (
+        read_json(Path(release_manifest_path), None)
+        if isinstance(release_manifest_path, str)
+        and Path(release_manifest_path).is_file()
+        and not Path(release_manifest_path).is_symlink()
+        else None
+    )
+    manifest_ok = bool(
+        isinstance(persisted_manifest, dict)
+        and isinstance(release_manifest, dict)
+        and persisted_manifest == release_manifest
+    )
+    if isinstance(persisted_manifest, dict):
+        release_manifest = persisted_manifest
+        manifest_records = release_manifest.get("artifacts")
+    manifest_by_name = (
+        {
+            str(record.get("artifact")): record
+            for record in manifest_records
+            if isinstance(record, dict) and record.get("artifact")
+        }
+        if isinstance(manifest_records, list)
+        else {}
+    )
+    manifest_ok = bool(
+        manifest_ok
+        and isinstance(release_manifest, dict)
+        and release_manifest.get("status") == "PASS"
+        and release_manifest.get("objective_pass") is True
+        and release_manifest.get("application_source_commit") == source_commit
+        and release_manifest.get("release_gate") == release_path
+        and release_document.get("artifact_manifest") == release_manifest_path
+        and isinstance(release_manifest_path, str)
+        and Path(release_manifest_path).is_file()
+        and set(manifest_by_name) == CURRENT_RELEASE_ARTIFACT_NAMES
+        and release_manifest.get("frontend_bundle_sha256")
+        == release_manifest.get("served_web_bundle_sha256")
+        and release_manifest.get("frontend_bundle_sha256")
+        == tree_digest(REPOSITORY_ROOT / "frontend" / "dist")
+    )
+    for name in CURRENT_RELEASE_ARTIFACT_NAMES:
+        current = record_by_name.get(name)
+        manifest = manifest_by_name.get(name)
+        if not isinstance(current, dict) or not isinstance(manifest, dict):
+            manifest_ok = False
+            continue
+        if (
+            current.get("path") != manifest.get("path")
+            or current.get("sha256") != manifest.get("sha256")
+            or current.get("hash_verified") is not True
+            or manifest.get("hash_verified") is not True
+        ):
+            manifest_ok = False
+    pwa_manifest = manifest_by_name.get("Work_Station_PWA.tar.gz")
+    if not isinstance(pwa_manifest, dict) or pwa_path is None:
+        manifest_ok = False
+    elif pwa_manifest.get("source_tree_sha256") != tree_digest(REPOSITORY_ROOT / "frontend" / "dist"):
+        manifest_ok = False
     artifact_hashes = {
-        str(record["artifact"]): record["hash_verified"] is True
-        for record in records
+        name: bool(
+            record_by_name.get(name, {}).get("hash_verified") is True
+            and manifest_by_name.get(name, {}).get("hash_verified") is True
+            and record_by_name.get(name, {}).get("sha256")
+            == manifest_by_name.get(name, {}).get("sha256")
+        )
+        for name in sorted(CURRENT_RELEASE_ARTIFACT_NAMES)
     }
     git_clean = git.get("clean") is True
     git_source = git.get("application_source_commit")
@@ -2156,8 +2339,9 @@ def build_current_artifact_attestation(
         release_ok
         and git_clean
         and git_source == source_commit
-        and records
+        and set(record_by_name) == CURRENT_RELEASE_ARTIFACT_NAMES
         and all(record["exists"] and record["hash_verified"] for record in records)
+        and manifest_ok
     )
     attestation = {
         "timestamp": utc_now(),
@@ -2171,6 +2355,12 @@ def build_current_artifact_attestation(
         "release_gate": release_path,
         "release_gate_output_sha256": release_log_hash,
         "release_source_commit": release_source,
+        "release_manifest": release_manifest_path,
+        "release_manifest_sha256": (
+            sha256_file(Path(release_manifest_path))
+            if isinstance(release_manifest_path, str)
+            else None
+        ),
         "git_refs": {
             "HEAD": git.get("commit"),
             "application_source_commit": git_source,
@@ -4584,15 +4774,41 @@ def verify_acceptance_task(
         source_commit = observed_source_commit(observations)
         release_document, release_path = discover_latest_release_gate(evidence_root)
         source_commit = source_commit or git_snapshot().get("application_source_commit")
-        bundle_root = REPOSITORY_ROOT / "apps" / "desktop" / "src-tauri" / "target" / "release" / "bundle"
-        appimage = bundle_root / "appimage" / "WORK STATION_0.1.0_amd64.AppImage"
-        deb = bundle_root / "deb" / "WORK STATION_0.1.0_amd64.deb"
-        pwa = _write_current_pwa_archive(evidence_dir)
+        manifest_path_value = (
+            release_document.get("artifact_manifest")
+            if isinstance(release_document, dict)
+            else None
+        )
+        release_manifest = (
+            read_json(Path(manifest_path_value), {})
+            if isinstance(manifest_path_value, str)
+            else {}
+        )
+        manifest_records = release_manifest.get("artifacts") if isinstance(release_manifest, dict) else []
+        manifest_by_name = {
+            str(item.get("artifact")): item
+            for item in manifest_records
+            if isinstance(item, dict) and item.get("artifact")
+        } if isinstance(manifest_records, list) else {}
+        default_paths = {
+            name: path
+            for _platform, name, path in _release_artifact_paths()
+        }
+        artifact_paths = []
+        for name in ("Work_Station_Ubuntu.AppImage", "Work_Station_Ubuntu.deb"):
+            record = manifest_by_name.get(name, {})
+            path_value = record.get("path") if isinstance(record, dict) else None
+            artifact_paths.append(
+                (
+                    "ubuntu-x86_64",
+                    name,
+                    Path(path_value) if isinstance(path_value, str) else default_paths.get(name, Path("/nonexistent")),
+                )
+            )
+        pwa_record = manifest_by_name.get("Work_Station_PWA.tar.gz", {})
+        pwa_value = pwa_record.get("path") if isinstance(pwa_record, dict) else None
+        pwa = Path(pwa_value) if isinstance(pwa_value, str) else None
         git = git_snapshot()
-        artifact_paths = [
-            ("ubuntu-x86_64", "Work_Station_Ubuntu.AppImage", appimage),
-            ("ubuntu-x86_64", "Work_Station_Ubuntu.deb", deb),
-        ]
         if (
             isinstance(source_commit, str)
             and COMMIT_PATTERN.fullmatch(source_commit)
@@ -4606,6 +4822,8 @@ def verify_acceptance_task(
                 artifact_paths=artifact_paths,
                 pwa_path=pwa,
                 git=git,
+                release_manifest=release_manifest,
+                release_manifest_path=manifest_path_value,
             )
         else:
             attestation = {
@@ -4622,8 +4840,9 @@ def verify_acceptance_task(
             "command": [
                 "controller.observe",
                 "controller.discover_latest_release_gate",
+                "controller.read_release_artifact_manifest",
                 "controller.build_current_artifact_attestation",
-                "sha256_file(AppImage, Debian package, PWA archive)",
+                "sha256_file(manifest-bound AppImage, Debian package, PWA archive)",
             ],
             "cwd": str(REPOSITORY_ROOT),
             "exit_code": 0 if passed else 1,
@@ -4633,6 +4852,7 @@ def verify_acceptance_task(
             "attestation": str(attestation_path),
             "artifact_paths": [str(path) for _, _, path in artifact_paths],
             "pwa_path": str(pwa) if pwa else None,
+            "release_manifest": manifest_path_value,
             "failure_classification": None if passed else "LOCAL_ARTIFACT_PROVENANCE_FAILED",
         }
         reason = (
@@ -4679,8 +4899,43 @@ def verify_acceptance_task(
         release_evidence_path = evidence_dir / "release-check-current.json"
         write_json(release_evidence_path, release_evidence)
         verification["release_evidence"] = str(release_evidence_path)
-        passed = verification.get("exit_code") == 0
-        reason = "current-source release gate passed" if passed else "release gate produced a current failure/blocker"
+        manifest_passed = False
+        if verification.get("exit_code") == 0:
+            post_release_observations = observe(evidence_root)
+            runtime_evidence_path = post_release_observations.get("runtime", {}).get("evidence")
+            runtime_document = (
+                read_json(Path(runtime_evidence_path), {})
+                if isinstance(runtime_evidence_path, str)
+                else {}
+            )
+            runtime_payload = runtime_document.get("runtime") if isinstance(runtime_document, dict) else {}
+            served_web_bundle_sha256 = (
+                runtime_payload.get("web_bundle_sha256")
+                if isinstance(runtime_payload, dict)
+                else None
+            )
+            manifest, manifest_passed, manifest_path = capture_release_artifact_manifest(
+                evidence_dir=evidence_dir,
+                source_commit=str(release_git.get("application_source_commit") or ""),
+                release_document=release_evidence,
+                release_path=str(release_evidence_path),
+                git=release_git,
+                served_web_bundle_sha256=served_web_bundle_sha256,
+            )
+            release_evidence["artifact_manifest"] = str(manifest_path)
+            release_evidence["artifact_manifest_sha256"] = sha256_file(manifest_path)
+            release_evidence["served_web_bundle_sha256"] = served_web_bundle_sha256
+            write_json(release_evidence_path, release_evidence)
+            verification["post_release_observations"] = post_release_observations
+            verification["artifact_manifest"] = str(manifest_path)
+            verification["artifact_manifest_sha256"] = sha256_file(manifest_path)
+            verification["artifact_manifest_objective_pass"] = manifest_passed
+        passed = verification.get("exit_code") == 0 and manifest_passed
+        reason = (
+            "current-source release gate and source-bound artifact manifest passed"
+            if passed
+            else "release gate or source-bound artifact manifest produced a current failure/blocker"
+        )
     else:
         verification = {
             "command": [],
