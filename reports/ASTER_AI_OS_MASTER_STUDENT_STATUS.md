@@ -2,16 +2,16 @@
 
 Iteration 4. Overall readiness is **NOT READY**.
 
-Current application source commit: `75f9a20554dd313a434fc139bcf5deca2be766f2`. Report tip commit: `26a29dc59491204bbc31cd027327e63e4f890220`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
+Current application source commit: `75f9a20554dd313a434fc139bcf5deca2be766f2`. Report tip commit: `a7b11b14131ec8cc22ef1771b78488bb2cabf807`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
 
 ## Current measured state
 
 - Canonical benchmark: **97.83/100**, 457 PASS, 1 PARTIAL, 1 FAIL; mean 8.1462s, P95 16.5442s.
 - Issues: 0 locally unresolved, 24 fixed/verified, 7 externally blocked.
-- Current issue/action: `ASTER-ARTIFACT-PROVENANCE-001` — Bind the latest successful current-source release gate to the actual AppImage, Debian package and served PWA artifact hashes.
-- Controller phase: **ACCEPTANCE_TASK**.
+- Current issue/action: `NONE` — No eligible coding candidate is currently available; preserve all exclusions and continue the bounded external watch.
+- Controller phase: **WATCH_EXTERNAL_GAP**.
 - Runtime identity: **PASS**; evidence `/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1204/runtime-identity-current.json`.
-- Git: **CLEAN_SYNCED** at `26a29dc59491204bbc31cd027327e63e4f890220`.
+- Git: **CLEAN_SYNCED** at `a7b11b14131ec8cc22ef1771b78488bb2cabf807`.
 
 ## Queue classifications
 
@@ -75,7 +75,7 @@ Current application source commit: `75f9a20554dd313a434fc139bcf5deca2be766f2`. R
 | ASTER-REPAIR-ASTER-RELEASE-VALIDATION-001-007 | COMPLETE | none |  |
 | ASTER-REPAIR-ASTER-RUNTIME-PROVENANCE-001-007 | COMPLETE | none |  |
 | ASTER-REPAIR-ASTER-RUNTIME-PROVENANCE-001-008 | COMPLETE | none |  |
-| ASTER-ARTIFACT-PROVENANCE-001 | PENDING | ASTER-RELEASE-VALIDATION-001 |  |
+| ASTER-ARTIFACT-PROVENANCE-001 | COMPLETE | ASTER-RELEASE-VALIDATION-001 |  |
 
 The issue queue and machine-readable controller state are authoritative. A child model response cannot mark an issue complete without objective evidence.
 
