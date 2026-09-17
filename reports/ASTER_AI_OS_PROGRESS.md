@@ -21,7 +21,7 @@ WEB            : 206 PASS
 MOBILE         : 64 PASS
 PERFORMANCE    : mean 8.1462s / P95 16.5442s
 GIT            : CLEAN_SYNCED
-COMMIT         : cf75c2261caa7ed13a737370219a5e5280ee072d
+COMMIT         : e8ad12b5e1f9b588fbdd9e69391560c82407f41e
 SOURCE         : cf75c2261caa7ed13a737370219a5e5280ee072d
 NEXT ACTION    : Use the trusted parent executor to restart work-station-backend.service, verify loopback health, and recapture authenticated current-source runtime identity. Failure evidence: /home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1282.
 ========================================================
