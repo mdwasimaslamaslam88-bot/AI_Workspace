@@ -8,6 +8,20 @@ use tauri_plugin_autostart::MacosLauncher;
 
 const CREDENTIAL_SERVICE: &str = "com.workstation.personalai";
 const CREDENTIAL_ACCOUNT: &str = "owner-session";
+const DESKTOP_SMOKE_INSTANCE_PREFIX: &str = "com.workstation.personalai.desktop_smoke.";
+
+fn desktop_smoke_instance_id() -> Option<String> {
+    let candidate = std::env::var("ASTER_DESKTOP_SMOKE_INSTANCE_ID").ok()?;
+    let suffix = candidate.strip_prefix(DESKTOP_SMOKE_INSTANCE_PREFIX)?;
+    if suffix.is_empty()
+        || !suffix
+            .chars()
+            .all(|character| character.is_ascii_alphanumeric() || character == '_')
+    {
+        return None;
+    }
+    Some(candidate)
+}
 
 fn credential_entry() -> Result<Entry, String> {
     Entry::new(CREDENTIAL_SERVICE, CREDENTIAL_ACCOUNT)
@@ -52,12 +66,31 @@ pub fn run() {
 
     #[cfg(desktop)]
     {
-        builder = builder.plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
-            if let Some(window) = app.get_webview_window("main") {
-                let _ = window.show();
-                let _ = window.set_focus();
-            }
-        }));
+        // The release smoke runs beside the user's real instance.  It keeps
+        // the normal desktop session bus (needed by the tray/portal stack)
+        // but can request a distinct instance name so it never talks to or
+        // terminates the user's application.  Normal launches retain the
+        // canonical identifier from tauri.conf.json.
+        if let Some(smoke_instance_id) = desktop_smoke_instance_id() {
+            builder = builder.plugin(
+                tauri_plugin_single_instance::Builder::new()
+                    .dbus_id(smoke_instance_id)
+                    .callback(|app, _argv, _cwd| {
+                        if let Some(window) = app.get_webview_window("main") {
+                            let _ = window.show();
+                            let _ = window.set_focus();
+                        }
+                    })
+                    .build(),
+            );
+        } else {
+            builder = builder.plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.show();
+                    let _ = window.set_focus();
+                }
+            }));
+        }
     }
 
     builder
@@ -113,7 +146,7 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
-    use super::validate_session_token;
+    use super::{desktop_smoke_instance_id, validate_session_token};
 
     #[test]
     fn secure_session_contract_accepts_bounded_opaque_tokens() {
@@ -125,5 +158,20 @@ mod tests {
     fn secure_session_contract_rejects_empty_or_oversized_values() {
         assert!(validate_session_token("").is_err());
         assert!(validate_session_token(&"x".repeat(513)).is_err());
+    }
+
+    #[test]
+    fn desktop_smoke_instance_id_accepts_only_checker_namespace() {
+        std::env::set_var(
+            "ASTER_DESKTOP_SMOKE_INSTANCE_ID",
+            "com.workstation.personalai.desktop_smoke.production_binary",
+        );
+        assert!(desktop_smoke_instance_id().is_some());
+
+        std::env::set_var(
+            "ASTER_DESKTOP_SMOKE_INSTANCE_ID",
+            "com.attacker.arbitrary_instance",
+        );
+        assert!(desktop_smoke_instance_id().is_none());
     }
 }

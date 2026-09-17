@@ -36,6 +36,57 @@ def test_desktop_check_does_not_require_unavailable_ripgrep():
     assert "grep -rlZ" in source
 
 
+def _artifact_home_scan_function() -> str:
+    source = (REPOSITORY / "scripts" / "desktop_check.sh").read_text(encoding="utf-8")
+    start = source.index("artifact_home_path_scan() {")
+    end = source.index("\nartifact_home_scan_report=", start)
+    return source[start:end]
+
+
+def _run_artifact_home_scan(root: Path, targets: list[Path]) -> int:
+    harness = root / "scan-harness.sh"
+    harness.write_text(
+        "#!/usr/bin/env bash\nset -u\n"
+        + _artifact_home_scan_function()
+        + "\nset +e\nartifact_home_path_scan \"$1\" \"${@:2}\"\nstatus=$?\n"
+        + "printf 'status=%s\\n' \"$status\"\nexit 0\n",
+        encoding="utf-8",
+    )
+    harness.chmod(0o755)
+    report = root / "scan-report.txt"
+    result = subprocess.run(
+        ["bash", str(harness), str(report), *(str(path) for path in targets)],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    assert result.returncode == 0, result.stderr
+    return int(result.stdout.strip().split("=", 1)[1])
+
+
+def test_desktop_artifact_scan_recurses_and_fails_closed(tmp_path):
+    appdir = tmp_path / "WORK STATION.AppDir"
+    deb_root = tmp_path / "deb-root"
+    (appdir / "usr" / "share").mkdir(parents=True)
+    (deb_root / "usr" / "share").mkdir(parents=True)
+    appimage = tmp_path / "WORK STATION.AppImage"
+    binary = tmp_path / "work-station-desktop"
+    appimage.write_bytes(b"clean artifact\n")
+    binary.write_bytes(b"clean binary\n")
+    (appdir / "usr" / "share" / "safe.txt").write_text("safe\n", encoding="utf-8")
+    (deb_root / "usr" / "share" / "safe.txt").write_text("safe\n", encoding="utf-8")
+    targets = [appimage, binary, appdir, deb_root]
+
+    assert _run_artifact_home_scan(tmp_path, targets) == 1
+
+    (appdir / "usr" / "share" / "nested.txt").write_text("/home/developer\n", encoding="utf-8")
+    assert _run_artifact_home_scan(tmp_path, targets) == 0
+
+    (appdir / "usr" / "share" / "nested.txt").write_text("safe\n", encoding="utf-8")
+    assert _run_artifact_home_scan(tmp_path, [*targets, tmp_path / "missing-artifact"]) == 2
+
+
 def executable(path: Path, content: str) -> None:
     path.write_text(content, encoding="utf-8")
     path.chmod(0o755)

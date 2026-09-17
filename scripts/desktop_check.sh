@@ -214,10 +214,36 @@ perl -0pi -e 's{/home/}{build:}g' "${binary}"
 file "${appimage}" | grep -Eq 'ELF .* executable'
 dpkg-deb --info "${package}" >/dev/null
 dpkg-deb --extract "${package}" "${work_root}/deb-root"
-if grep -a -q -F '/home/' \
+
+artifact_home_path_scan() {
+  local report_path="$1"
+  shift
+  # Do not use grep -q here: it can stop before a later unreadable artifact
+  # is visited, masking a scanner error. -r restores complete AppDir/DEB
+  # traversal; -l keeps the evidence bounded to matching paths.
+  if grep -a -r -l -F -- '/home/' "$@" >"${report_path}"; then
+    return 0
+  else
+    local scan_status=$?
+  fi
+  if [[ "${scan_status}" -eq 1 ]]; then
+    return 1
+  fi
+  echo "Artifact developer-path scan failed with grep status ${scan_status}." >&2
+  return 2
+}
+
+artifact_home_scan_report="${work_root}/artifact-home-path-scan.txt"
+if artifact_home_path_scan "${artifact_home_scan_report}" \
   "${appimage}" "${binary}" "${appdir}" "${work_root}/deb-root"; then
   echo "Desktop artifacts contain a developer-machine home path." >&2
   exit 1
+else
+  artifact_scan_status=$?
+  if [[ "${artifact_scan_status}" -ne 1 ]]; then
+    echo "Desktop artifact path scanning failed closed." >&2
+    exit 1
+  fi
 fi
 if ldd "${binary}" | grep -Eq "not found"; then
   echo "The desktop executable has unresolved shared libraries." >&2
@@ -243,7 +269,6 @@ if [[ -z "${DISPLAY:-}" ]] || ! command -v xwininfo >/dev/null || ! command -v x
   echo "desktop validation: Rust tests, production binary, AppImage, and Debian package passed"
   exit 0
 fi
-
 for process_executable in /proc/[0-9]*/exe; do
   if [[ "$(readlink -f -- "${process_executable}" 2>/dev/null || true)" == "${binary}" ]]; then
     echo "Desktop launch validation refuses to interfere with an existing WORK STATION process." >&2
@@ -308,7 +333,16 @@ launch_and_verify() {
   shift
   # xwininfo can inspect X11 windows only. On mixed Wayland/X11 sessions GTK
   # otherwise prefers Wayland, leaving this smoke blind to a healthy window.
-  setsid env GDK_BACKEND=x11 "$@" >"${work_root}/${label}.log" 2>&1 &
+  echo "desktop launch executable: $*"
+  # The installed WORK STATION process may legitimately own the production
+  # single-instance name on the user's session bus.  Keep the real desktop
+  # session (the tray/portal stack depends on it), while the application
+  # selects a distinct, smoke-only D-Bus identity.  The application refuses
+  # to use this identity unless this trusted checker explicitly supplies it.
+  local smoke_instance_id="com.workstation.personalai.desktop_smoke.${label//-/_}"
+  setsid env GDK_BACKEND=x11 \
+    ASTER_DESKTOP_SMOKE_INSTANCE_ID="${smoke_instance_id}" \
+    "$@" >"${work_root}/${label}.log" 2>&1 &
   desktop_pid="$!"
   desktop_pgid="$(ps -o pgid= -p "${desktop_pid}" | tr -d ' ')"
   if [[ -z "${desktop_pgid}" || "${desktop_pgid}" != "${desktop_pid}" ]]; then
@@ -327,6 +361,8 @@ launch_and_verify() {
     sleep 0.25
   done
   if [[ -z "${desktop_window}" ]]; then
+    echo "${label} launch log:" >&2
+    cat "${work_root}/${label}.log" >&2 || true
     echo "${label} did not open its expected native window." >&2
     return 1
   fi
@@ -335,10 +371,14 @@ launch_and_verify() {
   # missing relocated plugin or another delayed startup failure.
   for _attempt in {1..20}; do
     if ! desktop_pid_is_owned; then
+      echo "${label} launch log:" >&2
+      cat "${work_root}/${label}.log" >&2 || true
       echo "${label} exited during sustained launch validation." >&2
       return 1
     fi
     if ! desktop_window_is_owned "${desktop_window}"; then
+      echo "${label} launch log:" >&2
+      cat "${work_root}/${label}.log" >&2 || true
       echo "${label} lost its owned visible native window during sustained launch validation." >&2
       return 1
     fi

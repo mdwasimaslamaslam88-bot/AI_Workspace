@@ -1035,6 +1035,89 @@ def test_parent_diagnosis_executor_persists_current_root_cause(tmp_path):
     assert diagnosis["evidence_scope"] == "current_failure_bundle_only"
 
 
+def test_native_window_process_presence_is_only_a_suspected_conflict(tmp_path):
+    current_root = tmp_path / "cycle-0201"
+    current_root.mkdir()
+    stderr = current_root / "command.stderr.log"
+    stderr.write_text(
+        "desktop launch executable: /tmp/work-station-desktop\n"
+        "production-binary did not open its expected native window.\n",
+        encoding="utf-8",
+    )
+    task = {
+        "id": "ASTER-REPAIR-RELEASE-NATIVE",
+        "parent_task_id": "ASTER-RELEASE-VALIDATION-001",
+        "repair_kind": "acceptance_failure_diagnosis",
+        "failure_context": {
+            "evidence_dir": str(current_root),
+            "parent_stderr_path": str(stderr),
+        },
+    }
+    result = controller.verify_acceptance_task(
+        task, evidence_dir=tmp_path / "repair", evidence_root=tmp_path
+    )
+    diagnosis = result["verification"]["diagnosis"]
+    assert result["objective_pass"] is False
+    assert diagnosis["failure_classification"] in {
+        "SUSPECTED_DESKTOP_NATIVE_LAUNCH_CONFLICT",
+        "LOCAL_DESKTOP_NATIVE_LAUNCH_FAILED",
+    }
+    assert diagnosis["objective_root_cause"] is False
+    assert diagnosis["causal_native_conflict"] is False
+
+
+def test_ready_repair_precedes_its_pending_parent():
+    state = _release_state()
+    parent = state["acceptance_tasks"]["ASTER-RELEASE-VALIDATION-001"]
+    parent["status"] = "PENDING"
+    state["acceptance_tasks"]["ASTER-REPAIR-RELEASE-CURRENT"] = {
+        "id": "ASTER-REPAIR-RELEASE-CURRENT",
+        "priority": "P1",
+        "title": "Diagnose current release failure",
+        "action": "Run the bounded trusted diagnosis.",
+        "dependencies": [],
+        "verification": "Current failure cause is evidenced.",
+        "status": "READY",
+        "attempts": 0,
+        "max_attempts": 2,
+        "updated_at": "2026-09-16T00:00:00+00:00",
+        "evidence": [],
+        "last_result": None,
+        "parent_task_id": parent["id"],
+        "repair_kind": "acceptance_failure_diagnosis",
+    }
+    assert controller.choose_acceptance_task(state)["id"] == "ASTER-REPAIR-RELEASE-CURRENT"
+
+
+def test_completed_expo_repair_does_not_reopen_later_release_failure():
+    state = _release_state()
+    parent = state["acceptance_tasks"]["ASTER-RELEASE-VALIDATION-001"]
+    parent.update(
+        {
+            "status": "FAILED",
+            "active_failure_signature": "current-native-failure",
+            "repair_resolution": {
+                "repair_task_id": "ASTER-REPAIR-OLD-EXPO",
+                "failure_signature": "historical-expo-failure",
+                "updated_at": "2026-09-16T00:00:00+00:00",
+            },
+        }
+    )
+    state["acceptance_tasks"]["ASTER-REPAIR-OLD-EXPO"] = {
+        "id": "ASTER-REPAIR-OLD-EXPO",
+        "status": "COMPLETE",
+        "parent_task_id": parent["id"],
+        "repair_kind": "release_dependency_alignment",
+        "attempts": 1,
+        "max_attempts": 2,
+        "updated_at": "2026-09-16T00:00:01+00:00",
+        "evidence": ["/historical-expo"],
+        "last_result": None,
+    }
+    controller.acceptance_task_records(state)
+    assert parent["status"] == "FAILED"
+
+
 def test_verified_external_acceptance_failure_is_blocked_without_repair(tmp_path):
     state = _release_state()
     evidence = tmp_path / "external-proof.log"

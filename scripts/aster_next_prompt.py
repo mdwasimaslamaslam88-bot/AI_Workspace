@@ -1094,6 +1094,18 @@ def acceptance_task_records(state: dict[str, Any]) -> dict[str, dict[str, Any]]:
         parent = raw.get(parent_id) if isinstance(parent_id, str) else None
         if not isinstance(parent, dict):
             continue
+        resolution = parent.get("repair_resolution")
+        if not isinstance(resolution, dict):
+            continue
+        # A completed repair resolves one specific failure occurrence.  Once
+        # the parent records a later failure signature, the old resolution is
+        # historical and must not reopen or otherwise rewrite that new
+        # failure on every restart.
+        if (
+            resolution.get("failure_signature")
+            != parent.get("active_failure_signature")
+        ):
+            continue
         repair_kind = current.get("repair_kind")
         if repair_kind == "runtime_deployment_repair":
             if parent.get("status") != "COMPLETE" and not parent.get("repair_resolution"):
@@ -1199,6 +1211,15 @@ def choose_acceptance_task(state: dict[str, Any]) -> dict[str, Any] | None:
             if isinstance(candidate, dict)
             and candidate.get("parent_task_id") == task.get("id")
         ]
+        if any(
+            candidate.get("status") in {"READY", "PENDING", "RETRY"}
+            for candidate in child_repairs
+        ):
+            # A ready bounded repair owns the next attempt.  Selecting the
+            # parent first (both are commonly P1) causes a failed release to
+            # rerun indefinitely while its diagnosis/correction waits behind
+            # it in lexical priority order.
+            continue
         if any(
             candidate.get("status") == "FAILED"
             or (
@@ -1339,6 +1360,7 @@ def enqueue_acceptance_failure_repair(
         "child_timed_out": child.get("timed_out") if isinstance(child, dict) else None,
     }
     signature = sha256_bytes(json.dumps(failure_context, sort_keys=True, default=str).encode())
+    failed_task["active_failure_signature"] = signature
     for existing in tasks.values():
         if not isinstance(existing, dict):
             continue
@@ -3930,6 +3952,7 @@ def diagnose_acceptance_failure(
         for command in (
             ["ps", "-eo", "pid,ppid,pgid,stat,etime,cmd"],
             ["xwininfo", "-root", "-tree"],
+            ["busctl", "--user", "status", "com.workstation.personalai.SingleInstance"],
         ):
             if shutil.which(command[0]) is None:
                 probes.append({"command": command, "status": "NOT_INSTALLED"})
@@ -3953,21 +3976,50 @@ def diagnose_acceptance_failure(
     existing_desktop_process = bool(
         re.search(r"(?:^|\s)work-station-desktop(?:\s|$)", process_output)
     )
+    tested_executable_match = re.search(
+        r"desktop launch executable:\s*(?P<command>.+)", combined
+    )
+    tested_executable = (
+        tested_executable_match.group("command").strip()
+        if tested_executable_match
+        else None
+    )
+    ipc_text = "\n".join(
+        str(probe.get("stdout", ""))
+        for probe in probes
+        if probe.get("command", [None])[0] == "busctl"
+    )
+    explicit_single_instance_rejection = bool(
+        re.search(
+            r"NameTaken|single.?instance.*(?:owned|already|rejected)|already running",
+            combined,
+            re.IGNORECASE,
+        )
+    )
+    causal_native_conflict = bool(
+        matched_kind == "native_window"
+        and tested_executable
+        and explicit_single_instance_rejection
+        and ipc_text
+    )
 
     if matched_kind == "native_window":
         classification = (
             "LOCAL_DESKTOP_NATIVE_LAUNCH_CONFLICT"
+            if causal_native_conflict
+            else "SUSPECTED_DESKTOP_NATIVE_LAUNCH_CONFLICT"
             if existing_desktop_process
             else "LOCAL_DESKTOP_NATIVE_LAUNCH_FAILED"
         )
         reason = (
-            "release native-window smoke collided with an existing desktop instance"
+            "release native-window smoke has causal single-instance evidence"
+            if causal_native_conflict
+            else "release native-window smoke has only a suspected existing-instance conflict; causal IPC evidence is missing"
             if existing_desktop_process
             else "release native-window smoke failed without an existing desktop instance"
         )
         repair_action = (
-            "Run the desktop smoke in a supported isolated launch context or record the active "
-            "desktop instance as an explicit environment dependency; do not terminate the user's process."
+            "Run the desktop smoke in the supported isolated D-Bus/X11 launch context and require the tested artifact's own visible window; do not terminate the user's process."
         )
     elif matched_kind == "command_not_found":
         classification = "LOCAL_EXECUTABLE_OR_ENVIRONMENT_FAILURE"
@@ -3996,10 +4048,15 @@ def diagnose_acceptance_failure(
         "first_failure_marker": first_failure,
         "probes": probes,
         "existing_desktop_process": existing_desktop_process,
+        "tested_executable": tested_executable,
+        "explicit_single_instance_rejection": explicit_single_instance_rejection,
+        "causal_native_conflict": causal_native_conflict,
         "failure_classification": classification,
         "reason": reason,
         "repair_action": repair_action,
-        "objective_root_cause": matched_kind is not None,
+        "objective_root_cause": matched_kind is not None and (
+            matched_kind != "native_window" or causal_native_conflict
+        ),
     }
     diagnosis_path = evidence_dir / "diagnosis.json"
     write_json(diagnosis_path, diagnosis)
@@ -4491,6 +4548,8 @@ def acceptance_task_iteration(
                 "repair_task_id": task.get("id"),
                 "updated_at": utc_now(),
                 "evidence": task.get("evidence", []),
+                "failure_signature": task.get("failure_signature"),
+                "validated_source_commit": task.get("validated_source_commit"),
             }
             parent_task["updated_at"] = utc_now()
     task["updated_at"] = utc_now()
@@ -4552,6 +4611,7 @@ def acceptance_task_iteration(
         "evidence",
         "last_result",
         "validated_source_commit",
+        "active_failure_signature",
         "updated_at",
     ):
         if key in task_decision:
