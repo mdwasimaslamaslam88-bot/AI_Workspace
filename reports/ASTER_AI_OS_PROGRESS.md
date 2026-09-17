@@ -7,7 +7,7 @@ PASS           : 457
 PARTIAL        : 1
 FAIL           : 1
 ISSUES         : 0
-CURRENT        : ASTER-RELEASE-VALIDATION-001
+CURRENT        : ASTER-REPAIR-ASTER-RELEASE-VALIDATION-001-006
 PHASE          : ACCEPTANCE_TASK
 CANDIDATE      : None
 ASTER→AI OS    : PARTIAL: current owner-authenticated HTTP exchange and integrity verified; fabricated exec
@@ -21,7 +21,7 @@ WEB            : 206 PASS
 MOBILE         : 64 PASS
 PERFORMANCE    : mean 8.1462s / P95 16.5442s
 GIT            : CLEAN_SYNCED
-COMMIT         : fcd8f97608c5ef0dba5b1e191f3020ef767042d2
-SOURCE         : 7e41f3b7d5a3b1020423adbadd18e9df34250abe
-NEXT ACTION    : Run the existing current-source release/security/artifact validation at the settled source tip and preserve every external failure.
+COMMIT         : 946e5c583ef166e6582e4cdcdc8fdac2e4febfa4
+SOURCE         : 946e5c583ef166e6582e4cdcdc8fdac2e4febfa4
+NEXT ACTION    : Inspect the complete current release stdout/stderr and parent verification, identify the first local failure or prove a supported external dependency, and perform only a bounded trusted repair. Failure evidence: /home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1129.
 ========================================================
