@@ -1070,6 +1070,25 @@ def acceptance_task_records(state: dict[str, Any]) -> dict[str, dict[str, Any]]:
             current["readiness_retry_granted"] = True
             current["blocker"] = "One bounded retry granted for the validated service-readiness probe fix."
             current["updated_at"] = utc_now()
+        if (
+            isinstance(current, dict)
+            and current.get("repair_kind") == "runtime_deployment_repair"
+            and current.get("status") == "READY"
+            and current.get("last_result") is None
+            and not current.get("interrupted_retry_granted")
+            and int(current.get("attempts", 0) or 0) >= int(current.get("max_attempts", 2) or 2)
+        ):
+            # A supervisor can die after launching a bounded child but before
+            # persisting that child's terminal result. Preserve consumed
+            # attempts and grant exactly one recovery slot; this is not a
+            # budget reset or an unlimited retry of a failed repair.
+            current["max_attempts"] = int(current.get("attempts", 0) or 0) + 1
+            current["interrupted_retry_granted"] = True
+            current["blocker"] = (
+                "One bounded recovery attempt granted because the prior owner exited before "
+                "persisting a terminal repair result; cumulative attempts are preserved."
+            )
+            current["updated_at"] = utc_now()
     # A pre-fix owner could have created suffixed repairs for the same
     # acceptance failure. Keep one deterministic active repair and retain the
     # other records as historical evidence instead of executing duplicates.

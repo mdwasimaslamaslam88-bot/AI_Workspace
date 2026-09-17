@@ -1314,6 +1314,37 @@ def test_failed_dynamic_repair_reopens_only_within_its_finite_budget():
     assert state["acceptance_tasks"]["ASTER-REPAIR-TEST"]["status"] == "FAILED"
 
 
+def test_interrupted_runtime_repair_gets_one_recovery_slot_without_resetting_budget():
+    source = "b" * 40
+    state = {
+        "acceptance_tasks": controller.default_acceptance_tasks(),
+        "observations": {"git": {"application_source_commit": source}},
+    }
+    state["acceptance_tasks"]["ASTER-STATE-MERGE-001"]["status"] = "COMPLETE"
+    state["acceptance_tasks"]["ASTER-REPAIR-RUNTIME-INTERRUPTED"] = {
+        "id": "ASTER-REPAIR-RUNTIME-INTERRUPTED",
+        "priority": "P0",
+        "parent_task_id": "ASTER-RUNTIME-PROVENANCE-001",
+        "repair_kind": "runtime_deployment_repair",
+        "originating_failure_source_commit": source,
+        "status": "READY",
+        "attempts": 2,
+        "max_attempts": 2,
+        "last_result": None,
+        "evidence": ["/evidence/interrupted"],
+    }
+
+    controller.acceptance_task_records(state)
+    repair = state["acceptance_tasks"]["ASTER-REPAIR-RUNTIME-INTERRUPTED"]
+    assert repair["attempts"] == 2
+    assert repair["max_attempts"] == 3
+    assert repair["interrupted_retry_granted"] is True
+    assert controller.choose_acceptance_task(state)["id"] == repair["id"]
+
+    controller.acceptance_task_records(state)
+    assert repair["max_attempts"] == 3
+
+
 def test_duplicate_active_repairs_are_reconciled_without_losing_history():
     state = {"acceptance_tasks": controller.default_acceptance_tasks()}
     state["acceptance_tasks"].update(
