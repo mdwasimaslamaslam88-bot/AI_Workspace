@@ -167,6 +167,69 @@ def test_current_provenance_accepts_complete_current_evidence(tmp_path):
     }
 
 
+def test_current_artifact_attestation_recomputes_safe_hashes(tmp_path):
+    controller = _load_controller()
+    source_commit = "a" * 40
+    release_log = tmp_path / "release.stdout.log"
+    release_log.write_text("WORK STATION release validation passed\n", encoding="utf-8")
+    release = {
+        "status": "PASS",
+        "exit_code": 0,
+        "application_source_commit": source_commit,
+        "output_path": str(release_log),
+        "output_sha256": hashlib.sha256(release_log.read_bytes()).hexdigest(),
+    }
+    release_path = tmp_path / "release-check-current.json"
+    _write(release_path, release)
+    app = tmp_path / "app.AppImage"
+    deb = tmp_path / "app.deb"
+    pwa = tmp_path / "pwa.tar.gz"
+    app.write_bytes(b"app\n")
+    deb.write_bytes(b"deb\n")
+    pwa.write_bytes(b"pwa\n")
+    attestation, passed = controller.build_current_artifact_attestation(
+        evidence_dir=tmp_path / "evidence",
+        source_commit=source_commit,
+        release_document=release,
+        release_path=str(release_path),
+        artifact_paths=[
+            ("ubuntu-x86_64", "Work_Station_Ubuntu.AppImage", app),
+            ("ubuntu-x86_64", "Work_Station_Ubuntu.deb", deb),
+        ],
+        pwa_path=pwa,
+        git={
+            "commit": source_commit,
+            "application_source_commit": source_commit,
+            "clean": True,
+            "upstream": "origin/main",
+        },
+    )
+
+    assert passed is True
+    assert attestation["objective_pass"] is True
+    assert all(attestation["artifact_hashes_verified"].values())
+    assert all(item["hash_verified"] for item in attestation["artifacts"])
+
+    bad = tmp_path / "bad.AppImage"
+    bad.write_bytes(b"bad\n")
+    bad.unlink()
+    bad.symlink_to(app)
+    _, bad_passed = controller.build_current_artifact_attestation(
+        evidence_dir=tmp_path / "evidence-bad",
+        source_commit=source_commit,
+        release_document=release,
+        release_path=str(release_path),
+        artifact_paths=[("ubuntu-x86_64", "bad", bad)],
+        pwa_path=None,
+        git={
+            "commit": source_commit,
+            "application_source_commit": source_commit,
+            "clean": True,
+        },
+    )
+    assert bad_passed is False
+
+
 def test_current_provenance_rejects_stale_commit_claims(tmp_path):
     controller, commit, observations, status, runtime, benchmark, artifact = _fixture(tmp_path)
 

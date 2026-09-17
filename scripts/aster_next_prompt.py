@@ -29,6 +29,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import tarfile
 from typing import Any, Iterator
 import urllib.error
 from urllib.parse import urlsplit
@@ -138,6 +139,14 @@ ACCEPTANCE_TASK_SPECS = (
         "action": "Run the existing current-source release/security/artifact validation at the settled source tip and preserve every external failure.",
         "dependencies": ["ASTER-RUNTIME-PROVENANCE-001"],
         "verification": "The existing release gate produces hashable current evidence or a precise external/native-platform blocker; no historical report is relabeled.",
+    },
+    {
+        "id": "ASTER-ARTIFACT-PROVENANCE-001",
+        "priority": "P1",
+        "title": "Attest current release artifacts",
+        "action": "Bind the latest successful current-source release gate to the actual AppImage, Debian package and served PWA artifact hashes.",
+        "dependencies": ["ASTER-RELEASE-VALIDATION-001"],
+        "verification": "A current-source artifact attestation records safe existing artifact paths, recomputed SHA256 values, the successful release evidence and current Git identity; historical attestations remain preserved.",
     },
     {
         "id": "ASTER-CANONICAL-CODER-001",
@@ -1160,7 +1169,11 @@ def refresh_source_bound_acceptance_tasks(
         return False
     changed = False
     tasks = acceptance_task_records(state)
-    for task_id in ("ASTER-RUNTIME-PROVENANCE-001", "ASTER-RELEASE-VALIDATION-001"):
+    for task_id in (
+        "ASTER-RUNTIME-PROVENANCE-001",
+        "ASTER-RELEASE-VALIDATION-001",
+        "ASTER-ARTIFACT-PROVENANCE-001",
+    ):
         task = tasks.get(task_id)
         if not isinstance(task, dict) or task.get("status") not in {
             "COMPLETE", "COMPLETE_WITH_EXTERNAL", "FAILED", "RETRY", "PENDING"
@@ -1996,6 +2009,173 @@ def discover_latest_release_gate(evidence_root: Path) -> tuple[dict[str, Any], s
     path = max(existing, key=lambda item: item.stat().st_mtime_ns)
     value = read_json(path, {})
     return (value if isinstance(value, dict) else {}), str(path)
+
+
+def _write_current_pwa_archive(evidence_dir: Path) -> Path | None:
+    """Create an evidence-local archive of the served web bundle.
+
+    The release package deliberately does not duplicate the PWA, because the
+    authenticated backend serves it.  Provenance still needs a file-level
+    object to hash, so archive the current ``frontend/dist`` tree into the
+    task's evidence directory.  Refuse symlinks and preserve relative names;
+    this is an attestation input, not a deployment operation.
+    """
+    source = (REPOSITORY_ROOT / "frontend" / "dist").resolve()
+    if not source.is_dir() or source.is_symlink():
+        return None
+    files: list[Path] = []
+    try:
+        for path in source.rglob("*"):
+            if path.is_symlink():
+                return None
+            if path.is_file():
+                files.append(path)
+    except OSError:
+        return None
+    if not files:
+        return None
+    archive = evidence_dir / "artifacts" / "Work_Station_PWA.tar.gz"
+    archive.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        with tarfile.open(archive, mode="w:gz", compresslevel=9) as handle:
+            for path in sorted(files):
+                relative = path.relative_to(source)
+                info = handle.gettarinfo(
+                    str(path), arcname=Path("frontend/dist") / relative
+                )
+                # Make the evidence archive reproducible apart from its gzip
+                # container timestamp and never preserve local ownership.
+                info.mtime = 0
+                info.uid = 0
+                info.gid = 0
+                info.uname = ""
+                info.gname = ""
+                with path.open("rb") as source_handle:
+                    handle.addfile(info, source_handle)
+    except (OSError, tarfile.TarError, ValueError):
+        archive.unlink(missing_ok=True)
+        return None
+    return archive if archive.is_file() and not archive.is_symlink() else None
+
+
+def build_current_artifact_attestation(
+    *,
+    evidence_dir: Path,
+    source_commit: str,
+    release_document: dict[str, Any],
+    release_path: str,
+    artifact_paths: list[tuple[str, str, Path]],
+    pwa_path: Path | None,
+    git: dict[str, Any],
+) -> tuple[dict[str, Any], bool]:
+    """Build and verify an attestation from the current release outputs.
+
+    This helper accepts explicit paths so tests can use isolated fixtures.  It
+    never treats a path's presence as proof: every record must be a regular
+    non-symlink file and its digest must be computed at attestation time.
+    """
+    release_log = release_document.get("output_path")
+    release_log_hash = (
+        sha256_file(Path(release_log))
+        if isinstance(release_log, str) and Path(release_log).is_file()
+        else None
+    )
+    release_source = release_document.get("application_source_commit") or release_document.get("commit")
+    release_ok = bool(
+        release_document.get("status") == "PASS"
+        and release_document.get("exit_code") == 0
+        and isinstance(release_path, str)
+        and Path(release_path).is_file()
+        and isinstance(release_document.get("output_sha256"), str)
+        and release_document.get("output_sha256") == release_log_hash
+        and release_source == source_commit
+    )
+    records: list[dict[str, Any]] = []
+    for platform, name, path in artifact_paths:
+        safe = (
+            path.is_absolute()
+            and not path.is_symlink()
+            and path.is_file()
+        )
+        digest = sha256_file(path) if safe else None
+        records.append(
+            {
+                "platform": platform,
+                "artifact": name,
+                "path": str(path),
+                "sha256": digest,
+                "exists": safe,
+                "hash_verified": bool(safe and isinstance(digest, str) and SHA256_PATTERN.fullmatch(digest)),
+                "built_by": release_path,
+            }
+        )
+    if pwa_path is not None:
+        safe = (
+            pwa_path.is_absolute()
+            and not pwa_path.is_symlink()
+            and pwa_path.is_file()
+        )
+        digest = sha256_file(pwa_path) if safe else None
+        records.append(
+            {
+                "platform": "web-pwa",
+                "artifact": "Work_Station_PWA.tar.gz",
+                "path": str(pwa_path),
+                "sha256": digest,
+                "exists": safe,
+                "hash_verified": bool(safe and isinstance(digest, str) and SHA256_PATTERN.fullmatch(digest)),
+                "built_by": release_path,
+            }
+        )
+    artifact_hashes = {
+        str(record["artifact"]): record["hash_verified"] is True
+        for record in records
+    }
+    git_clean = git.get("clean") is True
+    git_source = git.get("application_source_commit")
+    passed = bool(
+        release_ok
+        and git_clean
+        and git_source == source_commit
+        and records
+        and all(record["exists"] and record["hash_verified"] for record in records)
+    )
+    attestation = {
+        "timestamp": utc_now(),
+        "status": (
+            "VERIFIED_CURRENT_SOURCE_LOCAL_ARTIFACTS_WITH_EXTERNAL_PLATFORM_GAPS"
+            if passed
+            else "NOT_VERIFIED_CURRENT_SOURCE_ARTIFACTS"
+        ),
+        "application_commit": source_commit,
+        "final_report_commit": source_commit,
+        "release_gate": release_path,
+        "release_gate_output_sha256": release_log_hash,
+        "release_source_commit": release_source,
+        "git_refs": {
+            "HEAD": git.get("commit"),
+            "application_source_commit": git_source,
+            "upstream": git.get("upstream"),
+        },
+        "working_tree_clean": git_clean,
+        "staging_clean": git_clean,
+        "artifact_hashes_verified": artifact_hashes,
+        "artifacts": records,
+        "external_platform_gaps": [
+            {
+                "platform": "desktop-gui",
+                "status": "BLOCKED_EXTERNAL",
+                "reason": "Headless release validation cannot replace the separately required native-window acceptance evidence.",
+            },
+            {
+                "platform": "android-native",
+                "status": "BLOCKED_EXTERNAL",
+                "reason": "No supported Android SDK/device capability is currently configured.",
+            },
+        ],
+        "objective_pass": passed,
+    }
+    return attestation, passed
 
 
 def discover_latest_artifact_attestation(
@@ -4380,6 +4560,67 @@ def verify_acceptance_task(
             "fresh_attestation": attestation,
         }
         reason = "authenticated current runtime identity is content-verified" if passed else "current runtime identity is not fully proven"
+    elif task_id == "ASTER-ARTIFACT-PROVENANCE-001":
+        observations = observe(evidence_root)
+        source_commit = observed_source_commit(observations)
+        release_document, release_path = discover_latest_release_gate(evidence_root)
+        source_commit = source_commit or git_snapshot().get("application_source_commit")
+        bundle_root = REPOSITORY_ROOT / "apps" / "desktop" / "src-tauri" / "target" / "release" / "bundle"
+        appimage = bundle_root / "appimage" / "WORK STATION_0.1.0_amd64.AppImage"
+        deb = bundle_root / "deb" / "WORK STATION_0.1.0_amd64.deb"
+        pwa = _write_current_pwa_archive(evidence_dir)
+        git = git_snapshot()
+        artifact_paths = [
+            ("ubuntu-x86_64", "Work_Station_Ubuntu.AppImage", appimage),
+            ("ubuntu-x86_64", "Work_Station_Ubuntu.deb", deb),
+        ]
+        if (
+            isinstance(source_commit, str)
+            and COMMIT_PATTERN.fullmatch(source_commit)
+            and isinstance(release_path, str)
+        ):
+            attestation, passed = build_current_artifact_attestation(
+                evidence_dir=evidence_dir,
+                source_commit=source_commit,
+                release_document=release_document,
+                release_path=release_path,
+                artifact_paths=artifact_paths,
+                pwa_path=pwa,
+                git=git,
+            )
+        else:
+            attestation = {
+                "timestamp": utc_now(),
+                "status": "NOT_VERIFIED_CURRENT_SOURCE_ARTIFACTS",
+                "reason": "Current source or successful release evidence is unavailable.",
+                "release_gate": release_path,
+                "objective_pass": False,
+            }
+            passed = False
+        attestation_path = evidence_dir / "artifact-attestation-current.json"
+        write_json(attestation_path, attestation)
+        verification = {
+            "command": [
+                "controller.observe",
+                "controller.discover_latest_release_gate",
+                "controller.build_current_artifact_attestation",
+                "sha256_file(AppImage, Debian package, PWA archive)",
+            ],
+            "cwd": str(REPOSITORY_ROOT),
+            "exit_code": 0 if passed else 1,
+            "observations": observations,
+            "release_gate": release_path,
+            "release_document": release_document,
+            "attestation": str(attestation_path),
+            "artifact_paths": [str(path) for _, _, path in artifact_paths],
+            "pwa_path": str(pwa) if pwa else None,
+            "failure_classification": None if passed else "LOCAL_ARTIFACT_PROVENANCE_FAILED",
+        }
+        reason = (
+            "current release gate is bound to recomputed AppImage, Debian and PWA hashes"
+            if passed
+            else "current release evidence or one or more artifact hashes could not be verified"
+        )
     elif task_id == "ASTER-RELEASE-VALIDATION-001":
         node_runtime = resolve_node_runtime()
         verification = command_record(
