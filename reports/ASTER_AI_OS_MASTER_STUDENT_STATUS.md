@@ -2,16 +2,16 @@
 
 Iteration 4. Overall readiness is **NOT READY**.
 
-Current application source commit: `2a476c4737858259f7c72a517a0a10b2b327070e`. Report tip commit: `c2f86eb5da404eafe8eb108f7a455084bf6d2514`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
+Current application source commit: `cf75c2261caa7ed13a737370219a5e5280ee072d`. Report tip commit: `cf75c2261caa7ed13a737370219a5e5280ee072d`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
 
 ## Current measured state
 
 - Canonical benchmark: **97.83/100**, 457 PASS, 1 PARTIAL, 1 FAIL; mean 8.1462s, P95 16.5442s.
 - Issues: 0 locally unresolved, 24 fixed/verified, 7 externally blocked.
-- Current issue/action: `NONE` — No eligible coding candidate is currently available; preserve all exclusions and continue the bounded external watch.
-- Controller phase: **WATCH_EXTERNAL_GAP**.
-- Runtime identity: **PASS**; evidence `/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1277/runtime-repair/attestation/runtime-identity-current.json`.
-- Git: **DIRTY** at `c2f86eb5da404eafe8eb108f7a455084bf6d2514`.
+- Current issue/action: `ASTER-REPAIR-ASTER-RUNTIME-PROVENANCE-001-010` — Use the trusted parent executor to restart work-station-backend.service, verify loopback health, and recapture authenticated current-source runtime identity. Failure evidence: /home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1282.
+- Controller phase: **ACCEPTANCE_TASK**.
+- Runtime identity: **FAIL**; evidence `/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1282/runtime-identity-current.json`.
+- Git: **CLEAN_SYNCED** at `cf75c2261caa7ed13a737370219a5e5280ee072d`.
 
 ## Queue classifications
 
@@ -54,8 +54,8 @@ Current application source commit: `2a476c4737858259f7c72a517a0a10b2b327070e`. R
 | Task | Status | Dependencies | Blocker |
 | --- | --- | --- | --- |
 | ASTER-STATE-MERGE-001 | COMPLETE | none |  |
-| ASTER-RUNTIME-PROVENANCE-001 | COMPLETE | ASTER-STATE-MERGE-001 |  |
-| ASTER-RELEASE-VALIDATION-001 | COMPLETE | ASTER-RUNTIME-PROVENANCE-001 |  |
+| ASTER-RUNTIME-PROVENANCE-001 | RETRY | ASTER-STATE-MERGE-001 | Application source changed from 2a476c4737858259f7c72a517a0a10b2b327070e to cf75c2261caa7ed13a737370219a5e5280ee072d; current-source evidence must be recaptured. |
+| ASTER-RELEASE-VALIDATION-001 | PENDING | ASTER-RUNTIME-PROVENANCE-001 | Application source changed from 2a476c4737858259f7c72a517a0a10b2b327070e to cf75c2261caa7ed13a737370219a5e5280ee072d; current-source evidence must be recaptured. |
 | ASTER-CANONICAL-CODER-001 | BLOCKED_EXTERNAL | none | All configured candidates are rejected or acquisition-blocked; a new eligible verified model/digest is required. |
 | ASTER-REVERSE-CALLBACK-001 | BLOCKED_EXTERNAL | none | The supported parent MCP/reverse callback endpoint rejects the available credential or is unavailable. |
 | ASTER-DEX-001 | BLOCKED_EXTERNAL | none | The host sandbox denies the required network namespace operation (RTM_NEWADDR/EPERM). |
@@ -75,9 +75,10 @@ Current application source commit: `2a476c4737858259f7c72a517a0a10b2b327070e`. R
 | ASTER-REPAIR-ASTER-RELEASE-VALIDATION-001-007 | COMPLETE | none |  |
 | ASTER-REPAIR-ASTER-RUNTIME-PROVENANCE-001-007 | COMPLETE | none |  |
 | ASTER-REPAIR-ASTER-RUNTIME-PROVENANCE-001-008 | COMPLETE | none |  |
-| ASTER-ARTIFACT-PROVENANCE-001 | FAILED | ASTER-RELEASE-VALIDATION-001 | Objective verification failed; dispatched bounded local diagnosis/repair task ASTER-REPAIR-ASTER-ARTIFACT-PROVENANCE-001. |
+| ASTER-ARTIFACT-PROVENANCE-001 | PENDING | ASTER-RELEASE-VALIDATION-001 | Application source changed from 2a476c4737858259f7c72a517a0a10b2b327070e to cf75c2261caa7ed13a737370219a5e5280ee072d; current-source evidence must be recaptured. |
 | ASTER-REPAIR-ASTER-RUNTIME-PROVENANCE-001-009 | COMPLETE | none |  |
-| ASTER-REPAIR-ASTER-ARTIFACT-PROVENANCE-001 | FAILED | none | Bounded repair attempt failed objective verification; preserve the evidence and do not manufacture an unbounded repair-of-repair chain. |
+| ASTER-REPAIR-ASTER-ARTIFACT-PROVENANCE-001 | SUPERSEDED | none | Superseded after application source changed from 2a476c4737858259f7c72a517a0a10b2b327070e to cf75c2261caa7ed13a737370219a5e5280ee072d; historical repair evidence retained. |
+| ASTER-REPAIR-ASTER-RUNTIME-PROVENANCE-001-010 | READY | none |  |
 
 The issue queue and machine-readable controller state are authoritative. A child model response cannot mark an issue complete without objective evidence.
 
