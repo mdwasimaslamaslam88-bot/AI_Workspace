@@ -2,16 +2,16 @@
 
 Iteration 4. Overall readiness is **NOT READY**.
 
-Current application source commit: `607d905273eec639596709cd9af23e2f4e900ec2`. Report tip commit: `801fc63470f21dfd444b16dde676246b8b9dcb1e`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
+Current application source commit: `607d905273eec639596709cd9af23e2f4e900ec2`. Report tip commit: `95e94a2e4726c67ecc66e84cf42e74dc55807456`. Evidence root: `/home/md-wasim/AI_Workspace_Data/aster-evidence`.
 
 ## Current measured state
 
 - Canonical benchmark: **97.83/100**, 457 PASS, 1 PARTIAL, 1 FAIL; mean 8.1462s, P95 16.5442s.
 - Issues: 0 locally unresolved, 24 fixed/verified, 7 externally blocked.
-- Current issue/action: `ASTER-REPAIR-ASTER-RUNTIME-PROVENANCE-001-007` — Use the trusted parent executor to restart work-station-backend.service, verify loopback health, and recapture authenticated current-source runtime identity. Failure evidence: /home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1195.
+- Current issue/action: `ASTER-RELEASE-VALIDATION-001` — Run the existing current-source release/security/artifact validation at the settled source tip and preserve every external failure.
 - Controller phase: **ACCEPTANCE_TASK**.
 - Runtime identity: **PASS**; evidence `/home/md-wasim/AI_Workspace_Data/aster-evidence/autonomous-loop/acceptance/cycle-1196/runtime-repair/attestation/runtime-identity-current.json`.
-- Git: **CLEAN_SYNCED** at `801fc63470f21dfd444b16dde676246b8b9dcb1e`.
+- Git: **CLEAN_SYNCED** at `95e94a2e4726c67ecc66e84cf42e74dc55807456`.
 
 ## Queue classifications
 
@@ -73,7 +73,7 @@ Current application source commit: `607d905273eec639596709cd9af23e2f4e900ec2`. R
 | ASTER-REPAIR-ASTER-RUNTIME-PROVENANCE-001-005 | COMPLETE | none |  |
 | ASTER-REPAIR-ASTER-RUNTIME-PROVENANCE-001-006 | COMPLETE | none |  |
 | ASTER-REPAIR-ASTER-RELEASE-VALIDATION-001-007 | COMPLETE | none |  |
-| ASTER-REPAIR-ASTER-RUNTIME-PROVENANCE-001-007 | READY | none |  |
+| ASTER-REPAIR-ASTER-RUNTIME-PROVENANCE-001-007 | COMPLETE | none |  |
 
 The issue queue and machine-readable controller state are authoritative. A child model response cannot mark an issue complete without objective evidence.
 
