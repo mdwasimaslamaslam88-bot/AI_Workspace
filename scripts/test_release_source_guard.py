@@ -36,6 +36,16 @@ def test_desktop_check_does_not_require_unavailable_ripgrep():
     assert "grep -rlZ" in source
 
 
+def test_release_gate_scanners_use_required_portable_matcher():
+    for name in ("verify_service_units.sh", "security_audit.sh", "artifact_scan.sh"):
+        source = (REPOSITORY / "scripts" / name).read_text(encoding="utf-8")
+        assert not re.search(r"\brg\b", source), name
+    security = (REPOSITORY / "scripts" / "security_audit.sh").read_text(encoding="utf-8")
+    assert "grep -P" in security
+    verify = (REPOSITORY / "scripts" / "verify_service_units.sh").read_text(encoding="utf-8")
+    assert "find \"${temporary_units}\" -type f -print0" in verify
+
+
 def _artifact_home_scan_function() -> str:
     source = (REPOSITORY / "scripts" / "desktop_check.sh").read_text(encoding="utf-8")
     start = source.index("artifact_home_path_scan() {")

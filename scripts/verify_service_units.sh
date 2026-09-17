@@ -33,13 +33,26 @@ cp "${repository_root}/deploy/systemd/work-station-health.service" \
 mkdir -m 700 "${temporary_units}/.runtime"
 XDG_RUNTIME_DIR="${temporary_units}/.runtime" \
   systemd-analyze --user verify "${temporary_units}"/*
-if rg -q 'work-station-(backup|technology-watch)' \
+if grep -E -q 'work-station-(backup|technology-watch)' \
   "${temporary_units}/work-station.target"; then
   echo "Opt-in backup and technology timers must not be part of work-station.target." >&2
   exit 1
+else
+  scan_status=$?
+  if [[ "${scan_status}" -gt 1 ]]; then
+    echo "Service-unit target scan failed with grep status ${scan_status}." >&2
+    exit "${scan_status}"
+  fi
 fi
-if rg -q '^ProtectKernelModules=' "${temporary_units}"; then
+mapfile -d '' unit_files < <(find "${temporary_units}" -type f -print0)
+if [[ "${#unit_files[@]}" -gt 0 ]] && grep -E -q '^ProtectKernelModules=' "${unit_files[@]}"; then
   echo "User services must not request the unavailable kernel-module capability boundary." >&2
   exit 1
+else
+  scan_status=$?
+  if [[ "${scan_status}" -gt 1 ]]; then
+    echo "Service-unit capability scan failed with grep status ${scan_status}." >&2
+    exit "${scan_status}"
+  fi
 fi
 echo "systemd user units: valid"
